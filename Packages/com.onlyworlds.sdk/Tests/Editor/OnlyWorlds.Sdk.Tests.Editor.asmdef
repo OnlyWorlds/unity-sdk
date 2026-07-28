@@ -1,0 +1,26 @@
+{
+    "name": "OnlyWorlds.Sdk.Tests.Editor",
+    "rootNamespace": "OnlyWorlds.Sdk.Tests.Editor",
+    "references": [
+        "OnlyWorlds.Sdk",
+        "OnlyWorlds.Sdk.Editor",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll",
+        "Newtonsoft.Json.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

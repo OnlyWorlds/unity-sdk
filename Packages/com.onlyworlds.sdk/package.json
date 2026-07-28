@@ -1,0 +1,27 @@
+{
+  "name": "com.onlyworlds.sdk",
+  "version": "0.1.0",
+  "displayName": "OnlyWorlds SDK",
+  "description": "Typed models, v2 API client, and an asset-backed world cache for OnlyWorlds. Bridge (client + generated models), Cache (ScriptableObject database), Viewer (editor browser).",
+  "unity": "6000.0",
+  "license": "MIT",
+  "documentationUrl": "https://onlyworlds.github.io",
+  "changelogUrl": "https://github.com/OnlyWorlds/unity-sdk/blob/main/Packages/com.onlyworlds.sdk/CHANGELOG.md",
+  "licensesUrl": "https://github.com/OnlyWorlds/unity-sdk/blob/main/LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OnlyWorlds/unity-sdk.git"
+  },
+  "dependencies": {
+    "com.unity.nuget.newtonsoft-json": "3.2.2"
+  },
+  "keywords": [
+    "onlyworlds",
+    "worldbuilding",
+    "sdk",
+    "api"
+  ],
+  "author": {
+    "name": "OnlyWorlds"
+  }
+}

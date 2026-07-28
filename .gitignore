@@ -1,0 +1,44 @@
+# Unity generated
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+[Rr]ecordings/
+
+# Never commit these -- Unity regenerates them, and they carry machine-local paths
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+*.slnx
+
+# Asset meta files for ignored folders (Unity emits these for Library/ etc.)
+/[Aa]ssets/AssetStoreTools*
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Crash reports
+sysinfo.txt
+crashlytics-build.properties
+
+# Credentials -- never, under any circumstances
+*.env
+.env
+secrets/
