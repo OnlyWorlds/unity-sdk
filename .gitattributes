@@ -1,0 +1,27 @@
+# Normalize line endings to LF in the repository.
+#
+# Git-for-Windows defaults to core.autocrlf=true, which rewrites line endings on
+# checkout. That changes BYTES, which changes hashes -- the failure Boss proved
+# against schema-dist, where a vendored checkout failed verification with a
+# diagnostic reading "file corrupt". Declaring it here means the repo's contents
+# are the same bytes on every platform regardless of a developer's git config.
+* text=auto eol=lf
+
+# Unity YAML assets. Text, but never merge them by hand -- Unity's serializer
+# owns the format and a textual merge produces a file that loads wrong rather
+# than failing loudly.
+*.unity     text eol=lf merge=binary
+*.asset     text eol=lf merge=binary
+*.prefab    text eol=lf merge=binary
+*.mat       text eol=lf merge=binary
+*.meta      text eol=lf merge=binary
+*.controller text eol=lf merge=binary
+*.anim      text eol=lf merge=binary
+
+# Binary
+*.png       binary
+*.jpg       binary
+*.dll       binary
+*.so        binary
+*.a         binary
+*.unitypackage binary
