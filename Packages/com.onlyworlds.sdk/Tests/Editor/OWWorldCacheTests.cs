@@ -201,6 +201,22 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public void AllRaw_ReturnsWireBodies_IncludingUnmodeledFields()
+        {
+            // The browser's detail panel renders raw bodies precisely so extension fields stay
+            // visible -- typed access would silently hide the fields most worth seeing.
+            _cache.Upsert("c1", "character", @"{""id"":""c1"",""name"":""K"",""x_atlas_pinned"":true}");
+            Add("c2", "character", "B");
+            Add("p1", "pin", "P");
+
+            var raw = _cache.AllRaw("character");
+
+            Assert.AreEqual(2, raw.Count);
+            Assert.IsTrue(raw.Exists(r => r.Contains("x_atlas_pinned")));
+            Assert.AreEqual(0, _cache.AllRaw("location").Count);
+        }
+
+        [Test]
         public void Cursor_RoundTrips()
         {
             _cache.SetCursor(202, "2026-07-28T18:00:00Z");

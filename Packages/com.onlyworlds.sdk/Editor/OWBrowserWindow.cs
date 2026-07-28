@@ -41,6 +41,10 @@ namespace OnlyWorlds.Sdk.Editor
         private bool _busy;
         private string _filter = string.Empty;
         private string _worldName;
+        private string _worldId;
+
+        private OWWorldCache _cache;
+        private bool _useCache;
 
         [MenuItem("Window/OnlyWorlds/World Browser")]
         public static void Open()
@@ -81,10 +85,33 @@ namespace OnlyWorlds.Sdk.Editor
                 }
             }
 
+            using (new EditorGUI.DisabledScope(_busy || string.IsNullOrEmpty(_worldId)))
+            {
+                if (GUILayout.Button("Sync to Cache", EditorStyles.toolbarButton, GUILayout.Width(96f)))
+                {
+                    SyncToCache();
+                }
+            }
+
+            using (new EditorGUI.DisabledScope(_cache == null))
+            {
+                var wanted = GUILayout.Toggle(_useCache, "Offline", EditorStyles.toolbarButton, GUILayout.Width(58f));
+                if (wanted != _useCache)
+                {
+                    _useCache = wanted;
+                    if (_selectedType != null) SelectType(_selectedType);
+                }
+            }
+
             GUILayout.Space(8f);
             if (!string.IsNullOrEmpty(_worldName))
             {
                 GUILayout.Label(_worldName, EditorStyles.miniBoldLabel);
+            }
+
+            if (_cache != null)
+            {
+                GUILayout.Label($"| cache: {_cache.Count} @ seq {_cache.Cursor}", EditorStyles.miniLabel);
             }
 
             GUILayout.FlexibleSpace();
@@ -278,7 +305,16 @@ namespace OnlyWorlds.Sdk.Editor
                 {
                     _busy = false;
                     _worldName = world["name"]?.ToString() ?? "(unnamed world)";
+                    _worldId = world["id"]?.ToString();
                     _status = $"Connected to {_worldName}.";
+
+                    // Pick up an existing cache for THIS world so Offline is available straight
+                    // away rather than only after a sync in the same session.
+                    if (!string.IsNullOrEmpty(_worldId))
+                    {
+                        _cache = OWCacheAsset.Find(OWWorldKey.FromApi(_worldId, OWEditorSettings.BaseUrl));
+                        if (_cache != null) _status += $" Cache: {_cache.Count} elements.";
+                    }
 
                     // No counts here, deliberately. Checked the wire: neither GET /world nor the
                     // list envelope carries a total -- only {data, has_more, next_cursor}. A count
@@ -301,6 +337,22 @@ namespace OnlyWorlds.Sdk.Editor
             _selectedType = type;
             _selectedElement = null;
             _elements.Clear();
+
+            if (_useCache && _cache != null)
+            {
+                // No network at all. This is the point of the cache: a game, or a designer on a
+                // train, reads the world without the API being reachable.
+                foreach (var element in _cache.AllRaw(type))
+                {
+                    _elements.Add(JObject.Parse(element));
+                }
+
+                _counts[type] = _elements.Count;
+                _status = $"{_elements.Count} {type} (from cache).";
+                Repaint();
+                return;
+            }
+
             _busy = true;
             _status = $"Loading {type}...";
             Repaint();
@@ -325,6 +377,49 @@ namespace OnlyWorlds.Sdk.Editor
                     _elements.AddRange(loaded);
                     _counts[type] = loaded.Count;
                     _status = $"{loaded.Count} {type}.";
+                    Repaint();
+                },
+                error =>
+                {
+                    _busy = false;
+                    _status = Describe(error);
+                    Repaint();
+                });
+        }
+
+        private void SyncToCache()
+        {
+            var key = OWWorldKey.FromApi(_worldId, OWEditorSettings.BaseUrl);
+            _cache = OWCacheAsset.LoadOrCreate(key, _worldName);
+
+            _busy = true;
+            _status = "Syncing...";
+            Repaint();
+
+            OWEditorAsync.Run(
+                OWSync.IncrementalAsync(OWEditorSettings.CreateClient(), _cache),
+                result =>
+                {
+                    _busy = false;
+
+                    // Without SaveAssets the next domain reload discards everything just fetched,
+                    // which looks exactly like the sync having failed.
+                    OWCacheAsset.Save(_cache);
+
+                    _status = result.WasRebaselined
+                        ? $"Rebaselined: {result.Fetched} elements at seq {result.Cursor}."
+                        : result.ChangedAnything
+                            ? $"Synced: +{result.Fetched} / -{result.Removed} at seq {result.Cursor}."
+                            : $"Already current at seq {result.Cursor}.";
+
+                    if (!string.IsNullOrEmpty(result.RebaselineReason))
+                    {
+                        Debug.Log($"[OnlyWorlds] {result.RebaselineReason}");
+                    }
+
+                    // Refresh the open type from the new cache contents rather than leaving a
+                    // stale list on screen next to a fresh cursor.
+                    if (_useCache && _selectedType != null) SelectType(_selectedType);
                     Repaint();
                 },
                 error =>

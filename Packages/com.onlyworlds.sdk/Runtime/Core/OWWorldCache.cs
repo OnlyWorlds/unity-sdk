@@ -115,6 +115,29 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
+        /// Raw JSON bodies for a type, without deserializing into models.
+        /// </summary>
+        /// <remarks>
+        /// For consumers that want the wire shape rather than a typed model -- the browser's detail
+        /// panel, which renders whatever fields exist including ones no model knows about. Typed
+        /// access would silently hide exactly the extension fields worth seeing.
+        /// </remarks>
+        public List<string> AllRaw(string typeSlug)
+        {
+            EnsureIndex();
+            var results = new List<string>();
+            if (!_byType.TryGetValue(typeSlug, out var indices)) return results;
+
+            foreach (var i in indices)
+            {
+                var raw = _elements[i].RawJson;
+                if (!string.IsNullOrEmpty(raw)) results.Add(raw);
+            }
+
+            return results;
+        }
+
+        /// <summary>
         /// Resolves a link array to elements, skipping ids the cache does not hold.
         /// </summary>
         /// <remarks>
