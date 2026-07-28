@@ -15,6 +15,13 @@
   "dependencies": {
     "com.unity.nuget.newtonsoft-json": "3.2.2"
   },
+  "samples": [
+    {
+      "displayName": "Quick Start",
+      "description": "Read a world at runtime, from the API or from a cache asset. Shows nullable handling, link resolution and typed error handling.",
+      "path": "Samples~/QuickStart"
+    }
+  ],
   "keywords": [
     "onlyworlds",
     "worldbuilding",
