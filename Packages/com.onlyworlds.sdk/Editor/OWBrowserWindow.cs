@@ -142,15 +142,42 @@ namespace OnlyWorlds.Sdk.Editor
             EditorGUILayout.BeginVertical(GUILayout.Width(TypePanelWidth));
             _typeScroll = EditorGUILayout.BeginScrollView(_typeScroll);
 
+            var dark = EditorGUIUtility.isProSkin;
+
             foreach (var type in ElementTypes)
             {
                 var label = _counts.TryGetValue(type, out var n) ? $"{type} ({n})" : type;
                 var selected = type == _selectedType;
 
+                EditorGUILayout.BeginHorizontal();
+
+                // A family swatch, NOT a per-type colour. Colour carries the family; the icon and
+                // label carry the type. Four families cannot distinguish 22 types and were never
+                // meant to -- the label beside this swatch is doing that work.
+                var swatch = GUILayoutUtility.GetRect(4f, EditorGUIUtility.singleLineHeight,
+                    GUILayout.Width(4f), GUILayout.ExpandWidth(false));
+                EditorGUI.DrawRect(swatch, OWPresentation.ColorFor(type, dark));
+
                 if (GUILayout.Toggle(selected, label, EditorStyles.miniButton) && !selected)
                 {
                     SelectType(type);
                 }
+
+                EditorGUILayout.EndHorizontal();
+            }
+
+            // The legend, in the palette's published order -- that order IS the CVD-safety
+            // mechanism, so it is preserved rather than sorted alphabetically.
+            EditorGUILayout.Space(6f);
+            EditorGUILayout.LabelField("Families", EditorStyles.miniBoldLabel);
+
+            foreach (var family in OWPresentation.FamilyOrder)
+            {
+                EditorGUILayout.BeginHorizontal();
+                var swatch = GUILayoutUtility.GetRect(10f, 10f, GUILayout.Width(10f), GUILayout.ExpandWidth(false));
+                EditorGUI.DrawRect(swatch, OWPresentation.ColorOfFamily(family)?.For(dark) ?? Color.grey);
+                GUILayout.Label(family, EditorStyles.miniLabel);
+                EditorGUILayout.EndHorizontal();
             }
 
             EditorGUILayout.EndScrollView();
