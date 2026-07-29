@@ -38,6 +38,14 @@ Thumbs.db
 sysinfo.txt
 crashlytics-build.properties
 
+# Test-runner leftovers. Unity's performance-testing package writes these into
+# Assets/Resources on any run and they are machine-local run state, not project
+# data -- they appeared as untracked files after a test pass and would otherwise
+# ride along in an unrelated commit.
+/[Aa]ssets/Resources/PerformanceTestRunInfo.json*
+/[Aa]ssets/Resources/PerformanceTestRunSettings.json*
+.utmp/
+
 # Credentials -- never, under any circumstances
 *.env
 .env
