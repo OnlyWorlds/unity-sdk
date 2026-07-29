@@ -91,6 +91,14 @@ namespace OnlyWorlds.Sdk.Editor
                 }
             }
 
+            using (new EditorGUI.DisabledScope(_busy))
+            {
+                if (GUILayout.Button("Open Folder...", EditorStyles.toolbarButton, GUILayout.Width(94f)))
+                {
+                    OpenFolderWorld();
+                }
+            }
+
             using (new EditorGUI.DisabledScope(_cache == null))
             {
                 var wanted = GUILayout.Toggle(_useCache, "Offline", EditorStyles.toolbarButton, GUILayout.Width(58f));
@@ -410,6 +418,74 @@ namespace OnlyWorlds.Sdk.Editor
                     _status = Describe(error);
                     Repaint();
                 });
+        }
+
+        /// <summary>
+        /// Opens a world folder from disk into the browser, read-only.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Reading is not editing: nothing is created, moved or rewritten in the chosen folder. The
+        /// reader is synchronous and local, so it does not go through <c>OWEditorAsync</c> -- there
+        /// is no request to marshal and no main-thread hazard.
+        /// </para>
+        /// <para>
+        /// Skipped files are surfaced in the status bar rather than swallowed. A world that quietly
+        /// loses an element to one malformed file looks identical to a world that never had it, and
+        /// the person who can act on that is the one looking at this window.
+        /// </para>
+        /// </remarks>
+        private void OpenFolderWorld()
+        {
+            var path = EditorUtility.OpenFolderPanel("Open OnlyWorlds folder world", string.Empty, string.Empty);
+            if (string.IsNullOrEmpty(path)) return;
+
+            try
+            {
+                var cache = ScriptableObject.CreateInstance<OWWorldCache>();
+                var read = OWFolderLoader.LoadInto(cache, path);
+
+                _cache = cache;
+                _useCache = true;
+                _worldId = read.WorldId;
+                _worldName = string.IsNullOrEmpty(read.WorldName) ? "(unnamed world)" : read.WorldName;
+
+                RecountFromCache();
+                _selectedType = null;
+                _selectedElement = null;
+                _elements.Clear();
+
+                _status = $"Folder: {_worldName} -- {cache.Count} elements"
+                          + (read.LegacyElements.Count > 0 ? $", {read.LegacyElements.Count} legacy" : string.Empty)
+                          + (read.Skipped.Count > 0 ? $", {read.Skipped.Count} SKIPPED" : string.Empty)
+                          + (read.DeclaresReadOnly ? " [frozen snapshot]" : string.Empty);
+
+                foreach (var skip in read.Skipped)
+                {
+                    Debug.LogWarning($"[OnlyWorlds] Skipped {skip.Path} -- {skip.Reason}. Left on disk.");
+                }
+            }
+            catch (OWFolderFormatException e)
+            {
+                _status = "Not a world folder.";
+                EditorUtility.DisplayDialog("OnlyWorlds",
+                    $"That folder could not be read as a world:\n\n{e.Message}", "OK");
+            }
+
+            Repaint();
+        }
+
+        /// <summary>Rebuilds the per-type counts from whatever the cache currently holds.</summary>
+        private void RecountFromCache()
+        {
+            _counts.Clear();
+            if (_cache == null) return;
+
+            foreach (var type in ElementTypes)
+            {
+                var n = _cache.AllRaw(type).Count;
+                if (n > 0) _counts[type] = n;
+            }
         }
 
         private void SyncToCache()
