@@ -178,6 +178,99 @@ namespace OnlyWorlds.Sdk
             => RequestAsync<object>("DELETE", $"/{type}/{id}/", allowEmpty: true, ct: ct);
 
         /// <summary>
+        /// POST /bulk/ -- writes many elements of mixed types in one request.
+        /// </summary>
+        /// <param name="items">Elements to write, in the order the result slots will come back.</param>
+        /// <param name="atomic">
+        /// <c>false</c> (the default, and the server's) means each slot succeeds or fails on its
+        /// own. <c>true</c> asks the server to apply all or nothing.
+        /// </param>
+        /// <param name="idempotencyKey">
+        /// Replaying the same key returns the original outcome rather than repeating the writes,
+        /// and the result's <see cref="OWBulkResult.WasReplay"/> says which happened.
+        /// </param>
+        /// <remarks>
+        /// <para>
+        /// <b>A bulk request returns HTTP 200 even when slots failed.</b> The per-slot status is the
+        /// only place the truth lives, which is why this returns a type whose failures are hard to
+        /// ignore rather than a bare list. Check <see cref="OWBulkResult.Errors"/>, or call
+        /// <see cref="OWBulkResult.ThrowIfAnyFailed"/> if partial success is not something the
+        /// caller can act on.
+        /// </para>
+        /// <para>
+        /// Each element is sanitized exactly as a single write is -- the five server-owned fields
+        /// are stripped from every item -- and each gets a client-minted UUID when it has none, so
+        /// a retry cannot duplicate.
+        /// </para>
+        /// </remarks>
+        public async Task<OWBulkResult> BulkAsync(
+            IEnumerable<OWBulkItem> items, bool atomic = false, string idempotencyKey = null,
+            CancellationToken ct = default)
+        {
+            if (items == null) throw new ArgumentNullException(nameof(items));
+
+            var array = new JArray();
+            var count = 0;
+
+            foreach (var item in items)
+            {
+                if (item == null) throw new ArgumentException("A bulk item cannot be null.", nameof(items));
+                if (string.IsNullOrEmpty(item.Type))
+                {
+                    throw new ArgumentException("Every bulk item needs a type.", nameof(items));
+                }
+
+                var element = Sanitize(item.Element != null ? (JObject)item.Element.DeepClone() : new JObject());
+
+                if (element["id"] == null || string.IsNullOrEmpty(element["id"].ToString()))
+                {
+                    element["id"] = Guid.NewGuid().ToString();
+                }
+
+                array.Add(new JObject { ["type"] = item.Type, ["element"] = element });
+                count++;
+            }
+
+            if (count == 0)
+            {
+                throw new ArgumentException("A bulk request needs at least one item.", nameof(items));
+            }
+
+            var body = new JObject { ["items"] = array, ["atomic"] = atomic };
+
+            var (result, response) = await RequestWithResponseAsync<OWBulkResult>(
+                "POST", "/bulk/", body: body, idempotencyKey: idempotencyKey, ct: ct)
+                .ConfigureAwait(false);
+
+            if (result == null) return null;
+
+            result.WasReplay = ReadReplayHeader(response);
+            return result;
+        }
+
+        /// <summary>
+        /// Reads the replay flag, which arrives as <c>idempotent-replay</c> -- lowercase on the
+        /// wire. Compared case-insensitively so a transport that preserves casing works too.
+        /// </summary>
+        private static bool ReadReplayHeader(OWResponse response)
+        {
+            // OWResponse is a struct, so there is no null to guard -- only its headers can be null.
+            if (response.Headers == null) return false;
+
+            foreach (var pair in response.Headers)
+            {
+                if (!string.Equals(pair.Key, "idempotent-replay", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                return string.Equals(pair.Value, "true", StringComparison.OrdinalIgnoreCase);
+            }
+
+            return false;
+        }
+
+        /// <summary>
         /// Atomic add/remove on a relationship, server-side.
         /// </summary>
         /// <remarks>
@@ -217,6 +310,22 @@ namespace OnlyWorlds.Sdk
         // -- Core -------------------------------------------------------------
 
         private async Task<T> RequestAsync<T>(
+            string method, string path,
+            string query = null, JObject body = null, string idempotencyKey = null,
+            bool allowEmpty = false, CancellationToken ct = default)
+        {
+            var result = await RequestWithResponseAsync<T>(
+                method, path, query, body, idempotencyKey, allowEmpty, ct).ConfigureAwait(false);
+
+            return result.Value;
+        }
+
+        /// <summary>
+        /// As <see cref="RequestAsync{T}"/>, but hands back the raw response alongside the parsed
+        /// body. Needed wherever a response HEADER carries meaning -- bulk's replay flag is the
+        /// only case today, and duplicating the auth/error path to reach it would be worse.
+        /// </summary>
+        private async Task<(T Value, OWResponse Response)> RequestWithResponseAsync<T>(
             string method, string path,
             string query = null, JObject body = null, string idempotencyKey = null,
             bool allowEmpty = false, CancellationToken ct = default)
@@ -266,10 +375,13 @@ namespace OnlyWorlds.Sdk
 
             if (response.Status == 204 || allowEmpty)
             {
-                return string.IsNullOrWhiteSpace(response.Body) ? default : OWJson.Deserialize<T>(response.Body);
+                var empty = string.IsNullOrWhiteSpace(response.Body)
+                    ? default
+                    : OWJson.Deserialize<T>(response.Body);
+                return (empty, response);
             }
 
-            return OWJson.Deserialize<T>(response.Body);
+            return (OWJson.Deserialize<T>(response.Body), response);
         }
 
         private static OWApiError BuildError(OWResponse response)
