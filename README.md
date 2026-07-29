@@ -23,7 +23,7 @@ Open this repository as a Unity project (6000.0+). The package is embedded, so e
 no reimport dance.
 
 Tests: **Window → General → Test Runner → EditMode**, assembly `OnlyWorlds.Sdk.Tests.Editor`.
-85 tests, no network required.
+142 tests, no network required.
 
 Live-API smoke tests are in `Tests/Integration` and are gated twice, deliberately:
 

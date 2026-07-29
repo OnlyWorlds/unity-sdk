@@ -1,6 +1,6 @@
 {
   "name": "com.onlyworlds.sdk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "displayName": "OnlyWorlds SDK",
   "description": "Typed models, v2 API client, and an asset-backed world cache for OnlyWorlds. Bridge (client + generated models), Cache (ScriptableObject database), Viewer (editor browser).",
   "unity": "6000.0",

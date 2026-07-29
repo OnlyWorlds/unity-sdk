@@ -4,6 +4,58 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-07-29
+
+Reading worlds from disk, writing them back safely, and a guard on the vendored schema. Verified
+against a 142-test EditMode suite and, for the first time, a real stripped IL2CPP build.
+
+### Added
+
+- **`OWFolderReader` / `OWFolderLoader`** — read an OnlyWorlds world folder from disk (spec v0.3.5)
+  and load it into a cache keyed `(Folder, worldId, folderPath)`. **Reading is not editing**: no
+  directories, dot-folders or marker files are created, and no file is ever rewritten — including to
+  normalise a key spelling. Files that cannot be used are reported, never deleted; one malformed
+  file never costs you the rest of the world. Verified against a second implementation's
+  conformance fixture.
+- **`OWBrowserWindow` → Open Folder…** — the reader, reachable.
+- **`OWEdit`** — typed edits that PATCH only what changed. Diffs a baseline snapshot, so it needs
+  nothing from the model and works for generated types that do not exist yet. Sends nothing when
+  nothing changed, because a no-op PATCH still bumps `updated_at` and shows up as a phantom edit in
+  everyone else's change feed.
+- **`OWClient.BulkAsync`** with `OWBulkResult` — bulk writes whose partial failures are hard to
+  ignore. **A bulk request returns HTTP 200 even when individual slots failed**, so the per-slot
+  status is the only place the truth lives.
+- **`OWSchemaPin` + drift guard** — the vendored presentation sidecar is hash-checked against the
+  pinned distribution on every test run. The pin is `(tag, manifest hash)`, never the tag alone: a
+  tag is mutable, and moving one regenerates a self-consistent manifest that cannot detect its own
+  tag having moved.
+
+### Fixed
+
+- **Extension fields survived JSON but not Unity's own serializer.** `OWElement` did not implement
+  `ISerializationCallbackReceiver`, so the methods carrying the bag across a Unity serialization
+  pass were never called. An element held in a `MonoBehaviour` or `ScriptableObject` field lost
+  every `x_*` field.
+- **Every field was serialized twice** — `name` *and* `Name`. Newtonsoft defaults to OptOut, so
+  public properties went to the wire beside their attributed fields. The server ignores the
+  PascalCase copies, which is why it survived a day of green tests.
+- **Incremental sync could advance its cursor past changes it never applied**, if the changes feed
+  reported more pages but gave no cursor to reach them — silently losing them forever.
+- **The rewind diagnostic reported the wrong cursor**, rendering "Cursor 100 was ahead of server
+  head 100". The value it existed to report was overwritten before the message was built.
+- **`OWMainThread.Run` queued work into silence** when no pump existed: the task never completed and
+  never faulted, hanging the caller with an empty console. It throws now, and says what to do.
+- **`OWWorldCache.Upsert` left an element in its old type bucket** when its type changed — reachable
+  by the folder reader on the first file whose body contradicts its directory.
+- `HasChangesAsync`'s two-directional truth is documented rather than surprising.
+
+### Validated
+
+- **The nullable converter survives IL2CPP stripping.** Against a real stripped Android build: five
+  closed `SerializableNullable<T>` instantiations, three closed converter instantiations, the
+  factory reflectable in `global-metadata.dat`, and `ReadJson`/`WriteJson` as executable methods.
+  Runtime behaviour on device is still unproven — the probe's verdict only prints on hardware.
+
 ## [0.1.0] - 2026-07-28
 
 First cut. Everything below is verified against the live v2 API and an 85-test EditMode suite.
