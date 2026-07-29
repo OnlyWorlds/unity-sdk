@@ -161,6 +161,11 @@ namespace OnlyWorlds.Sdk
 
                 foreach (var change in page.Changes)
                 {
+                    // A WATERMARK MAXIMUM ONLY -- never an identity or a dedupe key. The published
+                    // ruling table (change-seq-not-unique) records that a bulk import stamps every
+                    // element it creates with a single seq: one measured world had all 164 elements
+                    // at seq 1. Anything keying on seq breaks on exactly that world. Taking the max
+                    // is safe because it asks "how far have we read", not "which element is this".
                     if (change.ChangeSeq > highest) highest = change.ChangeSeq;
 
                     if (IsDelete(change.Op))

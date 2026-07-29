@@ -20,7 +20,21 @@ namespace OnlyWorlds.Sdk
     /// nullable on the wire.
     /// </para>
     /// </remarks>
+    /// <remarks>
+    /// <c>[JsonObject(OptIn)]</c> is load-bearing, not tidiness. Newtonsoft's default is OptOut,
+    /// which serializes every public member -- so each field would go to the wire TWICE: once as
+    /// the attributed <c>name</c> and again as the property <c>Name</c>. The server ignores the
+    /// PascalCase copies, which is exactly why it went unnoticed: writes looked like they worked
+    /// while sending a duplicate of every field. Found 2026-07-29 by diffing serialized output for
+    /// the typed write path; no round-trip test could see it, because they all assert on the keys
+    /// that SHOULD be present and none on the keys that should not.
+    /// <para>
+    /// The consequence with OptIn: <b>a member reaches the wire only if it carries
+    /// <c>[JsonProperty]</c></b>. A generated model that forgets one silently drops that field.
+    /// </para>
+    /// </remarks>
     [Serializable]
+    [JsonObject(MemberSerialization.OptIn)]
     public class OWElement : ISerializationCallbackReceiver
     {
         // -- Identity ---------------------------------------------------------

@@ -24,7 +24,11 @@ namespace OnlyWorlds.Sdk
     /// are a legitimate app pattern. Only <c>name</c> is required.
     /// </para>
     /// </remarks>
+    // OptIn must be repeated on every subclass -- Newtonsoft does not inherit [JsonObject],
+    // so a model without it silently serializes every public property alongside the
+    // attributed fields, duplicating each one on the wire. The emitter must emit this line.
     [Serializable]
+    [JsonObject(MemberSerialization.OptIn)]
     public class OWPin : OWElement
     {
         [JsonProperty("map")]

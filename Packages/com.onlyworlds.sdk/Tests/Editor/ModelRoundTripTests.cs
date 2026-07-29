@@ -83,6 +83,42 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public void Serialization_SendsEachFieldExactlyOnce_NeverPascalCaseDuplicates()
+        {
+            // Newtonsoft's DEFAULT is OptOut: it serializes public properties as well as the
+            // attributed private fields, so every field went to the wire twice -- "name" and
+            // "Name", "height" and "Height". The server ignores the PascalCase copies, which is
+            // precisely why nobody noticed: writes appeared to work while sending a duplicate of
+            // everything. Fixed with [JsonObject(OptIn)] on the base AND every subclass, since
+            // Newtonsoft does not inherit that attribute.
+            //
+            // No round-trip test could catch this, because they all assert that expected keys are
+            // PRESENT and none asserts that unexpected keys are ABSENT. That asymmetry is the
+            // lesson worth keeping.
+            var json = JObject.Parse(OWJson.Serialize(OWJson.Deserialize<OWCharacter>(CharacterJson)));
+
+            // Assert against the C# property names specifically, rather than "everything must be
+            // lowercase" -- the schema itself has genuinely uppercase field names (STR, DEX, CON,
+            // INT, WIS, CHA), so a blanket casing rule asserts something false about the wire.
+            // My first version of this test did exactly that and failed on the schema, not on a bug.
+            foreach (var property in json.Properties())
+            {
+                Assert.IsFalse(
+                    property.Name.Length > 1
+                    && char.IsUpper(property.Name[0])
+                    && char.IsLower(property.Name[1]),
+                    $"'{property.Name}' looks like a C# property name leaking onto the wire beside "
+                    + "its snake_case field. Serialized keys are snake_case, x_-prefixed, or the "
+                    + "schema's own all-caps stat names.");
+            }
+
+            Assert.IsNotNull(json["name"], "The attributed field is still there...");
+            Assert.IsNull(json["Name"], "...and its property twin is not.");
+            Assert.IsNull(json["Height"]);
+            Assert.IsNull(json["Extensions"], "Nor should a computed property serialize at all.");
+        }
+
+        [Test]
         public void ExtensionFields_SurviveUnitySerialization()
         {
             // The OTHER half of the March corruption, and the one that shipped broken until
