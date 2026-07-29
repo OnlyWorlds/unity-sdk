@@ -6,7 +6,7 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [0.1.0] - 2026-07-28
 
-First cut. Everything below is verified against the live v2 API and a 65-test EditMode suite.
+First cut. Everything below is verified against the live v2 API and an 85-test EditMode suite.
 
 ### Added
 
@@ -37,10 +37,19 @@ First cut. Everything below is verified against the live v2 API and a 65-test Ed
 - Elements stored as raw JSON: extension fields survive by construction, and the cache stays valid
   across a model regeneration.
 - id→index dictionary, so link resolution is a lookup rather than a scan.
+- `OWSync` — baseline (walks all 22 types) and incremental (`/changes`) cache population. The tip is
+  read *before* the walk, or changes landing mid-walk sit below the cursor forever. A cursor found
+  ahead of the server's head means a restore-from-backup, so the cache re-baselines rather than
+  trusting it. Frozen snapshots (`writable: false`) are refused before any network call.
+- `OWCacheAsset` — cache assets on disk, named from `(source, worldId)`.
 
 **Viewer**
 - Three-panel world browser (**Window → OnlyWorlds → World Browser**) with per-page load progress.
+- Sync button and Offline toggle, wired to `OWSync` and the cache.
 - Settings window storing credentials in EditorPrefs, masked by default, never in the project.
+
+**Samples**
+- `Samples~/QuickStart`, surfaced through the Package Manager.
 
 **Models**
 - `OWElement` base with an automatic extension-field bag.
@@ -52,7 +61,12 @@ First cut. Everything below is verified against the live v2 API and a 65-test Ed
 ### Known limitations
 
 - Models are hand-written and cover 3 of 22 element types.
-- No `/changes` → cache sync loop yet; the client method exists, the writer does not.
+- The extension bag does not survive **Unity's own** serializer — an `OWElement` held in a
+  `MonoBehaviour` or `ScriptableObject` field loses its `x_*` fields. The JSON path and the cache
+  are unaffected. Being fixed.
 - No folder-world reader.
 - No bulk operations.
+- No write path in the viewer — it is read-only by design so far.
+- The vendored `ow-presentation.json` has no automated drift guard against the published schema
+  dist; re-vendoring is manual today.
 - IL2CPP stripping of the generic converter is unverified on a real stripped build.

@@ -58,9 +58,13 @@ deliberately none back — reading forces you to handle the maybe. In the Inspec
 to add one item — that replaces the whole array. Use `EditLinksAsync` for relationships; it is
 atomic server-side.
 
-**Extension fields round-trip automatically.** Any `x_*` field this SDK does not model is preserved
-verbatim through a read-modify-write. Other tools store their state there, and dropping it corrupts
-theirs.
+**Extension fields round-trip automatically through JSON.** Any `x_*` field this SDK does not model
+is preserved verbatim through a read-modify-write, and the cache stores raw JSON so they survive
+there too. Other tools store their state there, and dropping it corrupts theirs.
+
+> ⚑ **Not yet through Unity's own serializer.** If you put an `OWElement` in a `MonoBehaviour` or
+> `ScriptableObject` field, Unity serializes it directly and the extensions bag is *not* carried
+> across. Go through the JSON path (or the cache) when extensions matter. Being fixed.
 
 **Five fields are server-owned** — `world`, `type`, `created_at`, `updated_at`, `change_seq` — and
 are stripped from every write. A read body is therefore directly writable.
@@ -72,11 +76,13 @@ deadlocks.
 
 ## Testing
 
-65 tests, EditMode: `OnlyWorlds.Sdk.Tests.Editor`.
+85 tests, EditMode: `OnlyWorlds.Sdk.Tests.Editor`.
 
-Live-API smoke tests live in `Tests/Integration` behind an `OW_INTEGRATION_TESTS` define, so they do
-not compile in by default. They need credentials and a network, and a suite that fails for those
-reasons stops being believed. The fakes prove the logic; one real run proves the fake.
+Live-API smoke tests live in `Tests/Integration` and are gated twice: an `OW_INTEGRATION_TESTS`
+define constraint on the assembly (so they do not compile in by default — add it for the *Editor*
+platform, since that is an editor assembly), and `[Explicit]` on every test (so a Run All still
+skips them). They need credentials and a network, and a suite that fails for those reasons stops
+being believed. The fakes prove the logic; one real run proves the fake.
 
 ## Licence
 

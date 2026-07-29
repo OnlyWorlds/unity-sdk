@@ -23,10 +23,19 @@ Open this repository as a Unity project (6000.0+). The package is embedded, so e
 no reimport dance.
 
 Tests: **Window → General → Test Runner → EditMode**, assembly `OnlyWorlds.Sdk.Tests.Editor`.
-65 tests, no network required.
+85 tests, no network required.
 
-Live-API smoke tests are in `Tests/Integration` behind an `OW_INTEGRATION_TESTS` define and do not
-compile by default. Add the define to Player Settings to enable them; they need a real key.
+Live-API smoke tests are in `Tests/Integration` and are gated twice, deliberately:
+
+1. The assembly carries an `OW_INTEGRATION_TESTS` define constraint, so it does not compile at all
+   by default. It is an **Editor** assembly (`includePlatforms: ["Editor"]`), so add the define
+   under **Project Settings → Player → Scripting Define Symbols** for the *Editor* platform — the
+   player build target's symbols do not reach it.
+2. Every test is also `[Explicit]`, so even once compiled they are skipped by a Run All. Select and
+   run them individually.
+
+They need a real key and a network. Both gates are there because a suite that fails for credential
+or connectivity reasons stops being believed.
 
 ## What OnlyWorlds is
 
