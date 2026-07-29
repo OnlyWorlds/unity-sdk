@@ -124,9 +124,16 @@ namespace OnlyWorlds.Sdk
 
             if (cache.Cursor > tip.Head)
             {
+                // Capture BEFORE the rebaseline: BaselineAsync clears the cache (cursor -> 0) and
+                // then sets it to the new tip, so reading cache.Cursor afterwards reports the tip
+                // and the message renders "Cursor 100 was ahead of server head 100". The rewound
+                // value is the only number an operator actually needs here, and it is the one that
+                // is gone by the time the string is built.
+                var staleCursor = cache.Cursor;
+
                 var result = await BaselineAsync(client, cache, ct: ct).ConfigureAwait(false);
                 result.RebaselineReason =
-                    $"Cursor {cache.Cursor} was ahead of server head {tip.Head} -- the server was "
+                    $"Cursor {staleCursor} was ahead of server head {tip.Head} -- the server was "
                     + "likely restored from a backup. Rebuilt rather than trusting the cursor.";
                 return result;
             }
@@ -140,6 +147,7 @@ namespace OnlyWorlds.Sdk
             var removed = 0;
             var cursor = cache.Cursor.ToString();
             long highest = cache.Cursor;
+            var walkedToTheEnd = false;
 
             while (true)
             {
@@ -147,6 +155,9 @@ namespace OnlyWorlds.Sdk
 
                 var page = await client.ChangesAsync(cursor, ct: ct).ConfigureAwait(false);
                 if (page?.Changes == null) break;
+
+                // A page that says "no more" is the only honest end of the feed.
+                if (!page.HasMore) walkedToTheEnd = true;
 
                 foreach (var change in page.Changes)
                 {
@@ -173,7 +184,13 @@ namespace OnlyWorlds.Sdk
                 cursor = page.Cursor;
             }
 
-            cache.SetCursor(Math.Max(highest, tip.Head), NowIso());
+            // Only claim the tip if we actually reached the end of the feed. If the loop broke on
+            // the cursor-less "more" guard above, changes below tip.Head exist that we never
+            // applied -- recording tip.Head anyway would put them permanently below the cursor and
+            // lose them silently, with a cache that looks current. This is the same hazard the
+            // baseline's read-tip-before-walk ordering exists to prevent, arriving on the other
+            // path. On an early break the last change we actually applied is the only safe claim.
+            cache.SetCursor(walkedToTheEnd ? Math.Max(highest, tip.Head) : highest, NowIso());
 
             return new OWSyncResult
             {
@@ -184,8 +201,15 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
-        /// Cheap check for whether anything changed, without fetching bodies.
+        /// Cheap check for whether a sync would do anything, without fetching bodies.
         /// </summary>
+        /// <remarks>
+        /// True in BOTH directions on purpose. A head above our cursor means new changes; a head
+        /// BELOW it means the server was restored from a backup and
+        /// <see cref="IncrementalAsync"/> would re-baseline. Both are pending work, so a caller
+        /// polling this and syncing on true behaves correctly in either case -- but note that
+        /// "true" here does not mean "new content exists", it means "a sync is not a no-op".
+        /// </remarks>
         public static async Task<bool> HasChangesAsync(
             OWClient client, OWWorldCache cache, CancellationToken ct = default)
         {

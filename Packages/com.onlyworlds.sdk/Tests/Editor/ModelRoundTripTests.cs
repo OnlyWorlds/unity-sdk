@@ -1,3 +1,4 @@
+using System.Linq;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 
@@ -79,6 +80,50 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             Assert.IsTrue(back.ContainsKey("x_magelet_note"), "A structured extension field was dropped.");
             Assert.AreEqual(3, back["x_magelet_note"]["seen"].Value<int>());
+        }
+
+        [Test]
+        public void ExtensionFields_SurviveUnitySerialization()
+        {
+            // The OTHER half of the March corruption, and the one that shipped broken until
+            // 2026-07-29: extensions survived the JSON path and the cache (raw strings), so every
+            // existing test passed while Unity's own serializer silently dropped the bag. Nothing
+            // called the flatten/rebuild hooks because OWElement did not implement
+            // ISerializationCallbackReceiver. JsonUtility exercises the same path the Inspector,
+            // a ScriptableObject field and a domain reload do.
+            var original = OWJson.Deserialize<OWCharacter>(CharacterJson);
+
+            var unityJson = UnityEngine.JsonUtility.ToJson(original);
+            var revived = UnityEngine.JsonUtility.FromJson<OWCharacter>(unityJson);
+
+            var extensions = revived.Extensions;
+            Assert.AreEqual(2, extensions.Count,
+                "Both extension fields must survive Unity's serializer, not just Newtonsoft's.");
+
+            var pinned = extensions.First(e => e.Key == "x_atlas_pinned");
+            Assert.AreEqual("true", pinned.RawJson);
+
+            var note = extensions.First(e => e.Key == "x_magelet_note");
+            StringAssert.Contains("\"seen\":3", note.RawJson,
+                "A structured extension must keep its shape, not be flattened to a string.");
+
+            // And the bag must still write back out through JSON afterwards -- a round trip
+            // through Unity must not cost the merge-back the bag exists for.
+            var backOut = JObject.Parse(OWJson.Serialize(revived));
+            Assert.AreEqual(3, backOut["x_magelet_note"]["seen"].Value<int>());
+        }
+
+        [Test]
+        public void Extensions_AreVisible_WithoutASerializationPass()
+        {
+            // Extensions used to read from the serialized mirror, which is empty until Unity
+            // happens to write the object. An element deserialized from the wire and never
+            // serialized reported zero extensions while carrying two -- a property that lied
+            // in the most common case there is.
+            var c = OWJson.Deserialize<OWCharacter>(CharacterJson);
+
+            Assert.AreEqual(2, c.Extensions.Count,
+                "Extensions must be readable straight after deserialization, with no Unity pass.");
         }
 
         [Test]

@@ -24,12 +24,10 @@ namespace OnlyWorlds.Sdk.Editor
         private const float TypePanelWidth = 150f;
         private const float ListPanelWidth = 260f;
 
-        private static readonly string[] ElementTypes =
-        {
-            "ability", "character", "collective", "construct", "creature", "event", "family",
-            "institution", "language", "law", "location", "map", "marker", "narrative", "object",
-            "phenomenon", "pin", "relation", "species", "title", "trait", "zone",
-        };
+        // One list, in the runtime assembly, guarded by a test. A second copy here drifted the
+        // moment the standard grew a 23rd type, and the symptom -- "the browser does not show the
+        // new type" -- sends the reader into UI code chasing a data problem.
+        private static string[] ElementTypes => OWSync.ElementTypes;
 
         private string _selectedType;
         private JObject _selectedElement;

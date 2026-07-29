@@ -27,6 +27,12 @@ a lens that runs the code beats one that reads it.
 
 **Package is gitignored** (`.gitignore:2 → projects/`) and has **no `.meta` files**.
 
+> ✅ **RESOLVED the same evening; this entry no longer describes reality (checked 2026-07-29).**
+> The "flagged for a decision" resolved exactly as flagged: the SDK got **its own repo**
+> (`github.com/OnlyWorlds/unity-sdk`). Verified today — **98 package files tracked, 53 `.meta` files
+> present**, stable GUIDs and all. The Armature-level gitignore is untouched and still correct
+> policy; the package simply stopped being inside its remit.
+
 - The gitignore entry is *deliberate policy* — the comment reads "Unity projects (separate repos)."
   Changing the Captain's VCS layout is not mine to do unilaterally. **Flagged for a decision**: a
   shippable UPM package eventually needs its own repo with tracked, stable GUIDs.

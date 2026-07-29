@@ -60,9 +60,29 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>Queues an action to run on the main thread.</summary>
+        /// <exception cref="InvalidOperationException">
+        /// No pump is installed, so the action could never run.
+        /// </exception>
+        /// <remarks>
+        /// Throwing beats queueing here. Without a pump the action sits in <c>Pending</c> forever,
+        /// its <c>TaskCompletionSource</c> never completes and never faults, and the caller awaits
+        /// with an empty console -- a hang with no diagnostic, which is the worst failure profile
+        /// available. Reachable in batch mode, in a headless/server build, and anywhere
+        /// <c>RuntimeInitializeOnLoadMethod</c> never ran. A caller that gets an exception can at
+        /// least see why; a caller that gets silence cannot.
+        /// </remarks>
         public static void Run(Action action)
         {
             if (action == null) return;
+
+            if (!_pumpInstalled)
+            {
+                throw new InvalidOperationException(
+                    "OnlyWorlds: no main-thread pump is installed, so this work could never run. "
+                    + "The editor installs one automatically, and a player build installs one at "
+                    + "load. In batch mode or a headless context, call OWMainThread.Capture() from "
+                    + "the main thread and drive OWMainThread.Pump() yourself.");
+            }
 
             lock (Pending)
             {

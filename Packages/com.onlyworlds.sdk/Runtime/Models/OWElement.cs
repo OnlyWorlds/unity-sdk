@@ -21,7 +21,7 @@ namespace OnlyWorlds.Sdk
     /// </para>
     /// </remarks>
     [Serializable]
-    public class OWElement
+    public class OWElement : ISerializationCallbackReceiver
     {
         // -- Identity ---------------------------------------------------------
 
@@ -104,13 +104,51 @@ namespace OnlyWorlds.Sdk
         /// Unity serializes neither <c>Dictionary</c> nor <c>JToken</c>, so an element cached as a
         /// ScriptableObject would lose its extensions across a domain reload -- reintroducing the
         /// exact data loss the bag prevents, one layer down. <see cref="OnBeforeUnitySerialize"/>
-        /// and <see cref="OnAfterUnityDeserialize"/> keep the two in step.
+        /// and <see cref="OnAfterUnityDeserialize"/> keep the two in step, and Unity calls them
+        /// through <see cref="ISerializationCallbackReceiver"/>.
         /// </remarks>
+        /// <seealso cref="OnBeforeSerialize"/>
         [SerializeField] private List<OWExtensionField> _extensionsForUnity = new List<OWExtensionField>();
 
-        public IReadOnlyList<OWExtensionField> Extensions => _extensionsForUnity;
+        /// <summary>
+        /// Every unmodeled field on this element, as key + raw JSON.
+        /// </summary>
+        /// <remarks>
+        /// Projected from the live bag rather than the serialized mirror. Reading the mirror
+        /// directly would return whatever the last serialization pass left there -- empty on an
+        /// element that has only ever been deserialized from JSON, which is the common case and
+        /// which made this property silently lie before 2026-07-29.
+        /// </remarks>
+        public IReadOnlyList<OWExtensionField> Extensions
+        {
+            get
+            {
+                var projected = new List<OWExtensionField>(_extensions?.Count ?? 0);
+                if (_extensions == null) return projected;
 
-        public void OnBeforeUnitySerialize()
+                foreach (var pair in _extensions)
+                {
+                    projected.Add(new OWExtensionField(pair.Key, pair.Value?.ToString(Formatting.None)));
+                }
+
+                return projected;
+            }
+        }
+
+        /// <summary>
+        /// Unity's serialization hook. Flattens the bag into the serializable mirror.
+        /// </summary>
+        /// <remarks>
+        /// Unity calls this on the main thread immediately before writing the object. Subclasses
+        /// that need their own hook must override <see cref="OnBeforeUnitySerialize"/> rather than
+        /// re-implementing the interface, or the bag stops being carried.
+        /// </remarks>
+        void ISerializationCallbackReceiver.OnBeforeSerialize() => OnBeforeUnitySerialize();
+
+        /// <summary>Unity's deserialization hook. Rebuilds the bag from the mirror.</summary>
+        void ISerializationCallbackReceiver.OnAfterDeserialize() => OnAfterUnityDeserialize();
+
+        protected virtual void OnBeforeUnitySerialize()
         {
             _extensionsForUnity.Clear();
             if (_extensions == null) return;
@@ -121,7 +159,7 @@ namespace OnlyWorlds.Sdk
             }
         }
 
-        public void OnAfterUnityDeserialize()
+        protected virtual void OnAfterUnityDeserialize()
         {
             _extensions = new Dictionary<string, Newtonsoft.Json.Linq.JToken>();
             if (_extensionsForUnity == null) return;

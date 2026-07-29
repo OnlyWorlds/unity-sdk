@@ -145,6 +145,63 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsFalse(_cache.Contains("c1"));
         }
 
+        // -- Paging the changes feed ------------------------------------------
+
+        [Test]
+        public async Task Incremental_DoesNotClaimTheTip_WhenTheFeedBreaksEarly()
+        {
+            // A server that says "more changes exist" but hands back no cursor to reach them. The
+            // client guards the infinite loop by breaking -- correct -- but breaking means changes
+            // below the tip were never applied. Recording tip.Head anyway would put them
+            // permanently below the cursor: lost silently, with a cache that looks current.
+            _cache.SetCursor(10, "t");
+
+            _transport.Bodies.Enqueue(Head(900));   // the tip is far ahead
+            _transport.Bodies.Enqueue(
+                @"{""changes"":[{""id"":""a"",""type"":""character"",""op"":""update"",""change_seq"":11}],
+                   ""has_more"":true,""cursor"":null}");   // more exists, no way to reach it
+            _transport.Bodies.Enqueue(@"{""id"":""a"",""name"":""Applied""}");
+
+            var result = await OWSync.IncrementalAsync(Client(), _cache);
+
+            Assert.AreEqual(1, result.Fetched);
+            Assert.AreEqual(11, _cache.Cursor,
+                "The cursor must stop at the last change actually applied, never jump to a tip "
+                + "whose changes were never fetched.");
+            Assert.AreNotEqual(900, _cache.Cursor,
+                "Claiming the tip here would silently lose every change between 11 and 900.");
+        }
+
+        [Test]
+        public async Task Incremental_WalksEveryPage_AndTakesTheTipWhenItFinishes()
+        {
+            // The happy multi-page path, which had no coverage at all: two pages, both applied,
+            // and only then is the tip a legitimate claim.
+            _cache.SetCursor(10, "t");
+
+            // NB: the changes envelope names its cursor "cursor", not "next_cursor" -- that is the
+            // ELEMENT list envelope's field. A fixture using the wrong name hands the client a null
+            // cursor, it stops after one page, and the test fails for a reason that has nothing to
+            // do with what it is testing. (It did, first run.)
+            _transport.Bodies.Enqueue(Head(30));
+            _transport.Bodies.Enqueue(
+                @"{""changes"":[{""id"":""a"",""type"":""character"",""op"":""update"",""change_seq"":11}],
+                   ""has_more"":true,""cursor"":""11""}");
+            _transport.Bodies.Enqueue(@"{""id"":""a"",""name"":""One""}");
+            _transport.Bodies.Enqueue(
+                @"{""changes"":[{""id"":""b"",""type"":""character"",""op"":""update"",""change_seq"":12}],
+                   ""has_more"":false,""cursor"":null}");
+            _transport.Bodies.Enqueue(@"{""id"":""b"",""name"":""Two""}");
+
+            var result = await OWSync.IncrementalAsync(Client(), _cache);
+
+            Assert.AreEqual(2, result.Fetched, "Both pages must be applied.");
+            Assert.IsTrue(_cache.Contains("a"));
+            Assert.IsTrue(_cache.Contains("b"));
+            Assert.AreEqual(30, _cache.Cursor,
+                "Having reached the end of the feed, the tip is the correct cursor.");
+        }
+
         // -- The rewind rule --------------------------------------------------
 
         [Test]
@@ -162,9 +219,19 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var result = await OWSync.IncrementalAsync(Client(), _cache);
 
             Assert.IsTrue(result.WasRebaselined);
-            StringAssert.Contains("restored from a backup", result.RebaselineReason);
             Assert.AreEqual(100, _cache.Cursor, "The cursor must come down to the server's truth.");
             Assert.IsFalse(_cache.Contains("stale"));
+
+            // Assert the NUMBERS, not just the prose. Checking only the static suffix passes
+            // whatever the interpolation says -- and it did: this message used to read
+            // "Cursor 100 was ahead of server head 100" because the cursor was re-read after the
+            // rebaseline had already overwritten it. The rewound value is the whole point of the
+            // diagnostic.
+            StringAssert.Contains("restored from a backup", result.RebaselineReason);
+            StringAssert.Contains("9999", result.RebaselineReason,
+                "The diagnostic must report the cursor we actually rewound FROM.");
+            StringAssert.Contains("head 100", result.RebaselineReason,
+                "...and the head we rewound TO.");
         }
 
         // -- Frozen snapshots -------------------------------------------------

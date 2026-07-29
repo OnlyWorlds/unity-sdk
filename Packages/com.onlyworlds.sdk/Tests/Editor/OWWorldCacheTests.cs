@@ -114,6 +114,26 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public void Upsert_MovesAnElementWhenItsTypeChanges()
+        {
+            // Latent until the folder reader: a file sitting in elements/character/ whose body
+            // declares type "location" is an explicit case in the conformance fixture, and the
+            // body wins. Replacing in place without touching the type index leaves the element
+            // listed under the old type forever -- All(new) misses it, All(old) returns it, and
+            // deserializing it as the old model yields the wrong object or an error.
+            Add("x1", "character", "Was a character");
+            Assert.AreEqual(1, _cache.All<OWCharacter>("character").Count);
+
+            Add("x1", "location", "Now a location");
+
+            Assert.AreEqual(1, _cache.Count, "It is still one element, not two.");
+            Assert.AreEqual(0, _cache.AllRaw("character").Count,
+                "The old type bucket must let go of it.");
+            Assert.AreEqual(1, _cache.AllRaw("location").Count,
+                "The new type bucket must pick it up.");
+        }
+
+        [Test]
         public void All_FiltersByType()
         {
             Add("c1", "character", "A");

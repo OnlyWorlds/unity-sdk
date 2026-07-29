@@ -169,7 +169,22 @@ namespace OnlyWorlds.Sdk
 
             if (_byId.TryGetValue(id, out var existing))
             {
+                var previousType = _elements[existing].TypeSlug;
                 _elements[existing] = new OWCachedElement(id, typeSlug, rawJson);
+
+                // A type change has to move the element between type buckets, or the index keeps
+                // listing it under the old type forever: All(newType) misses it, All(oldType)
+                // returns it, and deserializing it as the old model then fails or yields the wrong
+                // object. The SDK's own callers never change a type (it is fixed on the wire), but
+                // Upsert is public -- and a folder reader hits this on the first file whose body
+                // type contradicts its directory, which is an explicit case in the conformance
+                // fixture. Dropping the index is cheaper than patching it and cannot go stale.
+                if (!string.Equals(previousType, typeSlug, StringComparison.Ordinal))
+                {
+                    _byId = null;
+                    _byType = null;
+                }
+
                 return;
             }
 
