@@ -32,16 +32,23 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.30.00";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 6;
+        public const int DistSerial = 9;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.30.0-dist.6";
+        public const string Tag = "v0.30.0-dist.9";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
         /// </summary>
+        /// <remarks>
+        /// Re-pinned 6 -> 9 on 2026-07-29. Serials 7, 8 and 9 changed only <c>rulings.yaml</c> and
+        /// this manifest -- no schema file, no walk change, and <c>presentation.json</c> is
+        /// byte-identical across all four. That is the case this two-level pin exists to express:
+        /// the vendored FILE was never stale, only the distribution around it moved, and a pin that
+        /// could not tell those apart would have cried wolf three times in one morning.
+        /// </remarks>
         public const string ManifestSha256 =
-            "574c1a5440257c945601e81fdeaf0120e16fcf7cfa3af4dda798747678ad1dda";
+            "c9ef41514641c40021bf4282e57612a25bc0d84ac616784a8d2b2a0c1ccfd050";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.
@@ -56,5 +63,41 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>When these constants were last verified against the published dist.</summary>
         public const string PinnedOn = "2026-07-29";
+
+        /// <summary>
+        /// ⚑ Rulings that bind THIS SDK and any emitter generating into it. Read the row, not the key.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b><c>maximum:</c> IS ADVISORY -- never generate range validation from it.</b>
+        /// (<c>maximum-is-advisory-and-zero-means-unbounded</c>, dist.8.) 41 integer fields carry a
+        /// <c>maximum:</c> and they are two populations under one key: 15 are real 0-100 attribute
+        /// scales, and <b>26 use <c>maximum: 0</c> as a sentinel meaning "no maximum"</b> -- every
+        /// date, weight, height, count, elevation, duration and <c>life_span</c>. An emitter that
+        /// honors the key naively writes <c>[Range(0, 0)]</c> onto every date and weight in the
+        /// standard, silently rejecting real data. Checked twice: keel has zero
+        /// <c>MaxValueValidator</c>, and <c>charisma: 9999</c> against a <c>maximum: 100</c> field
+        /// POSTed 201 and stored 9999.
+        /// </para>
+        /// <para>
+        /// <c>schema_walk.py</c> dropping <c>maximum</c> is <b>load-bearing, not a gap</b>. Do not
+        /// "fix" it.
+        /// </para>
+        /// <para>
+        /// <b><c>change_seq</c> is not unique</b> -- a bulk import stamps every element it creates
+        /// with one seq. Never diff, dedupe or key on it. (<see cref="OWSync"/> uses it only as a
+        /// watermark maximum, which is safe.)
+        /// </para>
+        /// <para>
+        /// <b><c>""</c> IS the wire's unset for strings</b> -- keel stores them <c>blank=True</c>,
+        /// never nullable, so there is no third state. Never round-trip a distinction the wire
+        /// cannot carry.
+        /// </para>
+        /// <para>
+        /// <b><c>world</c> is rejected in POST/PATCH bodies</b> -- the API key header determines the
+        /// world. Already handled: it is one of the five stripped fields.
+        /// </para>
+        /// </remarks>
+        public const string RulingsPath = "walk/rulings.yaml";
     }
 }
