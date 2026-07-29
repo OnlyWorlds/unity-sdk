@@ -29,26 +29,28 @@ namespace OnlyWorlds.Sdk
         public const string Repository = "https://github.com/OnlyWorlds/schema-dist";
 
         /// <summary>Canonical schema version, as the dist's own VERSION file reports it.</summary>
-        public const string CanonicalVersion = "00.30.00";
+        public const string CanonicalVersion = "00.30.01";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 9;
+        public const int DistSerial = 11;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.30.0-dist.9";
+        public const string Tag = "v0.30.1-dist.11";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
         /// </summary>
         /// <remarks>
-        /// Re-pinned 6 -> 9 on 2026-07-29. Serials 7, 8 and 9 changed only <c>rulings.yaml</c> and
-        /// this manifest -- no schema file, no walk change, and <c>presentation.json</c> is
-        /// byte-identical across all four. That is the case this two-level pin exists to express:
-        /// the vendored FILE was never stale, only the distribution around it moved, and a pin that
-        /// could not tell those apart would have cried wolf three times in one morning.
+        /// Re-pinned 6 -> 11 across one morning (2026-07-29). Serials 7-9 changed only
+        /// <c>rulings.yaml</c>; 11 is the first canonical bump (<c>00.30.00</c> -> <c>00.30.01</c>).
+        /// <c>presentation.json</c> is <b>byte-identical across every one of them</b>. That is
+        /// exactly what this two-level pin exists to express: the vendored FILE was never stale,
+        /// only the distribution around it moved. A pin that could not tell those apart would have
+        /// cried wolf four times before lunch; this one stayed green and only the manifest hash
+        /// needed updating.
         /// </remarks>
         public const string ManifestSha256 =
-            "c9ef41514641c40021bf4282e57612a25bc0d84ac616784a8d2b2a0c1ccfd050";
+            "11ab23d54cb158a4be51fdcf624dc6bf9040afde112649299e86c5498fb0f494";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.
@@ -69,19 +71,24 @@ namespace OnlyWorlds.Sdk
         /// </summary>
         /// <remarks>
         /// <para>
-        /// <b><c>maximum:</c> IS ADVISORY -- never generate range validation from it.</b>
-        /// (<c>maximum-is-advisory-and-zero-means-unbounded</c>, dist.8.) 41 integer fields carry a
-        /// <c>maximum:</c> and they are two populations under one key: 15 are real 0-100 attribute
-        /// scales, and <b>26 use <c>maximum: 0</c> as a sentinel meaning "no maximum"</b> -- every
-        /// date, weight, height, count, elevation, duration and <c>life_span</c>. An emitter that
-        /// honors the key naively writes <c>[Range(0, 0)]</c> onto every date and weight in the
-        /// standard, silently rejecting real data. Checked twice: keel has zero
-        /// <c>MaxValueValidator</c>, and <c>charisma: 9999</c> against a <c>maximum: 100</c> field
-        /// POSTed 201 and stored 9999.
+        /// <b>Bounds: the <c>maximum: 0</c> trap is GONE from the standard as of canonical
+        /// <c>00.30.01</c> / dist.11</b> -- the 26 sentinel fields no longer carry the key at all,
+        /// and absence means unbounded, which is what it always meant. (It briefly existed as a
+        /// live hazard: an emitter honoring the key naively would have written
+        /// <c>[Range(0, 0)]</c> onto every date, weight, height, count and duration in the
+        /// standard. Ruled advisory in dist.8, removed at source in dist.11.)
         /// </para>
         /// <para>
-        /// <c>schema_walk.py</c> dropping <c>maximum</c> is <b>load-bearing, not a gap</b>. Do not
-        /// "fix" it.
+        /// <b>What replaces it, and it is subtler.</b> When bounds do surface, the same six names
+        /// appear on two types as <i>different quantities</i>: <c>character.charisma</c> is an
+        /// unsigned SCORE (0-100), <c>trait.charisma</c> is a signed MODIFIER (-100 to 100),
+        /// because a trait is a modifier with an <c>anti_trait</c> sibling and negative is the
+        /// point. <b>Never share validation between them.</b>
+        /// </para>
+        /// <para>
+        /// The walk surfaces no bounds today regardless -- that waits on an opt-in
+        /// <c>include_constraints</c> flag, and the ordering (canonical, then walk, then emitters)
+        /// is deliberate. <c>schema_walk.py</c>'s silence here is <b>load-bearing, not a gap</b>.
         /// </para>
         /// <para>
         /// <b><c>change_seq</c> is not unique</b> -- a bulk import stamps every element it creates
