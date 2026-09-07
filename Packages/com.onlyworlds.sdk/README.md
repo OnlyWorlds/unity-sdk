@@ -76,6 +76,16 @@ dot-folders and no markers, and never rewrites a file it opened — including to
 spelling. Files it cannot use are reported, not deleted. One malformed file never costs you the
 rest of the world.
 
+**Writing a world folder is a byte contract, not a value contract.** `OWFolderWriter` puts an
+element at `elements/<type>/<slug>--<id-tail>.json` and pins the serialization the format
+specifies: LF, UTF-8 with no BOM, two-space indent, one trailing newline, and keys in the order
+they arrived. None of those are platform defaults, and a world folder lives in version control —
+bytes that drift by machine turn every commit into noise. Identity is the `id` in the body, so
+renaming an element moves its file and removes the old one. Parse with `OWFolderWriter.Parse`
+rather than `JObject.Parse` for anything you will write back: the latter rewrites ISO-8601
+timestamps into the local timezone, which is valid JSON, identical semantics, and a diff in every
+file.
+
 **Five fields are server-owned** — `world`, `type`, `created_at`, `updated_at`, `change_seq` — and
 are stripped from every write. A read body is therefore directly writable.
 

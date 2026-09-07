@@ -57,7 +57,7 @@ namespace OnlyWorlds.Sdk
         public string Id => _baseline["id"]?.ToString();
 
         private static JObject Snapshot(T element)
-            => JObject.Parse(OWJson.Serialize(element));
+            => OWJson.ParseObject(OWJson.Serialize(element));
 
         /// <summary>
         /// The fields that changed since <see cref="OWEdit.Begin{T}"/>, as a PATCH body.

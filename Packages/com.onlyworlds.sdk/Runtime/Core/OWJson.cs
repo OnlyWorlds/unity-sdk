@@ -1,4 +1,7 @@
+using System;
+using System.IO;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace OnlyWorlds.Sdk
 {
@@ -48,6 +51,29 @@ namespace OnlyWorlds.Sdk
         };
 
         public static string Serialize(object value) => JsonConvert.SerializeObject(value, Settings);
+
+        /// <summary>
+        /// Parses JSON text into a <see cref="JObject"/> <b>without coercing any value</b>. Use this,
+        /// never <c>JObject.Parse</c>, for anything that can be written back or cached as text.
+        /// </summary>
+        /// <remarks>
+        /// <c>JObject.Parse</c> defaults <c>DateParseHandling</c> to <c>DateTime</c>: an ISO-8601
+        /// string such as <c>"2026-09-04T20:36:14.605251+00:00"</c> comes back as a DateTime token
+        /// and re-serializes in the machine's local zone (<c>…T22:36:14.605251+02:00</c> here).
+        /// Same instant, different bytes, and a whole-repository diff whose content depends on
+        /// which machine ran the write. Measured 2026-09-07 across all 4,769 files of a real world.
+        /// Large integers stay integers (<c>FloatParseHandling.Double</c>) for the same reason.
+        /// </remarks>
+        public static JObject ParseObject(string text)
+        {
+            if (text == null) throw new ArgumentNullException(nameof(text));
+            using (var reader = new JsonTextReader(new StringReader(text)))
+            {
+                reader.DateParseHandling = DateParseHandling.None;
+                reader.FloatParseHandling = FloatParseHandling.Double;
+                return JObject.Load(reader);
+            }
+        }
 
         public static T Deserialize<T>(string json) => JsonConvert.DeserializeObject<T>(json, Settings);
 

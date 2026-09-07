@@ -393,7 +393,7 @@ namespace OnlyWorlds.Sdk
             // exception thrown from the error path itself.
             try
             {
-                var envelope = JObject.Parse(response.Body ?? "{}");
+                var envelope = OWJson.ParseObject(response.Body ?? "{}");
                 var error = envelope["error"] as JObject ?? envelope;
 
                 return new OWApiError(

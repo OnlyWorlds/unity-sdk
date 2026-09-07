@@ -4,6 +4,39 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`OWFolderWriter`** — write a world folder back to disk in the bytes the format specifies
+  (spec v0.3.6), the companion to `OWFolderReader`. `WriteElement`, `Write`, `DeleteElement` and
+  `WriteWorld`, plus the filename derivation (`ElementFilename`, `Slugify`, `IdTail`) as public API,
+  because a caller that needs to know where an element will land should not re-derive the rule.
+  The serialization is pinned rather than defaulted at four points — LF, UTF-8 with no BOM,
+  two-space indent with one trailing newline, and keys in the order they arrived. Verified byte-for-byte
+  against all 4,769 files of a real world: every file round-trips identical, and the writer
+  independently derives the filename each of them already has.
+- **`OWFolderWriter.Parse` / `ReadJsonFile`** — parse JSON without letting the parser rewrite the
+  values. Use these, not `JObject.Parse`, for anything destined to be written back.
+
+### Fixed
+
+- **`JObject.Parse` silently rewrote every timestamp on the write path.** Newtonsoft defaults
+  `DateParseHandling` to `DateTime`, so a plain parse does not return the string in the file: it
+  recognises an ISO-8601 timestamp, converts it to the machine's **local timezone**, and
+  re-serializes it there. Measured on the real world, `"2026-09-04T20:36:14.605251+00:00"` came back
+  as `"2026-09-04T22:36:14.605251+02:00"` in every file that had a timestamp — the same instant,
+  still-valid JSON, and a whole-repository diff whose content depends on which machine ran the
+  write. Every value assertion passes while it happens, which is what made it worth finding in
+  bytes.
+- **The same trap closed everywhere the SDK parses JSON it may hand back.** `OWJson.ParseObject`
+  is the one verbatim parse (`DateParseHandling.None`, `FloatParseHandling.Double`);
+  `OWFolderWriter.Parse` delegates to it, and `OWFolderReader`, `OWEdit`'s snapshot and
+  `OWClient`'s response envelope now use it. A folder read with the reader and written with the
+  writer is byte-identical on any machine, in any timezone. Behaviour change for readers of
+  `OWFolderElement.Body`: timestamp values are now `JTokenType.String`, never `Date`. Values
+  are unchanged; only their token type is, and only for callers that inspected it.
+
 ## [0.2.0] - 2026-07-29
 
 Reading worlds from disk, writing them back safely, and a guard on the vendored schema. Verified

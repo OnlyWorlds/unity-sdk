@@ -1,0 +1,21 @@
+{
+  "type": "zone",
+  "id": "e88c1467-c388-4f68-a4cc-d0a87042cf1f",
+  "name": "AbakainonN (route)",
+  "description": "A route segment of ancient Sicily as Captain drew it: 5 hand-placed points from the Fury scene (marker family RT, id 106, label AbakainonN), in travel order. Reconstructed: the line is Captain's drawing over the relief; terrain difficulty per segment is his rating (1 easy … 5 mountain), carried on each marker. Named historical roads are separate Zones linked from their segments.",
+  "supertype": "Line",
+  "subtype": "Route",
+  "image_url": "",
+  "role": "road",
+  "context": "5 points; terrain by segment: hilly 5; interior pass",
+  "start_date": null,
+  "end_date": null,
+  "phenomena": [],
+  "linked_zones": [],
+  "populations": [],
+  "titles": [],
+  "principles": [],
+  "created_at": "2026-09-07T15:10:51.281567+00:00",
+  "updated_at": "2026-09-07T15:10:51.281582+00:00",
+  "change_seq": 2916
+}

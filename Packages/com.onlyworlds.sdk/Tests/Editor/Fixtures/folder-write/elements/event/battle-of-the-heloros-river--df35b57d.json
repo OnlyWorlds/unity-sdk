@@ -1,0 +1,41 @@
+{
+  "type": "event",
+  "id": "477a5539-b082-4b18-aebb-c82bdf35b57d",
+  "name": "Battle of the Heloros River",
+  "description": "The world of this sandbox stands on the eve of this battle: it has not yet happened. Hippocrates of Gela, having already annexed the Chalcidian cities of Callipolis, Naxos, Zancle, and Leontini, brings his campaign against Syracuse to a battle at the Heloros river south of the city. Herodotus (7.154) and Timaeus (FGrH 566 F18) attest the battle and its outcome; the year 492 BC is Griffin's modern chronological reconstruction and unhedged in his thesis but is nonetheless inferred, not stated by any ancient source as an absolute date. Gela's cavalry, commanded by Gelon, is named as possibly the decisive factor. Syracuse is defeated but Hippocrates cannot take the fortified island of Ortygia. Corinth and Corcyra mediate a peace in which Hippocrates receives Kamarina's territory and returns his prisoners of war — though Thucydides and Philistus do not mention this mediation, and some modern scholars question whether it happened as Herodotus describes. No fleet size, hoplite count, or Syracusan troop composition survives for either side.",
+  "supertype": "Military",
+  "subtype": "Battle",
+  "image_url": "",
+  "history": "",
+  "challenges": "",
+  "consequences": "",
+  "start_date": -492,
+  "end_date": null,
+  "triggers": [],
+  "characters": [
+    "e77833d2-4549-48f2-8e7c-1845f2b83f83",
+    "c5db7456-030a-4642-84b8-aae8138320b0"
+  ],
+  "objects": [],
+  "locations": [
+    "d4eec7b8-5dca-4da5-8b66-eea612c268c8",
+    "c72d61e9-90c4-47b6-a340-cc55e04f2332",
+    "983a5de9-1c99-463b-b87e-ef8b6e152149"
+  ],
+  "species": [],
+  "creatures": [],
+  "institutions": [],
+  "traits": [],
+  "collectives": [],
+  "zones": [],
+  "abilities": [],
+  "phenomena": [],
+  "languages": [],
+  "families": [],
+  "relations": [],
+  "titles": [],
+  "constructs": [],
+  "created_at": "2026-09-02T16:25:03.097707+00:00",
+  "updated_at": "2026-09-07T14:37:04.879626+00:00",
+  "change_seq": 2698
+}

@@ -1,0 +1,16 @@
+{
+  "id": "49501a68-179b-4a3c-8eaf-7f46f73d5fd2",
+  "name": "Sikelia",
+  "description": "Sikelia, the Greek and native island c. 500 BC, reconstituted from Captain's 2019 world. World present: 492 BC, the eve of the battle of the Heloros river. Sandbox first: five settlements around Syracuse.",
+  "image_url": "",
+  "time_format_names": [],
+  "time_format_equivalents": [],
+  "time_basic_unit": "year",
+  "time_range_min": null,
+  "time_range_max": null,
+  "public_read": false,
+  "created_at": "2026-07-31T16:19:14.760004+00:00",
+  "updated_at": "2026-09-02T16:26:32.505706+00:00",
+  "time_current": -492,
+  "format_version": "0.3.6"
+}

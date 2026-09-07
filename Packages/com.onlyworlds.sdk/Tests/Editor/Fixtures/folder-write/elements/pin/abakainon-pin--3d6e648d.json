@@ -1,0 +1,18 @@
+{
+  "type": "pin",
+  "id": "6dddb2b5-7967-49e0-a658-17333d6e648d",
+  "name": "Abakainon (pin)",
+  "description": "",
+  "supertype": "",
+  "subtype": "",
+  "image_url": "",
+  "x": 6509,
+  "y": 4181,
+  "z": null,
+  "map": "3be1f73c-f903-4e76-bb10-08c51439ca68",
+  "element_type": "location",
+  "element_id": "9b53b25d-8363-47fb-9c5e-6904037b7bec",
+  "created_at": "2026-09-04T20:41:14.914750+00:00",
+  "updated_at": "2026-09-07T15:04:33.374409+00:00",
+  "change_seq": 2720
+}

@@ -174,7 +174,7 @@ namespace OnlyWorlds.Sdk
             JObject world;
             try
             {
-                world = JObject.Parse(File.ReadAllText(path));
+                world = OWFolderWriter.Parse(File.ReadAllText(path));
             }
             catch (Exception e)
             {
@@ -201,7 +201,7 @@ namespace OnlyWorlds.Sdk
                 JObject body;
                 try
                 {
-                    body = JObject.Parse(File.ReadAllText(file));
+                    body = OWFolderWriter.Parse(File.ReadAllText(file));
                 }
                 catch (Exception)
                 {

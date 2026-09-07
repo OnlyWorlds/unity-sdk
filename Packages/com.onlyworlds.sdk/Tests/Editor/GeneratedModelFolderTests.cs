@@ -149,7 +149,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
                 var typed = JsonConvert.DeserializeObject(
                     element.Body.ToString(), type, OWJson.Settings);
-                var back = JObject.Parse(OWJson.Serialize(typed));
+                var back = OWFolderWriter.Parse(OWJson.Serialize(typed));
 
                 foreach (var property in element.Body.Properties())
                 {

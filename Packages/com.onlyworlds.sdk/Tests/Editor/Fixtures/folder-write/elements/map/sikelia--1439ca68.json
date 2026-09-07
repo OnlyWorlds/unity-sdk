@@ -1,0 +1,19 @@
+{
+  "type": "map",
+  "id": "3be1f73c-f903-4e76-bb10-08c51439ca68",
+  "name": "Sikelia",
+  "description": "The relief map of the Syracuse sandbox region, southeast Sicily, on the eve of the Battle of the Heloros River, 492 BC. Coordinates are the 2019 Unity project's canvas positions multiplied by 4. The visual relief itself is baked into Quillon's Unity project; hosting a browsable version comes later, so no image is attached here yet.",
+  "supertype": "",
+  "subtype": "",
+  "image_url": "",
+  "background_color": "",
+  "hierarchy": null,
+  "width": 8000,
+  "height": 5200,
+  "depth": null,
+  "parent_map": null,
+  "location": null,
+  "created_at": "2026-09-02T16:24:24.114264+00:00",
+  "updated_at": "2026-09-02T16:24:24.114281+00:00",
+  "change_seq": 7
+}
