@@ -2,8 +2,8 @@
 // Regenerate: python codegen/generate_models.py   (drift guard: codegen/check_drift.py)
 //
 // canonical: 00.30.01
-// serial: 11
-// published: 2026-07-29
+// serial: 15
+// published: 2026-09-18
 
 using System;
 using System.Collections.Generic;
@@ -55,7 +55,7 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("end_date")]
         [SerializeField] private SerializableNullable<int> _endDate;
 
-        /// <summary>Events that eventuated the event</summary>
+        /// <summary>Events that precipitated this event</summary>
         /// <remarks>Link: UUIDs of event. Bare ids -- resolve through the cache.</remarks>
         [JsonProperty("triggers")]
         [SerializeField] private List<string> _triggers = new List<string>();
@@ -117,6 +117,7 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("phenomena")]
         [SerializeField] private List<string> _phenomena = new List<string>();
 
+        /// <summary>Languages relevant to the event</summary>
         /// <remarks>Link: UUIDs of language. Bare ids -- resolve through the cache.</remarks>
         [JsonProperty("languages")]
         [SerializeField] private List<string> _languages = new List<string>();

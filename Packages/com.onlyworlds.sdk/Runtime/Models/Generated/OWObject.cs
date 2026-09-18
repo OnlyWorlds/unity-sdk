@@ -2,8 +2,8 @@
 // Regenerate: python codegen/generate_models.py   (drift guard: codegen/check_drift.py)
 //
 // canonical: 00.30.01
-// serial: 11
-// published: 2026-07-29
+// serial: 15
+// published: 2026-09-18
 
 using System;
 using System.Collections.Generic;
@@ -52,12 +52,12 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("parent_object")]
         [SerializeField] private string _parentObject;
 
-        /// <summary>The phyiscal matter that constitutes the object</summary>
+        /// <summary>The physical matter that constitutes the object</summary>
         /// <remarks>Link: UUIDs of construct. Bare ids -- resolve through the cache.</remarks>
         [JsonProperty("materials")]
         [SerializeField] private List<string> _materials = new List<string>();
 
-        /// <summary>Mechanisms relating the object's design or operation</summary>
+        /// <summary>Mechanisms relating to the object's design or operation</summary>
         /// <remarks>Link: UUIDs of construct. Bare ids -- resolve through the cache.</remarks>
         [JsonProperty("technology")]
         [SerializeField] private List<string> _technology = new List<string>();
@@ -73,7 +73,7 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("effects")]
         [SerializeField] private List<string> _effects = new List<string>();
 
-        /// <summary>Abilities that the object grant or enables</summary>
+        /// <summary>Abilities that the object grants or enables</summary>
         /// <remarks>Link: UUIDs of ability. Bare ids -- resolve through the cache.</remarks>
         [JsonProperty("abilities")]
         [SerializeField] private List<string> _abilities = new List<string>();

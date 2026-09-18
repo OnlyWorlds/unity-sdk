@@ -67,7 +67,7 @@
     },
     "institution": {
       "family": "agents",
-      "icon": "business"
+      "icon": "account_balance"
     },
     "language": {
       "family": "abstract",
@@ -87,7 +87,7 @@
     },
     "marker": {
       "family": "world",
-      "icon": "place"
+      "icon": "location_on"
     },
     "narrative": {
       "family": "temporal",

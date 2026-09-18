@@ -251,11 +251,22 @@ rulings:
       ruled - advisory. The MEANING was ruled independently by Captain the
       same day ("maximum: 0 means no maximum"), converging with the reading
       the measurement forced; the ENFORCEMENT question is closed by the probe
-      below. Canonical sentinel removal rides the motion cohort. Sequence for
-      any future consumer, and the order matters: canonical drops the key from
-      the 26 -> only then may the walk carry it -> only then may emitters
-      consume it. Reading `maximum:` directly today, outside the walk, would
-      be re-deriving schema semantics outside the one decoder.
+      below.
+      ⚑ RESOLVED 2026-07-29 in canonical 00.30.01: the 26 sentinels are
+      STRIPPED and the 8 missing floors added. The historical note stays
+      because a consumer holding a pre-00.30.01 copy still sees the trap.
+      ★ THE WALK STAYS SILENT ON BOUNDS - PERMANENTLY, not pending. An
+      earlier draft of this row left the door open ("only then may the walk
+      carry it"). Closed on Kael's argument, which reversed his own accepted
+      proposal: the wire does not enforce (charisma 9999 stored against a
+      maximum of 100), so a walk carrying `maximum` would ship a constraint
+      the platform does not keep - and any consumer reading a bound is
+      tempted to enforce it, with the prohibition living in a different file
+      from the data. That is the same ground `string-empty-is-unset` refused
+      Boss's cleaner null rule on. The table does not mint promises the
+      platform does not keep, including for its own proposals. If a docs
+      consumer ever needs the numbers they belong in the presentation tier
+      as a display hint, never in the decoder.
     probe: >
       Two independent checks, source and wire, because either alone is weaker.
       SOURCE: keel contains ZERO MaxValueValidator - grep across the codebase
