@@ -37,19 +37,19 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>The language's sound systems, including phonemes, tone, and pronunciation rules</summary>
         [JsonProperty("phonology")]
-        [SerializeField] private string _phonology;
+        [SerializeField] private string _phonology = "";
 
         /// <summary>Rules governing syntax, morphology, and sentence structure</summary>
         [JsonProperty("grammar")]
-        [SerializeField] private string _grammar;
+        [SerializeField] private string _grammar = "";
 
         /// <summary>Vocabulary principles or full word lists used in the language</summary>
         [JsonProperty("lexicon")]
-        [SerializeField] private string _lexicon;
+        [SerializeField] private string _lexicon = "";
 
         /// <summary>Script or notation system used to represent the language in written form</summary>
         [JsonProperty("writing")]
-        [SerializeField] private string _writing;
+        [SerializeField] private string _writing = "";
 
         /// <summary>Linguistic group or typological category the language belongs to</summary>
         /// <remarks>Link: UUID of construct. Bare id -- resolve through the cache.</remarks>
@@ -60,7 +60,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Current vitality, reputation, or dominance of the language</summary>
         [JsonProperty("status")]
-        [SerializeField] private string _status;
+        [SerializeField] private string _status = "";
 
         /// <summary>Geographical areas where the language is used or spoken</summary>
         /// <remarks>Link: UUIDs of location. Bare ids -- resolve through the cache.</remarks>

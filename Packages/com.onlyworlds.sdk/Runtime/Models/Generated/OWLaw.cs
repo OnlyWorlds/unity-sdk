@@ -37,11 +37,11 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>The formal wording, expression, or decree of the law</summary>
         [JsonProperty("declaration")]
-        [SerializeField] private string _declaration;
+        [SerializeField] private string _declaration = "";
 
         /// <summary>The intent, motivation, or justification for the law's creation</summary>
         [JsonProperty("purpose")]
-        [SerializeField] private string _purpose;
+        [SerializeField] private string _purpose = "";
 
         /// <summary>Date the law was formally established, in world TIME units</summary>
         [JsonProperty("date")]

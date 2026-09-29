@@ -37,11 +37,11 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Rights or powers granted by the title</summary>
         [JsonProperty("authority")]
-        [SerializeField] private string _authority;
+        [SerializeField] private string _authority = "";
 
         /// <summary>Conditions or qualifications for receiving or holding the title</summary>
         [JsonProperty("eligibility")]
-        [SerializeField] private string _eligibility;
+        [SerializeField] private string _eligibility = "";
 
         /// <summary>Date on which the title was granted, defined in world TIME units</summary>
         [JsonProperty("grant_date")]
@@ -80,11 +80,11 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Current state or general condition of the title</summary>
         [JsonProperty("status")]
-        [SerializeField] private string _status;
+        [SerializeField] private string _status = "";
 
         /// <summary>Background information on the title's origin, evolution, or significance</summary>
         [JsonProperty("history")]
-        [SerializeField] private string _history;
+        [SerializeField] private string _history = "";
 
         /// <summary>Characters otherwise relevant to the title</summary>
         /// <remarks>Link: UUIDs of character. Bare ids -- resolve through the cache.</remarks>

@@ -37,7 +37,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Core belief, mission, or purpose that drives the institution</summary>
         [JsonProperty("doctrine")]
-        [SerializeField] private string _doctrine;
+        [SerializeField] private string _doctrine = "";
 
         /// <summary>Date when the institution was established, in the world's TIME format</summary>
         [JsonProperty("founding_date")]
@@ -69,7 +69,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Current political, cultural, or functional standing of the institution in the world</summary>
         [JsonProperty("status")]
-        [SerializeField] private string _status;
+        [SerializeField] private string _status = "";
 
         /// <summary>Institutions this one actively cooperates or aligns with</summary>
         /// <remarks>Link: UUIDs of institution. Bare ids -- resolve through the cache.</remarks>

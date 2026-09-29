@@ -166,6 +166,49 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             }
         }
 
+        [Test]
+        public void RoundTrip_OnTheRealWorld_ChangesNothingButIntegralFloatSpellings()
+        {
+            // Spec §5 (ruled 2026-09-28): numbers are written as JSON.stringify writes them, and "a
+            // folder written before this takes one diff". This measures that diff on every file of
+            // the live world: each file is either byte-identical, or differs only on lines where an
+            // integral float such as `1.0` became `1`. Measured 2026-09-29 on 12,307 files: 196 of
+            // the second kind (`x_land_state` on locations), none of any other.
+            var world = RealWorldPath();
+            if (world == null)
+            {
+                Assert.Ignore(
+                    "The real Sikelia world folder is not on this machine. Set OW_WORLD_FOLDER to a "
+                    + "world folder to run this -- these assertions did not run.");
+            }
+
+            var files = Directory
+                .GetFiles(Path.Combine(world, "elements"), "*.json", SearchOption.AllDirectories)
+                .Concat(new[] { Path.Combine(world, "world.json") })
+                .ToList();
+
+            var other = new System.Collections.Generic.List<string>();
+            foreach (var file in files)
+            {
+                var source = File.ReadAllText(file, new UTF8Encoding(false));
+                var written = OWFolderWriter.Serialize(OWFolderWriter.Parse(source));
+                if (written == source) continue;
+
+                var before = source.Split('\n');
+                var after = written.Split('\n');
+                var onlyNumbers = before.Length == after.Length
+                    && Enumerable.Range(0, before.Length).All(i =>
+                        before[i] == after[i]
+                        || System.Text.RegularExpressions.Regex.Replace(before[i], @"(-?\d+)\.0(,?)$", "$1$2") == after[i]);
+
+                if (!onlyNumbers) other.Add(Path.GetFileName(file));
+            }
+
+            CollectionAssert.IsEmpty(other,
+                "A live file changed in a way other than an integral float losing its `.0`. The writer "
+                + "must not drop, reorder or respell anything else.");
+        }
+
         /// <summary>The real world folder, if this machine has one.</summary>
         private static string RealWorldPath()
         {
@@ -281,6 +324,114 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(source, OWFolderWriter.Serialize(OWFolderWriter.Parse(source)),
                 "A foreign extension value must not be normalised, reordered or re-indented at any "
                 + "depth -- and an explicit null is UNSET, never 0, \"\" or [].");
+        }
+
+        // -- Numbers, as JSON.stringify writes them (spec §5, ruled 2026-09-28) --
+
+        private static string One(JToken value) => OWFolderWriter.Serialize(new JObject { ["n"] = value });
+
+        private static string Expect(string literal) => "{\n  \"n\": " + literal + "\n}\n";
+
+        [Test]
+        public void Numbers_AnIntegralFloat_IsWrittenAsAnInteger()
+        {
+            Assert.AreEqual(Expect("1"), One(1.0),
+                "The ruling: an integral float is 1, not 1.0. Newtonsoft's default appends .0.");
+            Assert.AreEqual(Expect("-3"), One(-3.0));
+            Assert.AreEqual(Expect("100000000000000000000"), One(1e20),
+                "ECMAScript writes integers up to 1e21 in full; Newtonsoft writes 1E+20.");
+            Assert.AreEqual(Expect("1e+21"), One(1e21), "At 1e21 ECMAScript switches to exponent form.");
+            Assert.AreEqual(Expect("0"), One(-0.0), "Both zeros are written 0.");
+        }
+
+        [Test]
+        public void Numbers_AParsedOneDotZero_ComesBackAsOne()
+        {
+            // The live case: Sikelia's `"x_land_state": 1.0`, written by a Python json.dumps. The
+            // parser keeps it a double, and the writer now spells it the reference way.
+            var source = "{\n  \"x_land_state\": 1.0\n}\n";
+
+            Assert.AreEqual(JTokenType.Float, OWFolderWriter.Parse(source)["x_land_state"].Type);
+            Assert.AreEqual("{\n  \"x_land_state\": 1\n}\n", OWFolderWriter.Serialize(OWFolderWriter.Parse(source)));
+        }
+
+        [Test]
+        public void Numbers_NonIntegralFloats_KeepTheirShortestSpelling()
+        {
+            Assert.AreEqual(Expect("1.5"), One(1.5));
+            Assert.AreEqual(Expect("0.1"), One(0.1));
+            Assert.AreEqual(Expect("4.35"), One(4.35));
+            Assert.AreEqual(Expect("0.30000000000000004"), One(0.1 + 0.2));
+            Assert.AreEqual(Expect("0.3333333333333333"), One(1.0 / 3),
+                "Sixteen digits round-trip, so ECMAScript writes sixteen. Mono's \"R\" writes seventeen.");
+            Assert.AreEqual(Expect("0.000001"), One(0.000001), "Above 1e-7, ECMAScript writes positional.");
+            Assert.AreEqual(Expect("1e-7"), One(1e-7), "Newtonsoft writes 1E-07.");
+            Assert.AreEqual(Expect("1.5e-7"), One(1.5e-7));
+            Assert.AreEqual(Expect("1.7976931348623157e+308"), One(double.MaxValue));
+        }
+
+        [Test]
+        public void Numbers_AtExtremeExponents_MatchECMAScriptExactly()
+        {
+            // From a 45,024-value differential run against Python's shortest repr (2026-09-29):
+            // Unity's Mono misrounded both formatting and parsing out here, 362 times. Built from
+            // bits, because the Mono parser is itself one of the things that is wrong.
+            Assert.AreEqual(Expect("-7.364551133699082e-269"), One(BitConverter.Int64BitsToDouble(-8627924879639660951)));
+            Assert.AreEqual(Expect("3.5668811172242183e-272"), One(BitConverter.Int64BitsToDouble(545863264117066279)));
+            Assert.AreEqual(Expect("9.164848815383977e+183"), One(BitConverter.Int64BitsToDouble(7359235075472980790)));
+            Assert.AreEqual(Expect("5e-324"), One(double.Epsilon), "The smallest denormal is one digit.");
+        }
+
+        [Test]
+        public void Numbers_SinglesAndDecimals_FollowTheSameRule()
+        {
+            Assert.AreEqual(Expect("0.1"), One(new JValue(0.1f)),
+                "A float's own shortest digits, not the double it widens to (0.10000000149011612).");
+            Assert.AreEqual(Expect("16777216"), One(new JValue(16777216f)));
+            Assert.AreEqual(Expect("1"), One(new JValue(1.0m)));
+            Assert.AreEqual(Expect("2.5"), One(new JValue(2.50m)));
+        }
+
+        [Test]
+        public void Numbers_IntegersStringsAndTimestamps_AreUntouched()
+        {
+            var source =
+                "{\n"
+                + "  \"change_seq\": 1874,\n"
+                + "  \"big\": 123456789012345678901234567890,\n"
+                + "  \"negative\": -492,\n"
+                + "  \"looks_like_a_float\": \"1.0\",\n"
+                + "  \"created_at\": \"2026-09-04T20:36:14.605251+00:00\",\n"
+                + "  \"ratio\": 0.25\n"
+                + "}\n";
+
+            Assert.AreEqual(source, OWFolderWriter.Serialize(OWFolderWriter.Parse(source)),
+                "Only a float's spelling is the writer's business; an integer literal is written as read.");
+        }
+
+        [Test]
+        public void Numbers_NaNAndInfinity_AreRefused()
+        {
+            // JSON.stringify writes null for these and Newtonsoft a quoted "NaN": both change the
+            // value, and a writer must not invent data.
+            Assert.Throws<OWFolderFormatException>(() => One(double.NaN));
+            Assert.Throws<OWFolderFormatException>(() => One(double.PositiveInfinity));
+            Assert.Throws<OWFolderFormatException>(() => One(new JValue(float.NegativeInfinity)));
+        }
+
+        [Test]
+        public void Numbers_InsideArraysAndNestedObjects_KeepTheIndentation()
+        {
+            var body = new JObject
+            {
+                ["values"] = new JArray(1.0, 2.5, 3),
+                ["x_probe"] = new JObject { ["weight"] = 4.0 },
+            };
+
+            Assert.AreEqual(
+                "{\n  \"values\": [\n    1,\n    2.5,\n    3\n  ],\n  \"x_probe\": {\n    \"weight\": 4\n  }\n}\n",
+                OWFolderWriter.Serialize(body),
+                "A raw number write must still take the separator and indent a value would.");
         }
 
         // -- Identity is the id, not the filename -----------------------------

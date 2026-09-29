@@ -6,18 +6,69 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-29
+
+The 22 models generated from the pinned schema, a world-folder writer that matches the reference
+implementation byte for byte, and the write path brought in line with two wire rulings. Verified
+against a 207-test EditMode suite and every file of a 12,307-file real world.
+
 ### Added
 
+- **All 22 element models, generated.** `codegen/generate_models.py` emits one model per element
+  type plus the `OWElementTypes` registry from the vendored, hash-checked schema distribution, and
+  the three hand-written proving models (Character, Pin, Marker) are gone. The generator imports the
+  distribution's own walk rather than re-reading the YAML, refuses to emit on a schema construct it
+  does not recognise, and `codegen/check_drift.py` fails when a committed generated file differs
+  from a fresh generation. `OWMarkerOrdering` stays hand-written, outside the generated tree.
+- **`OWElementTypes.StringFieldNames`, `BaseStringFieldNames`, `IsStringField`** — which keys are
+  scalar strings, per type, generated beside `FieldNames`. The write path uses them (below); a
+  caller building JSON by hand can too.
+- **`OWElement.CreatedBy`** — keel's `created_by` (the membership that created the element on a
+  shared world, or null), now on every v2 body and in every exported folder. Read-only, like
+  `CreatedAt`; it is server-managed and not part of the standard.
 - **`OWFolderWriter`** — write a world folder back to disk in the bytes the format specifies
   (spec v0.3.6), the companion to `OWFolderReader`. `WriteElement`, `Write`, `DeleteElement` and
   `WriteWorld`, plus the filename derivation (`ElementFilename`, `Slugify`, `IdTail`) as public API,
   because a caller that needs to know where an element will land should not re-derive the rule.
-  The serialization is pinned rather than defaulted at four points — LF, UTF-8 with no BOM,
-  two-space indent with one trailing newline, and keys in the order they arrived. Verified byte-for-byte
-  against all 4,769 files of a real world: every file round-trips identical, and the writer
-  independently derives the filename each of them already has.
+  The serialization is pinned rather than defaulted at five points — LF, UTF-8 with no BOM,
+  two-space indent with one trailing newline, keys in the order they arrived, and numbers spelled as
+  `JSON.stringify` spells them (below). Verified against all 12,307 files of a real world: the writer
+  independently derives the filename each element file already has, and every file round-trips
+  byte-identical except the one change the numbers ruling makes.
 - **`OWFolderWriter.Parse` / `ReadJsonFile`** — parse JSON without letting the parser rewrite the
   values. Use these, not `JObject.Parse`, for anything destined to be written back.
+- **`tools/gate.py`** — the pre-push gate: runs the EditMode suite headless through the Unity CLI and
+  refuses a green that ran zero tests, or fewer than `--expect`. The CLI exits 0 with
+  `result="Passed"` when a filter matches nothing, so the exit code alone is not a verdict.
+
+### Changed
+
+- **A null scalar string is written as `""`** (the schema distribution's ruling
+  `string-empty-is-unset`). For a string, `""` IS the wire's unset: keel stores strings non-null,
+  so there is no third state, and a client must not send a distinction the wire cannot carry.
+  `CreateAsync`, `PatchAsync` and `BulkAsync` now send `""` wherever a scalar string holds `null`.
+  Only keys the schema declares as scalar strings are touched: a single link keeps `null` (its unset;
+  `""` is not an id), an integer keeps its three states, an `x_*` value is never reinterpreted, and an
+  absent key stays absent (on a PATCH, absent means "leave it alone"). `OWEdit` no longer reports a
+  scalar string moving between `null` and `""` as a change, so it cannot send a PATCH that rewrites a
+  value onto itself.
+- **Scalar string fields start at `""`, not `null`**, on every model. A fresh model now says what
+  the wire says, and what Unity's serializer already turned a null string into after a domain
+  reload, so the two no longer disagree. Behaviour change: a caller testing `model.Description ==
+  null` on a fresh or partially-read model now sees `""`; test with `string.IsNullOrEmpty`.
+- **`OWFolderWriter` spells numbers as `JSON.stringify` does** (folder format spec §5, ruled
+  2026-09-28). An integral float is `1`, not `1.0`; `1e20` is `100000000000000000000` and `1e21`
+  is `1e+21`; `-0` is `0`; and every other number takes the shortest digits that read back as the
+  same double, found in exact integer arithmetic because Unity's Mono misrounds both formatting and
+  parsing at extreme exponents (checked against 45,024 values, 0 differences). Integer literals,
+  strings and timestamps are written exactly as read. A folder written before this takes one diff:
+  on the Sikelia world, 196 of 12,307 files, each a single `1.0` becoming `1`.
+- **`OWFolderWriter` refuses NaN and infinity** with `OWFolderFormatException`. JSON has no form for
+  them; Newtonsoft wrote a quoted `"NaN"` and `JSON.stringify` writes `null`, and both change the
+  value.
+- **Schema pin moved to `v0.30.1-dist.15`** (from `dist.11`). Two presentation icon slugs changed
+  (institution, marker); the schema changed in descriptions only, so the regenerated models differ in
+  doc comments.
 
 ### Fixed
 

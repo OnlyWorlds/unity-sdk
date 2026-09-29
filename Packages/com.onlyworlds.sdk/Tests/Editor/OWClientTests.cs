@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
@@ -124,6 +125,72 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsFalse(sent.ContainsKey("world"));
             Assert.IsTrue(sent.ContainsKey("x_atlas_pinned"), "Extension fields must pass through writes.");
             Assert.AreEqual(3, sent["x_tangle_battle"]["round"].Value<int>());
+        }
+
+        // -- string-empty-is-unset (rulings.yaml) ------------------------------
+
+        [Test]
+        public async Task Patch_SendsANullScalarStringAsEmpty()
+        {
+            // "" IS the wire's unset for a string; keel stores no null. A client must not send a
+            // distinction the wire cannot carry.
+            var t = new FakeTransport();
+            await Make(t).PatchAsync<JObject>("character", "x", new JObject
+            {
+                ["description"] = null,
+                ["physicality"] = null,
+                ["supertype"] = "",
+            });
+
+            var sent = t.LastBody;
+            Assert.AreEqual(JTokenType.String, sent["description"].Type, "A base scalar string.");
+            Assert.AreEqual("", sent["description"].ToString());
+            // Token TYPE, not only ToString(): a null JValue prints as "" and would pass a value check.
+            Assert.AreEqual(JTokenType.String, sent["physicality"].Type, "A type's own scalar string.");
+            Assert.AreEqual("", sent["supertype"].ToString(), "An empty string is already the unset.");
+        }
+
+        [Test]
+        public async Task Patch_LeavesLinkIntExtensionAndAbsentKeysAlone()
+        {
+            var t = new FakeTransport();
+            await Make(t).PatchAsync<JObject>("character", "x", new JObject
+            {
+                ["location"] = null,
+                ["species"] = new JArray(),
+                ["level"] = null,
+                ["x_tool_note"] = null,
+            });
+
+            var sent = t.LastBody;
+            Assert.AreEqual(JTokenType.Null, sent["location"].Type, "null is a single link's unset; \"\" is not an id.");
+            Assert.AreEqual(JTokenType.Null, sent["level"].Type, "An int keeps three states: unset is not 0 and not \"\".");
+            Assert.AreEqual(JTokenType.Null, sent["x_tool_note"].Type,
+                "An extension value is another tool's; the ruling binds schema strings only.");
+            Assert.IsFalse(sent.ContainsKey("description"),
+                "An absent key on a PATCH means leave it alone. Inventing \"\" for it would clear it.");
+        }
+
+        [Test]
+        public async Task Create_FromATypedModel_SendsEmptyStringsNeverNullOnes()
+        {
+            // A model read from a folder file can hold a null string; a fresh one starts at "".
+            // Either way the POST says "" for every scalar string, and null only where null means
+            // something (links, ints).
+            var fromFolder = OWJson.Deserialize<OWLocation>(@"{""name"":""Motya"",""customs"":null,""parent_location"":null}");
+            var t = new FakeTransport();
+            await Make(t).CreateAsync<JObject>("location", fromFolder);
+
+            var sent = t.LastBody;
+            foreach (var field in OWElementTypes.StringFieldNames["location"].Concat(OWElementTypes.BaseStringFieldNames))
+            {
+                Assert.AreEqual(JTokenType.String, sent[field]?.Type,
+                    $"location.{field} is a scalar string and must go out as a string.");
+            }
+
+            Assert.AreEqual("", sent["customs"].ToString());
+            Assert.AreEqual(JTokenType.Null, sent["parent_location"].Type);
+            Assert.AreEqual(JTokenType.Null, sent["elevation"].Type);
         }
 
         // -- Create: minted ids + idempotency --------------------------------

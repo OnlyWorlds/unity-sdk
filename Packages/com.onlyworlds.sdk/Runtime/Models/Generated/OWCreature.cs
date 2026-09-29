@@ -37,7 +37,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Visual description of the creature</summary>
         [JsonProperty("appearance")]
-        [SerializeField] private string _appearance;
+        [SerializeField] private string _appearance = "";
 
         /// <summary>Approximate or exact weight of the creature, using world MASS units</summary>
         [JsonProperty("weight")]
@@ -56,11 +56,11 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Typical behaviors, instincts, or recurring actions the creature tends to display</summary>
         [JsonProperty("habits")]
-        [SerializeField] private string _habits;
+        [SerializeField] private string _habits = "";
 
         /// <summary>The emotional tone or attitude the creature conveys through posture, expression, or aggression</summary>
         [JsonProperty("demeanor")]
-        [SerializeField] private string _demeanor;
+        [SerializeField] private string _demeanor = "";
 
         /// <summary>Traits that influence the creature's behavior, capabilities, or appearance</summary>
         /// <remarks>Link: UUIDs of trait. Bare ids -- resolve through the cache.</remarks>
@@ -81,7 +81,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Current situation or classification of the creature</summary>
         [JsonProperty("status")]
-        [SerializeField] private string _status;
+        [SerializeField] private string _status = "";
 
         /// <summary>The time of the creature's birth, recorded in the world's defined TIME unit</summary>
         [JsonProperty("birth_date")]

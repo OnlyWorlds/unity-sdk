@@ -37,15 +37,15 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Historical context and background of the event</summary>
         [JsonProperty("history")]
-        [SerializeField] private string _history;
+        [SerializeField] private string _history = "";
 
         /// <summary>Adversity or difficulties faced during the event</summary>
         [JsonProperty("challenges")]
-        [SerializeField] private string _challenges;
+        [SerializeField] private string _challenges = "";
 
         /// <summary>Outcomes and impacts resulting from the event</summary>
         [JsonProperty("consequences")]
-        [SerializeField] private string _consequences;
+        [SerializeField] private string _consequences = "";
 
         /// <summary>Date on which the event began</summary>
         [JsonProperty("start_date")]

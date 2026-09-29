@@ -37,7 +37,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Typical physical or form features of the species</summary>
         [JsonProperty("appearance")]
-        [SerializeField] private string _appearance;
+        [SerializeField] private string _appearance = "";
 
         /// <summary>Average or typical life expectancy of an individual, defined in world TIME units</summary>
         [JsonProperty("life_span")]
@@ -66,19 +66,19 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Innate behavioral drives and survival tendencies</summary>
         [JsonProperty("instincts")]
-        [SerializeField] private string _instincts;
+        [SerializeField] private string _instincts = "";
 
         /// <summary>Typical patterns of social behavior</summary>
         [JsonProperty("sociality")]
-        [SerializeField] private string _sociality;
+        [SerializeField] private string _sociality = "";
 
         /// <summary>Overall behavioral disposition</summary>
         [JsonProperty("temperament")]
-        [SerializeField] private string _temperament;
+        [SerializeField] private string _temperament = "";
 
         /// <summary>Typical methods and approaches of interaction</summary>
         [JsonProperty("communication")]
-        [SerializeField] private string _communication;
+        [SerializeField] private string _communication = "";
 
         /// <summary>General aggressiveness level, on relative scale of 0 to 100</summary>
         [JsonProperty("aggression")]
@@ -93,7 +93,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>The species' ecological or cultural function in the world</summary>
         [JsonProperty("role")]
-        [SerializeField] private string _role;
+        [SerializeField] private string _role = "";
 
         /// <summary>Species that the species is considered a subspecies of</summary>
         /// <remarks>Link: UUID of species. Bare id -- resolve through the cache.</remarks>

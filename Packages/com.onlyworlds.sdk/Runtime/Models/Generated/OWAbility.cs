@@ -37,7 +37,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Method or conditions under which the ability is activated</summary>
         [JsonProperty("activation")]
-        [SerializeField] private string _activation;
+        [SerializeField] private string _activation = "";
 
         /// <summary>Length of time the ability remains active or its effects persist, measured in TIME units</summary>
         [JsonProperty("duration")]
@@ -58,7 +58,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Describes specific difficulties or constraints that make the ability hard to master or use effectively</summary>
         [JsonProperty("challenges")]
-        [SerializeField] private string _challenges;
+        [SerializeField] private string _challenges = "";
 
         /// <summary>Traits that naturally enhance or improve performance with this ability</summary>
         /// <remarks>Link: UUIDs of trait. Bare ids -- resolve through the cache.</remarks>
@@ -74,7 +74,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>How widely the ability is known or practiced, and potential clues to its origins and cultural diffusion</summary>
         [JsonProperty("prevalence")]
-        [SerializeField] private string _prevalence;
+        [SerializeField] private string _prevalence = "";
 
         /// <summary>A construct that expresses the conceptual, social, or institutional system this ability operates within</summary>
         /// <remarks>Link: UUID of construct. Bare id -- resolve through the cache.</remarks>

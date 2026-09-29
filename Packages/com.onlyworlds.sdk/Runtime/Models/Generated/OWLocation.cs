@@ -37,11 +37,11 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Visual and environmental aspects of the location</summary>
         [JsonProperty("form")]
-        [SerializeField] private string _form;
+        [SerializeField] private string _form = "";
 
         /// <summary>Main use, role, or purpose of the location within the world</summary>
         [JsonProperty("function")]
-        [SerializeField] private string _function;
+        [SerializeField] private string _function = "";
 
         /// <summary>Date on which the location was founded, established, or designated</summary>
         [JsonProperty("founding_date")]
@@ -61,7 +61,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Political structure, stability, and dynamics of the location</summary>
         [JsonProperty("political_climate")]
-        [SerializeField] private string _politicalClimate;
+        [SerializeField] private string _politicalClimate = "";
 
         /// <summary>Institution that has the highest degree of political control over the location</summary>
         /// <remarks>Link: UUID of institution. Bare id -- resolve through the cache.</remarks>
@@ -97,7 +97,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Cultural practices, habits, or festivals</summary>
         [JsonProperty("customs")]
-        [SerializeField] private string _customs;
+        [SerializeField] private string _customs = "";
 
         /// <summary>Individual(s) who founded or named the location</summary>
         /// <remarks>Link: UUIDs of character. Bare ids -- resolve through the cache.</remarks>
@@ -140,7 +140,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Roads, ports, and other physical systems that enable the movement of goods and people</summary>
         [JsonProperty("infrastructure")]
-        [SerializeField] private string _infrastructure;
+        [SerializeField] private string _infrastructure = "";
 
         /// <summary>Locations that receive extracted goods through trade, interchange, or seizure</summary>
         /// <remarks>Link: UUIDs of location. Bare ids -- resolve through the cache.</remarks>
@@ -161,7 +161,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Look, form, and materials used in the built environment and location design</summary>
         [JsonProperty("architecture")]
-        [SerializeField] private string _architecture;
+        [SerializeField] private string _architecture = "";
 
         /// <summary>Notable structural objects at the location</summary>
         /// <remarks>Link: UUIDs of object. Bare ids -- resolve through the cache.</remarks>
@@ -177,7 +177,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Qualities of natural, constructed, and implemented defenses at the location</summary>
         [JsonProperty("defensibility")]
-        [SerializeField] private string _defensibility;
+        [SerializeField] private string _defensibility = "";
 
         /// <summary>Height or elevation of the location relative to surrounding terrain, defined in world DISTANCE units</summary>
         [JsonProperty("elevation")]

@@ -37,11 +37,11 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Content of the narrative, as told or remembered</summary>
         [JsonProperty("story")]
-        [SerializeField] private string _story;
+        [SerializeField] private string _story = "";
 
         /// <summary>Outcomes or legacy of the narrative</summary>
         [JsonProperty("consequences")]
-        [SerializeField] private string _consequences;
+        [SerializeField] private string _consequences = "";
 
         /// <summary>Date when the narrative begins, measured in world TIME units</summary>
         [JsonProperty("start_date")]

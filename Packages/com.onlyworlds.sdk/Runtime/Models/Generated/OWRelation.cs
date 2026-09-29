@@ -37,7 +37,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>History and origin of the relation</summary>
         [JsonProperty("background")]
-        [SerializeField] private string _background;
+        [SerializeField] private string _background = "";
 
         /// <summary>Date when the relation began, defined in world TIME units</summary>
         [JsonProperty("start_date")]

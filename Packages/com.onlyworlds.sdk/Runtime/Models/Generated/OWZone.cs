@@ -37,7 +37,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>The operational function or intent of the zone</summary>
         [JsonProperty("role")]
-        [SerializeField] private string _role;
+        [SerializeField] private string _role = "";
 
         /// <summary>Date when the zone becomes extant or relevant, defined in world TIME units</summary>
         [JsonProperty("start_date")]
@@ -61,7 +61,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Historical and key knowledge about the zone</summary>
         [JsonProperty("context")]
-        [SerializeField] private string _context;
+        [SerializeField] private string _context = "";
 
         /// <summary>Distinct collective groups or communities residing within the zone</summary>
         /// <remarks>Link: UUIDs of collective. Bare ids -- resolve through the cache.</remarks>

@@ -37,11 +37,11 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>The core values or shared ethos that the family embodies</summary>
         [JsonProperty("spirit")]
-        [SerializeField] private string _spirit;
+        [SerializeField] private string _spirit = "";
 
         /// <summary>Background or origin story of the family</summary>
         [JsonProperty("history")]
-        [SerializeField] private string _history;
+        [SerializeField] private string _history = "";
 
         /// <summary>Cultural practices, symbols, or customs overseen by the family</summary>
         /// <remarks>Link: UUIDs of construct. Bare ids -- resolve through the cache.</remarks>
@@ -72,7 +72,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Current social, political, or general standing of the family</summary>
         [JsonProperty("reputation")]
-        [SerializeField] private string _reputation;
+        [SerializeField] private string _reputation = "";
 
         /// <summary>Key locations owned, governed, or symbolically tied to the family</summary>
         /// <remarks>Link: UUIDs of location. Bare ids -- resolve through the cache.</remarks>

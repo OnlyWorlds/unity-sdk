@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Numerics;
 using System.Text;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -22,7 +23,7 @@ namespace OnlyWorlds.Sdk
     /// The requirement underneath is DIFFABILITY. A world folder lives in version control, and two
     /// writers that agree on layout but not on bytes produce diffs full of noise -- which defeats
     /// the per-chapter snapshot the format exists for. So the serialization is pinned rather than
-    /// defaulted, at four points where a platform default would silently differ:
+    /// defaulted, at five points where a platform default would silently differ:
     /// </para>
     /// <list type="bullet">
     /// <item><b>LF, never CRLF.</b> <see cref="JsonTextWriter"/> takes its newline from the
@@ -38,6 +39,10 @@ namespace OnlyWorlds.Sdk
     /// <item><b>Key order as received.</b> Keys are never sorted, never reordered to match the
     /// schema. Sorting would stabilize the diff and break something worse: it would reorder foreign
     /// extension values and destroy the byte-fidelity the format requires.</item>
+    /// <item><b>Numbers as <c>JSON.stringify</c> writes them</b> (spec §5, ruled 2026-09-28): an
+    /// integral float is <c>1</c>, never <c>1.0</c>. The byte-fidelity binds the value, not a
+    /// producer's spelling of it, and Newtonsoft's spelling (<c>1.0</c>, <c>1E+21</c>) is not the
+    /// reference implementation's.</item>
     /// </list>
     /// <para>
     /// <b>Identity is the id in the body, never the filename.</b> A body whose name changed lands
@@ -464,7 +469,8 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// Serializes a token to the format's exact bytes: LF, two-space indent, one trailing
-        /// newline, keys in the order they arrived.
+        /// newline, keys in the order they arrived, numbers spelled as <c>JSON.stringify</c>
+        /// spells them.
         /// </summary>
         /// <param name="token">Any JSON token. Written through without inspection.</param>
         /// <returns>The file's text, ending in a single newline.</returns>
@@ -485,7 +491,7 @@ namespace OnlyWorlds.Sdk
                 NewLine = "\n",
             };
 
-            using (var writer = new JsonTextWriter(buffer)
+            using (var writer = new JsNumberTextWriter(buffer)
             {
                 Formatting = Formatting.Indented,
                 Indentation = 2,
@@ -509,6 +515,238 @@ namespace OnlyWorlds.Sdk
             // UTF8Encoding(false), never Encoding.UTF8 -- the latter writes a three-byte BOM, and
             // the format says no BOM.
             File.WriteAllText(path, Serialize(token), new UTF8Encoding(false));
+        }
+
+        /// <summary>
+        /// A <see cref="JsonTextWriter"/> that spells every non-integer number the way ECMAScript's
+        /// <c>Number::toString</c> does, and changes nothing else.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Newtonsoft appends <c>.0</c> to an integral double and switches to <c>E+</c> notation at
+        /// its own thresholds; the reference implementation writes <c>1</c>, <c>100000000000000000000</c>
+        /// and <c>1e+21</c>. Same values, different bytes, so every float in a folder became a diff.
+        /// Integers never reach these overloads: a token parsed from a file keeps an integer literal
+        /// as an integer (<see cref="OWJson.ParseObject"/>), so it is written back as it was read.
+        /// </para>
+        /// <para>
+        /// The digits are the SHORTEST that parse back to the same double, and the closest of those,
+        /// as ECMAScript requires. Mono's <c>"R"</c> format is not that (it writes <c>1/3</c> with 17
+        /// digits where 16 round-trip), and its <c>"E"</c> formats and its parser are not exact at
+        /// extreme exponents either, so the digits are found in integer arithmetic
+        /// (<see cref="Shortest"/>).
+        /// </para>
+        /// </remarks>
+        private sealed class JsNumberTextWriter : JsonTextWriter
+        {
+            public JsNumberTextWriter(TextWriter writer) : base(writer) { }
+
+            public override void WriteValue(double value) => WriteRawValue(FormatDouble(value));
+
+            public override void WriteValue(double? value)
+            {
+                if (value.HasValue) WriteValue(value.Value);
+                else WriteNull();
+            }
+
+            // A float has no JavaScript form of its own. Its shortest float digits are the number the
+            // author meant (0.1f, not 0.10000000149011612), and those are laid out by the same rule.
+            public override void WriteValue(float value)
+            {
+                RequireFinite(value);
+                WriteRawValue(value == 0f ? "0" : Layout(ShortestDigits(value)));
+            }
+
+            public override void WriteValue(float? value)
+            {
+                if (value.HasValue) WriteValue(value.Value);
+                else WriteNull();
+            }
+
+            // JSON.stringify would see this value only after parsing it to a double, so it goes the
+            // same way here. A decimal beyond double precision loses digits exactly as it would there.
+            public override void WriteValue(decimal value) => WriteValue((double)value);
+
+            public override void WriteValue(decimal? value)
+            {
+                if (value.HasValue) WriteValue(value.Value);
+                else WriteNull();
+            }
+
+            private static string FormatDouble(double value)
+            {
+                RequireFinite(value);
+
+                // Covers -0 too: ECMAScript writes both zeros as "0".
+                if (value == 0d) return "0";
+
+                // The common case, and exact: every integral double below 2^53 is a whole long.
+                if (Math.Abs(value) < 9007199254740992d && value == Math.Floor(value))
+                {
+                    return ((long)value).ToString(CultureInfo.InvariantCulture);
+                }
+
+                return Layout(ShortestDigits(value));
+            }
+
+            /// <summary>Refuses NaN and the infinities.</summary>
+            /// <remarks>
+            /// <c>JSON.stringify</c> silently writes <c>null</c> for these, which is a value change;
+            /// Newtonsoft writes a quoted <c>"NaN"</c>, which is another. A writer that must not
+            /// invent data refuses instead (the Python folder module does the same).
+            /// </remarks>
+            private static void RequireFinite(double value)
+            {
+                if (double.IsNaN(value) || double.IsInfinity(value))
+                {
+                    throw new OWFolderFormatException(
+                        $"Cannot write the number {value.ToString(CultureInfo.InvariantCulture)}: JSON has "
+                        + "no form for it, and writing null or a string in its place would change the value.");
+                }
+            }
+
+            private static (string Digits, int Exponent, bool Negative) ShortestDigits(double value)
+            {
+                var bits = BitConverter.DoubleToInt64Bits(value);
+                var biased = (int)((bits >> 52) & 0x7FF);
+                var fraction = bits & 0xFFFFFFFFFFFFFL;
+
+                return biased == 0
+                    ? Shortest(fraction, -1074, false, 17, bits < 0)
+                    : Shortest(fraction | (1L << 52), biased - 1075, fraction == 0 && biased > 1, 17, bits < 0);
+            }
+
+            private static (string Digits, int Exponent, bool Negative) ShortestDigits(float value)
+            {
+                var bits = BitConverter.ToInt32(BitConverter.GetBytes(value), 0);
+                var biased = (bits >> 23) & 0xFF;
+                var fraction = bits & 0x7FFFFF;
+
+                return biased == 0
+                    ? Shortest(fraction, -149, false, 9, bits < 0)
+                    : Shortest(fraction | (1L << 23), biased - 150, fraction == 0 && biased > 1, 9, bits < 0);
+            }
+
+            /// <summary>
+            /// The fewest decimal digits that read back as <c>m * 2^e</c>, and the closest such
+            /// digits when several qualify -- exact, in integer arithmetic.
+            /// </summary>
+            /// <param name="m">The binary significand, positive.</param>
+            /// <param name="e">Its binary exponent.</param>
+            /// <param name="lowerGapHalved">
+            /// True at a power of two (other than the smallest normal), where the next value DOWN is
+            /// half as far away as the next value up, so the reading-back interval is lopsided.
+            /// </param>
+            /// <param name="maxDigits">17 for a double, 9 for a float: always enough to round-trip.</param>
+            /// <param name="negative">The sign, carried through.</param>
+            /// <remarks>
+            /// Not <c>ToString("E" + p)</c> plus a parse: measured against Python's shortest repr
+            /// over 45,024 doubles, Unity's Mono misrounds both its formatting and its parsing at
+            /// extreme exponents (362 wrong spellings, e.g. <c>7.364551133699083e-269</c> for the
+            /// correct <c>...082</c>). A candidate reads back as this value exactly when it lies inside
+            /// the half-gaps to the neighbouring values, inclusive when <paramref name="m"/> is even
+            /// (a tie parses to the even significand), and that is decided here without any float.
+            /// </remarks>
+            private static (string Digits, int Exponent, bool Negative) Shortest(
+                long m, int e, bool lowerGapHalved, int maxDigits, bool negative)
+            {
+                // Everything in units of 2^(e-2): the value is 4m, the half-gap up is 2, and the
+                // half-gap down is 2, or 1 at a power of two.
+                var t = e - 2;
+                var x = new BigInteger(m) * 4;
+                BigInteger gapUp = 2, gapDown = lowerGapHalved ? 1 : 2;
+                var inclusive = (m & 1) == 0;
+
+                // The value as the fraction xNum / xDen.
+                var xNum = t >= 0 ? x << t : x;
+                var xDen = t >= 0 ? BigInteger.One : BigInteger.One << -t;
+
+                // n such that 10^(n-1) <= value < 10^n: estimated, then made exact.
+                var n = (int)Math.Floor(Math.Log10(m) + e * Math.Log10(2)) + 1;
+                while (Compare(xNum, xDen, n - 1) < 0) n--;
+                while (Compare(xNum, xDen, n) >= 0) n++;
+
+                for (var k = 1; k <= maxDigits; k++)
+                {
+                    var q = n - k;
+                    var scale = BigInteger.Pow(10, Math.Abs(q));
+
+                    // The value over 10^q, as yNum / yDen, and the two k-digit candidates around it.
+                    var yNum = q >= 0 ? xNum : xNum * scale;
+                    var yDen = q >= 0 ? xDen * scale : xDen;
+                    var below = BigInteger.DivRem(yNum, yDen, out var remainder);
+
+                    // One denominator for the comparison: value, candidate and gap unit, all times C.
+                    var valueC = q >= 0 ? xNum : xNum * scale;
+                    var unitC = (t >= 0 ? BigInteger.One << t : BigInteger.One) * (q >= 0 ? BigInteger.One : scale);
+
+                    BigInteger? best = null;
+                    var bestDistance = BigInteger.Zero;
+
+                    foreach (var s in remainder.IsZero ? new[] { below } : new[] { below, below + 1 })
+                    {
+                        var candidateC = s * (q >= 0 ? scale : BigInteger.One) * xDen;
+                        var diff = candidateC - valueC;
+                        var limit = (diff.Sign < 0 ? gapDown : gapUp) * unitC;
+                        var distance = BigInteger.Abs(diff);
+                        if (inclusive ? distance > limit : distance >= limit) continue;
+
+                        // Closest wins; on an exact tie ECMAScript takes the even candidate.
+                        if (best == null || distance < bestDistance || (distance == bestDistance && s.IsEven))
+                        {
+                            best = s;
+                            bestDistance = distance;
+                        }
+                    }
+
+                    if (best == null) continue;
+
+                    // A round-up can carry into a new digit (9.99 -> 10); the length says where.
+                    var text = best.Value.ToString(CultureInfo.InvariantCulture);
+                    return (text.TrimEnd('0'), q + text.Length, negative);
+                }
+
+                throw new InvalidOperationException(
+                    $"No {maxDigits}-digit decimal reads back as {m} x 2^{e}; the search is wrong, not the value.");
+            }
+
+            /// <summary>Sign of <c>num/den - 10^p</c>.</summary>
+            private static int Compare(BigInteger num, BigInteger den, int p)
+            {
+                var power = BigInteger.Pow(10, Math.Abs(p));
+                return p >= 0 ? num.CompareTo(power * den) : (num * power).CompareTo(den);
+            }
+
+            /// <summary>ECMAScript <c>Number::toString</c>, steps 6 to 10, for a finite non-zero value.</summary>
+            private static string Layout((string Digits, int Exponent, bool Negative) number)
+            {
+                var (digits, n, negative) = number;
+                var k = digits.Length;
+                string body;
+
+                if (k <= n && n <= 21)
+                {
+                    body = digits + new string('0', n - k);
+                }
+                else if (0 < n && n <= 21)
+                {
+                    body = digits.Substring(0, n) + "." + digits.Substring(n);
+                }
+                else if (-6 < n && n <= 0)
+                {
+                    body = "0." + new string('0', -n) + digits;
+                }
+                else
+                {
+                    var e = n - 1;
+                    body = digits.Substring(0, 1)
+                        + (k > 1 ? "." + digits.Substring(1) : string.Empty)
+                        + "e" + (e >= 0 ? "+" : "-")
+                        + Math.Abs(e).ToString(CultureInfo.InvariantCulture);
+                }
+
+                return negative ? "-" + body : body;
+            }
         }
     }
 }

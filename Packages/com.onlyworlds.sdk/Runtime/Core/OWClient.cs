@@ -150,7 +150,7 @@ namespace OnlyWorlds.Sdk
         /// </remarks>
         public Task<T> CreateAsync<T>(string type, object element, string idempotencyKey = null, CancellationToken ct = default)
         {
-            var body = Sanitize(JObject.FromObject(element, Newtonsoft.Json.JsonSerializer.Create(OWJson.Settings)));
+            var body = Sanitize(JObject.FromObject(element, Newtonsoft.Json.JsonSerializer.Create(OWJson.Settings)), type);
 
             if (body["id"] == null || string.IsNullOrEmpty(body["id"].ToString()))
             {
@@ -171,7 +171,7 @@ namespace OnlyWorlds.Sdk
         /// </remarks>
         public Task<T> PatchAsync<T>(string type, string id, object partial, CancellationToken ct = default)
             => RequestAsync<T>("PATCH", $"/{type}/{id}/",
-                body: Sanitize(JObject.FromObject(partial, Newtonsoft.Json.JsonSerializer.Create(OWJson.Settings))), ct: ct);
+                body: Sanitize(JObject.FromObject(partial, Newtonsoft.Json.JsonSerializer.Create(OWJson.Settings)), type), ct: ct);
 
         /// <summary>DELETE /{type}/{id}/</summary>
         public Task DeleteAsync(string type, string id, CancellationToken ct = default)
@@ -199,8 +199,8 @@ namespace OnlyWorlds.Sdk
         /// </para>
         /// <para>
         /// Each element is sanitized exactly as a single write is -- the five server-owned fields
-        /// are stripped from every item -- and each gets a client-minted UUID when it has none, so
-        /// a retry cannot duplicate.
+        /// are stripped from every item, and a null scalar string is sent as <c>""</c> -- and each
+        /// gets a client-minted UUID when it has none, so a retry cannot duplicate.
         /// </para>
         /// </remarks>
         public async Task<OWBulkResult> BulkAsync(
@@ -220,7 +220,7 @@ namespace OnlyWorlds.Sdk
                     throw new ArgumentException("Every bulk item needs a type.", nameof(items));
                 }
 
-                var element = Sanitize(item.Element != null ? (JObject)item.Element.DeepClone() : new JObject());
+                var element = Sanitize(item.Element != null ? (JObject)item.Element.DeepClone() : new JObject(), item.Type);
 
                 if (element["id"] == null || string.IsNullOrEmpty(element["id"].ToString()))
                 {
@@ -418,21 +418,42 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
-        /// Removes the five fields the server owns.
+        /// Removes the five fields the server owns, and sends a null scalar string as <c>""</c>.
         /// </summary>
+        /// <param name="payload">The body about to be sent. Changed in place.</param>
+        /// <param name="type">The element type slug, which says which keys are scalar strings.</param>
         /// <remarks>
+        /// <para>
         /// LAW, inherited from the npm SDK and worth restating: this is a BLACKLIST and must never
         /// become a whitelist. Namespaced extension fields (<c>x_*</c>) MUST pass through writes
         /// untouched -- every tool that round-trips its own state through other tools depends on it.
         /// A whitelist would silently strip them and corrupt cross-tool state.
+        /// </para>
+        /// <para>
+        /// rulings.yaml <c>string-empty-is-unset</c>: for a scalar string, <c>""</c> IS the wire's
+        /// unset and keel has no null to store, so a client MUST NOT send a distinction the wire
+        /// cannot carry. A <c>null</c> left in a model (read from a folder file, or set by a caller)
+        /// goes out as <c>""</c>. Only keys the schema declares as scalar strings are touched
+        /// (<see cref="OWElementTypes.IsStringField"/>): a single link's <c>null</c> is its unset and
+        /// stays, and an <c>x_*</c> value is another tool's and is never reinterpreted. An ABSENT
+        /// key stays absent -- on a PATCH that means "leave it alone", which is not a value.
+        /// </para>
         /// </remarks>
-        private static JObject Sanitize(JObject payload)
+        private static JObject Sanitize(JObject payload, string type)
         {
             if (payload == null) return null;
 
             foreach (var field in OWPayload.ReadOnlyFields)
             {
                 payload.Remove(field);
+            }
+
+            foreach (var property in payload.Properties())
+            {
+                if (property.Value.Type == JTokenType.Null && OWElementTypes.IsStringField(type, property.Name))
+                {
+                    property.Value = string.Empty;
+                }
             }
 
             return payload;

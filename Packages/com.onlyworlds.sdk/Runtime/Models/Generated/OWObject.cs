@@ -37,7 +37,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Appearance, design, or visual presentation of the object</summary>
         [JsonProperty("aesthetics")]
-        [SerializeField] private string _aesthetics;
+        [SerializeField] private string _aesthetics = "";
 
         /// <summary>Approximate or exact mass of the object, defined by world MASS units</summary>
         [JsonProperty("weight")]
@@ -66,7 +66,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Intended purpose or primary use of the object</summary>
         [JsonProperty("utility")]
-        [SerializeField] private string _utility;
+        [SerializeField] private string _utility = "";
 
         /// <summary>Phenomena potentially triggered or emitted on object use</summary>
         /// <remarks>Link: UUIDs of phenomenon. Bare ids -- resolve through the cache.</remarks>
@@ -87,7 +87,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Background or history of the object</summary>
         [JsonProperty("origins")]
-        [SerializeField] private string _origins;
+        [SerializeField] private string _origins = "";
 
         /// <summary>Physical place where the object is currently located or stored</summary>
         /// <remarks>Link: UUID of location. Bare id -- resolve through the cache.</remarks>

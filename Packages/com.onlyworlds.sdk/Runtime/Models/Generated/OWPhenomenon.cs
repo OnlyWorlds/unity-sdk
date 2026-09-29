@@ -37,11 +37,11 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>How the phenomenon manifests or takes shape in the world</summary>
         [JsonProperty("expression")]
-        [SerializeField] private string _expression;
+        [SerializeField] private string _expression = "";
 
         /// <summary>The primary outcomes or changes caused by the phenomenon</summary>
         [JsonProperty("effects")]
-        [SerializeField] private string _effects;
+        [SerializeField] private string _effects = "";
 
         /// <summary>The amount of time the phenomenon lasts, measured in world TIME units</summary>
         [JsonProperty("duration")]
@@ -61,7 +61,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Cultural, religious, or narrative meaning associated with the phenomenon</summary>
         [JsonProperty("mythology")]
-        [SerializeField] private string _mythology;
+        [SerializeField] private string _mythology = "";
 
         /// <summary>Broader phenomenon that this one is part of or linked to</summary>
         /// <remarks>Link: UUID of phenomenon. Bare id -- resolve through the cache.</remarks>

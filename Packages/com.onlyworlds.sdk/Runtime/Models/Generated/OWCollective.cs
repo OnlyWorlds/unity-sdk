@@ -37,7 +37,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Internal structure or demographic makeup of the collective</summary>
         [JsonProperty("composition")]
-        [SerializeField] private string _composition;
+        [SerializeField] private string _composition = "";
 
         /// <summary>Number of members in the collective (approximate or exact)</summary>
         [JsonProperty("count")]
@@ -61,15 +61,15 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Primary behaviors or actions the collective engages in</summary>
         [JsonProperty("activity")]
-        [SerializeField] private string _activity;
+        [SerializeField] private string _activity = "";
 
         /// <summary>Emotional control or volatility expressed by the collective</summary>
         [JsonProperty("disposition")]
-        [SerializeField] private string _disposition;
+        [SerializeField] private string _disposition = "";
 
         /// <summary>Current condition or operational status of the collective</summary>
         [JsonProperty("state")]
-        [SerializeField] private string _state;
+        [SerializeField] private string _state = "";
 
         /// <summary>Abilities commonly shared among members of the collective, or abilities of that collective as a whole</summary>
         /// <remarks>Link: UUIDs of ability. Bare ids -- resolve through the cache.</remarks>

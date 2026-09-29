@@ -37,7 +37,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Color of the space around the map when zoomed out</summary>
         [JsonProperty("background_color")]
-        [SerializeField] private string _backgroundColor;
+        [SerializeField] private string _backgroundColor = "";
 
         /// <summary>To associate or differentiate between maps with a common parent</summary>
         [JsonProperty("hierarchy")]

@@ -3,8 +3,9 @@
 Typed models, a v2 API client, and an asset-backed world cache for
 [OnlyWorlds](https://onlyworlds.com) — an open standard for portable world data.
 
-> **Status: early (0.2.0).** Real, public, and used by us. No support promise or compatibility
-> contract yet. The models are hand-written proving models and will be replaced by generated ones.
+> **Status: early (0.3.0).** Real, public, and used by us. No support promise or compatibility
+> contract yet. All 22 element models are generated from the pinned schema distribution
+> (`v0.30.1-dist.15`).
 
 ## Install
 
@@ -45,8 +46,13 @@ foreach (var c in characters) {
 
 ## Things that will bite you
 
-**Only `name` is required.** Every other field is optional and nullable on the wire, and the API
-sends explicit `null` rather than omitting the key.
+**Only `name` is required.** Every other field is optional, and the API sends its empty value
+explicitly (`null`, `""` or `[]`) rather than omitting the key.
+
+**`""` is a string's unset.** For text fields the wire has no `null`: keel stores strings as empty
+or not, never absent. Models start every scalar string at `""`, and the write path sends `""` where a
+string holds `null`. Test with `string.IsNullOrEmpty`, never `== null`. Links are different: a
+single link's unset is `null`, because `""` is not an id.
 
 **`null` is not `0`.** The schema has ~70 nullable integers, so `SerializableNullable<T>` exists to
 keep three states distinct: unset, deliberate zero, and absent. A level-0 character and a
@@ -80,7 +86,8 @@ rest of the world.
 element at `elements/<type>/<slug>--<id-tail>.json` and pins the serialization the format
 specifies: LF, UTF-8 with no BOM, two-space indent, one trailing newline, and keys in the order
 they arrived. None of those are platform defaults, and a world folder lives in version control —
-bytes that drift by machine turn every commit into noise. Identity is the `id` in the body, so
+bytes that drift by machine turn every commit into noise. Numbers are spelled as
+`JSON.stringify` spells them: an integral float is `1`, never `1.0`. Identity is the `id` in the body, so
 renaming an element moves its file and removes the old one. Parse with `OWFolderWriter.Parse`
 rather than `JObject.Parse` for anything you will write back: the latter rewrites ISO-8601
 timestamps into the local timezone, which is valid JSON, identical semantics, and a diff in every
@@ -96,7 +103,7 @@ deadlocks.
 
 ## Testing
 
-142 tests, EditMode: `OnlyWorlds.Sdk.Tests.Editor`.
+207 tests, EditMode: `OnlyWorlds.Sdk.Tests.Editor`.
 
 Live-API smoke tests live in `Tests/Integration` and are gated twice: an `OW_INTEGRATION_TESTS`
 define constraint on the assembly (so they do not compile in by default — add it for the *Editor*

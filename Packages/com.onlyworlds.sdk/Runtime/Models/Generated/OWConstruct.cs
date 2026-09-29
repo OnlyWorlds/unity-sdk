@@ -37,19 +37,19 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>The internal reasoning, structure, or justification of how the construct functions or makes sense within the world</summary>
         [JsonProperty("rationale")]
-        [SerializeField] private string _rationale;
+        [SerializeField] private string _rationale = "";
 
         /// <summary>The historical development or ideation of the construct, and its place in wider historical contexts</summary>
         [JsonProperty("history")]
-        [SerializeField] private string _history;
+        [SerializeField] private string _history = "";
 
         /// <summary>The present condition or operational status of the construct</summary>
         [JsonProperty("status")]
-        [SerializeField] private string _status;
+        [SerializeField] private string _status = "";
 
         /// <summary>The geographic, cultural, or political extent of the construct's influence</summary>
         [JsonProperty("reach")]
-        [SerializeField] private string _reach;
+        [SerializeField] private string _reach = "";
 
         /// <summary>The point in time when the construct began or was first established (uses world's TIME definition)</summary>
         [JsonProperty("start_date")]

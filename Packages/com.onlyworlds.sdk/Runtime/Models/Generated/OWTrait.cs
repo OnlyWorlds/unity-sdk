@@ -37,23 +37,23 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Relating to social relationships, reputation, or interaction dynamics</summary>
         [JsonProperty("social_effects")]
-        [SerializeField] private string _socialEffects;
+        [SerializeField] private string _socialEffects = "";
 
         /// <summary>Relating to physical changes, limitations, or enhancements</summary>
         [JsonProperty("physical_effects")]
-        [SerializeField] private string _physicalEffects;
+        [SerializeField] private string _physicalEffects = "";
 
         /// <summary>Relating to practical or learned performance or aptitude</summary>
         [JsonProperty("functional_effects")]
-        [SerializeField] private string _functionalEffects;
+        [SerializeField] private string _functionalEffects = "";
 
         /// <summary>Relating to temperament, mental state, or personality expression</summary>
         [JsonProperty("personality_effects")]
-        [SerializeField] private string _personalityEffects;
+        [SerializeField] private string _personalityEffects = "";
 
         /// <summary>Relating to visible aspects and patterns of behavior</summary>
         [JsonProperty("behaviour_effects")]
-        [SerializeField] private string _behaviourEffects;
+        [SerializeField] private string _behaviourEffects = "";
 
         // -- Quantitative ------------------------------------------------
 
@@ -85,7 +85,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Describes the trait's societal, symbolic, or systemic presence</summary>
         [JsonProperty("significance")]
-        [SerializeField] private string _significance;
+        [SerializeField] private string _significance = "";
 
         /// <summary>Opposing trait that contradicts or nullifies the trait</summary>
         /// <remarks>Link: UUID of trait. Bare id -- resolve through the cache.</remarks>

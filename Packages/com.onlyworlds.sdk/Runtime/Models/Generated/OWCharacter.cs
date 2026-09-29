@@ -37,11 +37,11 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>The character's visible physical features and body attributes</summary>
         [JsonProperty("physicality")]
-        [SerializeField] private string _physicality;
+        [SerializeField] private string _physicality = "";
 
         /// <summary>The character's mindset, emotional tone, and style of thinking</summary>
         [JsonProperty("mentality")]
-        [SerializeField] private string _mentality;
+        [SerializeField] private string _mentality = "";
 
         /// <summary>The character's approximate or exact height, using world LENGTH units</summary>
         [JsonProperty("height")]
@@ -70,11 +70,11 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>History, upbringing, or formative experiences of the character</summary>
         [JsonProperty("background")]
-        [SerializeField] private string _background;
+        [SerializeField] private string _background = "";
 
         /// <summary>Core desires, goals, or values that drive the character's choices and behavior</summary>
         [JsonProperty("motivations")]
-        [SerializeField] private string _motivations;
+        [SerializeField] private string _motivations = "";
 
         /// <summary>Moment of birth, expressed in the world's TIME units</summary>
         [JsonProperty("birth_date")]
@@ -94,7 +94,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Brief summary of the character's current condition, role, or predicament</summary>
         [JsonProperty("reputation")]
-        [SerializeField] private string _reputation;
+        [SerializeField] private string _reputation = "";
 
         /// <summary>The character's present physical location</summary>
         /// <remarks>Link: UUID of location. Bare id -- resolve through the cache.</remarks>

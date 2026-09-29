@@ -215,6 +215,53 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             }
         }
 
+        [Test]
+        public void EveryScalarString_StartsEmpty_AndEveryLinkStartsNull()
+        {
+            // rulings.yaml string-empty-is-unset: "" IS a string's unset, so a fresh model says ""
+            // -- the same thing Unity's serializer turns a null string into after a reload. A single
+            // link is a string too, and must NOT: null is a link's unset, and "" is not an id.
+            foreach (var slug in OWElementTypes.Slugs)
+            {
+                var type = OWElementTypes.TypeFor(slug);
+                var json = JObject.Parse(OWJson.Serialize(Activator.CreateInstance(type)));
+
+                foreach (var field in OWElementTypes.StringFieldNames[slug].Concat(OWElementTypes.BaseStringFieldNames))
+                {
+                    Assert.AreEqual(JTokenType.String, json[field]?.Type, $"{slug}.{field} on a fresh model.");
+                    Assert.AreEqual("", json[field].ToString(), $"{slug}.{field} on a fresh model.");
+                }
+
+                foreach (var property in json.Properties())
+                {
+                    if (property.Value.Type != JTokenType.String) continue;
+                    Assert.IsTrue(OWElementTypes.IsStringField(slug, property.Name),
+                        $"{slug}.{property.Name} serializes as a string on a fresh model but is not a scalar "
+                        + "string. A link or an id must start null.");
+                }
+            }
+        }
+
+        [Test]
+        public void StringFieldNames_AreDeclaredFields_AndNeverLinks()
+        {
+            foreach (var slug in OWElementTypes.Slugs)
+            {
+                var declared = new HashSet<string>(OWElementTypes.FieldNames[slug]);
+                foreach (var field in OWElementTypes.StringFieldNames[slug])
+                {
+                    Assert.IsTrue(declared.Contains(field), $"{slug}.{field} is listed as a string but not declared.");
+                }
+            }
+
+            Assert.IsFalse(OWElementTypes.IsStringField("location", "parent_location"), "A single link.");
+            Assert.IsFalse(OWElementTypes.IsStringField("pin", "element_id"), "The generic link's id half.");
+            Assert.IsFalse(OWElementTypes.IsStringField("character", "id"), "Identity: null means mint one.");
+            Assert.IsFalse(OWElementTypes.IsStringField("character", "x_note"), "Extensions are another tool's.");
+            Assert.IsTrue(OWElementTypes.IsStringField("archipelago", "description"),
+                "An unknown type still has the base strings.");
+        }
+
         // -- Round trips, every type ------------------------------------------
 
         [Test]

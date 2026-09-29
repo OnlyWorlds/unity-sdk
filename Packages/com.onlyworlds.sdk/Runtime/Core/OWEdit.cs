@@ -71,6 +71,7 @@ namespace OnlyWorlds.Sdk
         {
             var current = Snapshot(_element);
             var patch = new JObject();
+            var slug = OWElementTypes.SlugFor(_element.GetType());
 
             foreach (var property in current.Properties())
             {
@@ -83,6 +84,12 @@ namespace OnlyWorlds.Sdk
                 // change and must be sent as null, not dropped as "nothing to say".
                 if (before != null && JToken.DeepEquals(before, property.Value)) continue;
 
+                // Except for a scalar string, where null and "" are ONE state on the wire
+                // (rulings.yaml string-empty-is-unset). Sending the "change" would PATCH a value
+                // onto itself and bump updated_at for nothing -- a false edit in the change feed.
+                if (before != null && IsEmptyString(before) && IsEmptyString(property.Value)
+                    && OWElementTypes.IsStringField(slug, property.Name)) continue;
+
                 patch[property.Name] = property.Value;
             }
 
@@ -91,6 +98,9 @@ namespace OnlyWorlds.Sdk
             // inventing a null for it would send a clear the caller never asked for.
             return patch;
         }
+
+        private static bool IsEmptyString(JToken token)
+            => token.Type == JTokenType.Null || (token.Type == JTokenType.String && ((string)token).Length == 0);
 
         /// <summary>True when at least one writable field differs from the baseline.</summary>
         public bool HasChanges => BuildPatch().Count > 0;

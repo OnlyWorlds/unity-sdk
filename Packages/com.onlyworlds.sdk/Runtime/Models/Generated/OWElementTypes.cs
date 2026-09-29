@@ -142,7 +142,7 @@ namespace OnlyWorlds.Sdk
         /// <remarks>
         /// A CONSTANT in the emitter rather than a walk result: these are
         /// <c>base_properties.yaml</c>'s fields (lowercased to their wire spelling) plus the
-        /// four server-managed fields that live in no element YAML at all. Change it in
+        /// server-managed fields that live in no element YAML at all. Change it in
         /// <c>codegen/generate_models.py</c> beside <see cref="OWElement"/>, never here.
         /// It sits next to the generated per-type lists so a caller can ask "does this
         /// model know this key?" in one place.
@@ -150,7 +150,70 @@ namespace OnlyWorlds.Sdk
         public static readonly string[] BaseFieldNames =
         {
             "id", "name", "description", "supertype", "subtype", "image_url",
-            "world", "type", "created_at", "updated_at", "change_seq",
+            "world", "type", "created_at", "updated_at", "change_seq", "created_by",
         };
+
+        /// <summary>
+        /// The SCALAR string fields each generated model carries, per slug -- NOT including the
+        /// shared base ones (<see cref="BaseStringFieldNames"/>).
+        /// </summary>
+        /// <remarks>
+        /// rulings.yaml <c>string-empty-is-unset</c>: for these, <c>""</c> IS the wire's unset and
+        /// there is no third state, so the write path sends <c>""</c> where a caller left
+        /// <c>null</c>. Single links are strings too and are deliberately absent: <c>null</c> is a
+        /// link's unset. A type with no scalar string of its own maps to an empty array.
+        /// </remarks>
+        public static readonly IReadOnlyDictionary<string, string[]> StringFieldNames =
+            new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            { "ability", new string[] { "activation", "challenges", "prevalence" } },
+            { "collective", new string[] { "composition", "activity", "disposition", "state" } },
+            { "character", new string[] { "physicality", "mentality", "background", "motivations", "reputation" } },
+            { "construct", new string[] { "rationale", "history", "status", "reach" } },
+            { "creature", new string[] { "appearance", "habits", "demeanor", "status" } },
+            { "event", new string[] { "history", "challenges", "consequences" } },
+            { "family", new string[] { "spirit", "history", "reputation" } },
+            { "institution", new string[] { "doctrine", "status" } },
+            { "language", new string[] { "phonology", "grammar", "lexicon", "writing", "status" } },
+            { "law", new string[] { "declaration", "purpose" } },
+            { "location", new string[] { "form", "function", "political_climate", "customs", "infrastructure", "architecture", "defensibility" } },
+            { "map", new string[] { "background_color" } },
+            { "marker", new string[0] },
+            { "narrative", new string[] { "story", "consequences" } },
+            { "object", new string[] { "aesthetics", "utility", "origins" } },
+            { "phenomenon", new string[] { "expression", "effects", "mythology" } },
+            { "pin", new string[0] },
+            { "relation", new string[] { "background" } },
+            { "species", new string[] { "appearance", "instincts", "sociality", "temperament", "communication", "role" } },
+            { "title", new string[] { "authority", "eligibility", "status", "history" } },
+            { "trait", new string[] { "social_effects", "physical_effects", "functional_effects", "personality_effects", "behaviour_effects", "significance" } },
+            { "zone", new string[] { "role", "context" } },
+        };
+
+        /// <summary>Scalar string fields on <see cref="OWElement"/>, shared by every type.</summary>
+        /// <remarks>
+        /// Derived from <c>base_properties.yaml</c>'s string fields minus <c>id</c> (identity: null
+        /// means mint one) and <c>world</c> (a link, and never sent).
+        /// </remarks>
+        public static readonly string[] BaseStringFieldNames =
+        {
+            "name", "description", "supertype", "subtype", "image_url",
+        };
+
+        /// <summary>
+        /// True when <paramref name="field"/> is a scalar string on this type, base fields included.
+        /// </summary>
+        /// <remarks>
+        /// An unknown slug answers for the base fields only: a type from a newer standard still
+        /// has a name and a description, and nothing else about it can be assumed.
+        /// </remarks>
+        public static bool IsStringField(string slug, string field)
+        {
+            if (string.IsNullOrEmpty(field)) return false;
+            if (Array.IndexOf(BaseStringFieldNames, field) >= 0) return true;
+            return !string.IsNullOrEmpty(slug)
+                && StringFieldNames.TryGetValue(slug, out var names)
+                && Array.IndexOf(names, field) >= 0;
+        }
     }
 }

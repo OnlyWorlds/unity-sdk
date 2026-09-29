@@ -23,7 +23,7 @@ Open this repository as a Unity project (6000.0+). The package is embedded, so e
 no reimport dance.
 
 Tests: **Window → General → Test Runner → EditMode**, assembly `OnlyWorlds.Sdk.Tests.Editor`.
-142 tests, no network required.
+207 tests, no network required.
 
 Live-API smoke tests are in `Tests/Integration` and are gated twice, deliberately:
 
@@ -45,6 +45,6 @@ one consumer of it, alongside the [TypeScript SDK](https://github.com/OnlyWorlds
 
 ## Status
 
-Early. Public and real, but not yet marketed and carrying no compatibility promise. The 22 element
-models are currently 3 hand-written proving models, pending a code generator that emits all of them
-from the canonical schema.
+Early (0.3.0). Public and real, but not yet marketed and carrying no compatibility promise. All 22
+element models are generated from the pinned schema distribution by `codegen/generate_models.py`;
+`codegen/check_drift.py` guards them.

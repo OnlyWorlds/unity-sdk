@@ -114,6 +114,32 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public async Task Request_SendsNullScalarStringsAsEmpty_PerItemType()
+        {
+            // rulings.yaml string-empty-is-unset, per slot: each item's own type decides which
+            // keys are scalar strings. `status` is one on a title, and nothing at all on a pin.
+            _transport.Bodies.Enqueue(AllSucceeded);
+
+            var items = new List<OWBulkItem>
+            {
+                new OWBulkItem("title", JObject.Parse(@"{""name"":""Rigger"",""status"":null,""description"":null}")),
+                new OWBulkItem("pin", JObject.Parse(@"{""name"":""P"",""status"":null,""map"":null}")),
+            };
+
+            await Client().BulkAsync(items);
+
+            var title = _transport.LastBody["items"][0]["element"];
+            var pin = _transport.LastBody["items"][1]["element"];
+            // Token TYPE, not ToString(): a null JValue prints as "" and would pass a value check.
+            Assert.AreEqual(JTokenType.String, title["status"].Type, "title.status is a scalar string.");
+            Assert.AreEqual("", title["status"].ToString());
+            Assert.AreEqual(JTokenType.String, title["description"].Type);
+            Assert.AreEqual(JTokenType.Null, pin["status"].Type,
+                "A key the pin schema does not declare is not ours to reinterpret.");
+            Assert.AreEqual(JTokenType.Null, pin["map"].Type, "A link keeps its null.");
+        }
+
+        [Test]
         public async Task Request_MintsAnIdWhenTheElementHasNone()
         {
             _transport.Bodies.Enqueue(AllSucceeded);

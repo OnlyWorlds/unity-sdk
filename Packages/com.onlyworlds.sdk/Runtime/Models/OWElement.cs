@@ -42,20 +42,24 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("id")]
         [SerializeField] private string _id;
 
+        // Scalar strings start at "", never null (rulings.yaml string-empty-is-unset): "" IS the
+        // wire's unset, keel has no null to store, and Unity's serializer turns null into "" after
+        // a reload anyway -- so a fresh model and a reloaded one now say the same thing.
+
         [JsonProperty("name")]
-        [SerializeField] private string _name;
+        [SerializeField] private string _name = "";
 
         [JsonProperty("description")]
-        [SerializeField] private string _description;
+        [SerializeField] private string _description = "";
 
         [JsonProperty("supertype")]
-        [SerializeField] private string _supertype;
+        [SerializeField] private string _supertype = "";
 
         [JsonProperty("subtype")]
-        [SerializeField] private string _subtype;
+        [SerializeField] private string _subtype = "";
 
         [JsonProperty("image_url")]
-        [SerializeField] private string _imageUrl;
+        [SerializeField] private string _imageUrl = "";
 
         public string Id { get => _id; set => _id = value; }
         public string Name { get => _name; set => _name = value; }
@@ -83,11 +87,17 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("change_seq")]
         [SerializeField] private long _changeSeq;
 
+        // keel D72 (2026-09-28): the membership that created the element on a shared world, or null
+        // (the owner, and all history before membership). Server-managed and not in the standard.
+        [JsonProperty("created_by")]
+        [SerializeField] private string _createdBy;
+
         public string World => _world;
         public string Type => _type;
         public string CreatedAt => _createdAt;
         public string UpdatedAt => _updatedAt;
         public long ChangeSeq => _changeSeq;
+        public string CreatedBy => _createdBy;
 
         // -- Extensions -------------------------------------------------------
 

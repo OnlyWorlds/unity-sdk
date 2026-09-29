@@ -23,7 +23,12 @@ WHAT THE RULING TABLE BINDS HERE (walk/rulings.yaml, read the row not the key):
       and Captain ruled them dropped from canonical.
   string-empty-is-unset -- strings are plain `string`. "" IS the wire's unset;
       keel stores them blank=True and never nullable, so there is no third state
-      and the emitter must not invent one by making strings nullable.
+      and the emitter must not invent one by making strings nullable. Scalar
+      strings are therefore INITIALIZED to "" (a fresh model says what the wire
+      says, and what Unity's serializer turns null into after a reload anyway),
+      and the registry lists them per type (StringFieldNames) so the write path
+      can map a null that still reaches it back to "". Single links are strings
+      too but NOT scalar strings: null is a link's unset, and "" is not an id.
   maximum-is-advisory-and-zero-means-unbounded -- NO range validation is emitted.
       The walk does not surface bounds at all, and that silence is load-bearing.
       Reading `minimum:`/`maximum:` directly out of the YAML here would be
@@ -198,6 +203,9 @@ def emit_field(spec: dict, lines: list[str]) -> None:
     decl = f"        [SerializeField] private {cs_type(kind)} _{camel(name)}"
     if kind == "multi":
         decl += " = new List<string>()"
+    elif kind == "scalar_str":
+        # rulings.yaml string-empty-is-unset: "" is the wire's only unset string.
+        decl += ' = ""'
     lines.append(decl + ";")
     lines.append("")
 
@@ -317,10 +325,13 @@ def _chunk(items: list[str], size: int):
         yield items[i:i + size]
 
 
-# The four fields that exist on every wire body and in no element YAML. They are
+# The fields that exist on every wire body and in no element YAML. They are
 # server-managed and read-only on OWElement; the schema has no place to declare
-# them, so they are the emitter's one legitimate literal.
-SERVER_MANAGED_FIELDS = ["type", "created_at", "updated_at", "change_seq"]
+# them, so they are the emitter's one legitimate literal. `created_by` joined on
+# 2026-09-29: keel D72 put it on every v2 body (the membership that created the
+# element, or null), folder spec section 5 calls it server-managed and not part
+# of the standard, and the live world has carried it since b9e68b080.
+SERVER_MANAGED_FIELDS = ["type", "created_at", "updated_at", "change_seq", "created_by"]
 
 
 def base_field_names() -> list[str]:
@@ -341,6 +352,25 @@ def base_field_names() -> list[str]:
     doc = walk.load_yaml(SCHEMA_DIR, "base_properties")
     names = [key.lower() for key in (doc.get("properties") or {})]
     return names + SERVER_MANAGED_FIELDS
+
+
+# Base keys that are strings in base_properties.yaml but are NOT scalar text:
+# `id` is identity (null means "mint one"), `world` is a link the wire never takes.
+NOT_SCALAR_STRINGS = {"id", "world"}
+
+
+def base_string_field_names() -> list[str]:
+    """The base SCALAR string fields, derived from base_properties.yaml.
+
+    rulings.yaml string-empty-is-unset binds "all scalar string fields", and the
+    base ones (name, description, supertype, subtype, image_url) are the fields
+    every element has. Derived rather than retyped, like base_field_names().
+    """
+    doc = walk.load_yaml(SCHEMA_DIR, "base_properties")
+    return [
+        key.lower() for key, spec in (doc.get("properties") or {}).items()
+        if (spec or {}).get("type") == "string" and key.lower() not in NOT_SCALAR_STRINGS
+    ]
 
 
 def emit_registry(per_type: dict[str, list[dict]]) -> str:
@@ -463,7 +493,7 @@ def emit_registry(per_type: dict[str, list[dict]]) -> str:
     lines.append("        /// <remarks>")
     lines.append("        /// A CONSTANT in the emitter rather than a walk result: these are")
     lines.append("        /// <c>base_properties.yaml</c>'s fields (lowercased to their wire spelling) plus the")
-    lines.append("        /// four server-managed fields that live in no element YAML at all. Change it in")
+    lines.append("        /// server-managed fields that live in no element YAML at all. Change it in")
     lines.append("        /// <c>codegen/generate_models.py</c> beside <see cref=\"OWElement\"/>, never here.")
     lines.append("        /// It sits next to the generated per-type lists so a caller can ask \"does this")
     lines.append("        /// model know this key?\" in one place.")
@@ -473,6 +503,53 @@ def emit_registry(per_type: dict[str, list[dict]]) -> str:
     for chunk in _chunk(base_field_names(), 6):
         lines.append("            " + " ".join(f'"{n}",' for n in chunk))
     lines.append("        };")
+    lines.append("")
+    lines.append("        /// <summary>")
+    lines.append("        /// The SCALAR string fields each generated model carries, per slug -- NOT including the")
+    lines.append('        /// shared base ones (<see cref="BaseStringFieldNames"/>).')
+    lines.append("        /// </summary>")
+    lines.append("        /// <remarks>")
+    lines.append('        /// rulings.yaml <c>string-empty-is-unset</c>: for these, <c>""</c> IS the wire\'s unset and')
+    lines.append('        /// there is no third state, so the write path sends <c>""</c> where a caller left')
+    lines.append("        /// <c>null</c>. Single links are strings too and are deliberately absent: <c>null</c> is a")
+    lines.append("        /// link's unset. A type with no scalar string of its own maps to an empty array.")
+    lines.append("        /// </remarks>")
+    lines.append("        public static readonly IReadOnlyDictionary<string, string[]> StringFieldNames =")
+    lines.append("            new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)")
+    lines.append("        {")
+    for slug in ELEMENT_TYPES:
+        names = [spec["name"] for spec in per_type[slug] if spec["kind"] == "scalar_str"]
+        joined = ", ".join(f'"{n}"' for n in names)
+        lines.append(f'            {{ "{slug}", new string[] {{ {joined} }} }},' if names
+                     else f'            {{ "{slug}", new string[0] }},')
+    lines.append("        };")
+    lines.append("")
+    lines.append('        /// <summary>Scalar string fields on <see cref="OWElement"/>, shared by every type.</summary>')
+    lines.append("        /// <remarks>")
+    lines.append("        /// Derived from <c>base_properties.yaml</c>'s string fields minus <c>id</c> (identity: null")
+    lines.append("        /// means mint one) and <c>world</c> (a link, and never sent).")
+    lines.append("        /// </remarks>")
+    lines.append("        public static readonly string[] BaseStringFieldNames =")
+    lines.append("        {")
+    for chunk in _chunk(base_string_field_names(), 6):
+        lines.append("            " + " ".join(f'"{n}",' for n in chunk))
+    lines.append("        };")
+    lines.append("")
+    lines.append("        /// <summary>")
+    lines.append('        /// True when <paramref name="field"/> is a scalar string on this type, base fields included.')
+    lines.append("        /// </summary>")
+    lines.append("        /// <remarks>")
+    lines.append("        /// An unknown slug answers for the base fields only: a type from a newer standard still")
+    lines.append("        /// has a name and a description, and nothing else about it can be assumed.")
+    lines.append("        /// </remarks>")
+    lines.append("        public static bool IsStringField(string slug, string field)")
+    lines.append("        {")
+    lines.append("            if (string.IsNullOrEmpty(field)) return false;")
+    lines.append("            if (Array.IndexOf(BaseStringFieldNames, field) >= 0) return true;")
+    lines.append("            return !string.IsNullOrEmpty(slug)")
+    lines.append("                && StringFieldNames.TryGetValue(slug, out var names)")
+    lines.append("                && Array.IndexOf(names, field) >= 0;")
+    lines.append("        }")
     lines.append("    }")
     lines.append("}")
     return "\n".join(lines) + "\n"

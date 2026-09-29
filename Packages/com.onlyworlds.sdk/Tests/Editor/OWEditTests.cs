@@ -117,6 +117,36 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public void AScalarStringMovingBetweenNullAndEmpty_IsNotAChange()
+        {
+            // rulings.yaml string-empty-is-unset: for a string, null and "" are one state on the
+            // wire. Sending it would PATCH a value onto itself and bump updated_at for nothing.
+            var character = OWJson.Deserialize<OWCharacter>(
+                @"{""id"":""11111111-2222-4333-8444-555555555555"",""name"":""Q"",""description"":null,""subtype"":""""}");
+            var edit = OWEdit.Begin(character);
+
+            character.Description = "";
+            character.Subtype = null;
+
+            Assert.IsFalse(edit.HasChanges, "null <-> \"\" on a scalar string is no edit.");
+        }
+
+        [Test]
+        public async Task ClearingAScalarString_ReachesTheWireAsEmpty()
+        {
+            var character = Load();
+            var edit = OWEdit.Begin(character);
+
+            character.Supertype = null;   // "Rigger" -> cleared
+            _transport.ResponseBody = CharacterJson;
+            await edit.CommitAsync(Client(), "character");
+
+            Assert.AreEqual(JTokenType.String, _transport.LastBody["supertype"].Type,
+                "A cleared string is a change, and on the wire it is \"\" -- keel has no null to store.");
+            Assert.AreEqual("", _transport.LastBody["supertype"].ToString());
+        }
+
+        [Test]
         public void ServerOwnedFields_AreNeverInThePatch()
         {
             var character = Load();
