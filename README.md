@@ -1,6 +1,6 @@
 # OnlyWorlds Unity SDK
 
-Read and write [OnlyWorlds](https://onlyworlds.com) worlds from Unity.
+Read and write [OnlyWorlds](https://www.onlyworlds.com) worlds from Unity.
 
 This repository is a Unity 6 project with the package embedded in it. The package is
 [`Packages/com.onlyworlds.sdk`](Packages/com.onlyworlds.sdk); the project around it is its test bed.

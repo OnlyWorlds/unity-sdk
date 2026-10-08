@@ -1,6 +1,6 @@
 # OnlyWorlds Unity SDK
 
-Read and write [OnlyWorlds](https://onlyworlds.com) worlds from Unity: typed C# models for the 22 element types, a
+Read and write [OnlyWorlds](https://www.onlyworlds.com) worlds from Unity: typed C# models for the 22 element types, a
 client for the API, and a world cache you can inspect in the Editor.
 
 ## Install
