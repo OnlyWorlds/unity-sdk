@@ -46,7 +46,8 @@ Put it on any GameObject and press Play. The Console shows `Moppetopia`, then `A
 
 ## Your own world
 
-A world's keys are in its settings on onlyworlds.com.
+Create a world at [onlyworlds.com](https://www.onlyworlds.com); its keys are on the world's page. A new key is shown
+once, so copy it then.
 
 - **`ow_r_`** reads, with no PIN. This is the key to ship in a game.
 - **`ow_w_`** reads and writes. Writes also send a secret in `ApiPin`. For code, use an
