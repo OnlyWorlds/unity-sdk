@@ -53,8 +53,12 @@ namespace OnlyWorlds.Sdk.Editor
             if (!string.IsNullOrEmpty(_key))
             {
                 var note = kind == OWKeyKind.Read
-                    ? "Read-only key -- no PIN needed, and writes will be refused."
-                    : $"Detected: {kind} key.";
+                    ? "Read-only key: no PIN, and writes will be refused."
+                    : kind == OWKeyKind.Legacy
+                        ? "Legacy key: reads a public world without a PIN; writes and private worlds need one."
+                        : kind == OWKeyKind.Write
+                            ? "Write key: reads without a PIN; writes need one (a seat's secret, or the account PIN)."
+                            : $"Detected: {kind} key.";
                 EditorGUILayout.LabelField(" ", note, EditorStyles.miniLabel);
             }
 

@@ -48,16 +48,13 @@ namespace OnlyWorlds.Sdk.Editor
         public static OWKeyKind KeyKind => OWKey.DetectKind(ApiKey);
 
         /// <summary>True when there is enough to attempt a connection.</summary>
-        public static bool IsConfigured
-        {
-            get
-            {
-                if (string.IsNullOrEmpty(ApiKey)) return false;
-                var kind = KeyKind;
-                if (kind == OWKeyKind.Unknown) return false;
-                return !OWKey.RequiresPin(kind) || !string.IsNullOrEmpty(ApiPin);
-            }
-        }
+        /// <remarks>
+        /// A PIN is never needed to connect: prefixed keys read without one, and a legacy key needs one
+        /// only for writes or a private world. Demanding it here locked the demo keys out of the
+        /// browser while they worked in code. A missing PIN surfaces as the server's own 401.
+        /// </remarks>
+        public static bool IsConfigured =>
+            !string.IsNullOrEmpty(ApiKey) && KeyKind != OWKeyKind.Unknown;
 
         /// <summary>Why the current settings are unusable, or null when they are fine.</summary>
         public static string ValidationMessage
@@ -71,11 +68,6 @@ namespace OnlyWorlds.Sdk.Editor
                 {
                     return "Key not recognised. Expected an ow_w_ / ow_r_ / ow_a_ prefix, "
                            + "or a 10-digit legacy key.";
-                }
-
-                if (OWKey.RequiresPin(kind) && string.IsNullOrEmpty(ApiPin))
-                {
-                    return $"A {kind} key requires a PIN.";
                 }
 
                 return null;

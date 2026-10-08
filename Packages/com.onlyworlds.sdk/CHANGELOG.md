@@ -6,6 +6,17 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **The World Browser no longer demands a PIN to connect.** Prefixed keys read without one, and a legacy key needs one
+  only for writes or a private world, so the demo keys that worked in code were locked out of the browser. The
+  settings window now says when a PIN is needed for each kind of key.
+
+### Changed
+
+- **The READMEs open with a first run that needs no account**: the demo key `0000000001` reads Moppetopia. Agent seats
+  lead for writes. The account token is no longer offered to the client.
+
 ## [0.3.0] - 2026-09-29
 
 The 22 models generated from the pinned schema, a world-folder writer that matches the reference
