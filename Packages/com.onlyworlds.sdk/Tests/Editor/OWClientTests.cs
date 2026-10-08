@@ -38,7 +38,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
     public class OWClientTests
     {
-        private static OWClient Make(FakeTransport t, string key = "ow_w_test", string pin = "2589")
+        private static OWClient Make(FakeTransport t, string key = "ow_w_test", string pin = "0000")
             => new OWClient(new OWClientConfig
             {
                 ApiKey = key,
@@ -56,7 +56,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             await Make(t).GetWorldAsync();
 
             Assert.AreEqual("ow_w_test", t.Last.Headers["API-Key"]);
-            Assert.AreEqual("2589", t.Last.Headers["API-Pin"]);
+            Assert.AreEqual("0000", t.Last.Headers["API-Pin"]);
             Assert.IsFalse(t.Last.Headers.ContainsKey("Authorization"));
         }
 
