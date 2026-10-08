@@ -52,7 +52,19 @@ A world's keys are in its settings on onlyworlds.com.
   works in one world, and the world's owner can remove it at any time. The account PIN works too, but it opens every
   world on the account.
 
-Keep write keys out of builds you ship.
+```csharp
+var client = new OWClient(new OWClientConfig {
+    ApiKey    = seatKey,    // ow_w_…
+    ApiPin    = seatSecret, // ow_s_…
+    Transport = new UnityWebRequestTransport(),
+});
+
+var made = await client.CreateAsync<OWCharacter>("character", new { name = "The Brine Cartographer" });
+await client.PatchAsync<OWCharacter>("character", made.Id, new { description = "Maps the tide lines." });
+```
+
+`PatchAsync` sends only the fields you pass; `DeleteAsync("character", id)` removes one. Keep write keys out of
+builds you ship.
 
 ## What's in it
 
