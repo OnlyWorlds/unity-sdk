@@ -15,10 +15,11 @@ namespace OnlyWorlds.Samples
     public class OWQuickStart : MonoBehaviour
     {
         [Header("Credentials")]
-        [Tooltip("ow_w_ (write), ow_r_ (read-only, no PIN), or ow_a_ (account).")]
-        [SerializeField] private string _apiKey;
+        [Tooltip("Starts as the demo key for Moppetopia, a public sample world (read-only, no account). " +
+                 "For your own world: an ow_r_ key reads, an ow_w_ key also writes.")]
+        [SerializeField] private string _apiKey = "0000000001";
 
-        [Tooltip("Required for write and legacy keys. Read keys do not use one.")]
+        [Tooltip("Only for writes: an agent seat's ow_s_ secret, or the account PIN. Reads need none.")]
         [SerializeField] private string _apiPin;
 
         [Header("Cache")]

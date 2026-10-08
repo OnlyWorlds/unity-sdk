@@ -44,6 +44,9 @@ public class FirstRun : MonoBehaviour
 Put it on any GameObject and press Play. The Console shows `Moppetopia`, then `Admiral Splashworth`,
 `Admiral Fluffington` and `Captain Snoot`. `ListAllAsync<OWCharacter>("character")` pages through all of them.
 
+A fuller example ships with the package: **Package Manager → OnlyWorlds SDK → Samples → Quick Start**. It reads the
+same world from the API or from a cache asset, and shows nullable fields, links and errors.
+
 ## Your own world
 
 Create a world at [onlyworlds.com](https://www.onlyworlds.com); its keys are on the world's page. A new key is shown
