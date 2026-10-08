@@ -2,49 +2,44 @@
 
 Read and write [OnlyWorlds](https://onlyworlds.com) worlds from Unity.
 
-This repository is a Unity 6 project that **embeds the package** it publishes. The package lives at
-[`Packages/com.onlyworlds.sdk`](Packages/com.onlyworlds.sdk) — that folder is the product; the
-surrounding project is its test bed.
+This repository is a Unity 6 project with the package embedded in it. The package is
+[`Packages/com.onlyworlds.sdk`](Packages/com.onlyworlds.sdk); the project around it is its test bed.
 
 ## Install into your own project
 
-Package Manager → **+ → Add package from git URL**:
+In the Package Manager, **+ → Add package from git URL**:
 
 ```
 https://github.com/OnlyWorlds/unity-sdk.git?path=/Packages/com.onlyworlds.sdk
 ```
 
-See the [package README](Packages/com.onlyworlds.sdk/README.md) for usage, and the
-[CHANGELOG](Packages/com.onlyworlds.sdk/CHANGELOG.md) for what is in each version.
+The [package README](Packages/com.onlyworlds.sdk/README.md) has a first run that reads a sample world with no
+account. The [CHANGELOG](Packages/com.onlyworlds.sdk/CHANGELOG.md) lists what each version changed.
 
-## Working on the SDK itself
+## Working on the SDK
 
-Open this repository as a Unity project (6000.0+). The package is embedded, so edits are live —
-no reimport dance.
+Open this repository as a Unity project (6000.0 or later). The package is embedded, so edits are live.
 
-Tests: **Window → General → Test Runner → EditMode**, assembly `OnlyWorlds.Sdk.Tests.Editor`.
-207 tests, no network required.
+Tests: **Window → General → Test Runner → EditMode**, assembly `OnlyWorlds.Sdk.Tests.Editor`. They need no network.
 
-Live-API smoke tests are in `Tests/Integration` and are gated twice, deliberately:
+The live-API tests in `Tests/Integration` are skipped twice over:
 
-1. The assembly carries an `OW_INTEGRATION_TESTS` define constraint, so it does not compile at all
-   by default. It is an **Editor** assembly (`includePlatforms: ["Editor"]`), so add the define
-   under **Project Settings → Player → Scripting Define Symbols** for the *Editor* platform — the
-   player build target's symbols do not reach it.
-2. Every test is also `[Explicit]`, so even once compiled they are skipped by a Run All. Select and
-   run them individually.
+1. Their assembly compiles only with the `OW_INTEGRATION_TESTS` define. It is an Editor assembly, so add the define
+   under **Project Settings → Player → Scripting Define Symbols** for the Editor platform; a player target's symbols
+   don't reach it.
+2. Every test is `[Explicit]`, so Run All skips them. Run them one at a time.
 
-They need a real key and a network. Both gates are there because a suite that fails for credential
-or connectivity reasons stops being believed.
+They need a key and a network.
 
-## What OnlyWorlds is
+The 22 element models are generated from the [schema distribution](https://github.com/OnlyWorlds/schema-dist) by
+`codegen/generate_models.py`, and `codegen/check_drift.py` checks that they still match it.
 
-An open standard for portable world data: 22 element types, UUID-linked, tool-neutral. The schema is
-governed publicly at [OnlyWorlds/OnlyWorlds](https://github.com/OnlyWorlds/OnlyWorlds); this SDK is
-one consumer of it, alongside the [TypeScript SDK](https://github.com/OnlyWorlds/sdk).
+## OnlyWorlds
 
-## Status
+An open standard for world data: 22 element types, linked by id, usable by any tool. The schema lives at
+[OnlyWorlds/OnlyWorlds](https://github.com/OnlyWorlds/OnlyWorlds). Other clients: the
+[TypeScript SDK](https://github.com/OnlyWorlds/sdk) and the [Python SDK](https://github.com/OnlyWorlds/python-sdk).
 
-Early (0.3.0). Public and real, but not yet marketed and carrying no compatibility promise. All 22
-element models are generated from the pinned schema distribution by `codegen/generate_models.py`;
-`codegen/check_drift.py` guards them.
+## Licence
+
+MIT. See [LICENSE](LICENSE).
