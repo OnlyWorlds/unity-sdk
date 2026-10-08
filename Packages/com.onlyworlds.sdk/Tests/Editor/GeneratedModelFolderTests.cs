@@ -97,14 +97,16 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public void NoElementInTheFolder_LosesAFieldTheModelShouldKnow()
         {
             // The real question this suite exists to answer. Every key in every body must either
-            // be a field the model declares, or an x_ extension the bag carries. Anything else is
-            // a field the emitter did not produce and the model would silently drop -- which is
-            // exactly what a 108-element world is for, because a hand-written fixture only ever
-            // contains the keys its author remembered.
+            // be a field the model declares, or reach the extension bag, which carries it back
+            // out on write. A real world always holds fields some tool added (Atlas stamps
+            // atlas_shape on zones; not every tool prefixes x_), so an undeclared key is not a
+            // failure: dropping one is. A hand-written fixture only ever contains the keys its
+            // author remembered, which is what a real world folder is for.
             RequireWorld();
             var result = Read();
 
             var losses = new List<string>();
+            var carried = new HashSet<string>(StringComparer.Ordinal);
 
             foreach (var element in result.Elements)
             {
@@ -115,19 +117,30 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                     OWElementTypes.FieldNames[element.Type], StringComparer.Ordinal);
                 foreach (var baseField in OWElementTypes.BaseFieldNames) known.Add(baseField);
 
-                foreach (var property in element.Body.Properties())
-                {
-                    // Extensions are carried by the bag, deliberately and unconditionally.
-                    if (property.Name.StartsWith("x_", StringComparison.Ordinal)) continue;
-                    if (known.Contains(property.Name)) continue;
+                var undeclared = element.Body.Properties()
+                    .Select(p => p.Name)
+                    .Where(name => !known.Contains(name))
+                    .ToList();
+                if (undeclared.Count == 0) continue;
 
-                    losses.Add($"{element.Type}.{property.Name} ({Path.GetFileName(element.Path)})");
+                var typed = (OWElement)JsonConvert.DeserializeObject(
+                    element.Body.ToString(), type, OWJson.Settings);
+                var bag = new HashSet<string>(typed.Extensions.Select(e => e.Key), StringComparer.Ordinal);
+
+                foreach (var name in undeclared)
+                {
+                    if (bag.Contains(name)) carried.Add($"{element.Type}.{name}");
+                    else losses.Add($"{element.Type}.{name} ({Path.GetFileName(element.Path)})");
                 }
             }
 
+            if (carried.Count > 0)
+                TestContext.WriteLine("Undeclared fields carried by the extension bag: "
+                    + string.Join(", ", carried.OrderBy(n => n, StringComparer.Ordinal)));
+
             CollectionAssert.IsEmpty(losses.Distinct().ToList(),
-                "Fields present on disk that no generated model declares. Each one would be "
-                + "swallowed by the extension bag instead of reaching a typed property: "
+                "Fields present on disk that neither a generated model declares nor the extension "
+                + "bag carries. Each one would be dropped on read and destroyed on write-back: "
                 + string.Join(", ", losses.Distinct()));
         }
 
