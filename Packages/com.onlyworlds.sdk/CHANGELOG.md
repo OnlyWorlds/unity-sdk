@@ -19,6 +19,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
+- **The World Browser reads like an editor list**: the types in alphabetical order, each with its icon in its
+  family's colour and its count; selectable rows with a hover state in place of button columns; the element's
+  name, type, supertype and subtype as a header; and a link field shows the linked element's name, which opens
+  it. A link resolves to any element the window has seen (the cache, or a list it loaded); an unseen id stays an
+  id. The family legend is gone: the colours stay, the grouping is not shown. The 22 icons are Google's Material
+  Symbols (Apache 2.0, licence in `Editor/Icons/`), rendered by `tools/render_type_icons.py` from the names in
+  `ow-presentation.json`.
 - **The READMEs open with a first run that needs no account**: the demo key `0000000001` reads Moppetopia. Agent seats
   lead for writes. The account token is no longer offered to the client.
 

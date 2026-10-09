@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -29,6 +30,32 @@ namespace OnlyWorlds.Sdk.Editor
         // new type" -- sends the reader into UI code chasing a data problem.
         private static string[] ElementTypes => OWSync.ElementTypes;
 
+        // Shown alphabetically (2026-10-09): in the standard's order the family colours sit in
+        // four blocks, and the grouping reads as a claim the standard does not make. The colours
+        // stay; the order scatters them.
+        private static string[] _alphabetical;
+        private static string[] TypesAlphabetical
+        {
+            get
+            {
+                if (_alphabetical == null || _alphabetical.Length != ElementTypes.Length)
+                {
+                    _alphabetical = (string[])ElementTypes.Clone();
+                    System.Array.Sort(_alphabetical, System.StringComparer.Ordinal);
+                }
+
+                return _alphabetical;
+            }
+        }
+
+        // The 22 type icons: Material Symbols glyphs (Apache 2.0) named in ow-presentation.json,
+        // rendered white by tools/render_type_icons.py so the window can tint them.
+        private const string IconFolder = "Packages/com.onlyworlds.sdk/Editor/Icons/";
+        private static readonly Dictionary<string, Texture2D> Icons = new Dictionary<string, Texture2D>();
+
+        private const float RowHeight = 20f;
+        private const float IconSize = 16f;
+
         private string _selectedType;
         private JObject _selectedElement;
         private readonly List<JObject> _elements = new List<JObject>();
@@ -44,6 +71,18 @@ namespace OnlyWorlds.Sdk.Editor
         private OWWorldCache _cache;
         private bool _useCache;
 
+        // Every element this window has seen, by id: what turns a link field's id into a name
+        // that opens. Filled from the cache and from each list loaded; an id it has not seen
+        // stays an id, because guessing a name would be worse than showing the id.
+        private readonly Dictionary<string, KnownElement> _known = new Dictionary<string, KnownElement>();
+        private string _pendingId;
+
+        private struct KnownElement
+        {
+            public string Type;
+            public string Name;
+        }
+
         [MenuItem("Window/OnlyWorlds/World Browser")]
         public static void Open()
         {
@@ -52,8 +91,16 @@ namespace OnlyWorlds.Sdk.Editor
             window.Show();
         }
 
+        private void OnEnable()
+        {
+            wantsMouseMove = true; // the rows' hover state
+            if (_cache != null) IndexCache();
+        }
+
         private void OnGUI()
         {
+            if (Event.current.type == EventType.MouseMove) Repaint();
+
             DrawToolbar();
 
             if (!OWEditorSettings.IsConfigured)
@@ -150,40 +197,18 @@ namespace OnlyWorlds.Sdk.Editor
 
             var dark = EditorGUIUtility.isProSkin;
 
-            foreach (var type in ElementTypes)
+            // Colour carries the family, the icon and the label carry the type: four colours
+            // cannot tell 22 types apart and were never meant to. No family legend (2026-10-09):
+            // the colours stay, the grouping is not exposed.
+            foreach (var type in TypesAlphabetical)
             {
-                var label = _counts.TryGetValue(type, out var n) ? $"{type} ({n})" : type;
-                var selected = type == _selectedType;
-
-                EditorGUILayout.BeginHorizontal();
-
-                // A family swatch, NOT a per-type colour. Colour carries the family; the icon and
-                // label carry the type. Four families cannot distinguish 22 types and were never
-                // meant to -- the label beside this swatch is doing that work.
-                var swatch = GUILayoutUtility.GetRect(4f, EditorGUIUtility.singleLineHeight,
-                    GUILayout.Width(4f), GUILayout.ExpandWidth(false));
-                EditorGUI.DrawRect(swatch, OWPresentation.ColorFor(type, dark));
-
-                if (GUILayout.Toggle(selected, label, EditorStyles.miniButton) && !selected)
+                var count = _counts.TryGetValue(type, out var n) ? n.ToString() : null;
+                if (Row(type, type == _selectedType, IconFor(type), OWPresentation.ColorFor(type, dark), count)
+                    && type != _selectedType)
                 {
+                    _pendingId = null;
                     SelectType(type);
                 }
-
-                EditorGUILayout.EndHorizontal();
-            }
-
-            // The legend, in the palette's published order -- that order IS the CVD-safety
-            // mechanism, so it is preserved rather than sorted alphabetically.
-            EditorGUILayout.Space(6f);
-            EditorGUILayout.LabelField("Families", EditorStyles.miniBoldLabel);
-
-            foreach (var family in OWPresentation.FamilyOrder)
-            {
-                EditorGUILayout.BeginHorizontal();
-                var swatch = GUILayoutUtility.GetRect(10f, 10f, GUILayout.Width(10f), GUILayout.ExpandWidth(false));
-                EditorGUI.DrawRect(swatch, OWPresentation.ColorOfFamily(family)?.For(dark) ?? Color.grey);
-                GUILayout.Label(family, EditorStyles.miniLabel);
-                EditorGUILayout.EndHorizontal();
             }
 
             EditorGUILayout.EndScrollView();
@@ -218,9 +243,10 @@ namespace OnlyWorlds.Sdk.Editor
 
                 shown++;
                 var selected = ReferenceEquals(element, _selectedElement);
-                if (GUILayout.Toggle(selected, name, EditorStyles.miniButton) && !selected)
+                if (Row(name, selected) && !selected)
                 {
                     _selectedElement = element;
+                    _detailScroll = Vector2.zero;
                     GUI.FocusControl(null);
                 }
             }
@@ -249,10 +275,7 @@ namespace OnlyWorlds.Sdk.Editor
 
             _detailScroll = EditorGUILayout.BeginScrollView(_detailScroll);
 
-            EditorGUILayout.LabelField(
-                _selectedElement["name"]?.ToString() ?? "(unnamed)",
-                EditorStyles.boldLabel);
-
+            DrawHeader(_selectedElement);
             EditorGUILayout.Space(4f);
 
             foreach (var property in _selectedElement.Properties())
@@ -264,7 +287,29 @@ namespace OnlyWorlds.Sdk.Editor
             EditorGUILayout.EndVertical();
         }
 
-        private static void DrawField(string name, JToken value)
+        /// <summary>The element's name beside its type icon, and what kind of thing it is.</summary>
+        private void DrawHeader(JObject element)
+        {
+            var type = element["type"]?.ToString() ?? _selectedType;
+            var kind = string.Join(" · ", new[] { type, element["supertype"]?.ToString(), element["subtype"]?.ToString() }
+                .Where(s => !string.IsNullOrEmpty(s)));
+
+            var rect = GUILayoutUtility.GetRect(GUIContent.none, EditorStyles.label, GUILayout.Height(40f), GUILayout.ExpandWidth(true));
+            var icon = IconFor(type);
+            if (icon != null)
+            {
+                var old = GUI.color;
+                GUI.color = OWPresentation.ColorFor(type, EditorGUIUtility.isProSkin);
+                GUI.DrawTexture(new Rect(rect.x + 4f, rect.y + 6f, 28f, 28f), icon, ScaleMode.ScaleToFit);
+                GUI.color = old;
+            }
+
+            var x = rect.x + (icon != null ? 40f : 4f);
+            GUI.Label(new Rect(x, rect.y + 2f, rect.width - x, 20f), element["name"]?.ToString() ?? "(unnamed)", HeaderStyle);
+            GUI.Label(new Rect(x, rect.y + 21f, rect.width - x, 16f), kind, EditorStyles.miniLabel);
+        }
+
+        private void DrawField(string name, JToken value)
         {
             // The whole reason SerializableNullable exists, surfaced in the UI: an unset field
             // must read as unset. Rendering null as "0" here would relearn the lie one layer up.
@@ -295,7 +340,14 @@ namespace OnlyWorlds.Sdk.Editor
                 EditorGUI.indentLevel++;
                 foreach (var item in array)
                 {
-                    EditorGUILayout.SelectableLabel(item.ToString(),
+                    var id = item.ToString();
+                    if (_known.TryGetValue(id, out var linked))
+                    {
+                        DrawLink(id, linked);
+                        continue;
+                    }
+
+                    EditorGUILayout.SelectableLabel(id,
                         GUILayout.Height(EditorGUIUtility.singleLineHeight));
                 }
 
@@ -304,6 +356,28 @@ namespace OnlyWorlds.Sdk.Editor
             }
 
             var text = value.ToString();
+
+            // An empty string is set, not unset, so it keeps its own mark; dimmed like "--" so a
+            // column of empty fields does not read as a column of headings.
+            if (value.Type == JTokenType.String && text.Length == 0)
+            {
+                using (new EditorGUI.DisabledScope(true))
+                {
+                    EditorGUILayout.LabelField(name, "(empty)");
+                }
+
+                return;
+            }
+
+            // A link: an id this window has seen, under any field but the element's own id.
+            if (name != "id" && value.Type == JTokenType.String && _known.TryGetValue(text, out var target))
+            {
+                EditorGUILayout.BeginHorizontal();
+                EditorGUILayout.PrefixLabel(name);
+                DrawLink(text, target);
+                EditorGUILayout.EndHorizontal();
+                return;
+            }
             if (text.Length > 60)
             {
                 EditorGUILayout.LabelField(name, EditorStyles.miniBoldLabel);
@@ -316,6 +390,157 @@ namespace OnlyWorlds.Sdk.Editor
             }
 
             EditorGUILayout.LabelField(name, text);
+        }
+
+        // -- Drawing helpers --------------------------------------------------
+
+        private static GUIStyle _headerStyle, _selectedLabel, _countLabel;
+
+        private static GUIStyle HeaderStyle => _headerStyle ??= new GUIStyle(EditorStyles.boldLabel) { fontSize = 14 };
+
+        private static GUIStyle SelectedLabel => _selectedLabel ??= new GUIStyle(EditorStyles.label)
+        {
+            normal = { textColor = Color.white },
+        };
+
+        private static GUIStyle CountLabel => _countLabel ??= new GUIStyle(EditorStyles.miniLabel)
+        {
+            alignment = TextAnchor.MiddleRight,
+        };
+
+        // Unity's own selection blue and a faint hover, per skin, so the rows read as an editor list.
+        private static Color SelectedFill => EditorGUIUtility.isProSkin
+            ? new Color(0.17f, 0.36f, 0.53f) : new Color(0.23f, 0.45f, 0.69f);
+
+        private static Color HoverFill => EditorGUIUtility.isProSkin
+            ? new Color(1f, 1f, 1f, 0.06f) : new Color(0f, 0f, 0f, 0.06f);
+
+        /// <summary>A selectable list row: hover, selection, an optional tinted icon and a count. True on click.</summary>
+        private static bool Row(string label, bool selected, Texture2D icon = null, Color? tint = null, string count = null)
+        {
+            var rect = GUILayoutUtility.GetRect(GUIContent.none, EditorStyles.label,
+                GUILayout.Height(RowHeight), GUILayout.ExpandWidth(true));
+            var e = Event.current;
+            var hover = rect.Contains(e.mousePosition);
+
+            if (e.type == EventType.Repaint)
+            {
+                if (selected) EditorGUI.DrawRect(rect, SelectedFill);
+                else if (hover) EditorGUI.DrawRect(rect, HoverFill);
+
+                var x = rect.x + 6f;
+                if (icon != null)
+                {
+                    var old = GUI.color;
+                    GUI.color = tint ?? old;
+                    GUI.DrawTexture(new Rect(x, rect.y + (rect.height - IconSize) / 2f, IconSize, IconSize), icon, ScaleMode.ScaleToFit);
+                    GUI.color = old;
+                    x += IconSize + 6f;
+                }
+
+                var countWidth = count != null ? 34f : 0f;
+                var style = selected ? SelectedLabel : EditorStyles.label;
+                style.Draw(new Rect(x, rect.y + 1f, rect.xMax - x - countWidth - 4f, rect.height - 2f), label, false, false, false, false);
+                if (count != null)
+                {
+                    CountLabel.Draw(new Rect(rect.xMax - countWidth - 6f, rect.y, countWidth, rect.height), count, false, false, false, false);
+                }
+            }
+
+            if (e.type == EventType.MouseDown && e.button == 0 && hover)
+            {
+                e.Use();
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>A linked element's name, with its type icon; a click opens it.</summary>
+        private void DrawLink(string id, KnownElement target)
+        {
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.Space(EditorGUI.indentLevel * 15f); // a layout row ignores indentLevel; a list's items sit under their heading
+            var icon = IconFor(target.Type);
+            if (icon != null)
+            {
+                var r = GUILayoutUtility.GetRect(IconSize, IconSize, GUILayout.Width(IconSize), GUILayout.Height(EditorGUIUtility.singleLineHeight));
+                var old = GUI.color;
+                GUI.color = OWPresentation.ColorFor(target.Type, EditorGUIUtility.isProSkin);
+                GUI.DrawTexture(new Rect(r.x, r.y + (r.height - 14f) / 2f, 14f, 14f), icon, ScaleMode.ScaleToFit);
+                GUI.color = old;
+            }
+
+            if (EditorGUILayout.LinkButton(string.IsNullOrEmpty(target.Name) ? id : target.Name))
+            {
+                OpenLinked(id);
+            }
+
+            GUILayout.FlexibleSpace();
+            EditorGUILayout.EndHorizontal();
+        }
+
+        private static Texture2D IconFor(string type)
+        {
+            if (string.IsNullOrEmpty(type)) return null;
+            if (!Icons.TryGetValue(type, out var icon) || icon == null)
+            {
+                icon = AssetDatabase.LoadAssetAtPath<Texture2D>(IconFolder + type + ".png");
+                Icons[type] = icon;
+            }
+
+            return icon;
+        }
+
+        // -- Links ------------------------------------------------------------
+
+        private void Index(IEnumerable<JObject> elements, string type)
+        {
+            foreach (var element in elements)
+            {
+                var id = element["id"]?.ToString();
+                if (string.IsNullOrEmpty(id)) continue;
+                _known[id] = new KnownElement { Type = element["type"]?.ToString() ?? type, Name = element["name"]?.ToString() };
+            }
+        }
+
+        private void IndexCache()
+        {
+            if (_cache == null) return;
+            foreach (var type in ElementTypes)
+            {
+                Index(_cache.AllRaw(type).Select(JObject.Parse), type);
+            }
+        }
+
+        /// <summary>Opens a linked element: its type's list, then the element itself.</summary>
+        /// <remarks>
+        /// Live, the type's list loads asynchronously, so the id waits in <c>_pendingId</c> until
+        /// the load lands; from the cache it opens at once.
+        /// </remarks>
+        private void OpenLinked(string id)
+        {
+            if (!_known.TryGetValue(id, out var target)) return;
+            _pendingId = id;
+            _filter = string.Empty;
+            GUI.FocusControl(null);
+            if (target.Type != _selectedType) SelectType(target.Type);
+            OpenPending();
+        }
+
+        private void OpenPending()
+        {
+            if (_pendingId == null) return;
+            foreach (var element in _elements)
+            {
+                if (element["id"]?.ToString() != _pendingId) continue;
+                _selectedElement = element;
+                _detailScroll = Vector2.zero;
+                _pendingId = null;
+                break;
+            }
+
+            Repaint();
         }
 
         private void DrawStatusBar()
@@ -350,6 +575,8 @@ namespace OnlyWorlds.Sdk.Editor
                     {
                         _cache = OWCacheAsset.Find(OWWorldKey.FromApi(_worldId, OWEditorSettings.BaseUrl));
                         if (_cache != null) _status += $" Cache: {_cache.Count} elements.";
+                        _known.Clear();
+                        IndexCache();
                     }
 
                     // No counts here, deliberately. Checked the wire: neither GET /world nor the
@@ -385,7 +612,8 @@ namespace OnlyWorlds.Sdk.Editor
 
                 _counts[type] = _elements.Count;
                 _status = $"{_elements.Count} {type} (from cache).";
-                Repaint();
+                Index(_elements, type);
+                OpenPending();
                 return;
             }
 
@@ -413,7 +641,8 @@ namespace OnlyWorlds.Sdk.Editor
                     _elements.AddRange(loaded);
                     _counts[type] = loaded.Count;
                     _status = $"{loaded.Count} {type}.";
-                    Repaint();
+                    Index(loaded, type);
+                    OpenPending();
                 },
                 error =>
                 {
@@ -454,6 +683,8 @@ namespace OnlyWorlds.Sdk.Editor
                 _worldName = string.IsNullOrEmpty(read.WorldName) ? "(unnamed world)" : read.WorldName;
 
                 RecountFromCache();
+                _known.Clear();
+                IndexCache();
                 _selectedType = null;
                 _selectedElement = null;
                 _elements.Clear();
@@ -509,6 +740,7 @@ namespace OnlyWorlds.Sdk.Editor
                     // Without SaveAssets the next domain reload discards everything just fetched,
                     // which looks exactly like the sync having failed.
                     OWCacheAsset.Save(_cache);
+                    IndexCache();
 
                     _status = result.WasRebaselined
                         ? $"Rebaselined: {result.Fetched} elements at seq {result.Cursor}."
