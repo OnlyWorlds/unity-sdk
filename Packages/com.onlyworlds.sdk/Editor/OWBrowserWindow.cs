@@ -21,7 +21,7 @@ namespace OnlyWorlds.Sdk.Editor
     /// </remarks>
     public class OWBrowserWindow : EditorWindow
     {
-        private const float TypePanelWidth = 150f;
+        private const float TypePanelWidth = 172f; // fits "phenomenon (99)"; 150 cut it
         private const float ListPanelWidth = 260f;
 
         // One list, in the runtime assembly, guarded by a test. A second copy here drifted the
@@ -307,8 +307,11 @@ namespace OnlyWorlds.Sdk.Editor
             if (text.Length > 60)
             {
                 EditorGUILayout.LabelField(name, EditorStyles.miniBoldLabel);
-                EditorGUILayout.SelectableLabel(text, EditorStyles.wordWrappedLabel,
-                    GUILayout.Height(EditorGUIUtility.singleLineHeight * 3f));
+                // Sized to the text at the detail panel's width: a fixed three lines cut long
+                // descriptions off mid-sentence.
+                var width = Mathf.Max(120f, EditorGUIUtility.currentViewWidth - TypePanelWidth - ListPanelWidth - 40f);
+                var height = EditorStyles.wordWrappedLabel.CalcHeight(new GUIContent(text), width);
+                EditorGUILayout.SelectableLabel(text, EditorStyles.wordWrappedLabel, GUILayout.Height(height));
                 return;
             }
 
