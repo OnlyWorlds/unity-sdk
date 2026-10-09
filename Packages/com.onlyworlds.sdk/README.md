@@ -5,6 +5,10 @@ Your [OnlyWorlds](https://www.onlyworlds.com) world, its characters, places and 
 It reads and writes worlds through the OnlyWorlds API, with typed C# models for all 22 element types and a world
 cache you can browse in the Editor.
 
+![The World Browser in the Unity editor: Moppetopia's 22 element types with their icons and counts, its characters, and Admiral Fluffington's fields](https://media.onlyworlds.com/onlyworlds/readme/unity-world-browser.webp)
+
+*The World Browser (**Window → OnlyWorlds → World Browser**) on Moppetopia, the demo world.*
+
 ## Install
 
 Unity 6000.0 or later. In the Package Manager, **+ → Add package from git URL**:
