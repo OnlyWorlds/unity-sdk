@@ -1,9 +1,9 @@
 // GENERATED from the OnlyWorlds schema distribution -- DO NOT EDIT.
 // Regenerate: python codegen/generate_models.py   (drift guard: codegen/check_drift.py)
 //
-// canonical: 00.30.01
-// serial: 15
-// published: 2026-09-18
+// canonical: 00.31.00
+// serial: 18
+// published: 2026-10-09
 
 using System;
 using System.Collections.Generic;
@@ -39,11 +39,11 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("appearance")]
         [SerializeField] private string _appearance = "";
 
-        /// <summary>Approximate or exact weight of the creature, using world MASS units</summary>
+        /// <summary>Approximate or exact weight of the creature, in the world's mass unit (World mass_unit)</summary>
         [JsonProperty("weight")]
         [SerializeField] private SerializableNullable<int> _weight;
 
-        /// <summary>Approximate height of the creature, using the world's defined LENGTH units</summary>
+        /// <summary>Approximate height of the creature, in the world's length unit (World length_unit)</summary>
         [JsonProperty("height")]
         [SerializeField] private SerializableNullable<int> _height;
 
@@ -111,7 +111,7 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("armor_class")]
         [SerializeField] private SerializableNullable<int> _armorClass;
 
-        /// <summary>Typical movement speed, measured in the world's DISTANCE unit per round</summary>
+        /// <summary>Typical movement speed, in the world's distance unit (World distance_unit) per round</summary>
         [JsonProperty("speed")]
         [SerializeField] private SerializableNullable<int> _speed;
 

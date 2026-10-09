@@ -1,9 +1,9 @@
 // GENERATED from the OnlyWorlds schema distribution -- DO NOT EDIT.
 // Regenerate: python codegen/generate_models.py   (drift guard: codegen/check_drift.py)
 //
-// canonical: 00.30.01
-// serial: 15
-// published: 2026-09-18
+// canonical: 00.31.00
+// serial: 18
+// published: 2026-10-09
 
 using System;
 using System.Collections.Generic;
@@ -43,11 +43,11 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("mentality")]
         [SerializeField] private string _mentality = "";
 
-        /// <summary>The character's approximate or exact height, using world LENGTH units</summary>
+        /// <summary>The character's approximate or exact height, in the world's length unit (World length_unit)</summary>
         [JsonProperty("height")]
         [SerializeField] private SerializableNullable<int> _height;
 
-        /// <summary>The character's approximate or exact weight, using world MASS units</summary>
+        /// <summary>The character's approximate or exact weight, in the world's mass unit (World mass_unit)</summary>
         [JsonProperty("weight")]
         [SerializeField] private SerializableNullable<int> _weight;
 

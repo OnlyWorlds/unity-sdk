@@ -19,6 +19,10 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
+- **Schema pin moved to `v0.31.0-dist.18`** (from `dist.15`): canonical `00.31.00`, the world units. The World
+  gains `length_unit`, `mass_unit` and `distance_unit`; `GetWorldAsync` returns the World as a `JObject`, so
+  they arrive with no code change (`world["length_unit"]`). The element models changed only in their doc
+  comments: the unit fields now name the World field they are measured in. `presentation.json` is unchanged.
 - **The World Browser reads like an editor list**: the types in alphabetical order, each with its icon in its
   family's colour and its count; selectable rows with a hover state in place of button columns; the element's
   name, type, supertype and subtype as a header; and a link field shows the linked element's name, which opens

@@ -1,9 +1,9 @@
 // GENERATED from the OnlyWorlds schema distribution -- DO NOT EDIT.
 // Regenerate: python codegen/generate_models.py   (drift guard: codegen/check_drift.py)
 //
-// canonical: 00.30.01
-// serial: 15
-// published: 2026-09-18
+// canonical: 00.31.00
+// serial: 18
+// published: 2026-10-09
 
 using System;
 using System.Collections.Generic;
@@ -83,12 +83,12 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("zone")]
         [SerializeField] private string _zone;
 
-        /// <summary>Locations with active, traditional, or historical rivalries</summary>
+        /// <summary>Location with an active, traditional, or historical rivalry with this one</summary>
         /// <remarks>Link: UUID of location. Bare id -- resolve through the cache.</remarks>
         [JsonProperty("rival")]
         [SerializeField] private string _rival;
 
-        /// <summary>Locations with active, cooperative, or historical ties</summary>
+        /// <summary>Location with active, cooperative, or historical ties to this one</summary>
         /// <remarks>Link: UUID of location. Bare id -- resolve through the cache.</remarks>
         [JsonProperty("partner")]
         [SerializeField] private string _partner;
@@ -179,7 +179,7 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("defensibility")]
         [SerializeField] private string _defensibility = "";
 
-        /// <summary>Height or elevation of the location relative to surrounding terrain, defined in world DISTANCE units</summary>
+        /// <summary>Height or elevation of the location relative to surrounding terrain, in the world's distance unit (World distance_unit)</summary>
         [JsonProperty("elevation")]
         [SerializeField] private SerializableNullable<int> _elevation;
 

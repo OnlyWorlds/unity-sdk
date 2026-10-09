@@ -1,9 +1,9 @@
 // GENERATED from the OnlyWorlds schema distribution -- DO NOT EDIT.
 // Regenerate: python codegen/generate_models.py   (drift guard: codegen/check_drift.py)
 //
-// canonical: 00.30.01
-// serial: 15
-// published: 2026-09-18
+// canonical: 00.31.00
+// serial: 18
+// published: 2026-10-09
 
 using System;
 using System.Collections.Generic;
@@ -47,7 +47,7 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("potency")]
         [SerializeField] private SerializableNullable<int> _potency;
 
-        /// <summary>Effective reach or distance at which the ability can be used, measured in DISTANCE units</summary>
+        /// <summary>Effective reach or distance at which the ability can be used, in the world's distance unit (World distance_unit)</summary>
         [JsonProperty("range")]
         [SerializeField] private SerializableNullable<int> _range;
 

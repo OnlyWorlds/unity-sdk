@@ -1,9 +1,9 @@
 // GENERATED from the OnlyWorlds schema distribution -- DO NOT EDIT.
 // Regenerate: python codegen/generate_models.py   (drift guard: codegen/check_drift.py)
 //
-// canonical: 00.30.01
-// serial: 15
-// published: 2026-09-18
+// canonical: 00.31.00
+// serial: 18
+// published: 2026-10-09
 
 using System;
 using System.Collections.Generic;
@@ -39,7 +39,7 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("aesthetics")]
         [SerializeField] private string _aesthetics = "";
 
-        /// <summary>Approximate or exact mass of the object, defined by world MASS units</summary>
+        /// <summary>Approximate or exact mass of the object, in the world's mass unit (World mass_unit)</summary>
         [JsonProperty("weight")]
         [SerializeField] private SerializableNullable<int> _weight;
 

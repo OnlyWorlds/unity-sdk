@@ -1,9 +1,9 @@
 // GENERATED from the OnlyWorlds schema distribution -- DO NOT EDIT.
 // Regenerate: python codegen/generate_models.py   (drift guard: codegen/check_drift.py)
 //
-// canonical: 00.30.01
-// serial: 15
-// published: 2026-09-18
+// canonical: 00.31.00
+// serial: 18
+// published: 2026-10-09
 
 using System;
 using System.Collections.Generic;
@@ -57,7 +57,7 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("z")]
         [SerializeField] private SerializableNullable<int> _z;
 
-        /// <summary>Sequence position when markers define a polygon or line (0 = first point)</summary>
+        /// <summary>Sequence position when markers define a polygon or line (0 = first point); without it, markers keep the order they were made in</summary>
         [JsonProperty("order")]
         [SerializeField] private SerializableNullable<int> _order;
 

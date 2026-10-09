@@ -1,9 +1,9 @@
 // GENERATED from the OnlyWorlds schema distribution -- DO NOT EDIT.
 // Regenerate: python codegen/generate_models.py   (drift guard: codegen/check_drift.py)
 //
-// canonical: 00.30.01
-// serial: 15
-// published: 2026-09-18
+// canonical: 00.31.00
+// serial: 18
+// published: 2026-10-09
 
 using System;
 using System.Collections.Generic;
@@ -47,7 +47,7 @@ namespace OnlyWorlds.Sdk
         /// The schema's ONLY <c>generic-link</c>: it points at any element type, carried on
         /// the wire as an (<c>element_type</c>, <c>element_id</c>) pair rather than a bare
         /// UUID. Resolve the slug through <see cref="OWElementTypes"/>.
-        /// <para>Schema: Link to any Element (managed by ContentType + UUID)</para>
+        /// <para>Schema: The element this pin places on the map, of any type</para>
         /// </remarks>
         [JsonProperty("element_type")]
         [SerializeField] private string _elementType;

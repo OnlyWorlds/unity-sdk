@@ -1,9 +1,9 @@
 // GENERATED from the OnlyWorlds schema distribution -- DO NOT EDIT.
 // Regenerate: python codegen/generate_models.py   (drift guard: codegen/check_drift.py)
 //
-// canonical: 00.30.01
-// serial: 15
-// published: 2026-09-18
+// canonical: 00.31.00
+// serial: 18
+// published: 2026-10-09
 
 using System;
 using System.Collections.Generic;
@@ -43,7 +43,7 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("life_span")]
         [SerializeField] private SerializableNullable<int> _lifeSpan;
 
-        /// <summary>Average or typical adult weight, defined in world MASS units</summary>
+        /// <summary>Average or typical adult weight, in the world's mass unit (World mass_unit)</summary>
         [JsonProperty("weight")]
         [SerializeField] private SerializableNullable<int> _weight;
 
