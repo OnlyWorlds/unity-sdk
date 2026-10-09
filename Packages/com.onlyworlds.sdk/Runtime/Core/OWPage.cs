@@ -37,6 +37,18 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Sparse fieldset, e.g. <c>id,name,supertype</c>.</summary>
         public string[] Fields;
+
+        /// <summary>Exact match on name (<c>name</c>).</summary>
+        public string Name;
+
+        /// <summary>Case-insensitive substring match on name (<c>name__icontains</c>).</summary>
+        public string NameContains;
+
+        /// <summary>Exact match on supertype.</summary>
+        public string Supertype;
+
+        /// <summary>Exact match on subtype.</summary>
+        public string Subtype;
     }
 
     /// <summary>A single entry from the <c>/changes</c> feed.</summary>

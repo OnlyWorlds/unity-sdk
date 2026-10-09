@@ -315,6 +315,39 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             StringAssert.Contains("fields=id%2Cname%2Csupertype", t.Last.Url);
         }
 
+        [Test]
+        public async Task List_SendsNameAndTypeFilters()
+        {
+            var t = new FakeTransport { ResponseBody = @"{""data"":[],""has_more"":false}" };
+            await Make(t).ListAsync<OWElement>("character", new OWListParams
+            {
+                NameContains = "fluff ington",
+                Name = "Admiral Fluffington",
+                Supertype = "Admiral",
+                Subtype = "Puddle Navy",
+            });
+
+            StringAssert.Contains("name__icontains=fluff%20ington", t.Last.Url);
+            StringAssert.Contains("name=Admiral%20Fluffington", t.Last.Url);
+            StringAssert.Contains("supertype=Admiral", t.Last.Url);
+            StringAssert.Contains("subtype=Puddle%20Navy", t.Last.Url);
+        }
+
+        [Test]
+        public async Task ListAll_CarriesFiltersOntoEveryPage()
+        {
+            var t = new FakeTransport();
+            t.Bodies.Enqueue(@"{""data"":[{""name"":""a""}],""has_more"":true,""next_cursor"":""c1""}");
+            t.Bodies.Enqueue(@"{""data"":[{""name"":""b""}],""has_more"":false,""next_cursor"":null}");
+
+            await Make(t).ListAllAsync<OWElement>("character", new OWListParams { NameContains = "admiral" });
+
+            Assert.AreEqual(2, t.Calls.Count);
+            StringAssert.Contains("name__icontains=admiral", t.Calls[0].Url);
+            StringAssert.Contains("name__icontains=admiral", t.Calls[1].Url, "A filter dropped on page two widens the list silently.");
+            StringAssert.Contains("cursor=c1", t.Calls[1].Url);
+        }
+
         // -- Changes ----------------------------------------------------------
 
         [Test]

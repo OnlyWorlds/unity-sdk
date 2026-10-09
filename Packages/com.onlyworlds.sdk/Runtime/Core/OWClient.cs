@@ -90,6 +90,11 @@ namespace OnlyWorlds.Sdk
             if (!string.IsNullOrEmpty(p.Cursor)) query.Add("cursor=" + Uri.EscapeDataString(p.Cursor));
             if (p.Fields != null && p.Fields.Length > 0)
                 query.Add("fields=" + Uri.EscapeDataString(string.Join(",", p.Fields)));
+            if (!string.IsNullOrEmpty(p.Name)) query.Add("name=" + Uri.EscapeDataString(p.Name));
+            if (!string.IsNullOrEmpty(p.NameContains))
+                query.Add("name__icontains=" + Uri.EscapeDataString(p.NameContains));
+            if (!string.IsNullOrEmpty(p.Supertype)) query.Add("supertype=" + Uri.EscapeDataString(p.Supertype));
+            if (!string.IsNullOrEmpty(p.Subtype)) query.Add("subtype=" + Uri.EscapeDataString(p.Subtype));
 
             return RequestAsync<OWPage<T>>("GET", $"/{type}/", query: string.Join("&", query), ct: ct);
         }
@@ -113,12 +118,11 @@ namespace OnlyWorlds.Sdk
             {
                 ct.ThrowIfCancellationRequested();
 
-                var page = await ListAsync<T>(type, new OWListParams
-                {
-                    Limit = p.Limit,
-                    Cursor = cursor,
-                    Fields = p.Fields,
-                }, ct).ConfigureAwait(false);
+                // Copy the caller's params and move only the cursor, so every filter rides on
+                // every page; rebuilding the struct field by field drops whatever it forgets.
+                var pageParams = p;
+                pageParams.Cursor = cursor;
+                var page = await ListAsync<T>(type, pageParams, ct).ConfigureAwait(false);
 
                 if (page?.Data != null) all.AddRange(page.Data);
 

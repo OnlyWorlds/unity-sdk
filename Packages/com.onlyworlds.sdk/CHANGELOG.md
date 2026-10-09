@@ -6,6 +6,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **List filters**: `OWListParams.Name`, `NameContains`, `Supertype` and `Subtype` send the API's `name`,
+  `name__icontains`, `supertype` and `subtype` filters. `ListAllAsync` now carries every filter onto every page.
+
 ### Fixed
 
 - **The World Browser no longer demands a PIN to connect.** Prefixed keys read without one, and a legacy key needs one

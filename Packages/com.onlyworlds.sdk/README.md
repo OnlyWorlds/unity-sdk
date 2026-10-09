@@ -35,14 +35,15 @@ public class FirstRun : MonoBehaviour
         var world = await client.GetWorldAsync();
         Debug.Log(world["name"]);
 
-        var page = await client.ListAsync<OWCharacter>("character", new OWListParams { Limit = 3 });
-        foreach (var c in page.Data) Debug.Log(c.Name);
+        var found = await client.ListAsync<OWCharacter>("character",
+            new OWListParams { NameContains = "fluffington" });
+        Debug.Log(found.Data[0].Name);
     }
 }
 ```
 
-Put it on any GameObject and press Play. The Console shows `Moppetopia`, then `Admiral Splashworth`,
-`Admiral Fluffington` and `Captain Snoot`. `ListAllAsync<OWCharacter>("character")` pages through all of them.
+Put it on any GameObject and press Play. The Console shows `Moppetopia`, then `Admiral Fluffington`.
+`ListAllAsync<OWCharacter>("character")` pages through every character.
 
 A fuller example ships with the package: **Package Manager → OnlyWorlds SDK → Samples → Quick Start**. It reads the
 same world from the API or from a cache asset, and shows nullable fields, links and errors.
