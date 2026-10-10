@@ -103,7 +103,9 @@ namespace OnlyWorlds.Sdk.Editor
 
             DrawToolbar();
 
-            if (!OWEditorSettings.IsConfigured)
+            // A key is needed to reach the API, never to read what is already here: a folder world or a cache shows
+            // offline with no key (a folder world needs no account at all).
+            if (!OWEditorSettings.IsConfigured && !(_useCache && _cache != null))
             {
                 DrawSetupPrompt();
                 return;
