@@ -16,8 +16,8 @@ namespace OnlyWorlds.Sdk.Editor
         public static void Open()
         {
             var window = GetWindow<OWSettingsWindow>(true, "OnlyWorlds Settings");
-            window.minSize = new Vector2(430f, 260f);
-            window.maxSize = new Vector2(430f, 260f);
+            window.minSize = new Vector2(430f, 280f);
+            window.maxSize = new Vector2(430f, 280f);
             window.Load();
             window.ShowUtility();
         }
@@ -67,10 +67,24 @@ namespace OnlyWorlds.Sdk.Editor
 
             EditorGUILayout.Space(4f);
             EditorGUILayout.HelpBox(
-                "Stored per-machine in EditorPrefs -- never written into the project or version "
-                + "control. Shipped game code should take its key from the game's own config, not "
-                + "from here.",
+                "Stored for this project in EditorPrefs, on this machine -- never written into the "
+                + "project or version control. Shipped game code should take its key from the game's "
+                + "own config, not from here.",
                 MessageType.None);
+
+            if (OWEditorSettings.CanAdoptMachineWide && string.IsNullOrEmpty(_key))
+            {
+                EditorGUILayout.BeginHorizontal();
+                EditorGUILayout.LabelField("An earlier version saved a key for every project.",
+                    EditorStyles.miniLabel);
+                if (GUILayout.Button("Use it here", EditorStyles.miniButton, GUILayout.Width(80f)))
+                {
+                    OWEditorSettings.AdoptMachineWide();
+                    Load();
+                    _testResult = "Saved.";
+                }
+                EditorGUILayout.EndHorizontal();
+            }
 
             EditorGUILayout.Space(6f);
             EditorGUILayout.BeginHorizontal();

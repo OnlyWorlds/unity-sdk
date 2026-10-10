@@ -16,6 +16,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 - **The World Browser no longer demands a PIN to connect.** Prefixed keys read without one, and a legacy key needs one
   only for writes or a private world, so the demo keys that worked in code were locked out of the browser. The
   settings window now says when a PIN is needed for each kind of key.
+- **The editor's key, PIN and base URL are kept per project.** They lived in one machine-wide EditorPrefs entry,
+  so every project on the machine shared one key, and a key rotated for one world went stale in all the others.
+  They are now scoped by the project's `PlayerSettings.productGUID` (clones and worktrees of one project share
+  them), still in EditorPrefs, still never in the project. A project with no key of its own offers the
+  machine-wide key an earlier version saved ("Use it here" in the settings window); it is never read silently.
 
 ### Changed
 
