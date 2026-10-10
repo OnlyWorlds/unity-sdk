@@ -5,7 +5,7 @@ Your [OnlyWorlds](https://www.onlyworlds.com) world, its characters, places and 
 This repository is a Unity 6 project with the package embedded in it. The package is
 [`Packages/com.onlyworlds.sdk`](Packages/com.onlyworlds.sdk); the project around it is its test bed.
 
-![The World Browser in the Unity editor: Moppetopia's 22 element types with their icons and counts, its characters, and Admiral Fluffington's fields](https://media.onlyworlds.com/onlyworlds/readme/unity-world-browser.webp)
+![The World Browser in the Unity editor: Moppetopia's 22 element types with their icons and counts, its characters, and Admiral Fluffington's fields](https://media.onlyworlds.com/onlyworlds/readme/unity-world-browser-2.webp)
 
 *The World Browser (**Window → OnlyWorlds → World Browser**) on Moppetopia, the demo world.*
 
