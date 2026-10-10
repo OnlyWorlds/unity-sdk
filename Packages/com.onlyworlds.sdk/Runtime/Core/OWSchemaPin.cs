@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.31.00";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 18;
+        public const int DistSerial = 19;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.31.0-dist.18";
+        public const string Tag = "v0.31.0-dist.19";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -68,9 +68,18 @@ namespace OnlyWorlds.Sdk
         /// prose: the eight unit descriptions now name the World field they mean. <c>presentation.json</c>
         /// is byte-identical again, so <see cref="PresentationSha256"/> did not move.
         /// </para>
+        /// <para>
+        /// <b>18 -> 19 (2026-10-10)</b>: canonical unchanged. The sidecar moved again: <c>zone</c>
+        /// <c>architecture</c> -> <c>pentagon</c>, <c>marker</c> <c>location_on</c> -> <c>polyline</c>, so the
+        /// World Browser's two icons were re-rendered. The dist grew to 69 files (<c>schema.json</c>, the
+        /// decoded schema for engines; <c>example/hyperion</c>, a public example world folder), and
+        /// <c>schema_walk.py</c> and <c>rulings.yaml</c> were rewritten in public words with a new
+        /// <c>decode_schema</c>. The generated models changed only in their serial and date stamps, and
+        /// every ruling id this SDK cites still exists.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "2e1783e607efe69500b92fdf283d84624c7b3f310cf4fc1bee185a83c8e35804";
+            "a157938b62f108e41ff0872a40ff30646071dfa1a2e25b952f16e35610bcab6f";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.
@@ -81,10 +90,10 @@ namespace OnlyWorlds.Sdk
         /// silently the way an unguarded vendored copy always eventually does.
         /// </remarks>
         public const string PresentationSha256 =
-            "648d9f01b53ea0ceaeb6e04dd17a9fc3ae4d706e8925cb0a89c685d86281762a";
+            "776b5e48d9b27c1d99baabfdaffe7d2fe3995580450452c26e5ab7e30176264f";
 
         /// <summary>When these constants were last verified against the published dist.</summary>
-        public const string PinnedOn = "2026-10-09";
+        public const string PinnedOn = "2026-10-10";
 
         /// <summary>
         /// ⚑ Rulings that bind THIS SDK and any emitter generating into it. Read the row, not the key.
