@@ -29,13 +29,13 @@ namespace OnlyWorlds.Sdk
         public const string Repository = "https://github.com/OnlyWorlds/schema-dist";
 
         /// <summary>Canonical schema version, as the dist's own VERSION file reports it.</summary>
-        public const string CanonicalVersion = "00.31.00";
+        public const string CanonicalVersion = "00.32.00";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 19;
+        public const int DistSerial = 20;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.31.0-dist.19";
+        public const string Tag = "v0.32.0-dist.20";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -77,9 +77,15 @@ namespace OnlyWorlds.Sdk
         /// <c>decode_schema</c>. The generated models changed only in their serial and date stamps, and
         /// every ruling id this SDK cites still exists.
         /// </para>
+        /// <para>
+        /// <b>19 -> 20 (2026-10-11)</b>: canonical <c>00.32.00</c>, the World definition trued (<c>created_at</c>,
+        /// <c>updated_at</c>, <c>public_read</c> in; <c>api_key</c>, <c>user</c>, <c>version</c> out). The walk gained
+        /// one scalar kind, <c>scalar_bool</c>, whose only field is <c>world.public_read</c>: the World is read as a
+        /// <c>JObject</c> here, so nothing is generated from it. <c>presentation.json</c> is byte-identical.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "a157938b62f108e41ff0872a40ff30646071dfa1a2e25b952f16e35610bcab6f";
+            "6d092d8430fb385d47c43ce1d7ddebea23260d028f60d80b498cfca6d682fca6";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.
@@ -93,7 +99,7 @@ namespace OnlyWorlds.Sdk
             "776b5e48d9b27c1d99baabfdaffe7d2fe3995580450452c26e5ab7e30176264f";
 
         /// <summary>When these constants were last verified against the published dist.</summary>
-        public const string PinnedOn = "2026-10-10";
+        public const string PinnedOn = "2026-10-11";
 
         /// <summary>
         /// ⚑ Rulings that bind THIS SDK and any emitter generating into it. Read the row, not the key.

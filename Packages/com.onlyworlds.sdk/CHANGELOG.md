@@ -27,9 +27,10 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
-- **Schema pin moved to `v0.31.0-dist.19`** (from `dist.15`, by way of `dist.18`): canonical `00.31.00`, the
-  world units. The World gains `length_unit`, `mass_unit` and `distance_unit`; `GetWorldAsync` returns the World
-  as a `JObject`, so they arrive with no code change (`world["length_unit"]`). The element models changed only in
+- **Schema pin moved to `v0.32.0-dist.20`** (from `dist.15`, by way of `dist.18` and `dist.19`): canonical
+  `00.32.00`. The World gains `length_unit`, `mass_unit` and `distance_unit` (the world units) and `created_at`,
+  `updated_at` and `public_read`, and loses `api_key`, `user` and `version` from its definition; `GetWorldAsync`
+  returns the World as a `JObject`, so all of it arrives with no code change (`world["length_unit"]`). The element models changed only in
   their doc comments: the unit fields now name the World field they are measured in. In `presentation.json`,
   Zone's icon is now `pentagon` and Marker's `polyline`, and the World Browser draws both.
 - **The World Browser reads like an editor list**: the types in alphabetical order, each with its icon in its
