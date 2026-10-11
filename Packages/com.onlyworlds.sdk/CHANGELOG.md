@@ -6,6 +6,8 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-11
+
 ### Added
 
 - **List filters**: `OWListParams.Name`, `NameContains`, `Supertype` and `Subtype` send the API's `name`,
@@ -24,7 +26,7 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 - **The World Browser loads the whole world on connect**, in the background, so every type's count and every
   link's name show before a type is clicked; before, a link read as a raw id and a count stayed blank until its
   type was opened. A type clicked during the load still opens at once. Unnamed markers read as their zone and
-  order ("Coastline · 3") instead of "(unnamed)", and type names are capitalised.
+  order ("<zone> · 3") instead of "(unnamed)", and type names are capitalised.
 - **The World Browser shows a folder world or a cache with no key.** A key is needed to reach the API, not to
   read what is already on disk; with none set, the browser showed only the setup prompt, even over an open
   folder world, which needs no account at all.
@@ -40,8 +42,8 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 - **The World Browser reads like an editor list**: the types in alphabetical order, each with its icon in its
   family's colour and its count; selectable rows with a hover state in place of button columns; the element's
   name, type, supertype and subtype as a header; and a link field shows the linked element's name, which opens
-  it. A link resolves to any element the window has seen (the cache, or a list it loaded); an unseen id stays an
-  id. The family legend is gone: the colours stay, the grouping is not shown. The 22 icons are Google's Material
+  it. A link resolves to any element the window has loaded, which, with the world loaded on connect, is every
+  element; an id outside the world stays an id. The family legend is gone: the colours stay, the grouping is not shown. The 22 icons are Google's Material
   Symbols (Apache 2.0, licence in `Editor/Icons/`), rendered by `tools/render_type_icons.py` from the names in
   `ow-presentation.json`.
 - **The READMEs open with a first run that needs no account**: the demo key `0000000001` reads Moppetopia. Agent seats
