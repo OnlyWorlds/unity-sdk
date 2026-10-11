@@ -71,6 +71,10 @@ namespace OnlyWorlds.Sdk.Editor
         private OWWorldCache _cache;
         private bool _useCache;
 
+        // The connected world, loaded whole on connect and never saved (LoadLiveWorld).
+        private OWWorldCache _live;
+        private bool _liveReady;
+
         // Every element this window has seen, by id: what turns a link field's id into a name
         // that opens. Filled from the cache and from each list loaded; an id it has not seen
         // stays an id, because guessing a name would be worse than showing the id.
@@ -205,7 +209,7 @@ namespace OnlyWorlds.Sdk.Editor
             foreach (var type in TypesAlphabetical)
             {
                 var count = _counts.TryGetValue(type, out var n) ? n.ToString() : null;
-                if (Row(type, type == _selectedType, IconFor(type), OWPresentation.ColorFor(type, dark), count)
+                if (Row(TypeLabel(type), type == _selectedType, IconFor(type), OWPresentation.ColorFor(type, dark), count)
                     && type != _selectedType)
                 {
                     _pendingId = null;
@@ -235,7 +239,7 @@ namespace OnlyWorlds.Sdk.Editor
             var shown = 0;
             foreach (var element in _elements)
             {
-                var name = element["name"]?.ToString() ?? "(unnamed)";
+                var name = DisplayName(element);
 
                 if (!string.IsNullOrEmpty(_filter) &&
                     name.IndexOf(_filter, System.StringComparison.OrdinalIgnoreCase) < 0)
@@ -293,7 +297,7 @@ namespace OnlyWorlds.Sdk.Editor
         private void DrawHeader(JObject element)
         {
             var type = element["type"]?.ToString() ?? _selectedType;
-            var kind = string.Join(" · ", new[] { type, element["supertype"]?.ToString(), element["subtype"]?.ToString() }
+            var kind = string.Join(" · ", new[] { TypeLabel(type), element["supertype"]?.ToString(), element["subtype"]?.ToString() }
                 .Where(s => !string.IsNullOrEmpty(s)));
 
             var rect = GUILayoutUtility.GetRect(GUIContent.none, EditorStyles.label, GUILayout.Height(40f), GUILayout.ExpandWidth(true));
@@ -307,7 +311,7 @@ namespace OnlyWorlds.Sdk.Editor
             }
 
             var x = rect.x + (icon != null ? 40f : 4f);
-            GUI.Label(new Rect(x, rect.y + 2f, rect.width - x, 20f), element["name"]?.ToString() ?? "(unnamed)", HeaderStyle);
+            GUI.Label(new Rect(x, rect.y + 2f, rect.width - x, 20f), DisplayName(element), HeaderStyle);
             GUI.Label(new Rect(x, rect.y + 21f, rect.width - x, 16f), kind, EditorStyles.miniLabel);
         }
 
@@ -494,6 +498,31 @@ namespace OnlyWorlds.Sdk.Editor
             return icon;
         }
 
+        // -- Names ------------------------------------------------------------
+
+        /// <summary>A type's slug as a label: "character" reads "Character".</summary>
+        internal static string TypeLabel(string type) =>
+            string.IsNullOrEmpty(type) ? type : char.ToUpperInvariant(type[0]) + type.Substring(1);
+
+        /// <summary>
+        /// What a row and a header call an element. Markers are mostly unnamed (a zone's corner points),
+        /// so an unnamed marker reads as its zone and its place in it, "Coastline · 3", not one more
+        /// "(unnamed)" in a column of them.
+        /// </summary>
+        private string DisplayName(JObject element)
+        {
+            var name = element["name"]?.ToString();
+            if (!string.IsNullOrEmpty(name)) return name;
+            if ((element["type"]?.ToString() ?? _selectedType) != "marker") return "(unnamed)";
+
+            var zoneId = element["zone"]?.ToString();
+            var zone = !string.IsNullOrEmpty(zoneId) && _known.TryGetValue(zoneId, out var z) && !string.IsNullOrEmpty(z.Name)
+                ? z.Name
+                : "Marker";
+            var order = element["order"]?.ToString();
+            return string.IsNullOrEmpty(order) ? zone : zone + " · " + order;
+        }
+
         // -- Links ------------------------------------------------------------
 
         private void Index(IEnumerable<JObject> elements, string type)
@@ -581,12 +610,14 @@ namespace OnlyWorlds.Sdk.Editor
                         IndexCache();
                     }
 
-                    // No counts here, deliberately. Checked the wire: neither GET /world nor the
-                    // list envelope carries a total -- only {data, has_more, next_cursor}. A count
-                    // per type would mean walking all 22 types on connect, which for a large world
-                    // is a lot of traffic to populate a label. Counts appear when a type is
-                    // actually loaded, and the label says so.
+                    // The wire carries no totals (GET /world and the list envelope hold only {data,
+                    // has_more, next_cursor}), so counts and link names need the elements themselves.
+                    // A type-at-a-time browser showed ids and blank counts until each type was clicked
+                    // (the Captain's walk, 2026-10-11), so the whole world loads once, in the
+                    // background: an existing cache gives the counts at once, the walk replaces them.
+                    RecountFromCache();
                     Repaint();
+                    LoadLiveWorld();
                 },
                 error =>
                 {
@@ -597,23 +628,87 @@ namespace OnlyWorlds.Sdk.Editor
                 });
         }
 
+        /// <summary>
+        /// Walks every type of the connected world into <see cref="_live"/>, an in-memory cache that is
+        /// never saved, so every count and link name is there before a type is clicked.
+        /// </summary>
+        /// <remarks>
+        /// A type clicked during the walk loads on its own, as before. The walk reports each finished
+        /// type's count from its own thread, marshalled; the cache is read only once the walk is done,
+        /// never while it is still being written.
+        /// </remarks>
+        private void LoadLiveWorld()
+        {
+            DropLive();
+            var live = CreateInstance<OWWorldCache>();
+            live.hideFlags = HideFlags.HideAndDontSave;
+            _live = live;
+            var world = _worldName;
+            var done = 0;
+
+            _busy = true;
+            OWEditorAsync.Run(
+                OWSync.BaselineAsync(OWEditorSettings.CreateClient(), live, onType: (type, n) =>
+                {
+                    OWMainThread.Run(() =>
+                    {
+                        if (_live != live) return; // a newer connect replaced this walk
+                        done++;
+                        _counts[type] = n;
+                        _status = $"Connected to {world}. Loading the world... {done} of {ElementTypes.Length} types";
+                        Repaint();
+                    });
+                }),
+                result =>
+                {
+                    if (_live != live) return;
+                    _busy = false;
+                    _liveReady = true;
+                    foreach (var type in ElementTypes)
+                    {
+                        Index(live.AllRaw(type).Select(JObject.Parse), type);
+                    }
+
+                    _status = $"Connected to {world}: {result.Fetched} elements.";
+                    Repaint();
+                },
+                error =>
+                {
+                    if (_live != live) return;
+                    _busy = false;
+                    _status = $"Connected to {world}; loading the whole world failed ({Describe(error)}). Types load as you open them.";
+                    Repaint();
+                });
+        }
+
+        private void DropLive()
+        {
+            if (_live != null) DestroyImmediate(_live);
+            _live = null;
+            _liveReady = false;
+        }
+
+        private void OnDisable() => DropLive();
+
         private void SelectType(string type)
         {
             _selectedType = type;
             _selectedElement = null;
             _elements.Clear();
 
-            if (_useCache && _cache != null)
+            var local = _useCache && _cache != null ? _cache : _liveReady ? _live : null;
+            if (local != null)
             {
                 // No network at all. This is the point of the cache: a game, or a designer on a
-                // train, reads the world without the API being reachable.
-                foreach (var element in _cache.AllRaw(type))
+                // train, reads the world without the API being reachable. Live, the world is already
+                // loaded (LoadLiveWorld), so a click reads that copy instead of fetching again.
+                foreach (var element in local.AllRaw(type))
                 {
                     _elements.Add(JObject.Parse(element));
                 }
 
                 _counts[type] = _elements.Count;
-                _status = $"{_elements.Count} {type} (from cache).";
+                _status = local == _cache ? $"{_elements.Count} {type} (from cache)." : $"{_elements.Count} {type}.";
                 Index(_elements, type);
                 OpenPending();
                 return;
@@ -679,6 +774,7 @@ namespace OnlyWorlds.Sdk.Editor
                 var cache = ScriptableObject.CreateInstance<OWWorldCache>();
                 var read = OWFolderLoader.LoadInto(cache, path);
 
+                DropLive();
                 _cache = cache;
                 _useCache = true;
                 _worldId = read.WorldId;

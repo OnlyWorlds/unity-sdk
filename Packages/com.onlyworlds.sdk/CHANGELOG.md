@@ -21,6 +21,10 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   They are now scoped by the project's `PlayerSettings.productGUID` (clones and worktrees of one project share
   them), still in EditorPrefs, still never in the project. A project with no key of its own offers the
   machine-wide key an earlier version saved ("Use it here" in the settings window); it is never read silently.
+- **The World Browser loads the whole world on connect**, in the background, so every type's count and every
+  link's name show before a type is clicked; before, a link read as a raw id and a count stayed blank until its
+  type was opened. A type clicked during the load still opens at once. Unnamed markers read as their zone and
+  order ("Coastline · 3") instead of "(unnamed)", and type names are capitalised.
 - **The World Browser shows a folder world or a cache with no key.** A key is needed to reach the API, not to
   read what is already on disk; with none set, the browser showed only the setup prompt, even over an open
   folder world, which needs no account at all.
