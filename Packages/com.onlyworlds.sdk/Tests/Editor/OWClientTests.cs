@@ -392,6 +392,82 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsTrue(ex.IsRetryable, "5xx is worth retrying.");
         }
 
+        [Test]
+        public void Errors_CarryRetryAfter_FromTheHeader()
+        {
+            // keel's admission gate (core/admission.py): 503 server_busy, lowercase retry-after: 5.
+            var t = new FakeTransport
+            {
+                Status = 503,
+                ResponseBody = @"{""error"":{""type"":""api_error"",""code"":""server_busy"",""message"":""The server is busy. Retry after a few seconds.""}}",
+                ResponseHeaders = new Dictionary<string, string> { ["retry-after"] = "5" },
+            };
+
+            var ex = Assert.ThrowsAsync<OWApiError>(async () => await Make(t).GetWorldAsync());
+
+            Assert.AreEqual(5, ex.RetryAfter);
+            Assert.IsTrue(ex.IsRetryable);
+
+            t.ResponseHeaders = new Dictionary<string, string>();
+            Assert.IsNull(Assert.ThrowsAsync<OWApiError>(async () => await Make(t).GetWorldAsync()).RetryAfter);
+        }
+
+        [Test]
+        public void Errors_CarryRetryAfter_EvenWithoutAnEnvelope()
+        {
+            var t = new FakeTransport
+            {
+                Status = 503,
+                ResponseBody = "<html>busy</html>",
+                ResponseHeaders = new Dictionary<string, string> { ["Retry-After"] = "30" },
+            };
+
+            Assert.AreEqual(30, Assert.ThrowsAsync<OWApiError>(async () => await Make(t).GetWorldAsync()).RetryAfter);
+        }
+
+        [TestCase("5", ExpectedResult = 5)]
+        [TestCase(" 7 ", ExpectedResult = 7)]
+        [TestCase("0", ExpectedResult = 0)]
+        [TestCase("1.5", ExpectedResult = null)]
+        [TestCase("-1", ExpectedResult = null)]
+        [TestCase("+5", ExpectedResult = null)]
+        [TestCase("", ExpectedResult = null)]
+        [TestCase(null, ExpectedResult = null)]
+        [TestCase("soon", ExpectedResult = null)]
+        [TestCase("Wed, 21 Oct 2015 07:28:10 GMT", ExpectedResult = 10)]
+        [TestCase("Wed, 21 Oct 2015 07:28:00 GMT", ExpectedResult = 0)]
+        [TestCase("Wed, 21 Oct 2015 07:27:00 GMT", ExpectedResult = 0)]
+        public int? RetryAfter_ParsesLikeTheNpmSdk(string value)
+        {
+            // npm errors.ts parseRetryAfter: digits are seconds, a value with a letter is an HTTP
+            // date (a past one is 0), anything else is null -- never "retry now".
+            var now = new System.DateTimeOffset(2015, 10, 21, 7, 28, 0, System.TimeSpan.Zero);
+            return OWApiError.ParseRetryAfter(value, now);
+        }
+
+        // keel's registry (core/errors.py ERROR_CODES) and npm's per-code docs (errors.ts).
+        [TestCase(409, "idempotency_in_flight", ExpectedResult = true)]
+        [TestCase(409, "upload_pending", ExpectedResult = true)]
+        [TestCase(409, "removal_in_flight", ExpectedResult = true)]
+        [TestCase(409, "idempotency_error", ExpectedResult = false)]
+        [TestCase(409, "id_conflict", ExpectedResult = false)]
+        [TestCase(409, "resync_required", ExpectedResult = false)]
+        [TestCase(429, "rate_limited", ExpectedResult = true)]
+        [TestCase(429, "quota_exceeded", ExpectedResult = false)]
+        [TestCase(503, "server_busy", ExpectedResult = true)]
+        [TestCase(503, "ask_unavailable", ExpectedResult = false)]
+        [TestCase(503, "media_unavailable", ExpectedResult = false)]
+        [TestCase(502, "ask_failed", ExpectedResult = true)]
+        [TestCase(500, "api_error", ExpectedResult = true)]
+        [TestCase(504, null, ExpectedResult = true)]
+        [TestCase(413, "payload_too_large", ExpectedResult = false)]
+        [TestCase(422, "invalid_request", ExpectedResult = false)]
+        [TestCase(401, "invalid_credentials", ExpectedResult = false)]
+        [TestCase(403, "not_author", ExpectedResult = false)]
+        [TestCase(404, "not_found", ExpectedResult = false)]
+        public bool IsRetryable_ByCode(int status, string code)
+            => new OWApiError((System.Net.HttpStatusCode)status, "m", code: code).IsRetryable;
+
         // -- Pagination -------------------------------------------------------
 
         [Test]

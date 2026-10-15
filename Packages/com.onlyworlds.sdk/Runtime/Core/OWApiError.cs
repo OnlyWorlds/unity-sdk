@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Net;
 
 namespace OnlyWorlds.Sdk
@@ -53,10 +54,42 @@ namespace OnlyWorlds.Sdk
         public bool IsResyncRequired => StatusCode == 409 && Code == "resync_required";
 
         /// <summary>
-        /// True when retrying the same request unchanged could plausibly succeed -- server faults
-        /// and rate limits. A 4xx other than 429 will fail again identically.
+        /// Seconds to wait before retrying, from the <c>Retry-After</c> header (a delay in seconds,
+        /// or an HTTP date turned into one), else null. keel sends it on 503 <c>server_busy</c>,
+        /// 429 <c>rate_limited</c> and <c>quota_exceeded</c>, and 409 <c>idempotency_in_flight</c>.
+        /// This client never retries on its own; the value is here so callers can back off politely.
         /// </summary>
-        public bool IsRetryable => StatusCode == 429 || StatusCode >= 500;
+        public int? RetryAfter { get; }
+
+        /// <summary>
+        /// True when sending the same request again, after <see cref="RetryAfter"/> when there is
+        /// one, could plausibly succeed soon: a server fault, a busy server (503 <c>server_busy</c>),
+        /// a PIN lockout (429 <c>rate_limited</c>), or a same-key request still running (409
+        /// <c>idempotency_in_flight</c>: send the same key and body again, and it replays the first
+        /// one's answer; the image routes' 409 <c>upload_pending</c> and <c>removal_in_flight</c>
+        /// likewise). False for a daily allowance used up (429 <c>quota_exceeded</c>, which
+        /// lasts until midnight UTC), for a feature switched off (503 <c>ask_unavailable</c>,
+        /// <c>media_unavailable</c>), and for every other 4xx, which fails again identically.
+        /// </summary>
+        public bool IsRetryable
+        {
+            get
+            {
+                switch (Code)
+                {
+                    case "idempotency_in_flight":
+                    case "upload_pending":
+                    case "removal_in_flight":
+                        return StatusCode == 409;
+                    case "quota_exceeded":
+                    case "ask_unavailable":
+                    case "media_unavailable":
+                        return false;
+                    default:
+                        return StatusCode == 429 || StatusCode >= 500;
+                }
+            }
+        }
 
         public OWApiError(
             HttpStatusCode status,
@@ -65,7 +98,8 @@ namespace OnlyWorlds.Sdk
             string code = null,
             string param = null,
             string docUrl = null,
-            string rawBody = null)
+            string rawBody = null,
+            int? retryAfter = null)
             : base(BuildMessage(status, message, code, param))
         {
             Status = status;
@@ -74,6 +108,38 @@ namespace OnlyWorlds.Sdk
             Param = param;
             DocUrl = docUrl;
             RawBody = rawBody;
+            RetryAfter = retryAfter;
+        }
+
+        /// <summary>
+        /// <c>Retry-After</c> as seconds: a non-negative delay, or an HTTP date turned into one; else
+        /// null. As the npm SDK's <c>parseRetryAfter</c>: only a value with a letter in it is read as
+        /// a date, so <c>"1.5"</c>, <c>"-1"</c> or <c>"+5"</c> is null, never "retry now".
+        /// </summary>
+        public static int? ParseRetryAfter(string value, DateTimeOffset now)
+        {
+            if (value == null) return null;
+            var v = value.Trim();
+            if (v.Length == 0) return null;
+
+            var digits = true;
+            var letter = false;
+            foreach (var c in v)
+            {
+                if (c < '0' || c > '9') digits = false;
+                if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) letter = true;
+            }
+
+            if (digits) return int.TryParse(v, NumberStyles.None, CultureInfo.InvariantCulture, out var s) ? s : int.MaxValue;
+            if (!letter) return null;
+
+            if (!DateTimeOffset.TryParse(v, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var when))
+            {
+                return null;
+            }
+
+            var seconds = Math.Ceiling((when - now).TotalSeconds);
+            return seconds <= 0 ? 0 : seconds >= int.MaxValue ? int.MaxValue : (int)seconds;
         }
 
         private static string BuildMessage(HttpStatusCode status, string message, string code, string param)

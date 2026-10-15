@@ -20,6 +20,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 - Every element reads the server-managed `ChangedBy` (the membership whose write last changed it) and `ChangedVia` (that
   write's door: `seat`, `mcp`, `declared`, `api`, `v1`, `sync` or `server`). A `/changes` delete reads `DeletedBy` and
   `DeletedVia`. `OWWriteDoor.IsAgent(door)` is true for `seat`, `mcp` and `declared`.
+- **`OWApiError.RetryAfter`**: the seconds to wait from the response's `Retry-After` header (a delay, or an HTTP date
+  turned into one), or null. The server sends it on 503 `server_busy`, 429 and 409 `idempotency_in_flight`. It is read
+  as the npm SDK reads it, and the client still never retries on its own.
 
 ### Changed
 
@@ -72,6 +75,10 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   empty world's cache no longer rebuilds on every sync.
 - **`ChangesAsync` sends `limit`**: the client's `PageSize`, at most 1000, above which the feed answers 422. The
   server's default page was 500; the npm SDK asks for 100.
+- **`OWApiError.IsRetryable` reads the error code**, where it was any 429 or 5xx. A 409 `idempotency_in_flight` (the
+  same key still running: send it again and it replays the first answer) now reads as retryable. A 429
+  `quota_exceeded` (a daily allowance, used up until midnight UTC) and a 503 `ask_unavailable` or `media_unavailable`
+  (a feature switched off) no longer do.
 
 ## [0.4.0] - 2026-10-11
 

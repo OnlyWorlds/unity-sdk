@@ -281,22 +281,7 @@ namespace OnlyWorlds.Sdk
         /// wire. Compared case-insensitively so a transport that preserves casing works too.
         /// </summary>
         private static bool ReadReplayHeader(OWResponse response)
-        {
-            // OWResponse is a struct, so there is no null to guard -- only its headers can be null.
-            if (response.Headers == null) return false;
-
-            foreach (var pair in response.Headers)
-            {
-                if (!string.Equals(pair.Key, "idempotent-replay", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                return string.Equals(pair.Value, "true", StringComparison.OrdinalIgnoreCase);
-            }
-
-            return false;
-        }
+            => string.Equals(ReadHeader(response, "idempotent-replay"), "true", StringComparison.OrdinalIgnoreCase);
 
         /// <summary>
         /// POST /{type}/{id}/links/{field} -- atomic add/remove on a relationship, server-side.
@@ -439,6 +424,7 @@ namespace OnlyWorlds.Sdk
         private static OWApiError BuildError(OWResponse response)
         {
             var status = (HttpStatusCode)response.Status;
+            var retryAfter = OWApiError.ParseRetryAfter(ReadHeader(response, "Retry-After"), DateTimeOffset.UtcNow);
 
             // A non-2xx is not guaranteed to carry the envelope -- a proxy or gateway can return
             // HTML. Parse defensively so a 502 surfaces as a clean error rather than a JSON
@@ -455,12 +441,26 @@ namespace OnlyWorlds.Sdk
                     error["code"]?.ToString(),
                     error["param"]?.ToString(),
                     error["doc_url"]?.ToString(),
-                    response.Body);
+                    response.Body,
+                    retryAfter);
             }
             catch (Exception)
             {
-                return new OWApiError(status, Truncate(response.Body), rawBody: response.Body);
+                return new OWApiError(status, Truncate(response.Body), rawBody: response.Body, retryAfter: retryAfter);
             }
+        }
+
+        /// <summary>A response header by name, case-insensitively (keel sends them lowercase), or null.</summary>
+        private static string ReadHeader(OWResponse response, string name)
+        {
+            if (response.Headers == null) return null;
+
+            foreach (var pair in response.Headers)
+            {
+                if (string.Equals(pair.Key, name, StringComparison.OrdinalIgnoreCase)) return pair.Value;
+            }
+
+            return null;
         }
 
         private static string Truncate(string s)
