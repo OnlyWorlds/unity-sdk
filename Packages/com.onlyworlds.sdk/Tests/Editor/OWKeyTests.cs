@@ -51,7 +51,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsFalse(OWKey.CanWrite(OWKeyKind.Read));
             Assert.IsFalse(OWKey.CanWrite(OWKeyKind.Unknown));
             Assert.IsTrue(OWKey.CanWrite(OWKeyKind.Write));
-            Assert.IsTrue(OWKey.CanWrite(OWKeyKind.Account));
+            Assert.IsTrue(OWKey.CanWrite(OWKeyKind.Legacy));
+            Assert.IsFalse(OWKey.CanWrite(OWKeyKind.Account),
+                "An account key is for the /account routes only; it mints world keys but writes no world.");
         }
 
         [Test]

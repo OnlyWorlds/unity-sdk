@@ -66,8 +66,13 @@ namespace OnlyWorlds.Sdk
         public static bool RequiresPin(OWKeyKind kind) =>
             kind == OWKeyKind.Write || kind == OWKeyKind.Legacy;
 
+        /// <summary>
+        /// Can this kind of key ever write a world's elements? The PIN is a separate, per-world
+        /// question. An account key cannot: it is for the server's <c>/account</c> routes only,
+        /// where it mints world keys (as the npm SDK's <c>kindCanWrite</c>).
+        /// </summary>
         public static bool CanWrite(OWKeyKind kind) =>
-            kind == OWKeyKind.Write || kind == OWKeyKind.Legacy || kind == OWKeyKind.Account;
+            kind == OWKeyKind.Write || kind == OWKeyKind.Legacy;
 
         private static bool IsAllDigits(string s)
         {

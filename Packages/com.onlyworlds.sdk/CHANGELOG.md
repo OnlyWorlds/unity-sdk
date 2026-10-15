@@ -85,6 +85,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   someone else's, that only the owner can do this, or that the key's scope does not allow it. `IsNotFound` is a 404
   with the code `not_found`, so a proxy's 404 is not mistaken for a missing element. New: `IsNotAuthor`,
   `IsOwnerOnly`, and `IsResyncRequired`.
+- **`OWKey.CanWrite(OWKeyKind.Account)` is false**, as the npm SDK's `kindCanWrite` says: an account key is for the
+  server's `/account` routes, where it mints world keys, and writes no world itself.
+- **`OWBulkSlot.Succeeded` documents the rolled-back batch**: after an `atomic: true` request with `Errors` true,
+  nothing was written, yet the slots that would have succeeded still say 201 with the ids they would have had. Do not
+  record those ids as created.
 
 ## [0.4.0] - 2026-10-11
 

@@ -211,7 +211,8 @@ namespace OnlyWorlds.Sdk
         /// <param name="items">Elements to write, in the order the result slots will come back.</param>
         /// <param name="atomic">
         /// <c>false</c> (the default, and the server's) means each slot succeeds or fails on its
-        /// own. <c>true</c> asks the server to apply all or nothing.
+        /// own. <c>true</c> asks the server to apply all or nothing; when anything failed, nothing
+        /// was written, though the other slots still say 201 (see <see cref="OWBulkSlot.Succeeded"/>).
         /// </param>
         /// <param name="idempotencyKey">
         /// Replaying the same key returns the original outcome rather than repeating the writes,

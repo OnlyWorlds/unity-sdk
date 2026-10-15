@@ -49,6 +49,12 @@ namespace OnlyWorlds.Sdk
         public OWApiErrorBody Error;
 
         /// <summary>True for any 2xx slot.</summary>
+        /// <remarks>
+        /// After an <c>atomic: true</c> request whose <see cref="OWBulkResult.Errors"/> is true,
+        /// NOTHING was written, yet the slots of the items that would have succeeded still say 201,
+        /// with the ids and timestamps they would have had. There this means "would have
+        /// succeeded": do not record those ids as created.
+        /// </remarks>
         public bool Succeeded => Status >= 200 && Status < 300;
     }
 
@@ -121,6 +127,7 @@ namespace OnlyWorlds.Sdk
             }
         }
 
+        /// <summary>The 2xx slots. After a rolled-back <c>atomic: true</c> request, the ones that would have succeeded.</summary>
         public int SucceededCount
         {
             get
