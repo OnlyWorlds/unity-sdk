@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.32.00";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 20;
+        public const int DistSerial = 24;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.32.0-dist.20";
+        public const string Tag = "v0.32.0-dist.24";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -83,9 +83,17 @@ namespace OnlyWorlds.Sdk
         /// one scalar kind, <c>scalar_bool</c>, whose only field is <c>world.public_read</c>: the World is read as a
         /// <c>JObject</c> here, so nothing is generated from it. <c>presentation.json</c> is byte-identical.
         /// </para>
+        /// <para>
+        /// <b>20 -> 24 (2026-10-16)</b>: canonical unchanged. One schema line moved: the element <c>id</c>'s
+        /// description now says a UUID, new ids minted as uuidv7 and earlier uuidv4 ids valid (serial 23). The
+        /// dist gained <c>walk/lint_folder.py</c>, the folder check (serials 21, 22, 24; 24 knows
+        /// <c>changed_by</c> and <c>changed_via</c> as server-set keys). <c>schema_walk.py</c> and
+        /// <c>rulings.yaml</c> are byte-identical, and so is <c>presentation.json</c>; the generated models
+        /// changed only in their serial and date stamps.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "6d092d8430fb385d47c43ce1d7ddebea23260d028f60d80b498cfca6d682fca6";
+            "b62695ba6bcfd5ed95e143f61436ddceb3389547c4ea515d872df0abcc344496";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.
@@ -99,7 +107,7 @@ namespace OnlyWorlds.Sdk
             "776b5e48d9b27c1d99baabfdaffe7d2fe3995580450452c26e5ab7e30176264f";
 
         /// <summary>When these constants were last verified against the published dist.</summary>
-        public const string PinnedOn = "2026-10-11";
+        public const string PinnedOn = "2026-10-16";
 
         /// <summary>
         /// ⚑ Rulings that bind THIS SDK and any emitter generating into it. Read the row, not the key.

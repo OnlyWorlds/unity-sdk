@@ -23,6 +23,8 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
+- **Schema pin moved to `v0.32.0-dist.24`** (from `dist.20`): canonical unchanged. The element `id` is described as a
+  UUID, new ids minted as v7 and earlier v4 ids still valid. The generated models changed only in their stamps.
 - **Faster folder reads**: `OWFolderReader.Read` (and so `OWFolderLoader.LoadInto`) reads a world's files on up to 8
   threads, then parses them one at a time in the same order as before. On a 20,570-element world it took about 2.0 s
   instead of 3.1 s, with the same elements, order, types and skipped files. Parsing stays on one thread on purpose: under

@@ -14,6 +14,7 @@ The files here are generated. The OnlyWorlds platform rebuilds and publishes the
 | `presentation.json` | default family and icon per type, and the four family colours as light/dark pairs. Defaults: tools may override them. The colours were checked for colour-vision deficiency, so re-run that check before changing one |
 | `walk/schema_walk.py` | the reference decoder, in Python: reads the YAML and returns each type's fields. `schema.json` is its output. One module; its only dependency is PyYAML |
 | `walk/rulings.yaml` | rulings the YAML cannot carry (nullability, empty strings, extension fields). Code in any language should follow these rows |
+| `walk/lint_folder.py` | the folder check: run it on a world folder and it names every key that is not a field of its type, every link that does not resolve or points at the wrong type, every value of the wrong shape. The example world passes it at every publish |
 | `VERSION` | three `key: value` lines: the canonical schema version, the dist serial, the publish date |
 | `MANIFEST.json` | the sha256 of every file above (not of itself) |
 
@@ -32,7 +33,7 @@ Each field has a `kind`, explained in `kinds` at the top of the file:
 - `generic`: a link to an element of any type. Only `pin.element` has it. In data it is two keys, `element_type` (the type's slug, such as `"character"`) and `element_id` (the UUID), both set or both null; `type_key` and `id_key` name them.
 - `list`: an array (World fields only); `items` gives the kind of each entry.
 
-Only `id` and `name` are required. Element bodies read from the API also carry keys the schema does not declare: `type`, `created_at`, `updated_at`, `change_seq` and `created_by`, all set by the server. Fields starting `x_` (and the tool prefixes `atlas_`, `shadow_`) are extensions, which a tool keeps and writes back unchanged. `walk/rulings.yaml` has the rest.
+Only `id` and `name` are required. Element bodies read from the API also carry keys the schema does not declare: `type`, `created_at`, `updated_at`, `change_seq`, `created_by`, `changed_by` and `changed_via`, all set by the server. Fields starting `x_` (and the tool prefixes `atlas_`, `shadow_`) are extensions, which a tool keeps and writes back unchanged. `walk/rulings.yaml` has the rest.
 
 ## The example world
 
@@ -59,6 +60,14 @@ fields = flatten_fields(doc, "character", note=print)   # one type, the short fo
 ```
 
 Pass a `note` sink. A field type the walk does not know is skipped, and with the default sink it is skipped silently, so an older walk reading a newer schema would lose fields without a word. Extra output from `flatten_fields` is opt-in: `include_required`, `include_desc`, `include_sections`.
+
+## Checking a world folder
+
+```bash
+python walk/lint_folder.py path/to/world-folder
+```
+
+One line per problem (`elements/creature/x.json: `characters` is not a field of creature`), then the count it checked. Exit 0 when clean, 1 with problems. Server keys, the folder format's own keys (`local_updated_at`, `server_updated_at`, `image_media_id`) and extension prefixes pass; any other undeclared key does not. A string may be null on disk (read as the unset string). It decodes the YAML through the walk beside it, so its view of the schema is the walk's; `--schema DIR` points it at another copy.
 
 ## Versions
 
