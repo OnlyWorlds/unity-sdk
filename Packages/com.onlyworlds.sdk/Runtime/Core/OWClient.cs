@@ -158,7 +158,7 @@ namespace OnlyWorlds.Sdk
         // -- Element writes ---------------------------------------------------
 
         /// <summary>
-        /// POST /{type}/ -- creates, minting a client-side UUID when the payload has none.
+        /// POST /{type}/ -- creates, minting a client-side UUIDv7 (<see cref="OWId"/>) when the payload has none.
         /// </summary>
         /// <remarks>
         /// The client mints the id so a retry is structurally safe: the same id plus the same
@@ -170,7 +170,7 @@ namespace OnlyWorlds.Sdk
 
             if (body["id"] == null || string.IsNullOrEmpty(body["id"].ToString()))
             {
-                body["id"] = Guid.NewGuid().ToString();
+                body["id"] = OWId.NewId();
             }
 
             return RequestAsync<T>("POST", $"/{type}/", body: body,
@@ -241,7 +241,7 @@ namespace OnlyWorlds.Sdk
 
                 if (element["id"] == null || string.IsNullOrEmpty(element["id"].ToString()))
                 {
-                    element["id"] = Guid.NewGuid().ToString();
+                    element["id"] = OWId.NewId();
                 }
 
                 array.Add(new JObject { ["type"] = item.Type, ["element"] = element });

@@ -149,6 +149,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var id = _transport.LastBody["items"][0]["element"]["id"].ToString();
             Assert.IsFalse(string.IsNullOrEmpty(id), "A client-minted id makes a retry safe.");
             Assert.DoesNotThrow(() => System.Guid.Parse(id));
+            Assert.AreEqual('7', id[14], $"The standard mints new ids as UUIDv7, got '{id}'.");
         }
 
         [Test]
