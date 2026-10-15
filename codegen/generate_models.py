@@ -331,7 +331,12 @@ def _chunk(items: list[str], size: int):
 # 2026-09-29: keel D72 put it on every v2 body (the membership that created the
 # element, or null), folder spec section 5 calls it server-managed and not part
 # of the standard, and the live world has carried it since b9e68b080.
-SERVER_MANAGED_FIELDS = ["type", "created_at", "updated_at", "change_seq", "created_by"]
+# `changed_by` and `changed_via` joined on 2026-10-16: keel #299 (D104) stamps
+# the membership and the door of every write, and schema-dist serial 24 names
+# both as server-set body keys.
+SERVER_MANAGED_FIELDS = [
+    "type", "created_at", "updated_at", "change_seq", "created_by", "changed_by", "changed_via",
+]
 
 
 def base_field_names() -> list[str]:

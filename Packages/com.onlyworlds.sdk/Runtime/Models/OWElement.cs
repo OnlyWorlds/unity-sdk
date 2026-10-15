@@ -92,12 +92,28 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("created_by")]
         [SerializeField] private string _createdBy;
 
+        // keel #299 (D104, 2026-10-15): the membership whose write last changed the element (null for
+        // the owner) and the door that write came through. Null for anything last changed before
+        // writes recorded them. Server-managed: keel drops both from a write body.
+        [JsonProperty("changed_by")]
+        [SerializeField] private string _changedBy;
+
+        [JsonProperty("changed_via")]
+        [SerializeField] private string _changedVia;
+
         public string World => _world;
         public string Type => _type;
         public string CreatedAt => _createdAt;
         public string UpdatedAt => _updatedAt;
         public long ChangeSeq => _changeSeq;
         public string CreatedBy => _createdBy;
+        public string ChangedBy => _changedBy;
+
+        /// <summary>
+        /// The door of the last write: one of <see cref="OWWriteDoor"/>'s values, or null.
+        /// <see cref="OWWriteDoor.IsAgent"/> says whether an agent made it.
+        /// </summary>
+        public string ChangedVia => _changedVia;
 
         // -- Extensions -------------------------------------------------------
 

@@ -66,6 +66,14 @@ namespace OnlyWorlds.Sdk
 
         [JsonProperty("change_seq")]
         public long ChangeSeq;
+
+        /// <summary>On a delete: the membership whose write deleted it; null for the owner (keel #299).</summary>
+        [JsonProperty("deleted_by")]
+        public string DeletedBy;
+
+        /// <summary>On a delete: the door it came through (<see cref="OWWriteDoor"/>), or null.</summary>
+        [JsonProperty("deleted_via")]
+        public string DeletedVia;
     }
 
     /// <summary>A page of the <c>/changes</c> feed.</summary>

@@ -19,6 +19,16 @@ namespace OnlyWorlds.Sdk
         public int PageSize = 100;
 
         public IOWTransport Transport;
+
+        /// <summary>
+        /// Declare this client an AI agent: every element write (create, patch, delete, link edit,
+        /// bulk) carries <c>X-OW-Agent</c>, and keel records it as agent-made
+        /// (<see cref="OWElement.ChangedVia"/> reads <see cref="OWWriteDoor.Declared"/>; keel stores that
+        /// the header was there, never its value). Off by default, and it must stay off in a tool
+        /// people use: it describes the caller, so only the caller can set it. An agent seat's key is
+        /// recorded as an agent without it.
+        /// </summary>
+        public bool Agent;
     }
 
     /// <summary>
@@ -42,6 +52,7 @@ namespace OnlyWorlds.Sdk
         private readonly string _apiKey;
         private readonly string _apiPin;
         private readonly IOWTransport _transport;
+        private readonly bool _agent;
 
         public string BaseUrl { get; }
         public int PageSize { get; }
@@ -58,6 +69,7 @@ namespace OnlyWorlds.Sdk
             _apiKey = config.ApiKey;
             _apiPin = string.IsNullOrEmpty(config.ApiPin) ? null : config.ApiPin;
             _transport = config.Transport;
+            _agent = config.Agent;
 
             BaseUrl = (config.BaseUrl ?? "https://www.onlyworlds.com/api/v2").TrimEnd('/');
             PageSize = config.PageSize > 0 ? config.PageSize : 100;
@@ -162,7 +174,7 @@ namespace OnlyWorlds.Sdk
             }
 
             return RequestAsync<T>("POST", $"/{type}/", body: body,
-                idempotencyKey: idempotencyKey ?? body["id"].ToString(), ct: ct);
+                idempotencyKey: idempotencyKey ?? body["id"].ToString(), write: true, ct: ct);
         }
 
         /// <summary>
@@ -175,11 +187,12 @@ namespace OnlyWorlds.Sdk
         /// </remarks>
         public Task<T> PatchAsync<T>(string type, string id, object partial, CancellationToken ct = default)
             => RequestAsync<T>("PATCH", $"/{type}/{id}/",
-                body: Sanitize(JObject.FromObject(partial, Newtonsoft.Json.JsonSerializer.Create(OWJson.Settings)), type), ct: ct);
+                body: Sanitize(JObject.FromObject(partial, Newtonsoft.Json.JsonSerializer.Create(OWJson.Settings)), type),
+                write: true, ct: ct);
 
         /// <summary>DELETE /{type}/{id}/</summary>
         public Task DeleteAsync(string type, string id, CancellationToken ct = default)
-            => RequestAsync<object>("DELETE", $"/{type}/{id}/", allowEmpty: true, ct: ct);
+            => RequestAsync<object>("DELETE", $"/{type}/{id}/", allowEmpty: true, write: true, ct: ct);
 
         /// <summary>
         /// POST /bulk/ -- writes many elements of mixed types in one request.
@@ -243,7 +256,7 @@ namespace OnlyWorlds.Sdk
             var body = new JObject { ["items"] = array, ["atomic"] = atomic };
 
             var (result, response) = await RequestWithResponseAsync<OWBulkResult>(
-                "POST", "/bulk/", body: body, idempotencyKey: idempotencyKey, ct: ct)
+                "POST", "/bulk/", body: body, idempotencyKey: idempotencyKey, write: true, ct: ct)
                 .ConfigureAwait(false);
 
             if (result == null) return null;
@@ -292,7 +305,7 @@ namespace OnlyWorlds.Sdk
             if (remove != null) body["remove"] = new JArray(remove);
 
             return RequestAsync<T>("POST", $"/{type}/{id}/links/{Uri.EscapeDataString(field)}",
-                body: body, ct: ct);
+                body: body, write: true, ct: ct);
         }
 
         // -- Sync -------------------------------------------------------------
@@ -317,10 +330,10 @@ namespace OnlyWorlds.Sdk
         private async Task<T> RequestAsync<T>(
             string method, string path,
             string query = null, JObject body = null, string idempotencyKey = null,
-            bool allowEmpty = false, CancellationToken ct = default)
+            bool allowEmpty = false, bool write = false, CancellationToken ct = default)
         {
             var result = await RequestWithResponseAsync<T>(
-                method, path, query, body, idempotencyKey, allowEmpty, ct).ConfigureAwait(false);
+                method, path, query, body, idempotencyKey, allowEmpty, write, ct).ConfigureAwait(false);
 
             return result.Value;
         }
@@ -333,7 +346,7 @@ namespace OnlyWorlds.Sdk
         private async Task<(T Value, OWResponse Response)> RequestWithResponseAsync<T>(
             string method, string path,
             string query = null, JObject body = null, string idempotencyKey = null,
-            bool allowEmpty = false, CancellationToken ct = default)
+            bool allowEmpty = false, bool write = false, CancellationToken ct = default)
         {
             var url = BaseUrl + path;
             if (!string.IsNullOrEmpty(query)) url += "?" + query;
@@ -352,6 +365,10 @@ namespace OnlyWorlds.Sdk
 
             if (body != null) headers["Content-Type"] = "application/json";
             if (!string.IsNullOrEmpty(idempotencyKey)) headers["Idempotency-Key"] = idempotencyKey;
+
+            // keel #299 (D104): presence is the declaration, the value is never stored. Opt-in, and
+            // on the element writes alone, the operations keel's document declares it on.
+            if (_agent && write) headers["X-OW-Agent"] = "1";
 
             var request = new OWRequest
             {

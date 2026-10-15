@@ -151,6 +151,7 @@ namespace OnlyWorlds.Sdk
         {
             "id", "name", "description", "supertype", "subtype", "image_url",
             "world", "type", "created_at", "updated_at", "change_seq", "created_by",
+            "changed_by", "changed_via",
         };
 
         /// <summary>

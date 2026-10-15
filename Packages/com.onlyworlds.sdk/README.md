@@ -110,6 +110,10 @@ item replaces the whole array, while `EditLinksAsync` adds and removes atomicall
 in the element's extension bag and is written back unchanged: through a read-modify-write, the cache, and Unity's own
 serializer.
 
+**An AI agent says so.** A client an agent drives sets `Agent = true` on `OWClientConfig`, and its writes are
+recorded as agent-made. Every element carries `ChangedBy` and `ChangedVia` (the door of its last write;
+`OWWriteDoor.IsAgent` reads it). Leave `Agent` off in anything a person uses: it describes who is writing.
+
 **Bulk writes return HTTP 200 even when some items failed.** `BulkAsync` returns an `OWBulkResult`: check `Errors`
 and `Failed`, or call `ThrowIfAnyFailed()`.
 

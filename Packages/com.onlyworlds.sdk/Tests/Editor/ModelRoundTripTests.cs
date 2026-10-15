@@ -17,6 +17,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ""type"": ""character"",
             ""world"": ""5378fde7-7f91-49e6-9b7e-f9ef45b72e97"",
             ""change_seq"": 42,
+            ""changed_by"": ""m-7"",
+            ""changed_via"": ""declared"",
             ""supertype"": ""Rigger"",
             ""level"": 0,
             ""charisma"": null,
@@ -54,6 +56,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual("Rigger", c.Supertype);
             Assert.AreEqual("character", c.Type);
             Assert.AreEqual(42, c.ChangeSeq);
+            Assert.AreEqual("m-7", c.ChangedBy);
+            Assert.AreEqual(OWWriteDoor.Declared, c.ChangedVia);
         }
 
         [Test]

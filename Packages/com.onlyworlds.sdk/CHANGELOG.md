@@ -13,6 +13,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   intercalary days. It is a port of the npm SDK's calendar kernel (`@onlyworlds/sdk` 4.23.0), checked against the same
   test vectors, so a date reads the same in Unity as in Atlas and Lantern. `OWCalendarLens.WorldCalendars` and
   `ResolveLens` find the calendars a world holds. A missing or malformed calendar reads as null, never an error.
+- **The door of every write** (OnlyWorlds keel #299; the npm SDK's 4.26.0 has the same). `Agent = true` on
+  `OWClientConfig` sends `X-OW-Agent` on every element write (create, patch, delete, link edit, bulk), never on a read,
+  and the server records those writes as agent-made. It is off by default and belongs only in a client an agent
+  drives.
+- Every element reads the server-managed `ChangedBy` (the membership whose write last changed it) and `ChangedVia` (that
+  write's door: `seat`, `mcp`, `declared`, `api`, `v1`, `sync` or `server`). A `/changes` delete reads `DeletedBy` and
+  `DeletedVia`. `OWWriteDoor.IsAgent(door)` is true for `seat`, `mcp` and `declared`.
 
 ### Changed
 

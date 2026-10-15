@@ -235,6 +235,98 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual("r1", t.LastBody["remove"][0].ToString());
         }
 
+        // -- The agent door (keel #299) ----------------------------------------
+
+        private static OWClient MakeAgent(FakeTransport t, bool agent)
+            => new OWClient(new OWClientConfig
+            {
+                ApiKey = "ow_w_test",
+                ApiPin = "0000",
+                Transport = t,
+                BaseUrl = "https://example.test/api/v2",
+                Agent = agent,
+            });
+
+        /// <summary>Every element write the client has, each recorded as its own call.</summary>
+        private static async Task RunEveryWrite(OWClient c)
+        {
+            await c.CreateAsync<JObject>("character", new JObject { ["name"] = "N" });
+            await c.PatchAsync<JObject>("character", "c1", new JObject { ["name"] = "M" });
+            await c.DeleteAsync("character", "c1");
+            await c.EditLinksAsync<JObject>("character", "c1", "friends", add: new[] { "a1" });
+            await c.BulkAsync(new[] { new OWBulkItem { Type = "character", Element = new JObject { ["name"] = "B" } } });
+        }
+
+        [Test]
+        public async Task Agent_EveryWriteCarriesTheHeader()
+        {
+            var t = new FakeTransport();
+            await RunEveryWrite(MakeAgent(t, true));
+
+            Assert.AreEqual(5, t.Calls.Count);
+            foreach (var call in t.Calls)
+            {
+                Assert.IsTrue(call.Headers.ContainsKey("X-OW-Agent"), $"{call.Method} {call.Url} should declare the agent.");
+                Assert.AreEqual("1", call.Headers["X-OW-Agent"]);
+            }
+        }
+
+        [Test]
+        public async Task Agent_ReadsNeverCarryTheHeader()
+        {
+            var t = new FakeTransport();
+            var c = MakeAgent(t, true);
+            await c.GetWorldAsync();
+            await c.GetAsync<JObject>("character", "c1");
+            t.ResponseBody = @"{""data"":[],""has_more"":false}";
+            await c.ListAsync<JObject>("character");
+            t.ResponseBody = @"{""changes"":[],""has_more"":false,""head"":0}";
+            await c.ChangesAsync();
+
+            Assert.AreEqual(4, t.Calls.Count);
+            foreach (var call in t.Calls)
+            {
+                Assert.IsFalse(call.Headers.ContainsKey("X-OW-Agent"),
+                    $"{call.Method} {call.Url}: keel's document declares the header on writes only.");
+            }
+        }
+
+        [Test]
+        public async Task NotAgent_NoWriteCarriesTheHeader()
+        {
+            var t = new FakeTransport();
+            await RunEveryWrite(MakeAgent(t, false));
+
+            Assert.AreEqual(5, t.Calls.Count);
+            Assert.IsTrue(t.Calls.All(call => !call.Headers.ContainsKey("X-OW-Agent")),
+                "Off by default: a tool people use never declares itself an agent.");
+        }
+
+        [Test]
+        public void WriteDoor_AgentDoorsAreSeatMcpAndDeclared()
+        {
+            Assert.IsTrue(OWWriteDoor.IsAgent("seat"));
+            Assert.IsTrue(OWWriteDoor.IsAgent("mcp"));
+            Assert.IsTrue(OWWriteDoor.IsAgent("declared"));
+            foreach (var door in new[] { "api", "v1", "sync", "server", null, "", "SEAT" })
+            {
+                Assert.IsFalse(OWWriteDoor.IsAgent(door), $"'{door}' is not an agent's door.");
+            }
+        }
+
+        [Test]
+        public void ChangeFeed_ReadsWhoDeletedAndThroughWhichDoor()
+        {
+            var page = OWJson.Deserialize<OWChangesPage>(
+                @"{""changes"":[{""op"":""delete"",""type"":""character"",""id"":""c1"",""change_seq"":9,
+                    ""deleted_at"":""2026-10-16T00:00:00Z"",""deleted_by"":""m1"",""deleted_via"":""mcp""}],
+                  ""has_more"":false,""head"":9}");
+
+            Assert.AreEqual("m1", page.Changes[0].DeletedBy);
+            Assert.AreEqual("mcp", page.Changes[0].DeletedVia);
+            Assert.IsTrue(OWWriteDoor.IsAgent(page.Changes[0].DeletedVia));
+        }
+
         // -- Errors -----------------------------------------------------------
 
         [Test]
