@@ -235,6 +235,19 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual("r1", t.LastBody["remove"][0].ToString());
         }
 
+        // -- The changes feed ----------------------------------------------------
+
+        [Test]
+        public async Task Changes_PassesTheCursorAsSince()
+        {
+            var t = new FakeTransport { ResponseBody = @"{""changes"":[],""has_more"":false,""head"":0}" };
+            await Make(t).ChangesAsync("4:069620b9-0794-708d-8000-42b0ea685f38");
+
+            // keel's feed takes `since`; `cursor=` is a 422 (production, 2026-10-16).
+            StringAssert.Contains("/changes/?since=4%3A069620b9-0794-708d-8000-42b0ea685f38", t.Last.Url);
+            StringAssert.DoesNotContain("cursor=", t.Last.Url);
+        }
+
         // -- The agent door (keel #299) ----------------------------------------
 
         private static OWClient MakeAgent(FakeTransport t, bool agent)

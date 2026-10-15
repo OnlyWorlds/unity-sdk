@@ -30,6 +30,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Fixed
 
+- **`ChangesAsync` pages the feed.** It sent its cursor as `cursor=`, and the changes feed takes `since`, refusing any
+  other parameter with a 422. So `OWSync.IncrementalAsync` failed whenever a world had changed since its baseline. It
+  now sends `since`.
+- **A wire check against the API's own document.** `OWWireContractTests` records every request `OWClient` can make and
+  checks each against a snapshot of the server's published OpenAPI document: a path it serves, a method it takes
+  there, and only query parameters and headers it declares. It catches both bugs above, which had passed their own
+  tests since 0.1.0. `tools/refresh_wire.py` refreshes the snapshot (`--check` says whether the server's document has
+  moved).
 - **`EditLinksAsync` reaches the server.** Since 0.1.0 it posted to `/{type}/{id}/editLinks/`, a route the API never
   served, so every call failed with 404. It now posts `add` and `remove` to `/{type}/{id}/links/{field}`. Its test had
   asserted the wrong URL; it now asserts the server's.

@@ -313,12 +313,16 @@ namespace OnlyWorlds.Sdk
         /// <summary>
         /// GET /changes -- the incremental sync feed.
         /// </summary>
-        /// <param name="cursor">Persisted cursor; null or empty starts from the beginning.</param>
+        /// <param name="cursor">
+        /// The previous page's <c>cursor</c> (or a persisted <c>change_seq</c>), passed back as is; null or
+        /// empty starts from the beginning. It goes out as <c>since</c>: the element lists page with
+        /// <c>cursor</c>, this feed takes <c>since</c>, and keel refuses any other parameter with a 422.
+        /// </param>
         /// <param name="headOnly">Cheap tip check: returns <c>head</c> without the change bodies.</param>
         public Task<OWChangesPage> ChangesAsync(string cursor = null, bool headOnly = false, CancellationToken ct = default)
         {
             var query = new List<string>();
-            if (!string.IsNullOrEmpty(cursor)) query.Add("cursor=" + Uri.EscapeDataString(cursor));
+            if (!string.IsNullOrEmpty(cursor)) query.Add("since=" + Uri.EscapeDataString(cursor));
             if (headOnly) query.Add("head=true");
 
             return RequestAsync<OWChangesPage>("GET", "/changes/",

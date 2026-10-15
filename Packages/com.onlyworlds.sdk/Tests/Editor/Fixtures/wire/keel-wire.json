@@ -1,0 +1,1556 @@
+{
+  "auth_headers": [
+    "API-Key",
+    "API-Pin",
+    "Authorization"
+  ],
+  "document_sha256": "8f015905e2c08edf1337b3d096904b531bf52e6e7e3259875207760a8f14dbf4",
+  "fetched": "2026-10-16T01:02+02:00",
+  "openapi_version": "2.0",
+  "paths": {
+    "/api/v2/ability": {
+      "GET": {
+        "header": [],
+        "query": [
+          "cursor",
+          "expand",
+          "fields",
+          "limit",
+          "name",
+          "name__icontains",
+          "subtype",
+          "supertype"
+        ]
+      },
+      "POST": {
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/ability/{id}": {
+      "DELETE": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "GET": {
+        "header": [],
+        "query": [
+          "expand",
+          "fields"
+        ]
+      },
+      "PATCH": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "PUT": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/ability/{id}/links/{field}": {
+      "POST": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/account": {
+      "GET": {
+        "header": [],
+        "query": []
+      },
+      "PATCH": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/account/allowance": {
+      "GET": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/account/ask": {
+      "POST": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/account/invites": {
+      "GET": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/account/invites/{invite_id}/accept": {
+      "POST": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/account/invites/{invite_id}/refuse": {
+      "POST": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/account/join": {
+      "POST": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/account/sort": {
+      "POST": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/account/tokens": {
+      "GET": {
+        "header": [],
+        "query": []
+      },
+      "POST": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/account/tokens/{token_id}": {
+      "DELETE": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/account/watched": {
+      "GET": {
+        "header": [],
+        "query": []
+      },
+      "POST": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/account/watched/{watch_id}": {
+      "DELETE": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/account/worlds": {
+      "GET": {
+        "header": [],
+        "query": []
+      },
+      "POST": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/account/worlds/{world_id}/invites": {
+      "POST": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/account/worlds/{world_id}/invites/{invite_id}": {
+      "DELETE": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/account/worlds/{world_id}/keys": {
+      "GET": {
+        "header": [],
+        "query": []
+      },
+      "POST": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/account/worlds/{world_id}/keys/{key_id}": {
+      "DELETE": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/account/worlds/{world_id}/leave": {
+      "POST": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/account/worlds/{world_id}/links": {
+      "GET": {
+        "header": [],
+        "query": []
+      },
+      "POST": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/account/worlds/{world_id}/links/{link_id}": {
+      "DELETE": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/account/worlds/{world_id}/members": {
+      "GET": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/account/worlds/{world_id}/members/{member_id}": {
+      "DELETE": {
+        "header": [],
+        "query": []
+      },
+      "PATCH": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/bulk": {
+      "POST": {
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/changes": {
+      "GET": {
+        "header": [],
+        "query": [
+          "head",
+          "limit",
+          "since"
+        ]
+      }
+    },
+    "/api/v2/character": {
+      "GET": {
+        "header": [],
+        "query": [
+          "cursor",
+          "expand",
+          "fields",
+          "limit",
+          "name",
+          "name__icontains",
+          "subtype",
+          "supertype"
+        ]
+      },
+      "POST": {
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/character/{id}": {
+      "DELETE": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "GET": {
+        "header": [],
+        "query": [
+          "expand",
+          "fields"
+        ]
+      },
+      "PATCH": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "PUT": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/character/{id}/links/{field}": {
+      "POST": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/collective": {
+      "GET": {
+        "header": [],
+        "query": [
+          "characters",
+          "cursor",
+          "expand",
+          "fields",
+          "limit",
+          "name",
+          "name__icontains",
+          "subtype",
+          "supertype"
+        ]
+      },
+      "POST": {
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/collective/{id}": {
+      "DELETE": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "GET": {
+        "header": [],
+        "query": [
+          "expand",
+          "fields"
+        ]
+      },
+      "PATCH": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "PUT": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/collective/{id}/links/{field}": {
+      "POST": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/construct": {
+      "GET": {
+        "header": [],
+        "query": [
+          "characters",
+          "cursor",
+          "expand",
+          "fields",
+          "limit",
+          "name",
+          "name__icontains",
+          "subtype",
+          "supertype"
+        ]
+      },
+      "POST": {
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/construct/{id}": {
+      "DELETE": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "GET": {
+        "header": [],
+        "query": [
+          "expand",
+          "fields"
+        ]
+      },
+      "PATCH": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "PUT": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/construct/{id}/links/{field}": {
+      "POST": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/creature": {
+      "GET": {
+        "header": [],
+        "query": [
+          "cursor",
+          "expand",
+          "fields",
+          "limit",
+          "name",
+          "name__icontains",
+          "subtype",
+          "supertype"
+        ]
+      },
+      "POST": {
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/creature/{id}": {
+      "DELETE": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "GET": {
+        "header": [],
+        "query": [
+          "expand",
+          "fields"
+        ]
+      },
+      "PATCH": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "PUT": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/creature/{id}/links/{field}": {
+      "POST": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/event": {
+      "GET": {
+        "header": [],
+        "query": [
+          "characters",
+          "cursor",
+          "expand",
+          "fields",
+          "limit",
+          "name",
+          "name__icontains",
+          "subtype",
+          "supertype"
+        ]
+      },
+      "POST": {
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/event/{id}": {
+      "DELETE": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "GET": {
+        "header": [],
+        "query": [
+          "expand",
+          "fields"
+        ]
+      },
+      "PATCH": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "PUT": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/event/{id}/links/{field}": {
+      "POST": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/family": {
+      "GET": {
+        "header": [],
+        "query": [
+          "cursor",
+          "expand",
+          "fields",
+          "limit",
+          "name",
+          "name__icontains",
+          "subtype",
+          "supertype"
+        ]
+      },
+      "POST": {
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/family/{id}": {
+      "DELETE": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "GET": {
+        "header": [],
+        "query": [
+          "expand",
+          "fields"
+        ]
+      },
+      "PATCH": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "PUT": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/family/{id}/links/{field}": {
+      "POST": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/health": {
+      "GET": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/health/deep": {
+      "GET": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/institution": {
+      "GET": {
+        "header": [],
+        "query": [
+          "cursor",
+          "expand",
+          "fields",
+          "limit",
+          "name",
+          "name__icontains",
+          "subtype",
+          "supertype"
+        ]
+      },
+      "POST": {
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/institution/{id}": {
+      "DELETE": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "GET": {
+        "header": [],
+        "query": [
+          "expand",
+          "fields"
+        ]
+      },
+      "PATCH": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "PUT": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/institution/{id}/links/{field}": {
+      "POST": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/join": {
+      "POST": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/join/preview": {
+      "POST": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/language": {
+      "GET": {
+        "header": [],
+        "query": [
+          "cursor",
+          "expand",
+          "fields",
+          "limit",
+          "name",
+          "name__icontains",
+          "subtype",
+          "supertype"
+        ]
+      },
+      "POST": {
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/language/{id}": {
+      "DELETE": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "GET": {
+        "header": [],
+        "query": [
+          "expand",
+          "fields"
+        ]
+      },
+      "PATCH": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "PUT": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/language/{id}/links/{field}": {
+      "POST": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/law": {
+      "GET": {
+        "header": [],
+        "query": [
+          "cursor",
+          "expand",
+          "fields",
+          "limit",
+          "name",
+          "name__icontains",
+          "subtype",
+          "supertype"
+        ]
+      },
+      "POST": {
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/law/{id}": {
+      "DELETE": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "GET": {
+        "header": [],
+        "query": [
+          "expand",
+          "fields"
+        ]
+      },
+      "PATCH": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "PUT": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/law/{id}/links/{field}": {
+      "POST": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/location": {
+      "GET": {
+        "header": [],
+        "query": [
+          "cursor",
+          "expand",
+          "fields",
+          "limit",
+          "name",
+          "name__icontains",
+          "subtype",
+          "supertype"
+        ]
+      },
+      "POST": {
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/location/{id}": {
+      "DELETE": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "GET": {
+        "header": [],
+        "query": [
+          "expand",
+          "fields"
+        ]
+      },
+      "PATCH": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "PUT": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/location/{id}/links/{field}": {
+      "POST": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/map": {
+      "GET": {
+        "header": [],
+        "query": [
+          "cursor",
+          "expand",
+          "fields",
+          "limit",
+          "name",
+          "name__icontains",
+          "subtype",
+          "supertype"
+        ]
+      },
+      "POST": {
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/map/{id}": {
+      "DELETE": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "GET": {
+        "header": [],
+        "query": [
+          "expand",
+          "fields"
+        ]
+      },
+      "PATCH": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "PUT": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/map/{id}/links/{field}": {
+      "POST": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/marker": {
+      "GET": {
+        "header": [],
+        "query": [
+          "cursor",
+          "expand",
+          "fields",
+          "limit",
+          "name",
+          "name__icontains",
+          "subtype",
+          "supertype"
+        ]
+      },
+      "POST": {
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/marker/{id}": {
+      "DELETE": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "GET": {
+        "header": [],
+        "query": [
+          "expand",
+          "fields"
+        ]
+      },
+      "PATCH": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "PUT": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/marker/{id}/links/{field}": {
+      "POST": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/me": {
+      "GET": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/media/remove-ticket": {
+      "POST": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/media/ticket": {
+      "POST": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/members": {
+      "GET": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/narrative": {
+      "GET": {
+        "header": [],
+        "query": [
+          "characters",
+          "cursor",
+          "expand",
+          "fields",
+          "limit",
+          "name",
+          "name__icontains",
+          "subtype",
+          "supertype"
+        ]
+      },
+      "POST": {
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/narrative/{id}": {
+      "DELETE": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "GET": {
+        "header": [],
+        "query": [
+          "expand",
+          "fields"
+        ]
+      },
+      "PATCH": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "PUT": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/narrative/{id}/links/{field}": {
+      "POST": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/object": {
+      "GET": {
+        "header": [],
+        "query": [
+          "cursor",
+          "expand",
+          "fields",
+          "limit",
+          "name",
+          "name__icontains",
+          "subtype",
+          "supertype"
+        ]
+      },
+      "POST": {
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/object/{id}": {
+      "DELETE": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "GET": {
+        "header": [],
+        "query": [
+          "expand",
+          "fields"
+        ]
+      },
+      "PATCH": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "PUT": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/object/{id}/links/{field}": {
+      "POST": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/phenomenon": {
+      "GET": {
+        "header": [],
+        "query": [
+          "cursor",
+          "expand",
+          "fields",
+          "limit",
+          "name",
+          "name__icontains",
+          "subtype",
+          "supertype"
+        ]
+      },
+      "POST": {
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/phenomenon/{id}": {
+      "DELETE": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "GET": {
+        "header": [],
+        "query": [
+          "expand",
+          "fields"
+        ]
+      },
+      "PATCH": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "PUT": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/phenomenon/{id}/links/{field}": {
+      "POST": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/pin": {
+      "GET": {
+        "header": [],
+        "query": [
+          "cursor",
+          "expand",
+          "fields",
+          "limit",
+          "name",
+          "name__icontains",
+          "subtype",
+          "supertype"
+        ]
+      },
+      "POST": {
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/pin/{id}": {
+      "DELETE": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "GET": {
+        "header": [],
+        "query": [
+          "expand",
+          "fields"
+        ]
+      },
+      "PATCH": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "PUT": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/pin/{id}/links/{field}": {
+      "POST": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/relation": {
+      "GET": {
+        "header": [],
+        "query": [
+          "characters",
+          "cursor",
+          "expand",
+          "fields",
+          "limit",
+          "name",
+          "name__icontains",
+          "subtype",
+          "supertype"
+        ]
+      },
+      "POST": {
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/relation/{id}": {
+      "DELETE": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "GET": {
+        "header": [],
+        "query": [
+          "expand",
+          "fields"
+        ]
+      },
+      "PATCH": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "PUT": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/relation/{id}/links/{field}": {
+      "POST": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/species": {
+      "GET": {
+        "header": [],
+        "query": [
+          "cursor",
+          "expand",
+          "fields",
+          "limit",
+          "name",
+          "name__icontains",
+          "subtype",
+          "supertype"
+        ]
+      },
+      "POST": {
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/species/{id}": {
+      "DELETE": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "GET": {
+        "header": [],
+        "query": [
+          "expand",
+          "fields"
+        ]
+      },
+      "PATCH": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "PUT": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/species/{id}/links/{field}": {
+      "POST": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/title": {
+      "GET": {
+        "header": [],
+        "query": [
+          "characters",
+          "cursor",
+          "expand",
+          "fields",
+          "limit",
+          "name",
+          "name__icontains",
+          "subtype",
+          "supertype"
+        ]
+      },
+      "POST": {
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/title/{id}": {
+      "DELETE": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "GET": {
+        "header": [],
+        "query": [
+          "expand",
+          "fields"
+        ]
+      },
+      "PATCH": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "PUT": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/title/{id}/links/{field}": {
+      "POST": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/trait": {
+      "GET": {
+        "header": [],
+        "query": [
+          "cursor",
+          "expand",
+          "fields",
+          "limit",
+          "name",
+          "name__icontains",
+          "subtype",
+          "supertype"
+        ]
+      },
+      "POST": {
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/trait/{id}": {
+      "DELETE": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "GET": {
+        "header": [],
+        "query": [
+          "expand",
+          "fields"
+        ]
+      },
+      "PATCH": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "PUT": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/trait/{id}/links/{field}": {
+      "POST": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/world": {
+      "GET": {
+        "header": [
+          "If-None-Match"
+        ],
+        "query": []
+      },
+      "PATCH": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/zone": {
+      "GET": {
+        "header": [],
+        "query": [
+          "cursor",
+          "expand",
+          "fields",
+          "limit",
+          "name",
+          "name__icontains",
+          "subtype",
+          "supertype"
+        ]
+      },
+      "POST": {
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/zone/{id}": {
+      "DELETE": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "GET": {
+        "header": [],
+        "query": [
+          "expand",
+          "fields"
+        ]
+      },
+      "PATCH": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      },
+      "PUT": {
+        "header": [
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    },
+    "/api/v2/zone/{id}/links/{field}": {
+      "POST": {
+        "header": [
+          "If-Match",
+          "X-OW-Agent"
+        ],
+        "query": []
+      }
+    }
+  },
+  "source": "https://www.onlyworlds.com/api/v2/openapi.json"
+}
