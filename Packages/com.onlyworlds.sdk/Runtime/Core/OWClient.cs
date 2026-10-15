@@ -161,8 +161,19 @@ namespace OnlyWorlds.Sdk
         /// POST /{type}/ -- creates, minting a client-side UUIDv7 (<see cref="OWId"/>) when the payload has none.
         /// </summary>
         /// <remarks>
-        /// The client mints the id so a retry is structurally safe: the same id plus the same
-        /// Idempotency-Key means a replayed request cannot create a duplicate.
+        /// <para>
+        /// The client mints the id so a retry cannot create a duplicate: a retry of a create that
+        /// already landed answers 409 <c>id_conflict</c> (<see cref="OWApiError.Code"/>), and the
+        /// element is there.
+        /// </para>
+        /// <para>
+        /// <c>Idempotency-Key</c> is sent only when <paramref name="idempotencyKey"/> is given, as
+        /// the npm SDK does. With one, keel keeps the first success for that key for 24 hours and
+        /// answers an identical retry with it, writing nothing; the same key with another body is
+        /// 409 <c>idempotency_error</c>. Pass a key when you want the replay. Never reuse one for a
+        /// new write: an undo that re-creates a deleted element under the key that first created it
+        /// gets the old answer back, and the element stays deleted.
+        /// </para>
         /// </remarks>
         public Task<T> CreateAsync<T>(string type, object element, string idempotencyKey = null, CancellationToken ct = default)
         {
@@ -174,7 +185,7 @@ namespace OnlyWorlds.Sdk
             }
 
             return RequestAsync<T>("POST", $"/{type}/", body: body,
-                idempotencyKey: idempotencyKey ?? body["id"].ToString(), write: true, ct: ct);
+                idempotencyKey: idempotencyKey, write: true, ct: ct);
         }
 
         /// <summary>

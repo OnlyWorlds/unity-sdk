@@ -204,8 +204,19 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var id = t.LastBody["id"].ToString();
             Assert.IsTrue(System.Guid.TryParse(id, out _), $"Expected a minted UUID, got '{id}'.");
             Assert.AreEqual('7', id[14], $"The standard mints new ids as UUIDv7, got '{id}'.");
-            Assert.AreEqual(id, t.Last.Headers["Idempotency-Key"],
-                "A retry must be structurally safe: same id, same key.");
+            Assert.IsFalse(t.Last.Headers.ContainsKey("Idempotency-Key"),
+                "No key unless the caller gives one: keel replays a keyed create's first answer for 24 h, "
+                + "so a re-create of a deleted id under its own id as the key would write nothing.");
+        }
+
+        [Test]
+        public async Task Create_SendsTheCallersIdempotencyKey()
+        {
+            var t = new FakeTransport();
+            await Make(t).CreateAsync<JObject>("character", new JObject { ["name"] = "New" }, idempotencyKey: "k-1");
+
+            Assert.AreEqual("k-1", t.Last.Headers["Idempotency-Key"]);
+            Assert.AreNotEqual("k-1", t.LastBody["id"].ToString(), "The key is the caller's; the id is still minted.");
         }
 
         [Test]

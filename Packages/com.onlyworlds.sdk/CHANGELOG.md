@@ -36,6 +36,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Fixed
 
+- **`CreateAsync` sends `Idempotency-Key` only when you pass one**, as the npm SDK does. Since 0.1.0 it sent the
+  element's id as the key on every create. The server keeps a keyed create's first answer for 24 hours and answers an
+  identical repeat with it, writing nothing, so re-creating a deleted element under its old id (an undo) got the old
+  201 back and the element stayed deleted. The client still mints the id, so a retry without a key cannot duplicate:
+  it answers 409 `id_conflict`, and the element is there. Pass `idempotencyKey` when you want the stored answer
+  replayed instead.
 - **`ChangesAsync` pages the feed.** It sent its cursor as `cursor=`, and the changes feed takes `since`, refusing any
   other parameter with a 422. So `OWSync.IncrementalAsync` failed whenever a world had changed since its baseline. It
   now sends `since`.
