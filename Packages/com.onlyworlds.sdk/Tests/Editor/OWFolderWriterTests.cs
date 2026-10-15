@@ -30,9 +30,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
         /// <summary>The committed fixture -- eight real files, byte-for-byte as the world holds them.</summary>
         /// <remarks>
-        /// Found by walking up from the assets folder, so the suite does not care whether the
-        /// package sits in <c>Packages/</c>, in <c>Library/PackageCache/</c>, or under a project
-        /// name nobody here chose. A hardcoded relative path works in exactly one layout.
+        /// Found from the package's own resolved path first, so a host that references the package
+        /// by <c>file:</c> from outside its project (Windrose does) still finds it; then by walking
+        /// the host's <c>Packages/</c> and <c>Library/PackageCache/</c>. A hardcoded relative path
+        /// works in exactly one layout.
         /// </remarks>
         private static string FixtureRoot
         {
@@ -40,8 +41,16 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             {
                 if (_fixtureRoot != null) return _fixtureRoot.Length == 0 ? null : _fixtureRoot;
 
-                var projectRoot = Directory.GetParent(UnityEngine.Application.dataPath)?.FullName;
                 _fixtureRoot = string.Empty;
+
+                var package = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(OWFolderWriterTests).Assembly);
+                if (package != null)
+                {
+                    var own = Path.Combine(package.resolvedPath, "Tests", "Editor", "Fixtures", "folder-write");
+                    if (File.Exists(Path.Combine(own, "world.json"))) return _fixtureRoot = own;
+                }
+
+                var projectRoot = Directory.GetParent(UnityEngine.Application.dataPath)?.FullName;
 
                 foreach (var root in new[] { "Packages", "Library/PackageCache" })
                 {

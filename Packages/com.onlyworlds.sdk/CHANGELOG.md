@@ -21,6 +21,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   instead of 3.1 s, with the same elements, order, types and skipped files. Parsing stays on one thread on purpose: under
   Unity's Mono GC a parallel parse measured slower. WebGL players read one file at a time.
 
+### Fixed
+
+- **The folder writer's round-trip tests run in any host**: they find their fixture through the package's own resolved
+  path, so a project that lists the SDK in `testables` and references it by `file:` from outside its own folder runs
+  all three instead of skipping them.
+
 ## [0.4.0] - 2026-10-11
 
 ### Added
