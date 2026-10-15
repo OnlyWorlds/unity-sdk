@@ -79,6 +79,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   same key still running: send it again and it replays the first answer) now reads as retryable. A 429
   `quota_exceeded` (a daily allowance, used up until midnight UTC) and a 503 `ask_unavailable` or `media_unavailable`
   (a feature switched off) no longer do.
+- **`OWApiError.IsAuthError` reads the error code**, as the npm SDK does: `invalid_credentials`, `key_revoked` (and
+  the reserved `world_gone`), where it was any 401 or 403. A 403 such as `not_author` or `owner_only` comes with a
+  valid key, and the World Browser no longer tells you to check the key and PIN for one: it says the element is
+  someone else's, that only the owner can do this, or that the key's scope does not allow it. `IsNotFound` is a 404
+  with the code `not_found`, so a proxy's 404 is not mistaken for a missing element. New: `IsNotAuthor`,
+  `IsOwnerOnly`, and `IsResyncRequired`.
 
 ## [0.4.0] - 2026-10-11
 

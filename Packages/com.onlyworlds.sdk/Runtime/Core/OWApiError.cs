@@ -41,9 +41,25 @@ namespace OnlyWorlds.Sdk
 
         public bool IsValidationError => StatusCode == 422 || StatusCode == 400;
 
-        public bool IsAuthError => StatusCode == 401 || StatusCode == 403;
+        /// <summary>
+        /// The key or PIN is wrong, unknown or revoked (<c>invalid_credentials</c>, <c>key_revoked</c>;
+        /// <c>world_gone</c> is reserved). By code, as the npm SDK reads it: a 403 such as
+        /// <c>not_author</c> or <c>owner_only</c> comes with a valid key, and checking the key
+        /// will not help.
+        /// </summary>
+        public bool IsAuthError => Code == "invalid_credentials" || Code == "key_revoked" || Code == "world_gone";
 
-        public bool IsNotFound => StatusCode == 404;
+        /// <summary>404 <c>not_found</c>: no such element or route. A 404 without the code (a proxy's) is not this.</summary>
+        public bool IsNotFound => StatusCode == 404 && Code == "not_found";
+
+        /// <summary>
+        /// A contributor or guest key changed, relinked or deleted an element someone else created
+        /// (403 <c>not_author</c>). Retrying will not help.
+        /// </summary>
+        public bool IsNotAuthor => StatusCode == 403 && Code == "not_author";
+
+        /// <summary>A member key tried what only the world's owner may do (403 <c>owner_only</c>).</summary>
+        public bool IsOwnerOnly => StatusCode == 403 && Code == "owner_only";
 
         /// <summary>
         /// <c>/changes</c> refused the cursor (409 <c>resync_required</c>): a guest key's view of the

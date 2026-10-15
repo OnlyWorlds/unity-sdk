@@ -880,6 +880,9 @@ namespace OnlyWorlds.Sdk.Editor
                 if (!string.IsNullOrEmpty(api.Code)) text += $" [{api.Code}]";
                 if (!string.IsNullOrEmpty(api.Param)) text += $" on {api.Param}";
                 if (api.IsAuthError) text += " -- check the key and PIN in Settings.";
+                else if (api.IsNotAuthor) text += " -- someone else made this element; this key changes only its own.";
+                else if (api.IsOwnerOnly) text += " -- only the world's owner can do this.";
+                else if (api.Code == "permission_error") text += " -- this key's scope does not allow it.";
                 return text;
             }
 

@@ -468,6 +468,42 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public bool IsRetryable_ByCode(int status, string code)
             => new OWApiError((System.Net.HttpStatusCode)status, "m", code: code).IsRetryable;
 
+        // npm errors.ts isAuthError: the three auth codes, not the status.
+        [TestCase(401, "invalid_credentials", ExpectedResult = true)]
+        [TestCase(401, "key_revoked", ExpectedResult = true)]
+        [TestCase(401, "world_gone", ExpectedResult = true)]
+        [TestCase(403, "not_author", ExpectedResult = false)]
+        [TestCase(403, "owner_only", ExpectedResult = false)]
+        [TestCase(403, "permission_error", ExpectedResult = false)]
+        [TestCase(401, null, ExpectedResult = false)]
+        public bool IsAuthError_ByCode(int status, string code)
+            => new OWApiError((System.Net.HttpStatusCode)status, "m", code: code).IsAuthError;
+
+        [TestCase(404, "not_found", ExpectedResult = true)]
+        [TestCase(404, null, ExpectedResult = false)]
+        [TestCase(410, "not_found", ExpectedResult = false)]
+        public bool IsNotFound_ByCode(int status, string code)
+            => new OWApiError((System.Net.HttpStatusCode)status, "m", code: code).IsNotFound;
+
+        [Test]
+        public void NotAuthor_IsAValidKeyRefused_NotAnAuthError()
+        {
+            // keel's envelope for a contributor's write on someone else's element (core/errors.py).
+            var t = new FakeTransport
+            {
+                Status = 403,
+                ResponseBody = @"{""error"":{""type"":""permission_error"",""code"":""not_author"",""message"":""Not yours.""}}",
+            };
+
+            var ex = Assert.ThrowsAsync<OWApiError>(async () =>
+                await Make(t).PatchAsync<JObject>("character", "c1", new JObject { ["name"] = "M" }));
+
+            Assert.IsTrue(ex.IsNotAuthor);
+            Assert.IsFalse(ex.IsOwnerOnly);
+            Assert.IsFalse(ex.IsAuthError, "The key is valid; checking it will not help.");
+            Assert.IsTrue(new OWApiError(System.Net.HttpStatusCode.Forbidden, "m", code: "owner_only").IsOwnerOnly);
+        }
+
         // -- Pagination -------------------------------------------------------
 
         [Test]
