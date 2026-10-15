@@ -23,6 +23,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Fixed
 
+- **`EditLinksAsync` reaches the server.** Since 0.1.0 it posted to `/{type}/{id}/editLinks/`, a route the API never
+  served, so every call failed with 404. It now posts `add` and `remove` to `/{type}/{id}/links/{field}`. Its test had
+  asserted the wrong URL; it now asserts the server's.
 - **The folder writer's round-trip tests run in any host**: they find their fixture through the package's own resolved
   path, so a project that lists the SDK in `testables` and references it by `file:` from outside its own folder runs
   all three instead of skipping them.

@@ -226,9 +226,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             await Make(t).EditLinksAsync<JObject>("character", "c1", "friends",
                 add: new[] { "a1" }, remove: new[] { "r1" });
 
-            StringAssert.EndsWith("/character/c1/editLinks/", t.Last.Url);
+            // keel's route (elements/api.py, `/{id}/links/{field}`). Until 2026-10-16 this posted to
+            // `/editLinks/`, which keel never served: production answered 404 there and 401 here.
+            StringAssert.EndsWith("/character/c1/links/friends", t.Last.Url);
             Assert.AreEqual("POST", t.Last.Method);
-            Assert.AreEqual("friends", t.LastBody["field"].ToString());
+            Assert.IsNull(t.LastBody["field"], "The field rides in the path, not the body.");
             Assert.AreEqual("a1", t.LastBody["add"][0].ToString());
             Assert.AreEqual("r1", t.LastBody["remove"][0].ToString());
         }

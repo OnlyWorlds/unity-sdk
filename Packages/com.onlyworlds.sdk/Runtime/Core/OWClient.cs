@@ -275,7 +275,7 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
-        /// Atomic add/remove on a relationship, server-side.
+        /// POST /{type}/{id}/links/{field} -- atomic add/remove on a relationship, server-side.
         /// </summary>
         /// <remarks>
         /// The ONLY correct way to modify a link array. A PATCH carrying a link field replaces it
@@ -287,11 +287,12 @@ namespace OnlyWorlds.Sdk
             IEnumerable<string> add = null, IEnumerable<string> remove = null,
             CancellationToken ct = default)
         {
-            var body = new JObject { ["field"] = field };
+            var body = new JObject();
             if (add != null) body["add"] = new JArray(add);
             if (remove != null) body["remove"] = new JArray(remove);
 
-            return RequestAsync<T>("POST", $"/{type}/{id}/editLinks/", body: body, ct: ct);
+            return RequestAsync<T>("POST", $"/{type}/{id}/links/{Uri.EscapeDataString(field)}",
+                body: body, ct: ct);
         }
 
         // -- Sync -------------------------------------------------------------
