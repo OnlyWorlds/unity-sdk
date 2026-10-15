@@ -325,20 +325,35 @@ namespace OnlyWorlds.Sdk
         /// GET /changes -- the incremental sync feed.
         /// </summary>
         /// <param name="cursor">
-        /// The previous page's <c>cursor</c> (or a persisted <c>change_seq</c>), passed back as is; null or
-        /// empty starts from the beginning. It goes out as <c>since</c>: the element lists page with
-        /// <c>cursor</c>, this feed takes <c>since</c>, and keel refuses any other parameter with a 422.
+        /// The previous page's <c>cursor</c>, passed back as is; null or empty starts from the
+        /// beginning. It goes out as <c>since</c>: the element lists page with <c>cursor</c>, this
+        /// feed takes <c>since</c>, and keel refuses any other parameter with a 422. A bare
+        /// <c>change_seq</c> works for an owner or member key, but a guest key's feed answers it
+        /// with 409 <c>resync_required</c>: persist the cursor, not a number.
         /// </param>
-        /// <param name="headOnly">Cheap tip check: returns <c>head</c> without the change bodies.</param>
+        /// <param name="headOnly">Cheap tip check: returns <c>head</c>, a <c>cursor</c> to follow from, and <c>epoch</c>, with no changes.</param>
+        /// <remarks>
+        /// A page holds <see cref="PageSize"/> changes, at most 1000: the feed refuses a larger
+        /// <c>limit</c> with a 422 where the element lists clamp it.
+        /// </remarks>
         public Task<OWChangesPage> ChangesAsync(string cursor = null, bool headOnly = false, CancellationToken ct = default)
         {
             var query = new List<string>();
-            if (!string.IsNullOrEmpty(cursor)) query.Add("since=" + Uri.EscapeDataString(cursor));
-            if (headOnly) query.Add("head=true");
+            if (headOnly)
+            {
+                query.Add("head=true");
+            }
+            else
+            {
+                if (!string.IsNullOrEmpty(cursor)) query.Add("since=" + Uri.EscapeDataString(cursor));
+                query.Add("limit=" + Math.Min(PageSize, MaxChangesLimit));
+            }
 
-            return RequestAsync<OWChangesPage>("GET", "/changes/",
-                query: query.Count > 0 ? string.Join("&", query) : null, ct: ct);
+            return RequestAsync<OWChangesPage>("GET", "/changes/", query: string.Join("&", query), ct: ct);
         }
+
+        /// <summary>keel's cap on one <c>/changes</c> page (<c>core/changes.py</c>); over it is a 422.</summary>
+        private const int MaxChangesLimit = 1000;
 
         // -- Core -------------------------------------------------------------
 

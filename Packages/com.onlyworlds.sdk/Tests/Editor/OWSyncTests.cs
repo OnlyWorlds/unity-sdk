@@ -28,9 +28,47 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             BaseUrl = "https://example.test/api/v2",
         });
 
-        private static string Head(long head) => $@"{{""head"":{head},""changes"":[],""has_more"":false}}";
+        // The shapes below are keel's (core/changes.py compute_head, compute_changes): an owner's tip
+        // cursor is the bare change_seq as a number; a guest's is "seq:<max uuid>:epoch", with the
+        // epoch beside it; a page's cursor is "seq:id" (a guest's "seq:id:epoch").
+        private static string Head(long head) =>
+            $@"{{""cursor"":{head},""head"":{head},""changes"":[],""has_more"":false,""epoch"":null}}";
+
+        private const string MaxUuid = "ffffffff-ffff-ffff-ffff-ffffffffffff";
+
+        private static string GuestTip(long head, long epoch) => $"{head}:{MaxUuid}:{epoch}";
+
+        private static string GuestHead(long head, long epoch) =>
+            $@"{{""cursor"":""{GuestTip(head, epoch)}"",""head"":{head},""changes"":[],""has_more"":false,""epoch"":{epoch}}}";
+
+        private const string IdA = "069620b9-0794-708d-8000-00000000000a";
+        private const string IdB = "069620b9-0794-708d-8000-00000000000b";
+
+        private static string Upsert(string id, long seq, string name) =>
+            $@"{{""op"":""upsert"",""type"":""character"",""id"":""{id}"",""change_seq"":{seq},""updated_at"":""2026-10-16T00:00:00Z"",
+                ""element"":{{""id"":""{id}"",""name"":""{name}"",""level"":3}}}}";
+
+        private static string ResyncRequired =>
+            @"{""error"":{""type"":""invalid_request"",""code"":""resync_required"",""param"":""since"",
+                ""message"":""Your view of this world changed. Pull the feed again from the start (since=0) and replace your local copy.""}}";
 
         private static string EmptyPage => @"{""data"":[],""has_more"":false,""next_cursor"":null}";
+
+        private void EnqueueBaseline(string head)
+        {
+            _transport.Bodies.Enqueue(head);
+            for (var i = 0; i < OWSync.ElementTypes.Length; i++) _transport.Bodies.Enqueue(EmptyPage);
+        }
+
+        private static string Since(OWRequest call)
+        {
+            foreach (var pair in new System.Uri(call.Url).Query.TrimStart('?').Split('&'))
+            {
+                if (pair.StartsWith("since=")) return System.Uri.UnescapeDataString(pair.Substring(6));
+            }
+
+            return null;
+        }
 
         // -- Baseline ---------------------------------------------------------
 
@@ -84,6 +122,19 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual("Fresh", _cache.Get<OWCharacter>("c1").Name);
         }
 
+        [Test]
+        public async Task Baseline_StoresTheTipsOwnCursorAndEpoch()
+        {
+            EnqueueBaseline(GuestHead(40, 3));
+
+            await OWSync.BaselineAsync(Client(), _cache);
+
+            Assert.AreEqual(40, _cache.Cursor);
+            Assert.AreEqual(GuestTip(40, 3), _cache.CursorToken,
+                "The next sync resumes from the server's cursor; a guest's carries its epoch.");
+            Assert.AreEqual(3, _cache.Epoch);
+        }
+
         // -- Incremental ------------------------------------------------------
 
         [Test]
@@ -110,22 +161,135 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
-        public async Task Incremental_AppliesUpsertsByFetchingBodies()
+        public async Task Incremental_AppliesUpserts_FromTheElementTheyCarry()
         {
             _cache.SetCursor(100, "t");
 
             _transport.Bodies.Enqueue(Head(101));
             _transport.Bodies.Enqueue(
-                @"{""cursor"":""c-1"",""has_more"":false,""head"":101,
-                   ""changes"":[{""op"":""upsert"",""type"":""character"",""id"":""c1"",""change_seq"":101}]}");
-            _transport.Bodies.Enqueue(@"{""id"":""c1"",""name"":""Updated"",""level"":3}");
+                $@"{{""cursor"":""101:{IdA}"",""has_more"":false,""head"":101,""epoch"":null,
+                   ""changes"":[{Upsert(IdA, 101, "Updated")}]}}");
 
             var result = await OWSync.IncrementalAsync(Client(), _cache);
 
             Assert.AreEqual(1, result.Fetched);
-            Assert.AreEqual("Updated", _cache.Get<OWCharacter>("c1").Name);
-            Assert.AreEqual(3, _cache.Get<OWCharacter>("c1").Level.Value,
-                "A change record carries identity only -- the body must be fetched.");
+            Assert.AreEqual("Updated", _cache.Get<OWCharacter>(IdA).Name);
+            Assert.AreEqual(3, _cache.Get<OWCharacter>(IdA).Level.Value);
+            Assert.AreEqual(2, _transport.Calls.Count,
+                "An upsert carries the element whole: the tip and one page, no GET per element.");
+        }
+
+        [Test]
+        public async Task Incremental_FetchesTheBody_OnlyWhenAnOpHasNone()
+        {
+            _cache.SetCursor(100, "t");
+
+            _transport.Bodies.Enqueue(Head(101));
+            _transport.Bodies.Enqueue(
+                $@"{{""cursor"":""101:{IdA}"",""has_more"":false,""head"":101,""epoch"":null,
+                   ""changes"":[{{""op"":""upsert"",""type"":""character"",""id"":""{IdA}"",""change_seq"":101}}]}}");
+            _transport.Bodies.Enqueue($@"{{""id"":""{IdA}"",""name"":""Fetched""}}");
+
+            await OWSync.IncrementalAsync(Client(), _cache);
+
+            Assert.AreEqual("Fetched", _cache.Get<OWCharacter>(IdA).Name);
+            StringAssert.EndsWith($"/character/{IdA}/", _transport.Last.Url);
+        }
+
+        [Test]
+        public async Task Incremental_ResumesFromTheStoredCursor_NotFromTheSeq()
+        {
+            var token = $"100:{IdA}:3";
+            _cache.SetCursor(100, token, 3, "t");
+
+            _transport.Bodies.Enqueue(GuestHead(101, 3));
+            _transport.Bodies.Enqueue(
+                $@"{{""cursor"":""101:{IdB}:3"",""has_more"":false,""head"":101,""epoch"":3,
+                   ""changes"":[{Upsert(IdB, 101, "Seen")}]}}");
+
+            await OWSync.IncrementalAsync(Client(), _cache);
+
+            Assert.AreEqual(token, Since(_transport.Calls[1]),
+                "The cursor goes back as the server sent it; a bare 100 from a guest is a 409.");
+            Assert.AreEqual($"101:{IdB}:3", _cache.CursorToken, "The last page's cursor is the next resume point.");
+            Assert.AreEqual(101, _cache.Cursor);
+        }
+
+        [Test]
+        public async Task Incremental_ACacheWithNoToken_ResumesFromItsBareSeq()
+        {
+            // A cache synced before the token was kept: it resumes exactly as it did.
+            _cache.SetCursor(100, "t");
+
+            _transport.Bodies.Enqueue(Head(101));
+            _transport.Bodies.Enqueue(
+                $@"{{""cursor"":""101:{IdA}"",""has_more"":false,""head"":101,""epoch"":null,
+                   ""changes"":[{Upsert(IdA, 101, "A")}]}}");
+
+            await OWSync.IncrementalAsync(Client(), _cache);
+
+            Assert.AreEqual("100", Since(_transport.Calls[1]));
+            Assert.AreEqual($"101:{IdA}", _cache.CursorToken);
+        }
+
+        [Test]
+        public async Task Incremental_AfterBaseliningAnEmptyWorld_IsANoOp()
+        {
+            // Head 0 used to read as "no cursor", so an empty world re-baselined on every sync.
+            EnqueueBaseline(Head(0));
+            await OWSync.BaselineAsync(Client(), _cache);
+            _transport.Calls.Clear();
+
+            _transport.Bodies.Enqueue(Head(0));
+            var result = await OWSync.IncrementalAsync(Client(), _cache);
+
+            Assert.IsFalse(result.ChangedAnything);
+            Assert.AreEqual(1, _transport.Calls.Count);
+        }
+
+        // -- The resync rule --------------------------------------------------
+
+        [Test]
+        public async Task Incremental_RebaselinesWhenTheFeedAsksForAResync()
+        {
+            // A guest key with a cache synced before the token was kept: keel answers its bare
+            // since=100 with 409 resync_required (core/changes.py parse_cursor).
+            _cache.Upsert("stale", "character", @"{""id"":""stale"",""name"":""Hidden now""}");
+            _cache.SetCursor(100, "t");
+
+            _transport.Bodies.Enqueue(GuestHead(101, 2));
+            _transport.Statuses.Enqueue(200);
+            _transport.Bodies.Enqueue(ResyncRequired);
+            _transport.Statuses.Enqueue(409);
+            EnqueueBaseline(GuestHead(101, 2));
+
+            var result = await OWSync.IncrementalAsync(Client(), _cache);
+
+            Assert.IsTrue(result.WasRebaselined);
+            StringAssert.Contains("resync_required", result.RebaselineReason);
+            Assert.IsFalse(_cache.Contains("stale"), "A guest is never sent deletes: only a replace drops what it lost.");
+            Assert.AreEqual(GuestTip(101, 2), _cache.CursorToken);
+            Assert.AreEqual(2, _cache.Epoch);
+        }
+
+        [Test]
+        public async Task Incremental_AtTheHead_ButAMovedEpoch_IsNotCurrent()
+        {
+            // A Character given or taken moves a guest's epoch with head unmoved.
+            _cache.Upsert("stale", "character", @"{""id"":""stale"",""name"":""Hidden now""}");
+            _cache.SetCursor(100, GuestTip(100, 3), 3, "t");
+
+            _transport.Bodies.Enqueue(GuestHead(100, 4));
+            _transport.Statuses.Enqueue(200);
+            _transport.Bodies.Enqueue(ResyncRequired);
+            _transport.Statuses.Enqueue(409);
+            EnqueueBaseline(GuestHead(100, 4));
+
+            var result = await OWSync.IncrementalAsync(Client(), _cache);
+
+            Assert.IsTrue(result.WasRebaselined, "Same head, another epoch: the walk answers 409 and the cache rebuilds.");
+            Assert.AreEqual(4, _cache.Epoch);
+            Assert.IsFalse(_cache.Contains("stale"));
         }
 
         [Test]
@@ -158,18 +322,18 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             _transport.Bodies.Enqueue(Head(900));   // the tip is far ahead
             _transport.Bodies.Enqueue(
-                @"{""changes"":[{""id"":""a"",""type"":""character"",""op"":""update"",""change_seq"":11}],
-                   ""has_more"":true,""cursor"":null}");   // more exists, no way to reach it
-            _transport.Bodies.Enqueue(@"{""id"":""a"",""name"":""Applied""}");
+                $@"{{""changes"":[{Upsert(IdA, 11, "One")}],""has_more"":true,""cursor"":""11:{IdA}"",""head"":900,""epoch"":null}}");
+            _transport.Bodies.Enqueue(
+                $@"{{""changes"":[{Upsert(IdB, 12, "Two")}],""has_more"":true,""cursor"":null,""head"":900,""epoch"":null}}");   // more exists, no way to reach it
 
             var result = await OWSync.IncrementalAsync(Client(), _cache);
 
-            Assert.AreEqual(1, result.Fetched);
-            Assert.AreEqual(11, _cache.Cursor,
-                "The cursor must stop at the last change actually applied, never jump to a tip "
-                + "whose changes were never fetched.");
-            Assert.AreNotEqual(900, _cache.Cursor,
-                "Claiming the tip here would silently lose every change between 11 and 900.");
+            Assert.AreEqual(2, result.Fetched);
+            Assert.AreEqual($"11:{IdA}", _cache.CursorToken,
+                "The next sync resumes from the last cursor the server gave, and re-reads what came after it.");
+            Assert.AreEqual(10, _cache.Cursor,
+                "The seq stays put: 12 is no claim (a bulk import puts many changes at one seq), and "
+                + "claiming the tip would silently lose every change between 12 and 900.");
         }
 
         [Test]
@@ -185,21 +349,19 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             // do with what it is testing. (It did, first run.)
             _transport.Bodies.Enqueue(Head(30));
             _transport.Bodies.Enqueue(
-                @"{""changes"":[{""id"":""a"",""type"":""character"",""op"":""update"",""change_seq"":11}],
-                   ""has_more"":true,""cursor"":""11""}");
-            _transport.Bodies.Enqueue(@"{""id"":""a"",""name"":""One""}");
+                $@"{{""changes"":[{Upsert(IdA, 11, "One")}],""has_more"":true,""cursor"":""11:{IdA}"",""head"":30,""epoch"":null}}");
             _transport.Bodies.Enqueue(
-                @"{""changes"":[{""id"":""b"",""type"":""character"",""op"":""update"",""change_seq"":12}],
-                   ""has_more"":false,""cursor"":null}");
-            _transport.Bodies.Enqueue(@"{""id"":""b"",""name"":""Two""}");
+                $@"{{""changes"":[{Upsert(IdB, 12, "Two")}],""has_more"":false,""cursor"":""12:{IdB}"",""head"":30,""epoch"":null}}");
 
             var result = await OWSync.IncrementalAsync(Client(), _cache);
 
             Assert.AreEqual(2, result.Fetched, "Both pages must be applied.");
-            Assert.IsTrue(_cache.Contains("a"));
-            Assert.IsTrue(_cache.Contains("b"));
+            Assert.IsTrue(_cache.Contains(IdA));
+            Assert.IsTrue(_cache.Contains(IdB));
+            Assert.AreEqual($"11:{IdA}", Since(_transport.Calls[2]), "Page two starts at page one's cursor, as is.");
             Assert.AreEqual(30, _cache.Cursor,
                 "Having reached the end of the feed, the tip is the correct cursor.");
+            Assert.AreEqual($"12:{IdB}", _cache.CursorToken);
         }
 
         // -- The rewind rule --------------------------------------------------
@@ -263,6 +425,18 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             _transport.Bodies.Enqueue(Head(101));
             Assert.IsTrue(await OWSync.HasChangesAsync(Client(), _cache));
+        }
+
+        [Test]
+        public async Task HasChanges_SeesAGuestsMovedEpoch()
+        {
+            _cache.SetCursor(100, GuestTip(100, 3), 3, "t");
+
+            _transport.Bodies.Enqueue(GuestHead(100, 3));
+            Assert.IsFalse(await OWSync.HasChangesAsync(Client(), _cache));
+
+            _transport.Bodies.Enqueue(GuestHead(100, 4));
+            Assert.IsTrue(await OWSync.HasChangesAsync(Client(), _cache), "Head unmoved, view changed: a sync is due.");
         }
     }
 }

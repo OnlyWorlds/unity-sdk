@@ -36,12 +36,6 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Fixed
 
-- **`CreateAsync` sends `Idempotency-Key` only when you pass one**, as the npm SDK does. Since 0.1.0 it sent the
-  element's id as the key on every create. The server keeps a keyed create's first answer for 24 hours and answers an
-  identical repeat with it, writing nothing, so re-creating a deleted element under its old id (an undo) got the old
-  201 back and the element stayed deleted. The client still mints the id, so a retry without a key cannot duplicate:
-  it answers 409 `id_conflict`, and the element is there. Pass `idempotencyKey` when you want the stored answer
-  replayed instead.
 - **`ChangesAsync` pages the feed.** It sent its cursor as `cursor=`, and the changes feed takes `since`, refusing any
   other parameter with a 422. So `OWSync.IncrementalAsync` failed whenever a world had changed since its baseline. It
   now sends `since`.
@@ -56,6 +50,28 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 - **The folder writer's round-trip tests run in any host**: they find their fixture through the package's own resolved
   path, so a project that lists the SDK in `testables` and references it by `file:` from outside its own folder runs
   all three instead of skipping them.
+- **`CreateAsync` sends `Idempotency-Key` only when you pass one**, as the npm SDK does. Since 0.1.0 it sent the
+  element's id as the key on every create. The server keeps a keyed create's first answer for 24 hours and answers an
+  identical repeat with it, writing nothing, so re-creating a deleted element under its old id (an undo) got the old
+  201 back and the element stayed deleted. The client still mints the id, so a retry without a key cannot duplicate:
+  it answers 409 `id_conflict`, and the element is there. Pass `idempotencyKey` when you want the stored answer
+  replayed instead.
+- **`OWSync.IncrementalAsync` resumes from the server's own cursor**, kept as is in the cache's new `CursorToken`,
+  where it built one from the last `change_seq`. The server answers a guest key's bare number with 409
+  `resync_required`, so a guest key's incremental sync failed on its first real change. A cache synced by an earlier
+  version has no token and resumes from its `change_seq`, as before. A 409 `resync_required` now rebuilds the cache
+  from the start, with a `RebaselineReason` saying why: a guest is never sent deletes, so only a rebuild drops what it
+  can no longer see.
+- **The sync reads the feed's `epoch`** (`OWChangesPage.Epoch`, kept as `OWWorldCache.Epoch`). A guest's view can
+  change with the head unmoved, so a cache at the head is current only when the epoch is unchanged too, and
+  `HasChangesAsync` says so.
+- **Each upsert is applied from the element it carries** (`OWChange.Element`), where the sync fetched every changed
+  element again: one request per page instead of one per change. If the feed reports more pages but gives no cursor,
+  the cache keeps its `change_seq` and the last cursor the server gave, where it recorded the highest `change_seq` it
+  had read; a bulk import gives many changes one `change_seq`, so that number could claim changes never read. An
+  empty world's cache no longer rebuilds on every sync.
+- **`ChangesAsync` sends `limit`**: the client's `PageSize`, at most 1000, above which the feed answers 422. The
+  server's default page was 500; the npm SDK asks for 100.
 
 ## [0.4.0] - 2026-10-11
 

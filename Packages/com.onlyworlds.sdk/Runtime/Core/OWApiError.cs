@@ -45,6 +45,14 @@ namespace OnlyWorlds.Sdk
         public bool IsNotFound => StatusCode == 404;
 
         /// <summary>
+        /// <c>/changes</c> refused the cursor (409 <c>resync_required</c>): a guest key's view of the
+        /// world changed, or the key's role did. Walk the feed again from the start and REPLACE the
+        /// local copy: a guest never receives deletes, so only a replace drops what it no longer sees.
+        /// <see cref="OWSync.IncrementalAsync"/> does this itself.
+        /// </summary>
+        public bool IsResyncRequired => StatusCode == 409 && Code == "resync_required";
+
+        /// <summary>
         /// True when retrying the same request unchanged could plausibly succeed -- server faults
         /// and rate limits. A 4xx other than 429 will fail again identically.
         /// </summary>

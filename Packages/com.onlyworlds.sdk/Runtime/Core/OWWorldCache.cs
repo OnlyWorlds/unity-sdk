@@ -35,6 +35,13 @@ namespace OnlyWorlds.Sdk
         /// <summary>The change_seq this cache was last synced to.</summary>
         [SerializeField] private long _cursor;
 
+        /// <summary>The server's own cursor where the last sync stopped; empty in a cache older than it.</summary>
+        [SerializeField] private string _cursorToken;
+
+        /// <summary>The view epoch the last sync ran under (a guest key's), when <see cref="_hasEpoch"/>.</summary>
+        [SerializeField] private long _epoch;
+        [SerializeField] private bool _hasEpoch;
+
         [SerializeField] private string _syncedAt;
 
         /// <summary>
@@ -58,6 +65,17 @@ namespace OnlyWorlds.Sdk
         public OWWorldKey Key => _key;
         public string WorldName => _worldName;
         public long Cursor => _cursor;
+
+        /// <summary>
+        /// The <c>/changes</c> cursor to resume from, opaque, as the server sent it. Null or empty
+        /// when there is none (a cache synced before the SDK kept it), and a sync then resumes from
+        /// <see cref="Cursor"/>.
+        /// </summary>
+        public string CursorToken => _cursorToken;
+
+        /// <summary>The view epoch the last sync ran under: a guest key's, null for every other key.</summary>
+        public long? Epoch => _hasEpoch ? _epoch : (long?)null;
+
         public string SyncedAt => _syncedAt;
         public bool ReadOnly => _readOnly;
         public int Count => _elements.Count;
@@ -69,9 +87,16 @@ namespace OnlyWorlds.Sdk
             _readOnly = readOnly;
         }
 
-        public void SetCursor(long cursor, string syncedAtIso)
+        /// <summary>Sets a bare change_seq, dropping any stored cursor token and epoch.</summary>
+        public void SetCursor(long cursor, string syncedAtIso) => SetCursor(cursor, null, null, syncedAtIso);
+
+        /// <summary>Records where a sync stopped: the change_seq, the server's cursor and the view epoch.</summary>
+        public void SetCursor(long cursor, string cursorToken, long? epoch, string syncedAtIso)
         {
             _cursor = cursor;
+            _cursorToken = cursorToken;
+            _hasEpoch = epoch.HasValue;
+            _epoch = epoch ?? 0;
             _syncedAt = syncedAtIso;
         }
 
@@ -221,6 +246,9 @@ namespace OnlyWorlds.Sdk
             _byId = null;
             _byType = null;
             _cursor = 0;
+            _cursorToken = null;
+            _hasEpoch = false;
+            _epoch = 0;
         }
 
         // -- Index ------------------------------------------------------------

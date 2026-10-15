@@ -243,5 +243,48 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(202, _cache.Cursor);
             Assert.AreEqual("2026-07-28T18:00:00Z", _cache.SyncedAt);
         }
+
+        [Test]
+        public void CursorToken_AndEpoch_AreKept_AndABareSeqDropsThem()
+        {
+            _cache.SetCursor(202, "202:ffffffff-ffff-ffff-ffff-ffffffffffff:4", 4, "t");
+            Assert.AreEqual("202:ffffffff-ffff-ffff-ffff-ffffffffffff:4", _cache.CursorToken);
+            Assert.AreEqual(4, _cache.Epoch);
+
+            // A token beside a seq someone set by hand would resume from the wrong place.
+            _cache.SetCursor(150, "t");
+            Assert.IsNull(_cache.CursorToken);
+            Assert.IsNull(_cache.Epoch);
+
+            _cache.SetCursor(202, "202:x", 0, "t");
+            Assert.AreEqual(0, _cache.Epoch, "Epoch 0 is a value, not its absence.");
+
+            _cache.Clear();
+            Assert.AreEqual(0, _cache.Cursor);
+            Assert.IsNull(_cache.CursorToken);
+            Assert.IsNull(_cache.Epoch);
+        }
+
+        [Test]
+        public void CursorToken_SurvivesUnitySerialization_AndAnOldCacheHasNone()
+        {
+            _cache.SetCursor(202, "202:abc", 4, "t");
+            var restored = ScriptableObject.CreateInstance<OWWorldCache>();
+            JsonUtility.FromJsonOverwrite(JsonUtility.ToJson(_cache), restored);
+
+            Assert.AreEqual("202:abc", restored.CursorToken);
+            Assert.AreEqual(4, restored.Epoch);
+
+            // A cache serialized before the token existed: only the seq is there.
+            var old = ScriptableObject.CreateInstance<OWWorldCache>();
+            JsonUtility.FromJsonOverwrite(@"{""_cursor"":77,""_syncedAt"":""t""}", old);
+
+            Assert.AreEqual(77, old.Cursor);
+            Assert.IsTrue(string.IsNullOrEmpty(old.CursorToken), "No token: the sync resumes from the bare seq.");
+            Assert.IsNull(old.Epoch);
+
+            Object.DestroyImmediate(restored);
+            Object.DestroyImmediate(old);
+        }
     }
 }

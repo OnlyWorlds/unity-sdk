@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace OnlyWorlds.Sdk
 {
@@ -67,6 +68,12 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("change_seq")]
         public long ChangeSeq;
 
+        /// <summary>
+        /// On an upsert: the element whole, as <c>GET /{type}/{id}</c> returns it. Null on a delete.
+        /// </summary>
+        [JsonProperty("element")]
+        public JObject Element;
+
         /// <summary>On a delete: the membership whose write deleted it; null for the owner (keel #299).</summary>
         [JsonProperty("deleted_by")]
         public string DeletedBy;
@@ -79,9 +86,8 @@ namespace OnlyWorlds.Sdk
     /// <summary>A page of the <c>/changes</c> feed.</summary>
     /// <remarks>
     /// <para>
-    /// <c>/changes</c> returns change RECORDS, not element bodies. It is the sync cursor -- lossless
-    /// as a change feed, useless as an exporter on its own. To materialize a world you walk the
-    /// per-type list endpoints.
+    /// Every write to the world in order, by <c>change_seq</c> then id: an upsert carries the whole
+    /// element (<see cref="OWChange.Element"/>), a delete only its type and id.
     /// </para>
     /// <para>
     /// GOTCHA: world-meta edits do NOT appear here and do not bump <c>change_seq</c>. Poll
@@ -91,6 +97,11 @@ namespace OnlyWorlds.Sdk
     [Serializable]
     public class OWChangesPage
     {
+        /// <summary>
+        /// Where the next page starts: pass it back as is. Opaque: never parse or build one (a guest
+        /// key's has another shape than everyone else's). The server sends a bare number on a tip read
+        /// and a token after a page; both arrive here as a string.
+        /// </summary>
         [JsonProperty("cursor")]
         public string Cursor;
 
@@ -100,8 +111,16 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("has_more")]
         public bool HasMore;
 
-        /// <summary>The server's current tip. Compare against a persisted cursor.</summary>
+        /// <summary>The world's current <c>change_seq</c>. A persisted position past it means the world was rewound.</summary>
         [JsonProperty("head")]
         public long Head;
+
+        /// <summary>
+        /// A guest key's view epoch, null for every other key. It moves when what the guest may see
+        /// changes, even with <see cref="Head"/> unchanged: compare it with the epoch you last synced
+        /// under, never read it out of the cursor.
+        /// </summary>
+        [JsonProperty("epoch")]
+        public long? Epoch;
     }
 }

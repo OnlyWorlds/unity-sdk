@@ -20,13 +20,16 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         /// <summary>Successive bodies for multi-call flows like pagination.</summary>
         public Queue<string> Bodies = new Queue<string>();
 
+        /// <summary>Successive statuses, beside <see cref="Bodies"/>; <see cref="Status"/> once it is empty.</summary>
+        public Queue<int> Statuses = new Queue<int>();
+
         public Task<OWResponse> SendAsync(OWRequest request, CancellationToken ct = default)
         {
             Calls.Add(request);
             var body = Bodies.Count > 0 ? Bodies.Dequeue() : ResponseBody;
             return Task.FromResult(new OWResponse
             {
-                Status = Status,
+                Status = Statuses.Count > 0 ? Statuses.Dequeue() : Status,
                 Body = body,
                 Headers = ResponseHeaders,
             });
@@ -492,6 +495,55 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             await Make(t).ChangesAsync(headOnly: true);
 
             StringAssert.Contains("head=true", t.Last.Url);
+            StringAssert.DoesNotContain("limit=", t.Last.Url, "A tip read has no page to size.");
+        }
+
+        [Test]
+        public async Task Changes_ReadsTheOwnersNumericCursor_AndAGuestsEpoch()
+        {
+            // keel's head=true answers an owner with the bare change_seq as a JSON number
+            // (core/changes.py compute_head), and a guest with a token and its view epoch.
+            var t = new FakeTransport { ResponseBody = @"{""cursor"":202,""changes"":[],""has_more"":false,""head"":202,""epoch"":null}" };
+            var owner = await Make(t).ChangesAsync(headOnly: true);
+
+            Assert.AreEqual("202", owner.Cursor);
+            Assert.IsNull(owner.Epoch);
+
+            t.ResponseBody = @"{""cursor"":""202:ffffffff-ffff-ffff-ffff-ffffffffffff:5"",""changes"":[],""has_more"":false,""head"":202,""epoch"":5}";
+            var guest = await Make(t).ChangesAsync(headOnly: true);
+
+            Assert.AreEqual("202:ffffffff-ffff-ffff-ffff-ffffffffffff:5", guest.Cursor);
+            Assert.AreEqual(5, guest.Epoch);
+        }
+
+        [Test]
+        public async Task Changes_ReadsTheElementAnUpsertCarries()
+        {
+            var t = new FakeTransport
+            {
+                ResponseBody = @"{""cursor"":""201:069620b9-0794-708d-8000-42b0ea685f38"",""has_more"":false,""head"":201,""epoch"":null,
+                    ""changes"":[{""op"":""upsert"",""type"":""character"",""id"":""069620b9-0794-708d-8000-42b0ea685f38"",
+                    ""change_seq"":201,""updated_at"":""2026-10-16T00:00:00Z"",""element"":{""id"":""069620b9-0794-708d-8000-42b0ea685f38"",""name"":""Ama""}}]}",
+            };
+
+            var page = await Make(t).ChangesAsync();
+
+            Assert.AreEqual("Ama", page.Changes[0].Element["name"].ToString());
+        }
+
+        [Test]
+        public async Task Changes_SendsAPageSize_TheFeedAccepts()
+        {
+            var t = new FakeTransport { ResponseBody = @"{""changes"":[],""has_more"":false,""head"":0}" };
+            await Make(t).ChangesAsync("4:069620b9-0794-708d-8000-42b0ea685f38");
+
+            StringAssert.Contains("limit=100", t.Last.Url, "npm sends 100; keel's default is 500.");
+
+            // The element lists clamp a large limit; the feed refuses one over 1000 with a 422.
+            var big = new OWClient(new OWClientConfig { ApiKey = "ow_w_test", Transport = t, PageSize = 5000 });
+            await big.ChangesAsync();
+
+            StringAssert.Contains("limit=1000", t.Last.Url);
         }
 
         // -- Construction guards ----------------------------------------------
