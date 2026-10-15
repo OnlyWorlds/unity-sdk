@@ -6,6 +6,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **World calendars**: `OWCalendar` reads a world's calendar (the `atlas_calendar` field Atlas writes on a calendar
+  Construct) and formats, breaks down and parses dates on the world's integer time line: eras, months, weeks, leap and
+  intercalary days. It is a port of the npm SDK's calendar kernel (`@onlyworlds/sdk` 4.23.0), checked against the same
+  test vectors, so a date reads the same in Unity as in Atlas and Lantern. `OWCalendarLens.WorldCalendars` and
+  `ResolveLens` find the calendars a world holds. A missing or malformed calendar reads as null, never an error.
+
 ## [0.4.0] - 2026-10-11
 
 ### Added
