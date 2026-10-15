@@ -135,12 +135,16 @@ namespace OnlyWorlds.Sdk
 
             var result = new OWFolderReadResult { World = ReadWorldJson(folderPath) };
 
+            // Every file is listed first, in the order the serial reader visited them, so the result's
+            // order and its skipped list are the same as they always were.
+            var files = new List<(string path, string type, bool legacy)>();
             var elementsRoot = Path.Combine(folderPath, "elements");
             if (Directory.Exists(elementsRoot))
             {
                 foreach (var typeDir in Directory.GetDirectories(elementsRoot))
                 {
-                    ReadTypeDirectory(typeDir, Path.GetFileName(typeDir), result.Elements, result.Skipped);
+                    var type = Path.GetFileName(typeDir);
+                    foreach (var file in Directory.GetFiles(typeDir, "*.json")) files.Add((file, type, false));
                 }
             }
 
@@ -154,12 +158,54 @@ namespace OnlyWorlds.Sdk
                         var dir = Path.Combine(spatialRoot, type);
                         if (!Directory.Exists(dir)) continue;
 
-                        ReadTypeDirectory(dir, type, result.LegacyElements, result.Skipped);
+                        foreach (var file in Directory.GetFiles(dir, "*.json")) files.Add((file, type, true));
                     }
                 }
             }
 
+            var texts = ReadAllTexts(files);
+            for (var i = 0; i < files.Count; i++)
+            {
+                var (path, type, legacy) = files[i];
+                ReadElement(path, texts[i], type, legacy ? result.LegacyElements : result.Elements, result.Skipped);
+            }
+
             return result;
+        }
+
+        /// <summary>Most readers at once. Past 8 the disk, not the threads, sets the pace.</summary>
+        private const int ReadThreads = 8;
+
+        /// <summary>
+        /// Each file's text, by index; null where the read failed. The reads run on up to
+        /// <see cref="ReadThreads"/> threads; parsing stays on the caller's thread.
+        /// </summary>
+        /// <remarks>
+        /// Reading is half of a big world's open: 18,716 files one at a time took 1.3-1.5 s (Windrose,
+        /// 2026-09-30). Parsing is not parallelised on purpose: under Unity's Mono GC a parallel parse
+        /// measured 2-6x slower than one thread, because every parser allocates into the same heap.
+        /// A WebGL player has no threads, so it reads one at a time.
+        /// </remarks>
+        private static string[] ReadAllTexts(List<(string path, string type, bool legacy)> files)
+        {
+            var texts = new string[files.Count];
+#if UNITY_WEBGL && !UNITY_EDITOR
+            for (var i = 0; i < files.Count; i++) texts[i] = TryReadText(files[i].path);
+#else
+            System.Threading.Tasks.Parallel.For(0, files.Count,
+                new System.Threading.Tasks.ParallelOptions
+                {
+                    MaxDegreeOfParallelism = Math.Max(1, Math.Min(ReadThreads, Environment.ProcessorCount)),
+                },
+                i => texts[i] = TryReadText(files[i].path));
+#endif
+            return texts;
+        }
+
+        private static string TryReadText(string path)
+        {
+            try { return File.ReadAllText(path); }
+            catch (Exception) { return null; }
         }
 
         private static JObject ReadWorldJson(string folderPath)
@@ -192,50 +238,48 @@ namespace OnlyWorlds.Sdk
             return world;
         }
 
-        private static void ReadTypeDirectory(
-            string directory, string typeFromDirectory,
+        private static void ReadElement(
+            string file, string text, string typeFromDirectory,
             List<OWFolderElement> into, List<OWSkippedFile> skipped)
         {
-            foreach (var file in Directory.GetFiles(directory, "*.json"))
+            JObject body;
+            try
             {
-                JObject body;
-                try
-                {
-                    body = OWFolderWriter.Parse(File.ReadAllText(file));
-                }
-                catch (Exception)
-                {
-                    // Truncated, empty, or not JSON at all. Skip it, LEAVE IT ON DISK, and keep
-                    // serving everything else -- one malformed file taking out the whole world is
-                    // a real failure mode, not a hypothetical.
-                    skipped.Add(new OWSkippedFile { Path = file, Reason = "unparseable JSON" });
-                    continue;
-                }
-
-                var id = body["id"]?.ToString();
-                if (string.IsNullOrEmpty(id))
-                {
-                    // Identity lives in the body. A file without an id is not an element -- and it
-                    // is emphatically not ours to rename, backfill or delete.
-                    skipped.Add(new OWSkippedFile { Path = file, Reason = "no id in body" });
-                    continue;
-                }
-
-                // The body wins over the directory when it declares a type: a file may legitimately
-                // sit in the wrong folder, and the declaration is the stronger claim. Fill from the
-                // directory only when the body is silent, and never write the inference back.
-                var declared = body["type"]?.ToString();
-                var inferred = string.IsNullOrEmpty(declared);
-
-                into.Add(new OWFolderElement
-                {
-                    Id = id,
-                    Type = inferred ? typeFromDirectory : declared,
-                    TypeInferred = inferred,
-                    Body = body,
-                    Path = file,
-                });
+                if (text == null) throw new IOException($"'{file}' could not be read.");
+                body = OWFolderWriter.Parse(text);
             }
+            catch (Exception)
+            {
+                // Unreadable, truncated, empty, or not JSON at all. Skip it, LEAVE IT ON DISK, and
+                // keep serving everything else -- one malformed file taking out the whole world is
+                // a real failure mode, not a hypothetical.
+                skipped.Add(new OWSkippedFile { Path = file, Reason = "unparseable JSON" });
+                return;
+            }
+
+            var id = body["id"]?.ToString();
+            if (string.IsNullOrEmpty(id))
+            {
+                // Identity lives in the body. A file without an id is not an element -- and it
+                // is emphatically not ours to rename, backfill or delete.
+                skipped.Add(new OWSkippedFile { Path = file, Reason = "no id in body" });
+                return;
+            }
+
+            // The body wins over the directory when it declares a type: a file may legitimately
+            // sit in the wrong folder, and the declaration is the stronger claim. Fill from the
+            // directory only when the body is silent, and never write the inference back.
+            var declared = body["type"]?.ToString();
+            var inferred = string.IsNullOrEmpty(declared);
+
+            into.Add(new OWFolderElement
+            {
+                Id = id,
+                Type = inferred ? typeFromDirectory : declared,
+                TypeInferred = inferred,
+                Body = body,
+                Path = file,
+            });
         }
     }
 

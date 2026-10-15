@@ -14,6 +14,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   test vectors, so a date reads the same in Unity as in Atlas and Lantern. `OWCalendarLens.WorldCalendars` and
   `ResolveLens` find the calendars a world holds. A missing or malformed calendar reads as null, never an error.
 
+### Changed
+
+- **Faster folder reads**: `OWFolderReader.Read` (and so `OWFolderLoader.LoadInto`) reads a world's files on up to 8
+  threads, then parses them one at a time in the same order as before. On a 20,570-element world it took about 2.0 s
+  instead of 3.1 s, with the same elements, order, types and skipped files. Parsing stays on one thread on purpose: under
+  Unity's Mono GC a parallel parse measured slower. WebGL players read one file at a time.
+
 ## [0.4.0] - 2026-10-11
 
 ### Added
