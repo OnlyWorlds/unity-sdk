@@ -6,6 +6,8 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-16
+
 ### Added
 
 - **World calendars**: `OWCalendar` reads a world's calendar (the `atlas_calendar` field Atlas writes on a calendar
@@ -39,9 +41,10 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 - **Schema pin moved to `v0.32.0-dist.24`** (from `dist.20`): canonical unchanged. The element `id` is described as a
   UUID, new ids minted as v7 and earlier v4 ids still valid. The generated models changed only in their stamps.
 - **New ids are UUIDv7**, as the standard now says and as the server, the npm SDK (4.2.0 on) and the Python package
-  mint them: `CreateAsync` and `BulkAsync` mint one with `OWId.NewId()` when an element has no id, where they used a
-  v4 `Guid`. Ids this client mints a millisecond or more apart sort by creation; a world still holds v4 ids, which stay
-  valid, so order elements by `created_at`, never by id. A caller-supplied id is still sent as given.
+  mint them: `CreateAsync` and `BulkAsync` mint one with `OWId.NewId()` when an element has no id and no key is
+  given, where they used a v4 `Guid`. Ids this client mints a millisecond or more apart sort by creation; a world still
+  holds v4 ids, which stay valid, so order elements by `created_at`, never by id. A caller-supplied id is still sent as
+  given.
 - **Faster folder reads**: `OWFolderReader.Read` (and so `OWFolderLoader.LoadInto`) reads a world's files on up to 8
   threads, then parses them one at a time in the same order as before. On a 20,570-element world it took about 2.0 s
   instead of 3.1 s, with the same elements, order, types and skipped files. Parsing stays on one thread on purpose: under
