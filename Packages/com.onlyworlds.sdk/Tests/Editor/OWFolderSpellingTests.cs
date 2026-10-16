@@ -77,6 +77,27 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public void A_legacy_spatial_file_never_replaces_an_id_elements_gave()
+        {
+            AtlasSpelledWorld("{\"id\": \"w1\", \"name\": \"W\"}");
+            Write("spatial/zone/z-old.json", $"{{\"id\": \"{ZoneId}\", \"name\": \"The old road\"}}");
+            Write("spatial/pin/only-here.json", $"{{\"id\": \"0195d1a0-0000-7000-8000-0000000000ff\", \"map_id\": \"{MapId}\"}}");
+
+            var cache = UnityEngine.ScriptableObject.CreateInstance<OWWorldCache>();
+            try
+            {
+                OWFolderLoader.LoadInto(cache, _root);
+                Assert.AreEqual("The road", cache.Get<OWZone>(ZoneId).Name, "elements/ is the copy kept");
+                Assert.AreEqual(MapId, cache.Get<OWPin>("0195d1a0-0000-7000-8000-0000000000ff").Map,
+                    "a pin only under spatial/ still loads, its map_id read");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(cache);
+            }
+        }
+
+        [Test]
         public void The_read_result_keeps_the_body_as_written()
         {
             AtlasSpelledWorld("{\"id\": \"w1\", \"name\": \"W\"}");

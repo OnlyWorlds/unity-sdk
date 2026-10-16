@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Newtonsoft.Json.Linq;
 
 namespace OnlyWorlds.Sdk
@@ -382,8 +383,11 @@ namespace OnlyWorlds.Sdk
                     OWFolderReader.WithSchemaLinkNames(element.Body).ToString(Newtonsoft.Json.Formatting.None));
             }
 
+            // A legacy spatial/ file never replaces an id elements/ already gave: that is the older copy of a migrated file.
+            var loaded = new HashSet<string>(read.Elements.Select(e => e.Id), StringComparer.Ordinal);
             foreach (var element in read.LegacyElements)
             {
+                if (loaded.Contains(element.Id)) continue;
                 cache.Upsert(element.Id, element.Type,
                     OWFolderReader.WithSchemaLinkNames(element.Body).ToString(Newtonsoft.Json.Formatting.None));
             }

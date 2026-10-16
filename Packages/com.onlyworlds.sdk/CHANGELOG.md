@@ -13,6 +13,8 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   body as written, so a pin from an Atlas folder had no `Map` and a marker no `Map` or `Zone`. The cache now gets
   `OWFolderReader.WithSchemaLinkNames(body)`: the schema's name, in the old one's place, when the schema's name is not
   already there. The read result's bodies and the files on disk are unchanged.
+- **A legacy `spatial/` file no longer replaces an element `elements/` already gave.** `LoadInto` loaded the older
+  layout after the current one, so where an older Atlas folder kept one id in both, the older copy won in the cache.
 
 ### Added
 
