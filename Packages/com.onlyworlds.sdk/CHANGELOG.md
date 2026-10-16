@@ -6,6 +6,21 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **A world folder's pins and markers keep their links when Atlas spelled them `map_id` and `zone_id`.** The spec
+  says a reader accepts both spellings, and Atlas writes the `_id` forms. `OWFolderLoader.LoadInto` gave the cache the
+  body as written, so a pin from an Atlas folder had no `Map` and a marker no `Map` or `Zone`. The cache now gets
+  `OWFolderReader.WithSchemaLinkNames(body)`: the schema's name, in the old one's place, when the schema's name is not
+  already there. The read result's bodies and the files on disk are unchanged.
+
+### Added
+
+- `OWFolderReadResult.TimeCurrent`: `time_current`, else the wire's `time_range_current` (both accepted, as the
+  Python package reads them). `OWFolderReadResult.ServerWorldId`: a linked folder's `api.world_id`, else its `id`.
+  `WorldId` stays the folder's own id, which keys the cache.
+- The reader's notes name the folder spec it follows: v0.3.7's reading rules (they said v0.3.5).
+
 ## [0.5.0] - 2026-10-16
 
 ### Added

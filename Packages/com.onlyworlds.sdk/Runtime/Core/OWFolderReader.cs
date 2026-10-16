@@ -35,6 +35,32 @@ namespace OnlyWorlds.Sdk
         public string WorldId => World?["id"]?.ToString();
         public string WorldName => World?["name"]?.ToString();
 
+        /// <summary>
+        /// The onlyworlds.com world a linked folder is: <c>api.world_id</c> first, then <c>id</c> (older folders can
+        /// differ). Null with neither. <see cref="WorldId"/> stays the folder's own id, which keys the cache.
+        /// </summary>
+        public string ServerWorldId
+        {
+            get
+            {
+                var apiWorld = (World?["api"] as JObject)?["world_id"];
+                if (apiWorld != null && apiWorld.Type == JTokenType.String && apiWorld.ToString().Length > 0)
+                    return apiWorld.ToString();
+                return WorldId;
+            }
+        }
+
+        /// <summary>
+        /// The world's current time: <c>time_current</c>, else the wire's spelling <c>time_range_current</c>. Both are
+        /// accepted forever and <c>time_current</c> wins (spec §5, as the Python package reads it). Null when neither is
+        /// present; an explicit JSON null comes back as a null token, never as 0.
+        /// </summary>
+        public JToken TimeCurrent =>
+            World == null ? null
+            : World.TryGetValue("time_current", out var t) ? t
+            : World.TryGetValue("time_range_current", out var w) ? w
+            : null;
+
         /// <summary>True when the world declares an api block -- the sync switch.</summary>
         /// <remarks>Absent means local-only, and no sync machinery may attach.</remarks>
         public bool IsSyncable => World?["api"] != null && World["api"].Type != JTokenType.Null;
@@ -87,7 +113,7 @@ namespace OnlyWorlds.Sdk
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Implements the OW Folder Format spec v0.3.5. The rules that shape this code, all of which
+    /// Implements the OW Folder Format spec v0.3.7's reading rules. The rules that shape this code, all of which
     /// are easy to violate by accident:
     /// </para>
     /// <list type="bullet">
@@ -103,6 +129,9 @@ namespace OnlyWorlds.Sdk
     /// backfilled types. An empty-string name is a legal name and a different claim from unnamed;
     /// an explicit null means UNSET and is never 0 or "".</item>
     /// <item><b>A missing type directory means no elements of that type</b>, never an error.</item>
+    /// <item><b>Both spellings are accepted</b>: <c>map</c>/<c>map_id</c>, <c>zone</c>/<c>zone_id</c> (Atlas writes the
+    /// <c>_id</c> forms on pins and markers), <c>time_current</c>/<c>time_range_current</c>. The bodies here stay as
+    /// written; <see cref="WithSchemaLinkNames"/> is the schema's view, and it is what the cache is given.</item>
     /// </list>
     /// </remarks>
     public static class OWFolderReader
@@ -171,6 +200,33 @@ namespace OnlyWorlds.Sdk
             }
 
             return result;
+        }
+
+        /// <summary>The disk spellings a folder may use for a schema link, and the schema's name for each.</summary>
+        private static readonly (string disk, string schema)[] LinkSpellings = { ("map_id", "map"), ("zone_id", "zone") };
+
+        /// <summary>
+        /// A body with its links under the schema's names: <c>map_id</c> read as <c>map</c>, <c>zone_id</c> as
+        /// <c>zone</c>, each in its own place, when the schema's name is not already there (it wins when both are).
+        /// Returns <paramref name="body"/> itself when nothing differs, else a copy: the body read from disk is
+        /// never changed, so opening is still not editing.
+        /// </summary>
+        public static JObject WithSchemaLinkNames(JObject body)
+        {
+            if (body == null) return null;
+
+            JObject copy = null;
+            foreach (var (disk, schema) in LinkSpellings)
+            {
+                if (!body.ContainsKey(disk) || body.ContainsKey(schema)) continue;
+
+                copy ??= (JObject)body.DeepClone();
+                var old = copy.Property(disk);
+                old.AddBeforeSelf(new JProperty(schema, old.Value));
+                old.Remove();
+            }
+
+            return copy ?? body;
         }
 
         /// <summary>Most readers at once. Past 8 the disk, not the threads, sets the pace.</summary>
@@ -322,12 +378,14 @@ namespace OnlyWorlds.Sdk
 
             foreach (var element in read.Elements)
             {
-                cache.Upsert(element.Id, element.Type, element.Body.ToString(Newtonsoft.Json.Formatting.None));
+                cache.Upsert(element.Id, element.Type,
+                    OWFolderReader.WithSchemaLinkNames(element.Body).ToString(Newtonsoft.Json.Formatting.None));
             }
 
             foreach (var element in read.LegacyElements)
             {
-                cache.Upsert(element.Id, element.Type, element.Body.ToString(Newtonsoft.Json.Formatting.None));
+                cache.Upsert(element.Id, element.Type,
+                    OWFolderReader.WithSchemaLinkNames(element.Body).ToString(Newtonsoft.Json.Formatting.None));
             }
 
             return read;
