@@ -23,6 +23,16 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 - **`OWApiError.RetryAfter`**: the seconds to wait from the response's `Retry-After` header (a delay, or an HTTP date
   turned into one), or null. The server sends it on 503 `server_busy`, 429 and 409 `idempotency_in_flight`. It is read
   as the npm SDK reads it, and the client still never retries on its own.
+- **Export an account world to a world folder**: `OWFolderExport.ExportAsync(client, folder)` reads the world and all 22
+  element types (GETs only) and writes the folder the onlyworlds Python package's `export_world` writes, a port of its
+  rules: element files byte for byte, the collision rule's id-ascending names, `time_current` on disk,
+  `format_version` `"0.3.7"`. On Moppetopia's 310 elements it matched the package's output on the same wire bodies
+  with no file different. Each Map's image is kept as Atlas keeps local media (`media/<map id>/base-image/`, as served,
+  with its `.meta.json` sidecar); an image that will not fetch is a line in the report, never a failure. The folder
+  is built beside its destination and moved into place, so a cancel or an error leaves no half-written world, and it
+  must not exist or be empty. `OWFolderExport.WorldForDisk` is the `world.json` step on its own. The key and PIN go
+  into no file and no message. On Windows a folder too deep for the files a world needs is refused before the first
+  write: Unity's Mono does not take long paths.
 
 ### Changed
 
