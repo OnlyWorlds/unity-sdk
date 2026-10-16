@@ -105,7 +105,7 @@ namespace OnlyWorlds.Sdk
     public static class OWFolderExport
     {
         /// <summary>The OW Folder Format version an export declares in <c>world.json</c>.</summary>
-        public const string FormatVersion = "0.3.7";
+        public const string FormatVersion = "0.3.8";
 
         /// <summary>
         /// Wire key to disk key for <c>world.json</c> (spec §5, v0.3.5): the file follows the canonical

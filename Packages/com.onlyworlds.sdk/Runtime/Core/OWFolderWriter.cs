@@ -16,7 +16,7 @@ namespace OnlyWorlds.Sdk
     /// <remarks>
     /// <para>
     /// The companion to <see cref="OWFolderReader"/>, implementing the writer half of the OW Folder
-    /// Format spec v0.3.7. The reader's law is <i>opening is not editing</i>; the writer's is
+    /// Format spec v0.3.8. The reader's law is <i>opening is not editing</i>; the writer's is
     /// narrower and harder: <b>write only what you were given, in bytes another implementation
     /// would have produced.</b>
     /// </para>

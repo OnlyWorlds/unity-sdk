@@ -53,7 +53,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// <summary>
     /// The export, against the onlyworlds Python package it ports: the bytes and names below are what the
     /// package's <c>write_folder</c> wrote for the same wire bodies (run 2026-10-16, onlyworlds folder.py
-    /// v0.3.7), not what this SDK happens to write.
+    /// v0.3.7; the stamp moved to v0.3.8 with the package's 0.5.0, its <c>world_for_disk</c> re-run 2026-10-17 on the
+    /// three world cases below: only <c>format_version</c> changed), not what this SDK happens to write.
     /// </summary>
     public class OWFolderExportTests
     {
@@ -109,10 +110,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             var disk = OWFolderExport.WorldForDisk(wire);
 
-            // package: {'id': 'w', 'name': 'n', 'time_current': 3, 'x': 1, 'format_version': '0.3.7'}
+            // package: {'id': 'w', 'name': 'n', 'time_current': 3, 'x': 1, 'format_version': '0.3.8'}
             CollectionAssert.AreEqual(new[] { "id", "name", "time_current", "x", "format_version" }, Keys(disk));
             Assert.AreEqual(3, (int)disk["time_current"]);
-            Assert.AreEqual("0.3.7", (string)disk["format_version"]);
+            Assert.AreEqual("0.3.8", (string)disk["format_version"]);
         }
 
         [Test]
@@ -122,7 +123,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             var disk = OWFolderExport.WorldForDisk(wire);
 
-            // package: {'id': 'w', 'name': '', 'time_range_current': 3, 'time_current': 4, 'format_version': '0.3.7'}
+            // package: {'id': 'w', 'name': '', 'time_range_current': 3, 'time_current': 4, 'format_version': '0.3.8'}
             CollectionAssert.AreEqual(new[] { "id", "name", "time_range_current", "time_current", "format_version" }, Keys(disk));
             Assert.AreEqual(3, (int)disk["time_range_current"]);
             Assert.AreEqual(4, (int)disk["time_current"]);
@@ -154,7 +155,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 JObject.Parse("{\"id\":\"w\",\"name\":\"n\",\"snapshot_of\":\"o\",\"snapshot_counts\":{\"a\":9}}"),
                 new Dictionary<string, int> { { "character", 2 }, { "map", 0 } });
 
-            // package: {..., 'snapshot_of': 'o', 'snapshot_counts': {'character': 2}, 'format_version': '0.3.7'}
+            // package: {..., 'snapshot_of': 'o', 'snapshot_counts': {'character': 2}, 'format_version': '0.3.8'}
             CollectionAssert.AreEqual(new[] { "id", "name", "snapshot_of", "snapshot_counts", "format_version" }, Keys(disk));
             Assert.AreEqual("{\"character\":2}", disk["snapshot_counts"].ToString(Newtonsoft.Json.Formatting.None));
         }
@@ -220,7 +221,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 + "  \"description\": \"A moor, Jos\u00e9's.\",\n  \"time_range_min\": 0,\n  \"time_current\": 453,\n"
                 + "  \"length_unit\": \"\",\n  \"public_read\": true,\n  \"owner_character\": null,\n"
                 + "  \"created_at\": \"2026-01-07T01:21:41.262478+00:00\",\n"
-                + "  \"updated_at\": \"2026-10-11T11:53:28.489198+00:00\",\n  \"format_version\": \"0.3.7\"\n}\n",
+                + "  \"updated_at\": \"2026-10-11T11:53:28.489198+00:00\",\n  \"format_version\": \"0.3.8\"\n}\n",
                 Text(Path.Combine(_folder, "world.json")));
 
             Assert.AreEqual(

@@ -17,7 +17,7 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   `spatial/`, `OWFolderReader.Read` serves `elements/` and logs the `spatial/` copy in `Skipped` (it used to be loaded
   last, so the older copy won in the cache). `OWFolderWriter.WriteElement` writes a map, pin, zone or marker that
   lives under `spatial/<type>/` there, in its own file, so an edit never leaves a second copy; a new element goes to
-  `elements/`. The writers still stamp `format_version` `"0.3.7"`, valid under 0.3.8, as the Python package does.
+  `elements/`. `OWFolderExport` stamps `format_version` `"0.3.8"`, as the Python package does since its 0.5.0.
 
 ### Added
 
