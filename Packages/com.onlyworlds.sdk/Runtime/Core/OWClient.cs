@@ -162,9 +162,10 @@ namespace OnlyWorlds.Sdk
         /// </summary>
         /// <remarks>
         /// <para>
-        /// The client mints the id so a retry cannot create a duplicate: a retry of a create that
-        /// already landed answers 409 <c>id_conflict</c> (<see cref="OWApiError.Code"/>), and the
-        /// element is there.
+        /// A retry is safe when the element carries its id: a create that already landed answers
+        /// 409 <c>id_conflict</c> (<see cref="OWApiError.Code"/>), and the element is there. An
+        /// element without one gets a fresh id on every call, so an unkeyed retry of it creates a
+        /// second element. A caller who retries passes <paramref name="idempotencyKey"/>.
         /// </para>
         /// <para>
         /// <c>Idempotency-Key</c> is sent only when <paramref name="idempotencyKey"/> is given, as
@@ -234,9 +235,10 @@ namespace OnlyWorlds.Sdk
         /// <para>
         /// Each element is sanitized exactly as a single write is -- the five server-owned fields
         /// are stripped from every item, and a null scalar string is sent as <c>""</c> -- and each
-        /// gets a client-minted UUID when it has none, so a retry cannot duplicate. Under a key that
-        /// id is derived from the key and the item's position (<see cref="OWId.Keyed"/>), so a retry
-        /// sends the same body and replays, as the Python package's bulk does.
+        /// gets a client-minted UUID when it has none. Under a key that id is derived from the key and
+        /// the item's position (<see cref="OWId.Keyed"/>), so a retry sends the same body and replays,
+        /// as the Python package's bulk does. Without a key each call mints fresh ids, so an unkeyed
+        /// retry of id-less items writes them twice: a caller who retries passes a key.
         /// </para>
         /// </remarks>
         public async Task<OWBulkResult> BulkAsync(

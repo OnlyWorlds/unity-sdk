@@ -56,9 +56,10 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 - **`CreateAsync` sends `Idempotency-Key` only when you pass one**, as the npm SDK does. Since 0.1.0 it sent the
   element's id as the key on every create. The server keeps a keyed create's first answer for 24 hours and answers an
   identical repeat with it, writing nothing, so re-creating a deleted element under its old id (an undo) got the old
-  201 back and the element stayed deleted. The client still mints the id, so a retry without a key cannot duplicate:
-  it answers 409 `id_conflict`, and the element is there. Pass `idempotencyKey` when you want the stored answer
-  replayed instead.
+  201 back and the element stayed deleted. A retry without a key is safe when the element carries its own id: it
+  answers 409 `id_conflict`, and the element is there. An element without one gets a fresh id on every call, so an
+  unkeyed retry of it creates a second element, as in the npm SDK and the Python package; a caller who retries passes
+  `idempotencyKey`, and the stored answer is replayed.
 - **A keyed retry replays.** With an `idempotencyKey` and no id, `CreateAsync` and `BulkAsync` minted a fresh id on
   every call, so a retry sent a different body and the server answered 409 `idempotency_error` instead of its stored
   answer. The id is now derived from the key and the element's position (`OWId.Keyed`, a UUIDv5 in the Python
