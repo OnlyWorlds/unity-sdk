@@ -223,6 +223,22 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public async Task Create_WithAKey_DerivesTheIdSoARetrySendsTheSameBody()
+        {
+            // A fresh id per call made a keyed retry a second body, and keel answers that with 409
+            // idempotency_error, not the replay (Kael, h37 #5777; npm 4.27.1 and Python derive it the same way).
+            var t = new FakeTransport();
+            var client = Make(t);
+            await client.CreateAsync<JObject>("character", new JObject { ["name"] = "New" }, idempotencyKey: "retry-1");
+            var first = t.LastBody.ToString();
+            await client.CreateAsync<JObject>("character", new JObject { ["name"] = "New" }, idempotencyKey: "retry-1");
+
+            Assert.AreEqual(first, t.LastBody.ToString());
+            Assert.AreEqual("1b88c4e4-831f-503c-8149-cece1519ca32", t.LastBody["id"].ToString(),
+                "Python's uuid5 of 'retry-1' at index 0.");
+        }
+
+        [Test]
         public async Task Create_PreservesCallerSuppliedId()
         {
             var t = new FakeTransport();

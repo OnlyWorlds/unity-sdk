@@ -153,6 +153,24 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public async Task Request_WithAKey_DerivesEachIdFromItsPosition()
+        {
+            _transport.Bodies.Enqueue(AllSucceeded);
+            _transport.Bodies.Enqueue(AllSucceeded);
+
+            await Client().BulkAsync(TwoItems(), idempotencyKey: "retry-1");
+            var first = _transport.LastBody.ToString();
+            await Client().BulkAsync(TwoItems(), idempotencyKey: "retry-1");
+
+            Assert.AreEqual(first, _transport.LastBody.ToString(), "A keyed retry must send the same body to replay.");
+            Assert.AreEqual("1b88c4e4-831f-503c-8149-cece1519ca32",
+                _transport.LastBody["items"][0]["element"]["id"].ToString());
+            Assert.AreEqual("2f7b4a01-0c9b-5b1e-8602-270abbee8184",
+                _transport.LastBody["items"][1]["element"]["id"].ToString(),
+                "Python's bulk derives each id from the item's position.");
+        }
+
+        [Test]
         public async Task Request_KeepsACallerSuppliedId()
         {
             _transport.Bodies.Enqueue(AllSucceeded);

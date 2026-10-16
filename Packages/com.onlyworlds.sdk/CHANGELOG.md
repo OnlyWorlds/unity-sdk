@@ -59,6 +59,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   201 back and the element stayed deleted. The client still mints the id, so a retry without a key cannot duplicate:
   it answers 409 `id_conflict`, and the element is there. Pass `idempotencyKey` when you want the stored answer
   replayed instead.
+- **A keyed retry replays.** With an `idempotencyKey` and no id, `CreateAsync` and `BulkAsync` minted a fresh id on
+  every call, so a retry sent a different body and the server answered 409 `idempotency_error` instead of its stored
+  answer. The id is now derived from the key and the element's position (`OWId.Keyed`, a UUIDv5 in the Python
+  package's namespace), so a retry sends the same body. The Python package and the npm SDK (4.27.1) derive the same
+  id, so a key mints one id in all three clients. Without a key, ids are minted as before.
 - **`OWSync.IncrementalAsync` resumes from the server's own cursor**, kept as is in the cache's new `CursorToken`,
   where it built one from the last `change_seq`. The server answers a guest key's bare number with 409
   `resync_required`, so a guest key's incremental sync failed on its first real change. A cache synced by an earlier

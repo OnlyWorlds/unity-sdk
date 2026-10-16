@@ -69,5 +69,23 @@ namespace OnlyWorlds.Sdk.Tests
                 Assert.IsTrue(seen.Add(OWId.NewId(1792108800000L)), "74 random bits should not repeat in 1000 ids.");
             }
         }
+
+        // Python's uuid.uuid5(_KEYED_IDS, f"{key}\n{index}") (onlyworlds/http.py _minted_id), run on 10-16.
+        [TestCase("retry-1", 0, "1b88c4e4-831f-503c-8149-cece1519ca32")]
+        [TestCase("retry-1", 1, "2f7b4a01-0c9b-5b1e-8602-270abbee8184")]
+        [TestCase("retry-1", 3, "44bb129d-48b9-5fc2-b3c9-cc5f549e3e6e")]
+        [TestCase("Ærøskøbing", 0, "337e8ce1-5eb9-5373-96e9-9f67300da4ed")]
+        [TestCase("key \U0001F5FA️", 2, "cb7502a0-06e3-5d4e-8adf-8f9c22ff46e7")]
+        public void Keyed_IsPythonsUuid5OfKeyAndIndex(string key, int index, string expected)
+        {
+            Assert.AreEqual(expected, OWId.Keyed(key, index));
+        }
+
+        [Test]
+        public void Keyed_RefusesAnEmptyKey()
+        {
+            Assert.Throws<ArgumentException>(() => OWId.Keyed("", 0));
+            Assert.Throws<ArgumentException>(() => OWId.Keyed(null, 0));
+        }
     }
 }

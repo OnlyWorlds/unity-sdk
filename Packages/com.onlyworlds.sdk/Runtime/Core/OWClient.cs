@@ -174,6 +174,11 @@ namespace OnlyWorlds.Sdk
         /// new write: an undo that re-creates a deleted element under the key that first created it
         /// gets the old answer back, and the element stays deleted.
         /// </para>
+        /// <para>
+        /// With a key and no id, the id is derived from the key (<see cref="OWId.Keyed"/>), not freshly
+        /// minted, so a retry sends the same body and replays. The Python package and the npm SDK
+        /// derive the same id for the same key.
+        /// </para>
         /// </remarks>
         public Task<T> CreateAsync<T>(string type, object element, string idempotencyKey = null, CancellationToken ct = default)
         {
@@ -181,7 +186,7 @@ namespace OnlyWorlds.Sdk
 
             if (body["id"] == null || string.IsNullOrEmpty(body["id"].ToString()))
             {
-                body["id"] = OWId.NewId();
+                body["id"] = OWId.Mint(idempotencyKey, 0);
             }
 
             return RequestAsync<T>("POST", $"/{type}/", body: body,
@@ -229,7 +234,9 @@ namespace OnlyWorlds.Sdk
         /// <para>
         /// Each element is sanitized exactly as a single write is -- the five server-owned fields
         /// are stripped from every item, and a null scalar string is sent as <c>""</c> -- and each
-        /// gets a client-minted UUID when it has none, so a retry cannot duplicate.
+        /// gets a client-minted UUID when it has none, so a retry cannot duplicate. Under a key that
+        /// id is derived from the key and the item's position (<see cref="OWId.Keyed"/>), so a retry
+        /// sends the same body and replays, as the Python package's bulk does.
         /// </para>
         /// </remarks>
         public async Task<OWBulkResult> BulkAsync(
@@ -253,7 +260,7 @@ namespace OnlyWorlds.Sdk
 
                 if (element["id"] == null || string.IsNullOrEmpty(element["id"].ToString()))
                 {
-                    element["id"] = OWId.NewId();
+                    element["id"] = OWId.Mint(idempotencyKey, count);
                 }
 
                 array.Add(new JObject { ["type"] = item.Type, ["element"] = element });
