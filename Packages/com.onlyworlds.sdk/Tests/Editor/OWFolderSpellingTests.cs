@@ -98,6 +98,40 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public void The_reader_serves_elements_and_logs_the_spatial_duplicate()
+        {
+            AtlasSpelledWorld("{\"id\": \"w1\", \"name\": \"W\"}");
+            Write("spatial/zone/z-old.json", $"{{\"id\": \"{ZoneId}\", \"name\": \"The old road\"}}");
+
+            var read = OWFolderReader.Read(_root);
+
+            Assert.IsFalse(read.LegacyElements.Exists(e => e.Id == ZoneId), "the spatial/ copy is not served");
+            Assert.IsTrue(read.Skipped.Exists(s => s.Path.EndsWith("z-old.json") && s.Reason.Contains("elements/")),
+                "and it is logged");
+            Assert.IsTrue(File.Exists(Path.Combine(_root, "spatial/zone/z-old.json")), "and never deleted");
+        }
+
+        [Test]
+        public void A_writer_writes_a_spatial_element_where_it_lives_and_a_new_one_to_elements()
+        {
+            AtlasSpelledWorld("{\"id\": \"w1\", \"name\": \"W\"}");
+            var pinFile = Path.Combine(_root, "spatial/pin/p.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(pinFile));
+            File.Move(Path.Combine(_root, "elements/pin/p.json"), pinFile);
+
+            var written = OWFolderWriter.WriteElement(_root, JObject.Parse(
+                $"{{\"id\": \"{PinId}\", \"type\": \"pin\", \"name\": \"A town\", \"map_id\": \"{MapId}\", \"x\": 5, \"y\": 6}}"));
+
+            StringAssert.Contains(Path.Combine("spatial", "pin"), written, "an edit stays in the layout it was read from");
+            Assert.IsEmpty(Directory.Exists(Path.Combine(_root, "elements/pin"))
+                ? Directory.GetFiles(Path.Combine(_root, "elements/pin")) : new string[0], "no second copy in elements/");
+
+            var fresh = OWFolderWriter.WriteElement(_root, JObject.Parse(
+                "{\"id\": \"0195d1a0-0000-7000-8000-0000000000ee\", \"type\": \"pin\", \"name\": \"New\"}"));
+            StringAssert.Contains(Path.Combine("elements", "pin"), fresh, "a new element goes to elements/");
+        }
+
+        [Test]
         public void The_read_result_keeps_the_body_as_written()
         {
             AtlasSpelledWorld("{\"id\": \"w1\", \"name\": \"W\"}");

@@ -13,15 +13,18 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   body as written, so a pin from an Atlas folder had no `Map` and a marker no `Map` or `Zone`. The cache now gets
   `OWFolderReader.WithSchemaLinkNames(body)`: the schema's name, in the old one's place, when the schema's name is not
   already there. The read result's bodies and the files on disk are unchanged.
-- **A legacy `spatial/` file no longer replaces an element `elements/` already gave.** `LoadInto` loaded the older
-  layout after the current one, so where an older Atlas folder kept one id in both, the older copy won in the cache.
+- **One id, one file (folder spec v0.3.8 §4).** Where an older Atlas folder holds one id in both `elements/` and
+  `spatial/`, `OWFolderReader.Read` serves `elements/` and logs the `spatial/` copy in `Skipped` (it used to be loaded
+  last, so the older copy won in the cache). `OWFolderWriter.WriteElement` writes a map, pin, zone or marker that
+  lives under `spatial/<type>/` there, in its own file, so an edit never leaves a second copy; a new element goes to
+  `elements/`. The writers still stamp `format_version` `"0.3.7"`, valid under 0.3.8, as the Python package does.
 
 ### Added
 
 - `OWFolderReadResult.TimeCurrent`: `time_current`, else the wire's `time_range_current` (both accepted, as the
   Python package reads them). `OWFolderReadResult.ServerWorldId`: a linked folder's `api.world_id`, else its `id`.
   `WorldId` stays the folder's own id, which keys the cache.
-- The reader's notes name the folder spec it follows: v0.3.7's reading rules (they said v0.3.5).
+- The reader's notes name the folder spec it follows: v0.3.8's reading rules (they said v0.3.5).
 
 ## [0.5.0] - 2026-10-16
 

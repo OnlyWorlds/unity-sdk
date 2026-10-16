@@ -121,6 +121,15 @@ namespace OnlyWorlds.Sdk
             var (id, type) = Validate(body);
 
             var directory = Path.Combine(folder, "elements", type);
+            // §4 (v0.3.8, one id, one file): an element older Atlas kept under spatial/<type>/ is written there, in
+            // its own file, so the folder never holds one id in both layouts. A new element goes to elements/.
+            var legacy = Path.Combine(folder, "spatial", type);
+            if (Array.IndexOf(OWFolderReader.LegacySpatialTypes, type) >= 0
+                && FilesHoldingId(legacy, id).Count > 0
+                && (!Directory.Exists(directory) || FilesHoldingId(directory, id).Count == 0))
+            {
+                directory = legacy;
+            }
             Directory.CreateDirectory(directory);
 
             var name = body["name"] != null && body["name"].Type == JTokenType.String

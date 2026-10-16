@@ -114,7 +114,7 @@ namespace OnlyWorlds.Sdk
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Implements the OW Folder Format spec v0.3.7's reading rules. The rules that shape this code, all of which
+    /// Implements the OW Folder Format spec v0.3.8's reading rules. The rules that shape this code, all of which
     /// are easy to violate by accident:
     /// </para>
     /// <list type="bullet">
@@ -138,7 +138,7 @@ namespace OnlyWorlds.Sdk
     public static class OWFolderReader
     {
         /// <summary>Types the dated <c>spatial/</c> layout ever held.</summary>
-        private static readonly string[] LegacySpatialTypes = { "map", "pin", "zone", "marker" };
+        internal static readonly string[] LegacySpatialTypes = { "map", "pin", "zone", "marker" };
 
         /// <summary>
         /// Reads a world folder. Never writes, never throws for a malformed element.
@@ -198,6 +198,19 @@ namespace OnlyWorlds.Sdk
             {
                 var (path, type, legacy) = files[i];
                 ReadElement(path, texts[i], type, legacy ? result.LegacyElements : result.Elements, result.Skipped);
+            }
+
+            // §4 (v0.3.8, one id, one file): an id in both layouts is served from elements/, and the spatial/ copy is
+            // logged, never deleted (it is not ours to tidy).
+            if (result.LegacyElements.Count > 0)
+            {
+                var current = new HashSet<string>(result.Elements.Select(e => e.Id), StringComparer.Ordinal);
+                foreach (var e in result.LegacyElements)
+                {
+                    if (current.Contains(e.Id))
+                        result.Skipped.Add(new OWSkippedFile { Path = e.Path, Reason = "same id as a file in elements/, which is served" });
+                }
+                result.LegacyElements.RemoveAll(e => current.Contains(e.Id));
             }
 
             return result;
@@ -383,11 +396,9 @@ namespace OnlyWorlds.Sdk
                     OWFolderReader.WithSchemaLinkNames(element.Body).ToString(Newtonsoft.Json.Formatting.None));
             }
 
-            // A legacy spatial/ file never replaces an id elements/ already gave: that is the older copy of a migrated file.
-            var loaded = new HashSet<string>(read.Elements.Select(e => e.Id), StringComparer.Ordinal);
+            // The reader already dropped (and logged) a spatial/ copy of an id elements/ holds (§4, v0.3.8).
             foreach (var element in read.LegacyElements)
             {
-                if (loaded.Contains(element.Id)) continue;
                 cache.Upsert(element.Id, element.Type,
                     OWFolderReader.WithSchemaLinkNames(element.Body).ToString(Newtonsoft.Json.Formatting.None));
             }
