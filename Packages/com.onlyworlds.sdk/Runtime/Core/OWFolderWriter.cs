@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Numerics;
 using System.Text;
 using Newtonsoft.Json;
@@ -15,7 +16,7 @@ namespace OnlyWorlds.Sdk
     /// <remarks>
     /// <para>
     /// The companion to <see cref="OWFolderReader"/>, implementing the writer half of the OW Folder
-    /// Format spec v0.3.6. The reader's law is <i>opening is not editing</i>; the writer's is
+    /// Format spec v0.3.7. The reader's law is <i>opening is not editing</i>; the writer's is
     /// narrower and harder: <b>write only what you were given, in bytes another implementation
     /// would have produced.</b>
     /// </para>
@@ -23,7 +24,7 @@ namespace OnlyWorlds.Sdk
     /// The requirement underneath is DIFFABILITY. A world folder lives in version control, and two
     /// writers that agree on layout but not on bytes produce diffs full of noise -- which defeats
     /// the per-chapter snapshot the format exists for. So the serialization is pinned rather than
-    /// defaulted, at five points where a platform default would silently differ:
+    /// defaulted, at six points where a platform default would silently differ:
     /// </para>
     /// <list type="bullet">
     /// <item><b>LF, never CRLF.</b> <see cref="JsonTextWriter"/> takes its newline from the
@@ -43,11 +44,19 @@ namespace OnlyWorlds.Sdk
     /// integral float is <c>1</c>, never <c>1.0</c>. The byte-fidelity binds the value, not a
     /// producer's spelling of it, and Newtonsoft's spelling (<c>1.0</c>, <c>1E+21</c>) is not the
     /// reference implementation's.</item>
+    /// <item><b>Strings as <c>JSON.stringify</c> escapes them.</b> U+2028, U+2029 and U+0085 are
+    /// written raw, where Newtonsoft escapes them; a lone surrogate is escaped, where Newtonsoft's
+    /// UTF-8 step would replace it.</item>
     /// </list>
     /// <para>
     /// <b>Identity is the id in the body, never the filename.</b> A body whose name changed lands
     /// at a new path, and the old file is removed -- otherwise a rename silently forks one element
     /// into two, and the reader, keyed on id, serves whichever it happens to see last.
+    /// </para>
+    /// <para>
+    /// <b>Two elements, one short name</b> (§3.2, MUST): the later claimant takes the full-id form,
+    /// and a batch (<see cref="Write"/>) is written lowest id first, so its collisions settle
+    /// id-ascending, as every conforming writer settles them.
     /// </para>
     /// <para>
     /// <b>Nothing is synthesized.</b> No invented timestamps, no backfilled type, no placeholder
@@ -92,31 +101,24 @@ namespace OnlyWorlds.Sdk
         /// a writer cannot invent, so both are refusals rather than guesses.
         /// </exception>
         /// <remarks>
+        /// <para>
         /// If the id already exists in that directory under a different filename -- a rename -- the
         /// old file is removed, so identity stays with the id and never forks.
+        /// </para>
+        /// <para>
+        /// A short name another id already holds in that directory, compared case-insensitively
+        /// (NTFS and APFS resolve the two spellings to one file), sends this element to the full-id
+        /// form. The holder is never renamed: one write changes one element's file, as Atlas's own
+        /// writes do. To settle a collision among elements arriving together by the spec's
+        /// id-ascending rule, write them with <see cref="Write"/>.
+        /// </para>
         /// </remarks>
         public static string WriteElement(string folder, JObject body)
         {
             if (string.IsNullOrEmpty(folder)) throw new ArgumentNullException(nameof(folder));
             if (body == null) throw new ArgumentNullException(nameof(body));
 
-            var id = IdOf(body);
-            if (string.IsNullOrEmpty(id))
-            {
-                throw new OWFolderFormatException(
-                    "Cannot write an element with no id. Identity lives in the body, and a writer "
-                    + "must not mint one -- an id, once minted, must be persisted and must never be "
-                    + "re-derived.");
-            }
-
-            var type = body["type"]?.ToString();
-            if (string.IsNullOrEmpty(type))
-            {
-                throw new OWFolderFormatException(
-                    $"Element '{id}' declares no type, and a writer has no directory to put it in. "
-                    + "A reader may infer a type from the directory; a writer cannot run that "
-                    + "inference backwards.");
-            }
+            var (id, type) = Validate(body);
 
             var directory = Path.Combine(folder, "elements", type);
             Directory.CreateDirectory(directory);
@@ -140,22 +142,82 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
-        /// Writes several elements. Equivalent to <see cref="WriteElement"/> per body.
+        /// Writes several elements: <see cref="WriteElement"/> per body, in id order, so that a
+        /// collision among them settles as the spec's writer collision rule says.
         /// </summary>
         /// <param name="folder">World folder root.</param>
         /// <param name="bodies">Element bodies, each carrying its own id and type.</param>
         /// <returns>Absolute paths written, in the order the bodies arrived.</returns>
+        /// <exception cref="OWFolderFormatException">
+        /// A body has no usable id or no type. Every body is checked before the first is written, so
+        /// a refused batch writes nothing.
+        /// </exception>
+        /// <remarks>
+        /// <para>
+        /// §3.2 (MUST, v0.3.3): two elements whose short names land on one path are settled
+        /// id-ascending -- the lowest id keeps the short form, every other takes the full id -- so
+        /// every writer and every re-run picks the same names, whatever order the elements came in.
+        /// Written lowest id first, each element meets only lower ids already in place, and that is
+        /// the rule. Into an empty folder this names files exactly as the onlyworlds package's
+        /// <c>write_folder</c> does (<c>resolve_filenames</c>).
+        /// </para>
+        /// <para>
+        /// An element already in the folder keeps its name: a lower id arriving later takes the
+        /// full-id form rather than displacing it (see <see cref="WriteElement"/>). The package never
+        /// meets that case, because it writes only a folder's birth.
+        /// </para>
+        /// <para>
+        /// A body repeated in the batch keeps its LAST copy: the order is stable, so the later one is
+        /// written later.
+        /// </para>
+        /// </remarks>
         public static List<string> Write(string folder, IEnumerable<JObject> bodies)
         {
             if (bodies == null) throw new ArgumentNullException(nameof(bodies));
 
-            var written = new List<string>();
-            foreach (var body in bodies)
+            var list = new List<JObject>(bodies);
+            foreach (var body in list)
             {
-                written.Add(WriteElement(folder, body));
+                if (body == null) throw new ArgumentNullException(nameof(bodies), "A body in the batch is null.");
             }
 
-            return written;
+            foreach (var body in list) Validate(body);
+
+            var ids = list.Select(body => IdOf(body)).ToList();
+            var order = Enumerable.Range(0, list.Count).ToList();
+            order.Sort((x, y) =>
+            {
+                var c = string.CompareOrdinal(ids[x], ids[y]);
+                return c != 0 ? c : x.CompareTo(y);
+            });
+
+            var written = new string[list.Count];
+            foreach (var i in order) written[i] = WriteElement(folder, list[i]);
+            return written.ToList();
+        }
+
+        /// <summary>The body's id and type, or the refusal a writer gives without them.</summary>
+        private static (string Id, string Type) Validate(JObject body)
+        {
+            var id = IdOf(body);
+            if (string.IsNullOrEmpty(id))
+            {
+                throw new OWFolderFormatException(
+                    "Cannot write an element with no id. Identity lives in the body, and a writer "
+                    + "must not mint one -- an id, once minted, must be persisted and must never be "
+                    + "re-derived.");
+            }
+
+            var type = body["type"]?.ToString();
+            if (string.IsNullOrEmpty(type))
+            {
+                throw new OWFolderFormatException(
+                    $"Element '{id}' declares no type, and a writer has no directory to put it in. "
+                    + "A reader may infer a type from the directory; a writer cannot run that "
+                    + "inference backwards.");
+            }
+
+            return (id, type);
         }
 
         /// <summary>
@@ -360,9 +422,12 @@ namespace OnlyWorlds.Sdk
         private static string ResolveFilename(string directory, string id, string name)
         {
             var candidate = ElementFilename(id, name);
-            var candidatePath = Path.Combine(directory, candidate);
 
-            if (!File.Exists(candidatePath)) return candidate;
+            // Looked for case-insensitively, on every filesystem: on NTFS and APFS the two spellings
+            // are one file, and a folder written on Linux is opened on both.
+            var candidatePath = Directory.GetFiles(directory, "*.json")
+                .FirstOrDefault(file => string.Equals(Path.GetFileName(file), candidate, StringComparison.OrdinalIgnoreCase));
+            if (candidatePath == null) return candidate;
 
             // The path is taken. If it is taken by THIS element, that is not a collision -- it is
             // the ordinary case of rewriting a file in place.

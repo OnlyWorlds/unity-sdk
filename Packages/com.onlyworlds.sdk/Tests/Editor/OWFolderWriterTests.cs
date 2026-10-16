@@ -530,6 +530,97 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public void Write_SettlesACollisionIdAscending_CaseFolded_WhateverTheOrder()
+        {
+            // Arrival is the reverse of id order. Expected: the onlyworlds package's resolve_filenames
+            // on the same five (2026-10-16): the lowest id keeps the short form, and the bucket is
+            // case-folded, so ...ABCD collides with ...abcd although its own short name differs in case.
+            var bodies = new[]
+            {
+                Body("44444444-0000-7000-8000-000000000002", "character", "!!!"),
+                Body("33333333-0000-7000-8000-000000000001", "character", null),
+                Body("22222222-0000-7000-8000-00000000ABCD", "character", "ann"),
+                Body("11111111-0000-7000-8000-00000000abcd", "character", "Ann"),
+                Body("00000000-0000-7000-8000-00000000abcd", "character", "Ann"),
+            };
+
+            OWFolderWriter.Write(_temp, bodies);
+
+            var expected = new System.Collections.Generic.Dictionary<string, string>
+            {
+                { "00000000-0000-7000-8000-00000000abcd", "ann--0000abcd.json" },
+                { "11111111-0000-7000-8000-00000000abcd", "ann--11111111-0000-7000-8000-00000000abcd.json" },
+                { "22222222-0000-7000-8000-00000000ABCD", "ann--22222222-0000-7000-8000-00000000ABCD.json" },
+                { "33333333-0000-7000-8000-000000000001", "33333333-0000-7000-8000-000000000001.json" },
+                { "44444444-0000-7000-8000-000000000002", "44444444-0000-7000-8000-000000000002.json" },
+            };
+            var actual = Directory.GetFiles(Path.Combine(_temp, "elements", "character")).ToDictionary(
+                f => (string)OWFolderWriter.ReadJsonFile(f)["id"], Path.GetFileName);
+            CollectionAssert.AreEquivalent(expected, actual);
+        }
+
+        [Test]
+        public void Write_ReturnsPathsInArrivalOrder()
+        {
+            const string high = "99999999-8888-4777-8666-5555deadbeef";
+            const string low = "11111111-2222-4333-8444-5555deadbeef";
+
+            var paths = OWFolderWriter.Write(_temp, new[] { Body(high, "character", "Twin"), Body(low, "character", "Twin") });
+
+            Assert.AreEqual("twin--" + high + ".json", Path.GetFileName(paths[0]));
+            Assert.AreEqual("twin--deadbeef.json", Path.GetFileName(paths[1]), "The lower id keeps the short form.");
+        }
+
+        [Test]
+        public void Write_ARepeatedId_KeepsItsLastBody()
+        {
+            const string id = "11111111-2222-4333-8444-555555555501";
+
+            var paths = OWFolderWriter.Write(_temp, new[]
+            {
+                Body(id, "character", "Old"),
+                Body("11111111-2222-4333-8444-555555555502", "character", "Bea"),
+                Body(id, "character", "New"),
+            });
+
+            Assert.AreEqual(3, paths.Count);
+            CollectionAssert.AreEquivalent(new[] { "new--55555501.json", "bea--55555502.json" },
+                Directory.GetFiles(Path.Combine(_temp, "elements", "character")).Select(Path.GetFileName));
+        }
+
+        [Test]
+        public void Write_RefusesTheBatch_BeforeWritingAny()
+        {
+            // The refused body's id sorts after the good one's, so a check made while writing would come
+            // too late: the good one would already be on disk.
+            var bodies = new[]
+            {
+                Body("11111111-2222-4333-8444-555555555501", "character", "Alice"),
+                new JObject { ["id"] = "99999999-2222-4333-8444-555555555501", ["name"] = "No type" },
+            };
+
+            Assert.Throws<OWFolderFormatException>(() => OWFolderWriter.Write(_temp, bodies));
+            Assert.IsFalse(Directory.Exists(Path.Combine(_temp, "elements")), "Nothing of a refused batch is written.");
+        }
+
+        [Test]
+        public void Write_ALowerIdArrivingLater_TakesTheFullId_AndLeavesTheHolderAlone()
+        {
+            // The holder is never renamed by another element's write (as Atlas's runtime writes): a
+            // write changes one element's file. Only a whole batch is settled id-ascending.
+            const string high = "99999999-8888-4777-8666-5555deadbeef";
+            const string low = "11111111-2222-4333-8444-5555deadbeef";
+            var holder = OWFolderWriter.WriteElement(_temp, Body(high, "character", "Twin"));
+            var before = File.ReadAllBytes(holder);
+
+            var later = OWFolderWriter.Write(_temp, new[] { Body(low, "character", "Twin") })[0];
+
+            Assert.AreEqual("twin--deadbeef.json", Path.GetFileName(holder));
+            Assert.AreEqual("twin--" + low + ".json", Path.GetFileName(later));
+            CollectionAssert.AreEqual(before, File.ReadAllBytes(holder));
+        }
+
+        [Test]
         public void Delete_RemovesTheFile_ByIdNotByName()
         {
             const string id = "11111111-2222-4333-8444-555555555501";

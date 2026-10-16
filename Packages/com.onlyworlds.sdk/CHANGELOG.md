@@ -49,6 +49,15 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Fixed
 
+- **The folder writer escapes strings as `JSON.stringify` does.** `OWFolderWriter.Serialize` wrote U+2028, U+2029 and
+  U+0085 as escapes, in values and in keys, where the reference implementation and the Python package write them
+  raw, so a name holding one was a byte difference in every folder. It now matches the package's bytes on a body
+  holding them, the short escapes, the other controls and a surrogate pair. A lone surrogate is written as its escape.
+- **`OWFolderWriter.Write` settles a collision id-ascending**, as the spec's writer rule requires: a batch is written
+  lowest id first, so of two elements whose short filenames match (compared case-insensitively, on every filesystem)
+  the lower id keeps the short form whatever order they came in. Into an empty folder it now names files exactly as
+  the Python package does. Every body of a batch is checked before the first is written, and a refused batch writes
+  nothing. `WriteElement` still never renames an element already in the folder.
 - **`ChangesAsync` pages the feed.** It sent its cursor as `cursor=`, and the changes feed takes `since`, refusing any
   other parameter with a 422. So `OWSync.IncrementalAsync` failed whenever a world had changed since its baseline. It
   now sends `since`.
