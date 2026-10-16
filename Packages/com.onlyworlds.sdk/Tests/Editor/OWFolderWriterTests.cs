@@ -253,6 +253,32 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public void Strings_AreEscapedAsJsonStringifyEscapesThem()
+        {
+            // One body holding every class: the three that Newtonsoft escapes and JSON.stringify does not
+            // (U+2028, U+2029, U+0085, in a value and in a key), the short forms, other controls, DEL,
+            // and a surrogate pair. Expected: the onlyworlds package's serialize() on the same wire text
+            // (2026-10-16), and its UTF-8 bytes.
+            const string wire = "{\"n\": \"a\\u2028b\\u2029c\\u0085d\", \"q\": \"\\\"\\\\\\t\\n\\r\\b\\f\\u0001\\u001f\\u007f\", "
+                + "\"e\": \"\\u00e9\\ud83d\\ude42\", \"k\\u2028\": 1}";
+            const string expected = "{\n  \"n\": \"a\u2028b\u2029c\u0085d\",\n  \"q\": \"\\\"\\\\\\t\\n\\r\\b\\f\\u0001\\u001f\u007f\",\n"
+                + "  \"e\": \"\u00e9\ud83d\ude42\",\n  \"k\u2028\": 1\n}\n";
+            const string utf8 =
+                "7b0a2020226e223a202261e280a862e280a963c28564222c0a20202271223a20225c225c5c5c745c6e5c725c625c665c75303030315c75"
+                + "303031667f222c0a20202265223a2022c3a9f09f9982222c0a2020226be280a8223a20310a7d0a";
+
+            var text = OWFolderWriter.Serialize(OWFolderWriter.Parse(wire));
+
+            Assert.AreEqual(expected, text);
+            var bytes = new UTF8Encoding(false, true).GetBytes(text);
+            Assert.AreEqual(utf8, string.Concat(bytes.Select(b => b.ToString("x2"))));
+
+            // A lone surrogate is escaped, as ES2019's well-formed stringify and the package write it. Built,
+            // not parsed: Newtonsoft's reader already turns an escaped lone surrogate into U+FFFD.
+            Assert.AreEqual("{\n  \"s\": \"\\ud800x\"\n}\n", OWFolderWriter.Serialize(new JObject { ["s"] = "\ud800x" }));
+        }
+
+        [Test]
         public void WrittenFiles_HaveNoByteOrderMark()
         {
             OWFolderWriter.WriteElement(_temp, Body("11111111-2222-4333-8444-555555555501", "character", "Alice"));

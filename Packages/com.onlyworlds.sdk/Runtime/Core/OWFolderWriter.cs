@@ -491,16 +491,11 @@ namespace OnlyWorlds.Sdk
                 NewLine = "\n",
             };
 
-            using (var writer = new JsNumberTextWriter(buffer)
+            using (var writer = new JsTextWriter(buffer)
             {
                 Formatting = Formatting.Indented,
                 Indentation = 2,
                 IndentChar = ' ',
-
-                // Default already, pinned anyway: the reference implementation emits raw UTF-8 for
-                // non-ASCII, and EscapeNonAscii here would make every accented name a byte-level
-                // disagreement that no reader could see.
-                StringEscapeHandling = StringEscapeHandling.Default,
             })
             {
                 token.WriteTo(writer);
@@ -519,9 +514,18 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// A <see cref="JsonTextWriter"/> that spells every non-integer number the way ECMAScript's
-        /// <c>Number::toString</c> does, and changes nothing else.
+        /// <c>Number::toString</c> does, and escapes strings the way <c>JSON.stringify</c> does, and
+        /// changes nothing else.
         /// </summary>
         /// <remarks>
+        /// <para>
+        /// Strings: Newtonsoft's default escaping also writes U+0085, U+2028 and U+2029 as
+        /// <c>\u0085</c>, <c>\u2028</c> and <c>\u2029</c>, and its UTF-8 step turns a lone surrogate
+        /// into U+FFFD. <c>JSON.stringify</c> (and the Python package's writer) writes the first three
+        /// raw and a lone surrogate as its escape (measured 2026-10-16 against the package on one body
+        /// holding all of them). So every string, value and key, goes through <see cref="Quote"/>
+        /// instead.
+        /// </para>
         /// <para>
         /// Newtonsoft appends <c>.0</c> to an integral double and switches to <c>E+</c> notation at
         /// its own thresholds; the reference implementation writes <c>1</c>, <c>100000000000000000000</c>
@@ -537,9 +541,68 @@ namespace OnlyWorlds.Sdk
         /// (<see cref="Shortest"/>).
         /// </para>
         /// </remarks>
-        private sealed class JsNumberTextWriter : JsonTextWriter
+        private sealed class JsTextWriter : JsonTextWriter
         {
-            public JsNumberTextWriter(TextWriter writer) : base(writer) { }
+            public JsTextWriter(TextWriter writer) : base(writer) { }
+
+            public override void WriteValue(string value)
+            {
+                if (value == null) WriteNull();
+                else WriteRawValue(Quote(value));
+            }
+
+            public override void WritePropertyName(string name) => WritePropertyName(name, true);
+
+            // Unescaped from here on: the base writes the quotes and the colon around what it is given.
+            public override void WritePropertyName(string name, bool escape)
+                => base.WritePropertyName(escape ? Escape(name) : name, false);
+
+            private static string Quote(string value) => "\"" + Escape(value) + "\"";
+
+            /// <summary>
+            /// <c>JSON.stringify</c>'s string escaping (ES2019, well-formed): the quote, the backslash
+            /// and the controls below U+0020 (in their short forms where they have one), and a lone
+            /// surrogate as <c>\udXXX</c>. Everything else is written as it is.
+            /// </summary>
+            private static string Escape(string value)
+            {
+                StringBuilder builder = null;
+                for (var i = 0; i < value.Length; i++)
+                {
+                    var c = value[i];
+                    string escape = null;
+                    switch (c)
+                    {
+                        case '"': escape = "\\\""; break;
+                        case '\\': escape = "\\\\"; break;
+                        case '\b': escape = "\\b"; break;
+                        case '\f': escape = "\\f"; break;
+                        case '\n': escape = "\\n"; break;
+                        case '\r': escape = "\\r"; break;
+                        case '\t': escape = "\\t"; break;
+                        default:
+                            var pairedHigh = char.IsHighSurrogate(c) && i + 1 < value.Length && char.IsLowSurrogate(value[i + 1]);
+                            var pairedLow = char.IsLowSurrogate(c) && i > 0 && char.IsHighSurrogate(value[i - 1]);
+                            if (c < ' ' || (char.IsSurrogate(c) && !pairedHigh && !pairedLow))
+                            {
+                                escape = "\\u" + ((int)c).ToString("x4", CultureInfo.InvariantCulture);
+                            }
+
+                            break;
+                    }
+
+                    if (escape == null)
+                    {
+                        builder?.Append(c);
+                        continue;
+                    }
+
+                    if (builder == null) builder = new StringBuilder(value, 0, i, value.Length + 8);
+                    builder.Append(escape);
+                }
+
+                return builder == null ? value : builder.ToString();
+            }
 
             public override void WriteValue(double value) => WriteRawValue(FormatDouble(value));
 
