@@ -76,6 +76,9 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Keep each Map's image as local media. On by default.</summary>
         public bool IncludeMedia = true;
+
+        /// <summary>The export's clock for <c>source.at</c>. Null reads the system's (a test pins it).</summary>
+        public Func<DateTimeOffset> Clock;
     }
 
     /// <summary>
@@ -105,7 +108,7 @@ namespace OnlyWorlds.Sdk
     public static class OWFolderExport
     {
         /// <summary>The OW Folder Format version an export declares in <c>world.json</c>.</summary>
-        public const string FormatVersion = "0.3.8";
+        public const string FormatVersion = "0.3.9";
 
         /// <summary>
         /// Wire key to disk key for <c>world.json</c> (spec §5, v0.3.5): the file follows the canonical
@@ -242,10 +245,22 @@ namespace OnlyWorlds.Sdk
 
             // -- Read everything first ---------------------------------------------------------------
 
+            var at = (options?.Clock ?? (() => DateTimeOffset.UtcNow))();
             progress?.Report(new OWFolderExportProgress { Stage = "world", Done = 0, Total = 1 });
             var wireWorld = await client.GetWorldAsync(ct).ConfigureAwait(false);
             if (wireWorld == null) throw new OWFolderFormatException("GET /world/ returned no world object.");
+            var slice = await ExportedAsAsync(client, ct).ConfigureAwait(false);
             progress?.Report(new OWFolderExportProgress { Stage = "world", Done = 1, Total = 1 });
+
+            // The provenance lines (§4.2, v0.3.9) after the wire's keys, as the package's export_world adds them.
+            wireWorld = (JObject)wireWorld.DeepClone();
+            wireWorld["source"] = new JObject
+            {
+                ["server"] = new Uri(client.BaseUrl).GetLeftPart(UriPartial.Authority),
+                ["world"] = wireWorld["id"]?.DeepClone(),
+                ["at"] = at.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture),
+            };
+            if (slice != null) wireWorld["exported_as"] = slice;
 
             var types = OWElementTypes.Slugs;
             var byType = new Dictionary<string, List<JObject>>();
@@ -322,6 +337,72 @@ namespace OnlyWorlds.Sdk
 
             return await WriteAsync(read.World, byType, root, parent, options, progress, ct).ConfigureAwait(false);
         }
+
+        /// <summary>The member roles whose slice is the role's, with no Character (<c>co_builder</c> as keel serves it).</summary>
+        public static readonly string[] MemberRoles = { "co_builder", "contributor" };
+
+        /// <summary>
+        /// The <c>exported_as</c> line (§4.2, v0.3.9) for a <c>GET /me</c> answer, or null: write none. The spec owner's
+        /// table (Skeld h50 #7910), as the package's <c>exported_as</c> maps it, rule for rule:
+        /// </summary>
+        /// <remarks>
+        /// <c>kind: owner</c> (an owner-minted or classic key) is the owner, role owner, no Character. A member with role
+        /// <c>co_builder</c> or <c>contributor</c> is a member, its role, no Character (a contributor reads the whole world,
+        /// so the slice is the role's, not its Character's). A guest of any kind (person, agent seat, player) is a
+        /// Character, role guest, <c>{id, name}</c>, the name from <paramref name="characterName"/>. Anything else is null:
+        /// no answer, a guest with no Character, a Character whose name cannot be read, a kind or role the table does not
+        /// name. The slice is then not known, and the line is absent, never guessed. An empty name is a name the server
+        /// served, and is written.
+        /// </remarks>
+        public static JObject ExportedAs(JObject me, Func<string, string> characterName)
+        {
+            if (me == null) return null;
+            var kind = me["kind"]?.Type == JTokenType.String ? (string)me["kind"] : null;
+            var role = me["role"]?.Type == JTokenType.String ? (string)me["role"] : null;
+            if (kind == "owner") return new JObject { ["kind"] = "owner", ["role"] = "owner", ["character"] = null };
+            if (role != null && Array.IndexOf(MemberRoles, role) >= 0)
+                return new JObject { ["kind"] = "member", ["role"] = role, ["character"] = null };
+            if (role != "guest") return null;
+
+            var id = me["character"]?.Type == JTokenType.String ? (string)me["character"] : null;
+            if (string.IsNullOrEmpty(id)) return null;
+            var name = characterName?.Invoke(id);
+            if (name == null) return null;
+            return new JObject
+            {
+                ["kind"] = "character", ["role"] = "guest", ["character"] = new JObject { ["id"] = id, ["name"] = name },
+            };
+        }
+
+        /// <summary>
+        /// <see cref="ExportedAs"/> for the client's key: <c>GET /me</c>, and for a guest its Character's name. A refusal, no
+        /// answer or a body that is not what was asked makes it null; only a cancel goes through.
+        /// </summary>
+        private static async Task<JObject> ExportedAsAsync(OWClient client, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            JObject me;
+            try { me = await client.GetMeAsync(ct).ConfigureAwait(false); }
+            catch (Exception e) when (Unavailable(e)) { return null; }
+
+            string name = null;
+            var id = me?["role"]?.ToString() == "guest" && me["character"]?.Type == JTokenType.String ? (string)me["character"] : null;
+            if (!string.IsNullOrEmpty(id))
+            {
+                try
+                {
+                    var character = await client.GetAsync<JObject>("character", id, ct).ConfigureAwait(false);
+                    name = character?["name"]?.Type == JTokenType.String ? (string)character["name"] : null;
+                }
+                catch (Exception e) when (Unavailable(e)) { name = null; }
+            }
+
+            return ExportedAs(me, _ => name);
+        }
+
+        /// <summary>The ways a read is refused or not what was asked: the slice is then unknown, not the export failed.</summary>
+        private static bool Unavailable(Exception e) =>
+            e is OWApiError || e is OWTransportError || e is Newtonsoft.Json.JsonException || e is InvalidCastException;
 
         /// <summary>The folder's full path, its separators trimmed, and the directory it is built beside.</summary>
         private static string RootOf(string folder, out string parent)

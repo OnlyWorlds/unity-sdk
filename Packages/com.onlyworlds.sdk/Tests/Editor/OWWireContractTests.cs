@@ -77,6 +77,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             });
 
             await c.GetWorldAsync();
+            await c.GetMeAsync();
             t.ResponseBody = @"{""data"":[],""has_more"":false}";
             await c.ListAsync<JObject>("character", new OWListParams
             {
@@ -195,7 +196,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public async Task TheRecordingCoversEveryCall()
         {
             // An empty recording would pass the three checks above with nothing checked.
-            Assert.AreEqual(12, (await RecordEveryCall()).Count);
+            Assert.AreEqual(13, (await RecordEveryCall()).Count);
         }
     }
 }

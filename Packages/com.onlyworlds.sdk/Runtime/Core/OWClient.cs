@@ -89,6 +89,15 @@ namespace OnlyWorlds.Sdk
         public Task<JObject> GetWorldAsync(CancellationToken ct = default)
             => RequestAsync<JObject>("GET", "/world/", ct: ct);
 
+        /// <summary>
+        /// GET /me -- who this key is: <c>{world, scope, kind, role, membership, character, name?}</c>. <c>kind</c> is
+        /// <c>owner</c> for an owner-minted or classic key, else the membership's (<c>person</c>, <c>agent</c>,
+        /// <c>player</c>); <c>role</c> is <c>owner</c>, <c>co_builder</c>, <c>contributor</c> or <c>guest</c>;
+        /// <c>character</c> is the Character id the key acts as, or null (also when it is hidden from this key).
+        /// </summary>
+        public Task<JObject> GetMeAsync(CancellationToken ct = default)
+            => RequestAsync<JObject>("GET", "/me/", ct: ct);
+
         // -- Element reads ----------------------------------------------------
 
         /// <summary>GET /{type}/ -- one cursor page.</summary>

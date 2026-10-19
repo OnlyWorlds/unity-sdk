@@ -27,6 +27,16 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   key of its world carried into `world.json`, each Map's image fetched from its `image_url`), born whole or not at all.
   What a folder cannot keep whole is refused, not skipped: an element with no id, a type that is not the standard's,
   one id under two types.
+- **The provenance lines** (folder format v0.3.9, §4.2): an API export's `world.json` now carries `source`
+  (`{server, world, at}`: the API's origin, the world's id, when the export began, as `toISOString` writes it) and,
+  when `GET /me` says which slice the key reads, `exported_as` (`{kind, role, character}`), after the wire's keys, as
+  the Python package's `export_world` writes them (0.7.0). `OWFolderExport.ExportedAs(me, characterName)` is the
+  spec owner's table in one place; a refused `/me`, or a guest whose Character cannot be read, writes none. New:
+  `OWClient.GetMeAsync` (GET `/me/`, in the wire check: 13 calls), `OWFolderExportOptions.Clock`.
+
+### Changed
+
+- An export declares folder format `0.3.9` (`OWFolderExport.FormatVersion`), as the package's 0.7.0 does.
 
 ## [0.6.0] - 2026-10-17
 
