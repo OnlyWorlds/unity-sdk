@@ -20,7 +20,8 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   with the file's `Format`, `SchemaVersion` and `ExportedAt`), and `OWEnvelopeLoader.LoadInto(cache, path)` fills a
   read-only cache. The reader keys on `format` alone; `schema_version` (the standard's version the elements follow)
   is kept as information, never checked. An element with no id is skipped and reported, as in a folder. The test
-  fixture is local until keel's own export of a small world lands in schema-dist.
+  fixture is keel's own emitter output, published in schema-dist (`example/world-export.json`, serial 25) and vendored
+  byte for byte; a test holds its hash to the dist's MANIFEST.
 
 ## [0.6.0] - 2026-10-17
 

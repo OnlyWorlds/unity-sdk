@@ -1,21 +1,29 @@
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using NUnit.Framework;
 using UnityEngine;
 
 namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
-    /// The portal's one-file export (keel's <c>world_export</c>, spec §8c). The fixture is keel's shape key for
-    /// key (<c>portal/views.py</c> <c>world_export</c>, <c>tests/test_export.py</c>); the edge cases are inline.
+    /// The portal's one-file export (keel's <c>world_export</c>, spec §8c). The fixture is keel's own: the emitter's
+    /// output for one fixed world, pinned by keel's <c>tests/test_export_fixture.py</c> and published in schema-dist as
+    /// <c>example/world-export.json</c> (serial 25, tag <c>v0.32.0-dist.25</c>), vendored byte for byte. When keel's
+    /// emitter moves on purpose, the dist moves with it: re-vendor from the dist and update the hash below. The edge
+    /// cases are inline.
     /// </summary>
     public class OWEnvelopeReaderTests
     {
-        private const string WorldId = "0196f0a2-0000-7000-8000-00000000a001";
-        private const string Strahd = "0196f0a2-0000-7000-8000-00000000c001";
-        private const string Castle = "0196f0a2-0000-7000-8000-00000000b001";
-        private const string MapId = "0196f0a2-0000-7000-8000-00000000d001";
-        private const string PinId = "0196f0a2-0000-7000-8000-00000000e001";
+        /// <summary>The fixture's sha256 as dist.25's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "e9475145aa17b47595c9424e7915b58ece6237f89c2ad463a79822c780d2461c";
+
+        private const string WorldId = "01999999-0000-7000-8000-000000000420";
+        private const string Keep = "01999999-0000-7000-8000-000000000001";
+        private const string Mill = "01999999-0000-7000-8000-000000000002";
+        private const string Pip = "01999999-0000-7000-8000-000000000003";
+        private const string Mara = "01999999-0000-7000-8000-000000000004";
+        private const string Brave = "01999999-0000-7000-8000-000000000005";
 
         private static string FixturePath
         {
@@ -23,7 +31,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             {
                 var package = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(OWEnvelopeReaderTests).Assembly);
                 Assert.IsNotNull(package, "the package's own path is how the fixture is found");
-                var path = Path.Combine(package.resolvedPath, "Tests", "Editor", "Fixtures", "envelope", "ravenloft.export.json");
+                var path = Path.Combine(package.resolvedPath, "Tests", "Editor", "Fixtures", "envelope", "world-export.json");
                 Assert.IsTrue(File.Exists(path), path);
                 return path;
             }
@@ -35,36 +43,44 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         // -- The file ---------------------------------------------------------
 
         [Test]
+        public void TheFixture_IsTheDistsBytes()
+        {
+            using var sha = SHA256.Create();
+            var hash = System.BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(FixturePath))).Replace("-", "").ToLowerInvariant();
+            Assert.AreEqual(DistSha256, hash,
+                "the vendored export is not dist.25's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+        }
+
+        [Test]
         public void TheFixture_ReadsWhole()
         {
             var read = OWEnvelopeReader.Read(FixturePath);
 
             Assert.AreEqual(WorldId, read.WorldId);
-            Assert.AreEqual("My Cool World", read.WorldName);
+            Assert.AreEqual("Fixture World", read.WorldName);
             Assert.AreEqual("onlyworlds-world-export", read.Format);
             Assert.AreEqual("00.32.00", read.SchemaVersion);
-            Assert.AreEqual("2026-10-19T15:00:00.000000+00:00", read.ExportedAt);
+            Assert.AreEqual("2026-10-19T12:30:00+00:00", read.ExportedAt);
             Assert.AreEqual(5, read.Elements.Count);
             Assert.IsEmpty(read.Skipped);
             Assert.IsEmpty(read.LegacyElements);
 
             var byType = read.Elements.GroupBy(e => e.Type).ToDictionary(g => g.Key, g => g.Count());
             Assert.AreEqual(2, byType["character"]);
-            Assert.AreEqual(1, byType["location"]);
-            Assert.AreEqual(1, byType["map"]);
-            Assert.AreEqual(1, byType["pin"]);
+            Assert.AreEqual(2, byType["location"]);
+            Assert.AreEqual(1, byType["trait"]);
             Assert.IsTrue(read.Elements.All(e => !e.TypeInferred));
         }
 
         [Test]
         public void ABody_IsKeptVerbatim_ExtensionsAndTimestampsIncluded()
         {
-            var strahd = OWEnvelopeReader.Read(FixturePath).Elements.Single(e => e.Id == Strahd);
+            var mara = OWEnvelopeReader.Read(FixturePath).Elements.Single(e => e.Id == Mara);
 
-            Assert.AreEqual("#8b0000", (string)strahd.Body["atlas_color"]);
+            Assert.AreEqual("#8b0000", (string)mara.Body["atlas_color"]);
             // Not re-dated by the parse: the timestamp's bytes are the file's.
-            Assert.AreEqual("2026-07-12T09:01:00+00:00", (string)strahd.Body["created_at"]);
-            StringAssert.EndsWith("#elements/character/0", strahd.Path);
+            Assert.AreEqual("2026-10-19T12:05:00+00:00", (string)mara.Body["created_at"]);
+            StringAssert.EndsWith("#elements/character/1", mara.Path);
         }
 
         [Test]
@@ -89,9 +105,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 Assert.AreEqual(OWSourceKind.Folder, cache.Key.Source);
                 Assert.AreEqual(WorldId, cache.Key.WorldId);
 
-                Assert.AreEqual(Castle, cache.Get<OWCharacter>(Strahd).Location);
-                Assert.AreEqual(MapId, cache.Get<OWPin>(PinId).Map);
-                Assert.AreEqual("Castle", cache.Get<OWLocation>(Castle).Supertype);
+                // A single link, a multi-link, and a link between two of one type.
+                Assert.AreEqual(Mill, cache.Get<OWCharacter>(Pip).Location);
+                CollectionAssert.AreEqual(new[] { Brave }, cache.Get<OWCharacter>(Pip).Traits);
+                Assert.AreEqual(Keep, cache.Get<OWLocation>(Mill).ParentLocation);
+                Assert.AreEqual(Keep, cache.Get<OWCharacter>(Mara).Location);
             }
             finally
             {
