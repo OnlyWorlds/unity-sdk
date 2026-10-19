@@ -22,6 +22,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   is kept as information, never checked. An element with no id is skipped and reported, as in a folder. The test
   fixture is keel's own emitter output, published in schema-dist (`example/world-export.json`, serial 25) and vendored
   byte for byte; a test holds its hash to the dist's MANIFEST.
+- **The one-file export as a world folder**: `OWFolderExport.ExportFileAsync(path, folder, options?, progress?, ct?)`
+  writes the downloaded file as the same folder `ExportAsync` writes from the API (bodies as the file holds them, every
+  key of its world carried into `world.json`, each Map's image fetched from its `image_url`), born whole or not at all.
+  What a folder cannot keep whole is refused, not skipped: an element with no id, a type that is not the standard's,
+  one id under two types.
 
 ## [0.6.0] - 2026-10-17
 

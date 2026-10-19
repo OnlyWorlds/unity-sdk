@@ -237,16 +237,7 @@ namespace OnlyWorlds.Sdk
             IProgress<OWFolderExportProgress> progress = null, CancellationToken ct = default)
         {
             if (client == null) throw new ArgumentNullException(nameof(client));
-            if (string.IsNullOrEmpty(folder)) throw new ArgumentNullException(nameof(folder));
-            options = options ?? new OWFolderExportOptions();
-
-            var root = Path.GetFullPath(folder).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            var parent = Path.GetDirectoryName(root);
-            if (string.IsNullOrEmpty(parent))
-            {
-                throw new ArgumentException($"'{folder}' has no parent directory to build the folder beside.", nameof(folder));
-            }
-
+            var root = RootOf(folder, out var parent);
             RefuseOccupied(root);
 
             // -- Read everything first ---------------------------------------------------------------
@@ -268,6 +259,94 @@ namespace OnlyWorlds.Sdk
 
             progress?.Report(new OWFolderExportProgress { Stage = "elements", Done = types.Length, Total = types.Length });
 
+            return await WriteAsync(wireWorld, byType, root, parent, options, progress, ct).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// The portal's one-file export (<see cref="OWEnvelopeReader"/>, the file an owner downloads from a world's page)
+        /// written as a world folder at <paramref name="folder"/>: the same folder <see cref="ExportAsync"/> writes from the
+        /// API, each Map's image fetched from its <c>image_url</c> (the file carries none).
+        /// </summary>
+        /// <param name="path">The downloaded file.</param>
+        /// <param name="folder">Must not exist, or be an empty directory: an export is a folder's birth.</param>
+        /// <param name="options">Null for the defaults: media on, fetched with UnityWebRequest.</param>
+        /// <param name="progress">
+        /// Told <c>"world"</c> once, <c>"elements"</c> once when the file is read (Done = Total), <c>"media"</c> per Map
+        /// with an image, as <see cref="ExportAsync"/> tells them.
+        /// </param>
+        /// <exception cref="FileNotFoundException">There is no file at <paramref name="path"/>.</exception>
+        /// <exception cref="OWFolderFormatException">
+        /// The file is not an export (<see cref="OWEnvelopeReader.Parse"/>), or it holds what a folder cannot keep whole:
+        /// an element the reader skipped (no id), a type that is not one of the standard's, or one id under two types.
+        /// </exception>
+        /// <exception cref="IOException">As <see cref="ExportAsync"/>: an occupied folder, or one too deep on Windows.</exception>
+        /// <remarks>
+        /// The bodies are written as the file holds them and <c>world.json</c> as <see cref="WorldForDisk"/> makes it, so
+        /// every key the file's world carries rides along (§4.1: never dropped). An element the reader would skip is a
+        /// refusal here, not a skip: a folder is born whole or not at all.
+        /// </remarks>
+        public static async Task<OWFolderExportReport> ExportFileAsync(
+            string path, string folder, OWFolderExportOptions options = null,
+            IProgress<OWFolderExportProgress> progress = null, CancellationToken ct = default)
+        {
+            if (string.IsNullOrEmpty(path)) throw new ArgumentNullException(nameof(path));
+            var root = RootOf(folder, out var parent);
+            RefuseOccupied(root);
+
+            progress?.Report(new OWFolderExportProgress { Stage = "world", Done = 0, Total = 1 });
+            var read = OWEnvelopeReader.Read(path);
+            progress?.Report(new OWFolderExportProgress { Stage = "world", Done = 1, Total = 1 });
+
+            if (read.Skipped.Count > 0)
+            {
+                var first = read.Skipped[0];
+                throw new OWFolderFormatException(
+                    $"{read.Skipped.Count} element(s) in the file cannot be written to a folder, the first {first.Path} ({first.Reason}).");
+            }
+
+            var types = OWElementTypes.Slugs;
+            var byType = new Dictionary<string, List<JObject>>();
+            foreach (var element in read.Elements)
+            {
+                if (Array.IndexOf(types, element.Type) < 0)
+                {
+                    throw new OWFolderFormatException(
+                        $"{element.Path} is a '{element.Type}', which is not one of the standard's element types: a folder has no place for it.");
+                }
+
+                if (!byType.TryGetValue(element.Type, out var list)) byType[element.Type] = list = new List<JObject>();
+                list.Add(element.Body);
+            }
+
+            progress?.Report(new OWFolderExportProgress { Stage = "elements", Done = types.Length, Total = types.Length });
+
+            return await WriteAsync(read.World, byType, root, parent, options, progress, ct).ConfigureAwait(false);
+        }
+
+        /// <summary>The folder's full path, its separators trimmed, and the directory it is built beside.</summary>
+        private static string RootOf(string folder, out string parent)
+        {
+            if (string.IsNullOrEmpty(folder)) throw new ArgumentNullException(nameof(folder));
+            var root = Path.GetFullPath(folder).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            parent = Path.GetDirectoryName(root);
+            if (string.IsNullOrEmpty(parent))
+            {
+                throw new ArgumentException($"'{folder}' has no parent directory to build the folder beside.", nameof(folder));
+            }
+
+            return root;
+        }
+
+        /// <summary>
+        /// The write half of an export, whatever the world was read from: the elements deduplicated and named, the tree built
+        /// beside <paramref name="root"/>, each Map's image kept, then moved into place.
+        /// </summary>
+        private static async Task<OWFolderExportReport> WriteAsync(
+            JObject wireWorld, Dictionary<string, List<JObject>> byType, string root, string parent,
+            OWFolderExportOptions options, IProgress<OWFolderExportProgress> progress, CancellationToken ct)
+        {
+            options = options ?? new OWFolderExportOptions();
+            var types = OWElementTypes.Slugs;
             var elements = Deduplicate(byType);
             var filenames = elements.ToDictionary(pair => pair.Key, pair => ResolveFilenames(pair.Value));
             var withImage = options.IncludeMedia && elements.TryGetValue("map", out var maps)

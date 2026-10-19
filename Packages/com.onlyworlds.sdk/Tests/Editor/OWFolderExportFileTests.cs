@@ -1,0 +1,193 @@
+using System;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
+using NUnit.Framework;
+
+namespace OnlyWorlds.Sdk.Tests.Editor
+{
+    /// <summary>
+    /// <see cref="OWFolderExport.ExportFileAsync"/>: the portal's one-file export written as a world folder. The whole-file
+    /// case reads keel's own fixture (dist.25, see <see cref="OWEnvelopeReaderTests"/>); the refusals are inline.
+    /// </summary>
+    public class OWFolderExportFileTests
+    {
+        private string _parent;
+        private string _folder;
+
+        [SetUp]
+        public void SetUp()
+        {
+            _parent = Path.Combine(Path.GetTempPath(), "ow-file-export-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(_parent);
+            _folder = Path.Combine(_parent, "world");
+        }
+
+        [TearDown]
+        public void TearDown()
+        {
+            if (_parent != null && Directory.Exists(_parent)) Directory.Delete(_parent, recursive: true);
+        }
+
+        private static string Fixture
+        {
+            get
+            {
+                var package = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(OWFolderExportFileTests).Assembly);
+                Assert.IsNotNull(package, "the package's own path is how the fixture is found");
+                return Path.Combine(package.resolvedPath, "Tests", "Editor", "Fixtures", "envelope", "world-export.json");
+            }
+        }
+
+        private static OWFolderExportOptions NoMedia => new OWFolderExportOptions { IncludeMedia = false };
+
+        /// <summary>An export file in the test's folder, its world and elements given as JSON text.</summary>
+        private string ExportFile(string elements, string world = @"{""id"":""w1"",""name"":""W""}")
+        {
+            var path = Path.Combine(_parent, "export-" + Guid.NewGuid().ToString("N").Substring(0, 6) + ".json");
+            File.WriteAllText(path,
+                @"{""format"":""onlyworlds-world-export"",""world"":" + world + @",""elements"":" + elements + "}",
+                new UTF8Encoding(false));
+            return path;
+        }
+
+        /// <summary>Nothing was left behind: no folder, and no build directory beside it.</summary>
+        private void AssertNothingWritten()
+        {
+            Assert.IsFalse(Directory.Exists(_folder), "a refused file leaves no folder");
+            Assert.IsEmpty(Directory.GetDirectories(_parent), "and no build directory beside it");
+        }
+
+        // -- The whole file ----------------------------------------------------------------------------
+
+        [Test]
+        public async Task KeelsFixture_ReadsBackAsTheFile()
+        {
+            var report = await OWFolderExport.ExportFileAsync(Fixture, _folder, NoMedia);
+            var file = OWEnvelopeReader.Read(Fixture);
+            var folder = OWFolderReader.Read(_folder);
+
+            Assert.AreEqual(file.WorldId, report.WorldId);
+            Assert.AreEqual("Fixture World", report.WorldName);
+            Assert.AreEqual(5, report.Total);
+            Assert.AreEqual(file.WorldId, folder.WorldId);
+            Assert.IsEmpty(folder.Skipped);
+            Assert.AreEqual(file.Elements.Count, folder.Elements.Count);
+            foreach (var element in file.Elements)
+            {
+                var written = folder.Elements.Single(e => e.Id == element.Id);
+                Assert.AreEqual(element.Type, written.Type);
+                Assert.IsTrue(JToken.DeepEquals(element.Body, written.Body), $"{element.Id}'s body is the file's, key for key");
+            }
+
+            Assert.AreEqual(OWFolderExport.FormatVersion, (string)folder.World["format_version"]);
+        }
+
+        [Test]
+        public async Task TheFilesWorldKeys_RideAlong_ProvenanceIncluded()
+        {
+            var world = @"{""id"":""w1"",""name"":""W"",""created_at"":""2026-10-19T12:00:00+00:00"",
+                ""source"":{""server"":""https://www.onlyworlds.com"",""world"":""w1"",""at"":""2026-10-19T21:00:00+00:00""},
+                ""exported_as"":{""kind"":""character"",""role"":null,""character"":{""id"":""c1"",""name"":""Pip""}}}";
+            await OWFolderExport.ExportFileAsync(ExportFile(@"{""character"":[{""id"":""c1"",""name"":""Pip""}]}", world), _folder, NoMedia);
+
+            var written = OWFolderReader.Read(_folder).World;
+            Assert.AreEqual("https://www.onlyworlds.com", (string)written["source"]["server"]);
+            Assert.AreEqual("Pip", (string)written["exported_as"]["character"]["name"]);
+            Assert.AreEqual(JTokenType.Null, written["exported_as"]["role"].Type, "a null is kept, never dropped");
+            Assert.AreEqual("2026-10-19T12:00:00+00:00", (string)written["created_at"]);
+        }
+
+        [Test]
+        public async Task AMapsImage_IsFetchedFromItsUrl_AndKept()
+        {
+            var fetched = 0;
+            var options = new OWFolderExportOptions
+            {
+                FetchMedia = (url, ct) => { fetched++; return Task.FromResult(new byte[] { 1, 2, 3 }); },
+            };
+            var report = await OWFolderExport.ExportFileAsync(
+                ExportFile(@"{""map"":[{""id"":""m1"",""name"":""The Isle"",""image_url"":""https://files.example.test/isle.png""}]}"),
+                _folder, options);
+
+            Assert.AreEqual(1, fetched);
+            Assert.IsEmpty(report.MediaProblems);
+            Assert.IsTrue(File.Exists(Path.Combine(_folder, "media", "m1", "base-image", "isle.png")));
+        }
+
+        [Test]
+        public async Task AnEmptyWorld_IsAFolderWithOnlyItsWorld()
+        {
+            var report = await OWFolderExport.ExportFileAsync(ExportFile("{}"), _folder, NoMedia);
+
+            Assert.AreEqual(0, report.Total);
+            Assert.IsTrue(File.Exists(Path.Combine(_folder, "world.json")));
+            Assert.IsFalse(Directory.Exists(Path.Combine(_folder, "elements")));
+        }
+
+        // -- What refuses, and leaves nothing --------------------------------------------------------
+
+        [Test]
+        public void AnElementWithNoId_IsRefused()
+        {
+            var path = ExportFile(@"{""character"":[{""id"":""c1"",""name"":""A""},{""name"":""Nobody""}]}");
+
+            var ex = Assert.ThrowsAsync<OWFolderFormatException>(() => OWFolderExport.ExportFileAsync(path, _folder, NoMedia));
+            StringAssert.Contains("#elements/character/1", ex.Message);
+            AssertNothingWritten();
+        }
+
+        [Test]
+        public void ATypeThatIsNotTheStandards_IsRefused()
+        {
+            var path = ExportFile(@"{""spaceship"":[{""id"":""s1"",""name"":""Hyperion""}]}");
+
+            var ex = Assert.ThrowsAsync<OWFolderFormatException>(() => OWFolderExport.ExportFileAsync(path, _folder, NoMedia));
+            StringAssert.Contains("'spaceship'", ex.Message);
+            AssertNothingWritten();
+        }
+
+        [Test]
+        public void OneIdUnderTwoTypes_IsRefused()
+        {
+            var path = ExportFile(@"{""character"":[{""id"":""x1"",""name"":""A""}],""creature"":[{""id"":""x1"",""name"":""B""}]}");
+
+            Assert.ThrowsAsync<OWFolderFormatException>(() => OWFolderExport.ExportFileAsync(path, _folder, NoMedia));
+            AssertNothingWritten();
+        }
+
+        [Test]
+        public void AFileThatIsNoExport_IsRefused()
+        {
+            var path = Path.Combine(_parent, "world.json");
+            File.WriteAllText(path, @"{""id"":""w1"",""name"":""W""}");
+
+            var ex = Assert.ThrowsAsync<OWFolderFormatException>(() => OWFolderExport.ExportFileAsync(path, _folder, NoMedia));
+            StringAssert.Contains("not an OnlyWorlds world export", ex.Message);
+            Assert.IsFalse(Directory.Exists(_folder));
+        }
+
+        [Test]
+        public void NoFile_IsFileNotFound()
+        {
+            Assert.ThrowsAsync<FileNotFoundException>(() =>
+                OWFolderExport.ExportFileAsync(Path.Combine(_parent, "no-such.json"), _folder, NoMedia));
+            AssertNothingWritten();
+        }
+
+        [Test]
+        public void AnOccupiedFolder_IsRefused_BeforeTheFileIsRead()
+        {
+            Directory.CreateDirectory(_folder);
+            File.WriteAllText(Path.Combine(_folder, "keep.txt"), "mine");
+
+            // The file does not exist: the folder's refusal comes first, so the IOException is the folder's.
+            var ex = Assert.ThrowsAsync<IOException>(() =>
+                OWFolderExport.ExportFileAsync(Path.Combine(_parent, "no-such.json"), _folder, NoMedia));
+            Assert.IsNotInstanceOf<FileNotFoundException>(ex);
+            Assert.AreEqual("mine", File.ReadAllText(Path.Combine(_folder, "keep.txt")));
+        }
+    }
+}
