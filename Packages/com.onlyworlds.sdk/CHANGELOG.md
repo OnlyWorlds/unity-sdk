@@ -18,8 +18,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 - **The one-file world export** (`format: onlyworlds-world-export`, spec §8c), the file an owner downloads from a
   world's page: `OWEnvelopeReader.Read(path)` / `Parse(json)` give a folder read's result (`OWEnvelopeReadResult`,
   with the file's `Format`, `SchemaVersion` and `ExportedAt`), and `OWEnvelopeLoader.LoadInto(cache, path)` fills a
-  read-only cache. The reader keys on `format` alone: `schema_version` is kept, never checked (the spec and keel
-  differ on what it versions). An element with no id is skipped and reported, as in a folder.
+  read-only cache. The reader keys on `format` alone; `schema_version` (the standard's version the elements follow)
+  is kept as information, never checked. An element with no id is skipped and reported, as in a folder. The test
+  fixture is local until keel's own export of a small world lands in schema-dist.
 
 ## [0.6.0] - 2026-10-17
 

@@ -11,8 +11,9 @@ namespace OnlyWorlds.Sdk
         public string Format;
 
         /// <summary>
-        /// As sent, never checked. The spec (§8c) says it versions the envelope; keel sends the OW
-        /// schema's version since keel #408. A reader keys on <see cref="Format"/> alone.
+        /// Which version of the OnlyWorlds standard the elements follow (<c>00.32.00</c>, the value of
+        /// keel's <c>X-OW-Schema-Version</c> header; keel #408, spec §8c since keel PR 88). Information,
+        /// never checked: the envelope's own shape is keyed by <see cref="Format"/> alone.
         /// </summary>
         public string SchemaVersion;
 
