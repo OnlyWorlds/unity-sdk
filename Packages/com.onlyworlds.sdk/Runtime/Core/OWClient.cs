@@ -431,7 +431,8 @@ namespace OnlyWorlds.Sdk
             return (OWJson.Deserialize<T>(response.Body), response);
         }
 
-        private static OWApiError BuildError(OWResponse response)
+        /// <summary>keel's error envelope as a typed error; <see cref="OWJoin"/> shares it.</summary>
+        internal static OWApiError BuildError(OWResponse response)
         {
             var status = (HttpStatusCode)response.Status;
             var retryAfter = OWApiError.ParseRetryAfter(ReadHeader(response, "Retry-After"), DateTimeOffset.UtcNow);

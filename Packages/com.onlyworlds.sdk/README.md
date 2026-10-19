@@ -77,12 +77,24 @@ await client.PatchAsync<OWCharacter>("character", made.Id, new { description = "
 `PatchAsync` sends only the fields you pass; `DeleteAsync("character", id)` removes one. Keep write keys out of
 builds you ship.
 
+**A player link** (`https://www.onlyworlds.com/join#ow_j_…`, made by a world's owner for one Character) needs no
+account. Redeem it once for that player's read key; the server then shows the key only what that Character may see.
+
+```csharp
+var transport = new UnityWebRequestTransport();
+var code = OWJoin.ParseLink(pasted);                  // null when the text holds no code
+var joined = await OWJoin.RedeemAsync(code, transport); // the code is spent: keep joined.Key
+var client = new OWClient(new OWClientConfig { ApiKey = joined.Key, Transport = transport });
+```
+
+`OWJoin.PreviewAsync(code, transport)` says who invites, to which world, without spending the code.
+
 ## What's in it
 
 | Part | Assembly | What it does |
 |---|---|---|
 | **Client and models** | `OnlyWorlds.Sdk` | The 22 typed element models, `OWClient` for the API, `OWSync` for incremental `/changes`. |
-| **Cache** | `OnlyWorlds.Sdk` | `OWWorldCache`, a whole world as a ScriptableObject: offline, inspectable, survives domain reloads. `OWSync.BaselineAsync(client, cache)` fills it from the API; `OWFolderLoader.LoadInto(cache, path)` fills it from a world folder on disk. In the Editor, `OWCacheAsset.LoadOrCreate` saves it as an asset. |
+| **Cache** | `OnlyWorlds.Sdk` | `OWWorldCache`, a whole world as a ScriptableObject: offline, inspectable, survives domain reloads. `OWSync.BaselineAsync(client, cache)` fills it from the API; `OWFolderLoader.LoadInto(cache, path)` fills it from a world folder on disk, `OWEnvelopeLoader.LoadInto(cache, path)` from the one-file export an owner downloads from onlyworlds.com. In the Editor, `OWCacheAsset.LoadOrCreate` saves it as an asset. |
 | **World Browser** | `OnlyWorlds.Sdk.Editor` | A three-panel browser for a world, live or offline: **Window → OnlyWorlds → World Browser**. |
 
 The models follow the OnlyWorlds schema; `OWSchemaPin` names the schema version they were generated from.

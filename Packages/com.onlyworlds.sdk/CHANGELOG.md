@@ -6,6 +6,21 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Joining a world by link** (keel #212, #353): `OWJoin.ParseLink(text)` finds the `ow_j_` code in a pasted link or
+  a bare code; `OWJoin.PreviewAsync(code, transport)` (POST `/join/preview`) says who invites, to which world, for
+  which reader, without spending the code; `OWJoin.RedeemAsync(code, transport, name?, agentName?)` (POST `/join`)
+  spends it. A player's code answers with a read key (`ow_r_`, no PIN) and the Character it reads as; an agent's with
+  a seat's write key and secret. Both send no credential, so they sit beside `OWClient`, which cannot be built
+  without a key; npm's `previewJoin` and `redeemJoin` are the same wire. Every bad code is keel's one 404
+  `not_found` (`OWApiError.IsNotFound`). The wire check records both calls (12 now).
+- **The one-file world export** (`format: onlyworlds-world-export`, spec §8c), the file an owner downloads from a
+  world's page: `OWEnvelopeReader.Read(path)` / `Parse(json)` give a folder read's result (`OWEnvelopeReadResult`,
+  with the file's `Format`, `SchemaVersion` and `ExportedAt`), and `OWEnvelopeLoader.LoadInto(cache, path)` fills a
+  read-only cache. The reader keys on `format` alone: `schema_version` is kept, never checked (the spec and keel
+  differ on what it versions). An element with no id is skipped and reported, as in a folder.
+
 ## [0.6.0] - 2026-10-17
 
 A world folder that Atlas wrote now opens whole: its pins' and markers' links, and the older `spatial/` layout.

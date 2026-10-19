@@ -94,6 +94,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             await c.ChangesAsync("4:069620b9-0794-708d-8000-42b0ea685f38");
             await c.ChangesAsync(headOnly: true);
 
+            // Joining is keyless, so it is not on the client; the same transport records it.
+            t.ResponseBody = @"{""reader"":""player"",""world"":{""name"":""W"",""description"":""""}}";
+            await OWJoin.PreviewAsync("ow_j_x", t, Base);
+            t.ResponseBody = @"{""kind"":""player"",""key"":""ow_r_x""}";
+            await OWJoin.RedeemAsync("ow_j_x", t, name: "N", baseUrl: Base);
+
             return t.Calls;
         }
 
@@ -189,7 +195,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public async Task TheRecordingCoversEveryCall()
         {
             // An empty recording would pass the three checks above with nothing checked.
-            Assert.AreEqual(10, (await RecordEveryCall()).Count);
+            Assert.AreEqual(12, (await RecordEveryCall()).Count);
         }
     }
 }
