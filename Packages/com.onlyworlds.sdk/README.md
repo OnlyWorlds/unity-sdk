@@ -95,6 +95,7 @@ var client = new OWClient(new OWClientConfig { ApiKey = joined.Key, Transport = 
 |---|---|---|
 | **Client and models** | `OnlyWorlds.Sdk` | The 22 typed element models, `OWClient` for the API, `OWSync` for incremental `/changes`. |
 | **Cache** | `OnlyWorlds.Sdk` | `OWWorldCache`, a whole world as a ScriptableObject: offline, inspectable, survives domain reloads. `OWSync.BaselineAsync(client, cache)` fills it from the API; `OWFolderLoader.LoadInto(cache, path)` fills it from a world folder on disk, `OWEnvelopeLoader.LoadInto(cache, path)` from the one-file export an owner downloads from onlyworlds.com. In the Editor, `OWCacheAsset.LoadOrCreate` saves it as an asset. |
+| **Folders** | `OnlyWorlds.Sdk` | `OWFolderExport.ExportAsync(client, folder)` writes the key's world as a world folder on disk (folder format v0.3.9: its `world.json` says where it came from and which slice the key reads); `ExportFileAsync(path, folder)` writes the one-file export the same way. |
 | **World Browser** | `OnlyWorlds.Sdk.Editor` | A three-panel browser for a world, live or offline: **Window → OnlyWorlds → World Browser**. |
 
 The models follow the OnlyWorlds schema; `OWSchemaPin` names the schema version they were generated from.

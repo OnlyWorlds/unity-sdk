@@ -6,6 +6,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-20
+
+Join a world by link, read the one-file export and write it as a folder, and an export's `world.json` says where it
+came from and which slice it is (folder format v0.3.9). A minor release because it adds public API (below).
+
 ### Added
 
 - **Joining a world by link** (keel #212, #353): `OWJoin.ParseLink(text)` finds the `ow_j_` code in a pasted link or
