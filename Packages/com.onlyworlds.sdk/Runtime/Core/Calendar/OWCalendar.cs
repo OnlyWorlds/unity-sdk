@@ -52,13 +52,6 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>True when the era counts down toward its pivot.</summary>
         public bool IsDown => Direction == "down";
-
-        /// <summary>
-        /// Wins a tie at equal starts (the profile: "at equal starts an up era wins"). As the TypeScript kernel reads
-        /// it (<c>calendar.ts</c>: <c>(direction ?? 'up') === 'up'</c>): <c>direction</c> missing or null, or exactly
-        /// <c>"up"</c>; another spelling or a non-string value does not, though it still counts up.
-        /// </summary>
-        public bool WinsTie { get; set; } = true;
     }
 
     /// <summary>The months of a year: names and lengths, same count.</summary>
@@ -361,8 +354,6 @@ namespace OnlyWorlds.Sdk
                         Start = start,
                         Restart = !(eo["restart"] is JValue r && r.Type == JTokenType.Boolean && !(bool)r),
                         Direction = OptString(eo["direction"]),
-                        WinsTie = IsNullish(eo["direction"])
-                                  || (eo["direction"].Type == JTokenType.String && (string)eo["direction"] == "up"),
                         Closed = IsTruthy(eo["closed"]),
                     };
                     var end = eo["end"];
@@ -524,15 +515,15 @@ namespace OnlyWorlds.Sdk
         {
             var eras = ErasOf(cfg);
             if (eras.Count == 0) return null;
-            // TS sorts the holders by (b.start - a.start) || (a is up ? -1 : 1) and takes the first. That
-            // comparator is not symmetric for two up-eras on one start; V8's sort then puts the LATER one (in
-            // domain order) first. This selection reproduces V8's result: latest start; on a tie an up-era
-            // replaces the holder, a down-era does not.
+            // As TS 4.42.2 resolves it (the profile, calendar.md): the latest start, then an up era over a down one,
+            // then the later era in the list. Domains come in list order within one start (a stable sort), so on a
+            // tie the candidate replaces the holder when it is up, or when both are down. "Down" is exactly "down";
+            // any other direction, missing or null counts up.
             CalendarEra best = null;
             foreach (var d in ResolveEraDomains(eras))
             {
                 if (!(step >= d.Lo && step < d.Hi)) continue;
-                if (best == null || d.Era.Start > best.Start || (d.Era.Start == best.Start && d.Era.WinsTie)) best = d.Era;
+                if (best == null || d.Era.Start > best.Start || (d.Era.Start == best.Start && (!d.Era.IsDown || best.IsDown))) best = d.Era;
             }
             return best;
         }
@@ -545,8 +536,10 @@ namespace OnlyWorlds.Sdk
             long b = era.YearBase;
             if (era.IsDown)
             {
-                // Step -1 with pivot 0 and base 1 => year 1 (no year zero on the down side).
-                return AbsoluteYear(cfg, era.Start) - abs + b - 1;
+                // Counted from the year holding the step just before the pivot, which is year `b` (step -1 with pivot
+                // 0 and base 1 => year 1: no year zero on the down side). A mid-year pivot read its own year's earlier
+                // steps as year b - 1 before TS 4.42.2; a pivot on a year's first step reads as it always did.
+                return AbsoluteYear(cfg, era.Start - 1) - abs + b;
             }
             return abs - AbsoluteYear(cfg, era.Start) + b;
         }
@@ -821,7 +814,9 @@ namespace OnlyWorlds.Sdk
         {
             if (!era.Restart) return Y;
             long b = era.YearBase;
-            if (era.IsDown) return AbsoluteYear(cfg, era.Start) - (Y - b + 1);
+            // The inverse of DisplayYear's down count (from the year holding the step before the pivot, TS 4.42.2). The
+            // old inverse, AbsoluteYear(start) - (Y - b + 1), read a mid-year pivot's down dates one year early.
+            if (era.IsDown) return AbsoluteYear(cfg, era.Start - 1) - (Y - b);
             return AbsoluteYear(cfg, era.Start) + (Y - b);
         }
 

@@ -722,23 +722,44 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
-        public void Profile_AtEqualStarts_OnlyAMissingOrExactUpDirectionWins()
+        public void Profile_AtEqualStarts_TheLaterOfOneDirectionWins()
         {
-            // The TypeScript kernel's test: direction missing or exactly "up". "Up" counts up but does not win the tie.
-            var cfg = Read(@"{""version"": 1, ""grain"": ""year"", ""eras"": [
-                { ""name"": ""A"", ""start"": 0, ""end"": 10 },
-                { ""name"": ""B"", ""start"": 0, ""direction"": ""Up"" } ] }");
-            Assert.AreEqual("4 A", OWCalendar.FormatStep(cfg, 3));
+            // TS 4.42.2 (Kael h58 #8957): latest start, then up over down, then the later in the list. "Down" is exactly
+            // "down": a missing, null or other-spelled direction counts up.
+            foreach (var b in new[] { @"""direction"": ""up""", @"""direction"": ""Up""", @"""direction"": null", @"""x"": 0" })
+            {
+                var cfg = Read(@"{""version"": 1, ""grain"": ""year"", ""eras"": [
+                    { ""name"": ""A"", ""start"": 0, ""end"": 10 },
+                    { ""name"": ""B"", ""start"": 0, " + b + " } ] }");
+                Assert.AreEqual("4 B", OWCalendar.FormatStep(cfg, 3), "two up eras at one start: the later in the list (" + b + ")");
+            }
 
-            var plain = Read(@"{""version"": 1, ""grain"": ""year"", ""eras"": [
-                { ""name"": ""A"", ""start"": 0, ""end"": 10 },
-                { ""name"": ""B"", ""start"": 0 } ] }");
-            Assert.AreEqual("4 B", OWCalendar.FormatStep(plain, 3), "a missing direction is up and wins");
+            var downs = Read(@"{""version"": 1, ""grain"": ""year"", ""eras"": [
+                { ""name"": ""A"", ""start"": 0, ""direction"": ""down"" },
+                { ""name"": ""B"", ""start"": 0, ""direction"": ""down"" } ] }");
+            Assert.AreEqual("3 B", OWCalendar.FormatStep(downs, -3), "two down eras at one start: the later in the list");
+        }
 
-            var nulled = Read(@"{""version"": 1, ""grain"": ""year"", ""eras"": [
-                { ""name"": ""A"", ""start"": 0, ""end"": 10 },
-                { ""name"": ""B"", ""start"": 0, ""direction"": null } ] }");
-            Assert.AreEqual("4 B", OWCalendar.FormatStep(nulled, 3), "an explicit null is up too: TS reads direction ?? 'up' (Kael h58 #8943)");
+        [Test]
+        public void Profile_ADownEraCountsFromTheYearBeforeItsPivot_NoYearZeroMidYear()
+        {
+            // TS 4.42.2: counted from the year holding the step just before the pivot, which is year_base.
+            var cfg = Read(@"{""version"": 1, ""grain"": ""day"",
+                ""bundles"": { ""months"": { ""names"": [""Frost"", ""Thaw""], ""lengths"": [10, 10] } },
+                ""eras"": [ { ""name"": ""Before"", ""abbrev"": ""BG"", ""start"": 5, ""direction"": ""down"" },
+                            { ""name"": ""After"", ""abbrev"": ""AG"", ""start"": 5 } ] }");
+            Assert.AreEqual(1, OWCalendar.BreakdownStep(cfg, 2).Year, "a mid-year pivot's own year is year 1, not 0");
+            Assert.AreEqual(2, OWCalendar.BreakdownStep(cfg, -18).Year, "the year before it is year 2");
+
+            var boundary = Read(@"{""version"": 1, ""grain"": ""year"", ""eras"": [
+                { ""name"": ""Before"", ""start"": 0, ""direction"": ""down"" }, { ""name"": ""After"", ""start"": 0 } ] }");
+            Assert.AreEqual(1, OWCalendar.BreakdownStep(boundary, -1).Year, "a pivot on a year's first step reads as it always did");
+
+            // And a date read aloud parses back to its own step, on both sides of the pivot and on a boundary pivot.
+            foreach (var step in new long[] { 2, 4, -18, -1, 5, 7, 25 })
+                Assert.AreEqual(step, Step(OWCalendar.ParseDate(cfg, OWCalendar.FormatStep(cfg, step))), "round trip at " + step);
+            foreach (var step in new long[] { -1, -5, 0, 3 })
+                Assert.AreEqual(step, Step(OWCalendar.ParseDate(boundary, OWCalendar.FormatStep(boundary, step))), "boundary round trip at " + step);
         }
     }
 }
