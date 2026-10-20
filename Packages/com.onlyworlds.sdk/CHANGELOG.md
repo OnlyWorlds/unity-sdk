@@ -6,6 +6,24 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **World archives, `.owworld`** (a spec world zip, renamed: one world, as one top-level folder or with `world.json`
+  at the root). Drop one into `Assets/` and it imports as a read-only `OWWorldCache`; a zip with no world or two is an
+  import error, never a guess. The cache is keyed by the world's id and the archive asset's GUID
+  (`OWWorldArchive.KeyFor(worldId, guid)`), so the asset carries no machine's path and keeps its key through a move.
+  The archive is read in memory, never extracted, and an entry name that is absolute or climbs out of the world
+  refuses the archive. `Assets/OnlyWorlds/Pack World Folder...` packs a folder from anywhere
+  on disk into the project and imports it; `OWWorldArchive.Pack(folder, archive)` is the same step from code. Pack
+  writes only the archive, never into the folder; packs `world.json`, `elements/`, `spatial/` and `media/`, leaving out
+  dot-folders, dot-files and Unity `.meta` files; drops `world.json`'s `api` block (it holds a key) unless asked to
+  keep it; and is deterministic (ordinal entry order, a fixed timestamp). `OWWorldArchive.Read(archive)` gives a folder
+  read's result. Media travels in the archive but is not imported yet.
+- `OWFolderReader.ReadEntries(entries, includeLegacySpatial?, source?)` reads a world held in memory, as
+  (path inside the world, text) pairs, by the folder read's own rules and code; `Read(folder)` is unchanged.
+- `OWFolderLoader.LoadInto(cache, read, key, readOnly?)` fills a cache from a read already done, so it is not paid
+  twice. `LoadInto(cache, path)` now calls it and behaves as before.
+
 ## [0.7.0] - 2026-10-20
 
 Join a world by link, read the one-file export and write it as a folder, and an export's `world.json` says where it

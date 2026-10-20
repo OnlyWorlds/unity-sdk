@@ -194,6 +194,102 @@ namespace OnlyWorlds.Sdk
             }
 
             var texts = ReadAllTexts(files);
+            Assemble(result, files, texts);
+            return result;
+        }
+
+        /// <summary>
+        /// Reads a world held in memory: each file's path inside the world and its text. The folder read without the
+        /// folder, for a world that arrives as a zip, a download or a test.
+        /// </summary>
+        /// <param name="entries">
+        /// Path (relative to the world, <c>/</c> or <c>\</c>) to text. A null text is a file that could not be read,
+        /// and is skipped as the folder form skips one. Paths the folder form would not read are ignored.
+        /// </param>
+        /// <param name="includeLegacySpatial">As <see cref="Read(string, bool)"/>.</param>
+        /// <param name="source">Names the world in error messages (an archive's path, say). Never stored.</param>
+        /// <returns>
+        /// The same result <see cref="Read(string, bool)"/> gives for a folder holding these files, with each
+        /// element's and skipped file's <c>Path</c> the entry's path, forward slashes.
+        /// </returns>
+        /// <remarks>
+        /// <para>
+        /// The same rules as the folder form, by the same code: one <c>world.json</c> at the root, files directly in
+        /// <c>elements/&lt;type&gt;/</c> and (when asked) <c>spatial/{map,pin,zone,marker}/</c> ending
+        /// <c>.json</c>, every element parsed and every spelling kept as the folder form keeps it, and an id in both
+        /// layouts served from <c>elements/</c>. Names match as written (case-sensitive), as on a case-sensitive disk.
+        /// </para>
+        /// <para>
+        /// Order: type folders and files in ordinal order, <c>spatial/</c> after <c>elements/</c> in the folder
+        /// form's type order. A folder's order is its file system's, so the two agree wherever that is ordinal for
+        /// the names in hand (lowercase slugs on NTFS, as written by every OnlyWorlds tool).
+        /// </para>
+        /// </remarks>
+        /// <exception cref="ArgumentException">Two entries with the same path.</exception>
+        /// <exception cref="OWFolderFormatException">No <c>world.json</c>, it is not JSON, or it has no id.</exception>
+        public static OWFolderReadResult ReadEntries(
+            IEnumerable<KeyValuePair<string, string>> entries, bool includeLegacySpatial = true, string source = null)
+        {
+            if (entries == null) throw new ArgumentNullException(nameof(entries));
+            var where = string.IsNullOrEmpty(source) ? "(entries)" : source;
+
+            var byPath = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var entry in entries)
+            {
+                var path = (entry.Key ?? string.Empty).Replace('\\', '/');
+                if (byPath.ContainsKey(path)) throw new ArgumentException($"Two entries named '{path}' in {where}.", nameof(entries));
+                byPath.Add(path, entry.Value);
+            }
+
+            if (!byPath.TryGetValue("world.json", out var worldText))
+                throw new OWFolderFormatException($"No world.json in '{where}'.");
+
+            var result = new OWFolderReadResult { World = ParseWorldJson(worldText, where) };
+
+            var elements = new List<(string path, string type)>();
+            var legacy = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+            foreach (var path in byPath.Keys)
+            {
+                var parts = path.Split('/');
+                if (parts.Length != 3 || parts[1].Length == 0 || !parts[2].EndsWith(".json", StringComparison.Ordinal)) continue;
+
+                if (parts[0] == "elements")
+                {
+                    elements.Add((path, parts[1]));
+                }
+                else if (includeLegacySpatial && parts[0] == "spatial" && Array.IndexOf(LegacySpatialTypes, parts[1]) >= 0)
+                {
+                    if (!legacy.TryGetValue(parts[1], out var list)) legacy[parts[1]] = list = new List<string>();
+                    list.Add(path);
+                }
+            }
+
+            // The folder form visits elements/ type by type, then spatial/ in LegacySpatialTypes' order.
+            elements.Sort((a, b) =>
+            {
+                var byType = string.CompareOrdinal(a.type, b.type);
+                return byType != 0 ? byType : string.CompareOrdinal(a.path, b.path);
+            });
+
+            var files = elements.Select(e => (e.path, e.type, false)).ToList();
+            foreach (var type in LegacySpatialTypes)
+            {
+                if (!legacy.TryGetValue(type, out var list)) continue;
+                list.Sort(StringComparer.Ordinal);
+                files.AddRange(list.Select(p => (p, type, true)));
+            }
+
+            Assemble(result, files, files.Select(f => byPath[f.Item1]).ToArray());
+            return result;
+        }
+
+        /// <summary>
+        /// Parses every listed file into the result, then serves an id found in both layouts from <c>elements/</c>.
+        /// Shared by the folder and the in-memory form, so the two cannot drift apart.
+        /// </summary>
+        private static void Assemble(
+            OWFolderReadResult result, List<(string path, string type, bool legacy)> files, IReadOnlyList<string> texts)
+        {
             for (var i = 0; i < files.Count; i++)
             {
                 var (path, type, legacy) = files[i];
@@ -212,8 +308,6 @@ namespace OnlyWorlds.Sdk
                 }
                 result.LegacyElements.RemoveAll(e => current.Contains(e.Id));
             }
-
-            return result;
         }
 
         /// <summary>The disk spellings a folder may use for a schema link, and the schema's name for each.</summary>
@@ -287,21 +381,39 @@ namespace OnlyWorlds.Sdk
                 throw new OWFolderFormatException($"No world.json in '{folderPath}'.");
             }
 
-            JObject world;
+            string text;
             try
             {
-                world = OWFolderWriter.Parse(File.ReadAllText(path));
+                text = File.ReadAllText(path);
             }
             catch (Exception e)
             {
                 throw new OWFolderFormatException($"world.json in '{folderPath}' is not valid JSON.", e);
             }
 
+            return ParseWorldJson(text, folderPath);
+        }
+
+        /// <summary>world.json's text to its object, refusing one that is not JSON or has no id.</summary>
+        /// <param name="where">The folder (or source) named in the message.</param>
+        private static JObject ParseWorldJson(string text, string where)
+        {
+            JObject world;
+            try
+            {
+                if (text == null) throw new IOException("world.json could not be read.");
+                world = OWFolderWriter.Parse(text);
+            }
+            catch (Exception e)
+            {
+                throw new OWFolderFormatException($"world.json in '{where}' is not valid JSON.", e);
+            }
+
             var id = world["id"]?.ToString();
             if (string.IsNullOrEmpty(id))
             {
                 throw new OWFolderFormatException(
-                    $"world.json in '{folderPath}' has no id. Id and name are the only required "
+                    $"world.json in '{where}' has no id. Id and name are the only required "
                     + "keys, and a world without an id cannot be keyed or compared.");
             }
 
@@ -383,10 +495,36 @@ namespace OnlyWorlds.Sdk
 
             var read = OWFolderReader.Read(folderPath, includeLegacySpatial);
 
+            return LoadInto(cache, read, OWWorldKey.FromFolder(read.WorldId, folderPath));
+        }
+
+        /// <summary>
+        /// Fills a cache from a read that has already been done, so a caller that needed the read
+        /// for something else (an archive, a report) does not pay for it twice.
+        /// </summary>
+        /// <param name="cache">Cache to fill. Its contents are replaced.</param>
+        /// <param name="read">A folder read's result. Its legacy elements are loaded when it holds any.</param>
+        /// <param name="key">
+        /// The cache's identity. The caller chooses it because the read does not know where it came
+        /// from: <see cref="LoadInto(OWWorldCache, string, bool)"/> passes
+        /// <c>OWWorldKey.FromFolder(worldId, folderPath)</c>; an imported archive passes a key whose
+        /// origin is its asset's GUID (<c>OWWorldArchive.KeyFor</c>), never a machine's absolute path.
+        /// </param>
+        /// <param name="readOnly">
+        /// Null: the folder's own <c>writable: false</c> decides, as the path form does. True: read-only
+        /// whatever the folder says (a capture, such as an archive or a download).
+        /// </param>
+        /// <returns><paramref name="read"/>, so the call reads like the path form.</returns>
+        public static OWFolderReadResult LoadInto(
+            OWWorldCache cache, OWFolderReadResult read, OWWorldKey key, bool? readOnly = null)
+        {
+            if (cache == null) throw new ArgumentNullException(nameof(cache));
+            if (read == null) throw new ArgumentNullException(nameof(read));
+
             cache.Initialize(
-                OWWorldKey.FromFolder(read.WorldId, folderPath),
+                key,
                 read.WorldName,
-                readOnly: read.DeclaresReadOnly);
+                readOnly: readOnly ?? read.DeclaresReadOnly);
 
             cache.Clear();
 

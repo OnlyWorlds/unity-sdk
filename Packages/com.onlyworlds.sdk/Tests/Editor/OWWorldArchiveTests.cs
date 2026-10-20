@@ -1,0 +1,814 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.IO.Compression;
+using System.Linq;
+using System.Text;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using NUnit.Framework;
+
+namespace OnlyWorlds.Sdk.Tests.Editor
+{
+    /// <summary>
+    /// The <c>.owworld</c> archive: packing a world folder into one file, and reading it back as the folder it was.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The contract is two-sided. Pack must never touch the folder it packs (another tool owns it) and must give
+    /// the same bytes for the same world (an archive that changes on every pack is noise in version control and a
+    /// needless re-import). Read must give exactly what a folder read gives, refuse what is not one world, and key
+    /// the world by a path every clone shares, never by this machine's.
+    /// </para>
+    /// <para>
+    /// Two worlds are used: the package's own <c>folder-write</c> fixture (eight real Sikelia files, with the Unity
+    /// <c>.meta</c> files a package carries beside them) and an Abbey-shaped world generated per test, whose
+    /// elements live mostly in the dated <c>spatial/</c> layout and which carries three files the reader skips.
+    /// </para>
+    /// </remarks>
+    public class OWWorldArchiveTests
+    {
+        private string _temp;
+
+        [SetUp]
+        public void SetUp()
+        {
+            _temp = Path.Combine(Path.GetTempPath(), "ow-archive-tests-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(_temp);
+        }
+
+        [TearDown]
+        public void TearDown()
+        {
+            if (_temp != null && Directory.Exists(_temp)) Directory.Delete(_temp, recursive: true);
+        }
+
+        // -- Fixtures -----------------------------------------------------------
+
+        /// <summary>The package's committed folder fixture, found as <c>OWFolderWriterTests</c> finds it.</summary>
+        /// <remarks>
+        /// The package lookup crosses into the Editor's native side, so it is tried and dropped when it fails; the
+        /// walk of the host's <c>Packages/</c> then finds it (and outside the Editor, from the project's path).
+        /// </remarks>
+        private static string FixtureRoot
+        {
+            get
+            {
+                if (_fixtureRoot != null) return _fixtureRoot.Length == 0 ? null : _fixtureRoot;
+                _fixtureRoot = string.Empty;
+
+                try
+                {
+                    var package = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(OWWorldArchiveTests).Assembly);
+                    if (package != null)
+                    {
+                        var own = Path.Combine(package.resolvedPath, "Tests", "Editor", "Fixtures", "folder-write");
+                        if (File.Exists(Path.Combine(own, "world.json"))) return _fixtureRoot = own;
+                    }
+                }
+                catch (Exception) { }
+
+                string projectRoot = null;
+                try { projectRoot = Directory.GetParent(UnityEngine.Application.dataPath)?.FullName; }
+                catch (Exception) { }
+
+                foreach (var root in new[] { "Packages", "Library/PackageCache" })
+                {
+                    if (projectRoot == null) break;
+
+                    var search = Path.Combine(projectRoot, root.Replace('/', Path.DirectorySeparatorChar));
+                    if (!Directory.Exists(search)) continue;
+
+                    var hit = Directory
+                        .GetDirectories(search, "folder-write", SearchOption.AllDirectories)
+                        .FirstOrDefault(d => File.Exists(Path.Combine(d, "world.json")));
+
+                    if (hit != null) { _fixtureRoot = hit; break; }
+                }
+
+                return _fixtureRoot.Length == 0 ? null : _fixtureRoot;
+            }
+        }
+
+        private static string _fixtureRoot;
+
+        private static string RequireFixture()
+        {
+            var root = FixtureRoot;
+            if (root != null) return root;
+
+            Assert.Ignore("Folder fixture not found. These assertions did not run -- treat them as unmeasured, not as passing.");
+            return null;
+        }
+
+        private const string AbbeyWorldId = "0695db52-0000-7000-8000-00000000abbe";
+
+        /// <summary>
+        /// An Abbey-shaped world: one element under <c>elements/</c>, the rest only under <c>spatial/</c>, a pin
+        /// that spells its link <c>map_id</c>, and three files the reader skips (an id in both layouts, a file with
+        /// no id, a truncated file).
+        /// </summary>
+        private string MakeAbbey(string name = "abbey")
+        {
+            var root = Path.Combine(_temp, name);
+            Write(root, "world.json", "{\n  \"id\": \"" + AbbeyWorldId + "\",\n  \"name\": \"Watabou's Abbey\"\n}\n");
+            Write(root, "elements/location/abbey--0000ab01.json",
+                "{\n  \"id\": \"0695db83-0000-7000-8000-00000000ab01\",\n  \"name\": \"Abbey\"\n}\n");
+            Write(root, "spatial/map/abbey-plan--0000ab02.json",
+                "{\n  \"id\": \"0695db83-0000-7000-8000-00000000ab02\",\n  \"name\": \"Abbey plan\",\n  \"width\": 1200\n}\n");
+            Write(root, "spatial/pin/abbey-pin--0000ab03.json",
+                "{\n  \"id\": \"0695db83-0000-7000-8000-00000000ab03\",\n  \"name\": \"Abbey pin\",\n"
+                + "  \"map_id\": \"0695db83-0000-7000-8000-00000000ab02\",\n  \"x\": 10,\n  \"y\": 20\n}\n");
+            Write(root, "spatial/zone/cloister--0000ab04.json",
+                "{\n  \"id\": \"0695db83-0000-7000-8000-00000000ab04\",\n  \"name\": \"Cloister\",\n"
+                + "  \"map_id\": \"0695db83-0000-7000-8000-00000000ab02\"\n}\n");
+            Write(root, "spatial/marker/well--0000ab05.json",
+                "{\n  \"id\": \"0695db83-0000-7000-8000-00000000ab05\",\n  \"name\": \"Well\",\n"
+                + "  \"zone_id\": \"0695db83-0000-7000-8000-00000000ab04\"\n}\n");
+            // Skipped: the same id as elements/ holds, no id, truncated.
+            Write(root, "spatial/map/abbey-dup--0000ab01.json",
+                "{\n  \"id\": \"0695db83-0000-7000-8000-00000000ab01\",\n  \"name\": \"Abbey (old copy)\"\n}\n");
+            Write(root, "spatial/pin/no-id.json", "{\n  \"name\": \"orphan\"\n}\n");
+            Write(root, "spatial/zone/torn.json", "{\n  \"id\": \"0695db83-0000-7000-8000-00000000ab");
+            return root;
+        }
+
+        private static void Write(string root, string relative, string text)
+        {
+            var path = Path.Combine(root, relative.Replace('/', Path.DirectorySeparatorChar));
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            File.WriteAllText(path, text, new UTF8Encoding(false));
+        }
+
+        /// <summary>A zip with exactly these entries, for the refusals Pack would never write.</summary>
+        private string MakeZip(string fileName, params (string name, string text)[] entries)
+        {
+            var path = Path.Combine(_temp, fileName);
+            using (var zip = ZipFile.Open(path, ZipArchiveMode.Create))
+            {
+                foreach (var (name, text) in entries)
+                {
+                    var entry = zip.CreateEntry(name);
+                    using (var w = new StreamWriter(entry.Open(), new UTF8Encoding(false))) w.Write(text);
+                }
+            }
+
+            return path;
+        }
+
+        private static string WorldJson(string id, string name) => "{\n  \"id\": \"" + id + "\",\n  \"name\": \"" + name + "\"\n}\n";
+
+        private const string ElementBody = "{\n  \"id\": \"0695db83-0000-7000-8000-0000000000e1\",\n  \"name\": \"One\"\n}\n";
+
+        private static List<string> EntryNames(string archive)
+        {
+            using (var zip = ZipFile.OpenRead(archive)) return zip.Entries.Select(e => e.FullName).ToList();
+        }
+
+        /// <summary>Every file and directory under a root, with its size and mtime: what "untouched" means.</summary>
+        private static List<string> Snapshot(string root)
+        {
+            var lines = new List<string>
+            {
+                "<root> " + Directory.GetLastWriteTimeUtc(root).Ticks,
+            };
+
+            foreach (var dir in Directory.GetDirectories(root, "*", SearchOption.AllDirectories))
+                lines.Add("d " + dir.Substring(root.Length) + " " + Directory.GetLastWriteTimeUtc(dir).Ticks);
+
+            foreach (var file in Directory.GetFiles(root, "*", SearchOption.AllDirectories))
+            {
+                var info = new FileInfo(file);
+                lines.Add("f " + file.Substring(root.Length) + " " + info.Length + " " + info.LastWriteTimeUtc.Ticks);
+            }
+
+            lines.Sort(StringComparer.Ordinal);
+            return lines;
+        }
+
+        private static void CopyDirectory(string from, string to)
+        {
+            Directory.CreateDirectory(to);
+            foreach (var file in Directory.GetFiles(from)) File.Copy(file, Path.Combine(to, Path.GetFileName(file)));
+            foreach (var dir in Directory.GetDirectories(from)) CopyDirectory(dir, Path.Combine(to, Path.GetFileName(dir)));
+        }
+
+        /// <summary>A read, reduced to what must agree: ids, types, bodies, skipped files, all world-relative.</summary>
+        private static List<string> Digest(OWFolderReadResult read, string folderRoot)
+        {
+            var prefix = folderRoot == null ? null : Path.GetFullPath(folderRoot).TrimEnd('\\', '/') + Path.DirectorySeparatorChar;
+            string Rel(string p) => prefix != null && p.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+                ? p.Substring(prefix.Length).Replace('\\', '/')
+                : p;
+
+            var lines = new List<string> { "world " + read.World.ToString(Formatting.None) };
+            lines.AddRange(read.Elements.Select(e =>
+                $"element {e.Id} {e.Type} {e.TypeInferred} {Rel(e.Path)} {e.Body.ToString(Formatting.None)}"));
+            lines.AddRange(read.LegacyElements.Select(e =>
+                $"legacy {e.Id} {e.Type} {e.TypeInferred} {Rel(e.Path)} {e.Body.ToString(Formatting.None)}"));
+            lines.AddRange(read.Skipped.Select(s => $"skipped {Rel(s.Path)} {s.Reason}"));
+            lines.Sort(StringComparer.Ordinal);
+            return lines;
+        }
+
+        /// <summary>A cache, reduced to everything a consumer can see of it.</summary>
+        private static List<string> Digest(OWWorldCache cache)
+        {
+            var lines = new List<string>
+            {
+                $"key {cache.Key.Source} {cache.Key.WorldId} {cache.Key.Origin}",
+                $"name {cache.WorldName}",
+                $"readOnly {cache.ReadOnly}",
+                $"count {cache.Count}",
+            };
+
+            foreach (var slug in OWElementTypes.Slugs.Concat(new[] { "map", "pin", "zone", "marker" }).Distinct())
+            {
+                var i = 0;
+                foreach (var raw in cache.AllRaw(slug)) lines.Add($"{slug} {i++} {raw}");
+            }
+
+            return lines;
+        }
+
+        // -- Pack never writes into the folder --------------------------------------
+
+        [Test]
+        public void Pack_NeverWritesIntoTheSourceFolder_TheFixture()
+        {
+            var root = RequireFixture();
+            var before = Snapshot(root);
+
+            OWWorldArchive.Pack(root, Path.Combine(_temp, "fixture.owworld"));
+
+            CollectionAssert.AreEqual(before, Snapshot(root),
+                "Pack changed the folder it packed: a file, a .meta, a size or an mtime differs.");
+        }
+
+        [Test]
+        public void Pack_NeverWritesIntoTheSourceFolder_AnAbbeyWithToolFolders()
+        {
+            var root = MakeAbbey();
+            Write(root, ".atlas/state.json", "{}\n");
+            var before = Snapshot(root);
+
+            OWWorldArchive.Pack(root, Path.Combine(_temp, "abbey.owworld"));
+            OWWorldArchive.Pack(root, Path.Combine(_temp, "abbey.owworld"));
+
+            CollectionAssert.AreEqual(before, Snapshot(root));
+            Assert.IsFalse(Directory.GetFiles(root, "*.meta", SearchOption.AllDirectories).Any(), "No .meta in the world.");
+        }
+
+        [Test]
+        public void Pack_RefusesAnArchiveInsideTheFolder()
+        {
+            var root = MakeAbbey();
+            var before = Snapshot(root);
+
+            Assert.Throws<ArgumentException>(() => OWWorldArchive.Pack(root, Path.Combine(root, "abbey.owworld")));
+            Assert.Throws<ArgumentException>(() => OWWorldArchive.Pack(root, Path.Combine(root, "media", "abbey.owworld")));
+
+            CollectionAssert.AreEqual(before, Snapshot(root), "A refused pack wrote nothing.");
+        }
+
+        // -- Pack skips tool state ----------------------------------------------
+
+        [Test]
+        public void Pack_SkipsDotFoldersDotFilesUnityMetasAndNonWorldContent()
+        {
+            var root = Path.Combine(_temp, "w");
+            Write(root, "world.json", WorldJson("0695db52-0000-7000-8000-0000000000aa", "W"));
+            Write(root, "elements/character/one--000000e1.json", ElementBody);
+            Write(root, "elements/character/one--000000e1.json.meta", "fileFormatVersion: 2\n");
+            Write(root, "elements/character/.draft.json", "{}\n");
+            Write(root, "elements/.DS_Store", "x");
+            Write(root, "elements/.hidden/x.json", "{}\n");
+            Write(root, "media/0000e1/base-image/0000e1.meta.json", "{}\n");
+            Write(root, "media/0000e1/base-image/0000e1.png", "png");
+            Write(root, ".atlas/state.json", "{}\n");
+            Write(root, ".git/HEAD", "ref: refs/heads/main\n");
+            Write(root, ".ow/cursor", "1\n");
+            Write(root, ".gitignore", ".*/\n");
+            Write(root, "README.md", "# w\n");
+            Write(root, "records/r.json", "{}\n");
+            Write(root, "world.json.meta", "fileFormatVersion: 2\n");
+
+            var entries = OWWorldArchive.Pack(root, Path.Combine(_temp, "w.owworld"));
+
+            var expected = new List<string>
+            {
+                "w/elements/character/one--000000e1.json",
+                "w/media/0000e1/base-image/0000e1.meta.json",
+                "w/media/0000e1/base-image/0000e1.png",
+                "w/world.json",
+            };
+            CollectionAssert.AreEqual(expected, entries);
+            CollectionAssert.AreEqual(expected, EntryNames(Path.Combine(_temp, "w.owworld")), "The file holds what Pack said.");
+        }
+
+        // -- Pack is deterministic ------------------------------------------------
+
+        [Test]
+        public void Pack_IsDeterministic_SameFolderSameBytes_WhateverTheMtimes()
+        {
+            var root = RequireFixture();
+            var copy = Path.Combine(_temp, "copy");
+            CopyDirectory(root, copy);
+
+            var a = Path.Combine(_temp, "a.owworld");
+            var b = Path.Combine(_temp, "b.owworld");
+
+            foreach (var f in Directory.GetFiles(copy, "*", SearchOption.AllDirectories))
+                File.SetLastWriteTimeUtc(f, new DateTime(2001, 2, 3, 4, 5, 6, DateTimeKind.Utc));
+            OWWorldArchive.Pack(copy, a);
+
+            foreach (var f in Directory.GetFiles(copy, "*", SearchOption.AllDirectories))
+                File.SetLastWriteTimeUtc(f, new DateTime(2024, 6, 7, 8, 9, 10, DateTimeKind.Utc));
+            OWWorldArchive.Pack(copy, b);
+
+            CollectionAssert.AreEqual(File.ReadAllBytes(a), File.ReadAllBytes(b), "The same folder packed to different bytes.");
+
+            // DOS time has a 2-second grain, so two packs of "now" can agree by luck: check the stamp itself.
+            using (var zip = ZipFile.OpenRead(a))
+            {
+                foreach (var entry in zip.Entries)
+                    Assert.AreEqual(OWWorldArchive.EntryTime.DateTime, entry.LastWriteTime.DateTime, entry.FullName);
+            }
+
+            TestContext.WriteLine($"fixture packs to {new FileInfo(a).Length} bytes, {EntryNames(a).Count} entries");
+        }
+
+        [Test]
+        public void Pack_WritesEntriesInOrdinalOrder_NotTheFileSystemsOrder()
+        {
+            var root = Path.Combine(_temp, "w");
+            Write(root, "world.json", WorldJson("0695db52-0000-7000-8000-0000000000aa", "W"));
+            // NTFS lists case-insensitively (a, B, _c); ordinal is B, _c, a. And world.json, visited first, sorts last.
+            foreach (var (name, tail) in new[] { ("a", "0a"), ("B", "0b"), ("_c", "0c") })
+                Write(root, $"elements/character/{name}.json", "{\n  \"id\": \"0695db83-0000-7000-8000-0000000000" + tail + "\"\n}\n");
+
+            var entries = OWWorldArchive.Pack(root, Path.Combine(_temp, "w.owworld"));
+
+            var sorted = entries.OrderBy(e => e, StringComparer.Ordinal).ToList();
+            CollectionAssert.AreEqual(sorted, entries);
+            CollectionAssert.AreEqual(new[]
+            {
+                "w/elements/character/B.json", "w/elements/character/_c.json", "w/elements/character/a.json", "w/world.json",
+            }, entries);
+        }
+
+        // -- The api block ----------------------------------------------------------
+
+        [Test]
+        public void Pack_DropsTheApiBlock_KeepsItOnRequest_AndCopiesAPlainWorldJsonByteForByte()
+        {
+            var root = Path.Combine(_temp, "linked");
+            Write(root, "world.json",
+                "{\n  \"id\": \"0695db52-0000-7000-8000-0000000000aa\",\n  \"name\": \"Linked\",\n"
+                + "  \"api\": {\n    \"world_id\": \"0695db52-0000-7000-8000-0000000000aa\",\n    \"api_key\": \"ow_k_secret\"\n  },\n"
+                + "  \"time_current\": 5\n}\n");
+
+            var dropped = OWWorldArchive.Read(PackTo(root, "dropped.owworld"));
+            Assert.IsNull(dropped.World["api"], "The key went into the archive.");
+            Assert.AreEqual("Linked", dropped.WorldName);
+            Assert.AreEqual(5, dropped.World["time_current"].Value<int>(), "Only the api block is dropped.");
+            Assert.IsFalse(ArchiveText(Path.Combine(_temp, "dropped.owworld")).Contains("ow_k_secret"));
+
+            var kept = Path.Combine(_temp, "kept.owworld");
+            OWWorldArchive.Pack(root, kept, keepApiBlock: true);
+            CollectionAssert.AreEqual(File.ReadAllBytes(Path.Combine(root, "world.json")), EntryBytes(kept, "linked/world.json"));
+
+            var fixture = RequireFixture();
+            var plain = Path.Combine(_temp, "plain.owworld");
+            OWWorldArchive.Pack(fixture, plain);
+            CollectionAssert.AreEqual(File.ReadAllBytes(Path.Combine(fixture, "world.json")),
+                EntryBytes(plain, Path.GetFileName(fixture) + "/world.json"), "No api block: world.json goes in byte for byte.");
+        }
+
+        private string PackTo(string root, string fileName)
+        {
+            var path = Path.Combine(_temp, fileName);
+            OWWorldArchive.Pack(root, path);
+            return path;
+        }
+
+        private static byte[] EntryBytes(string archive, string name)
+        {
+            using (var zip = ZipFile.OpenRead(archive))
+            using (var s = zip.GetEntry(name).Open())
+            using (var m = new MemoryStream())
+            {
+                s.CopyTo(m);
+                return m.ToArray();
+            }
+        }
+
+        private static string ArchiveText(string archive)
+        {
+            var sb = new StringBuilder();
+            using (var zip = ZipFile.OpenRead(archive))
+            {
+                foreach (var e in zip.Entries)
+                    using (var r = new StreamReader(e.Open())) sb.Append(r.ReadToEnd());
+            }
+
+            return sb.ToString();
+        }
+
+        // -- Reading an archive equals reading the folder -------------------------
+
+        [Test]
+        public void Read_EqualsTheFolderRead_TheFixture()
+        {
+            var root = RequireFixture();
+            var archive = PackTo(root, "fixture.owworld");
+
+            var folder = OWFolderReader.Read(root, includeLegacySpatial: true);
+            var packed = OWWorldArchive.Read(archive, includeLegacySpatial: true);
+
+            Assert.That(folder.Elements.Count, Is.GreaterThan(0), "The fixture has elements to compare.");
+            CollectionAssert.AreEqual(Digest(folder, root), Digest(packed, null));
+        }
+
+        [Test]
+        public void Read_EqualsTheFolderRead_AnAbbeyInTheLegacyLayout()
+        {
+            var root = MakeAbbey();
+            var archive = PackTo(root, "abbey.owworld");
+
+            var folder = OWFolderReader.Read(root, includeLegacySpatial: true);
+            var packed = OWWorldArchive.Read(archive, includeLegacySpatial: true);
+
+            Assert.AreEqual(1, folder.Elements.Count);
+            Assert.AreEqual(4, folder.LegacyElements.Count, "spatial/ holds the world.");
+            Assert.AreEqual(3, folder.Skipped.Count, "Duplicate, no id, truncated.");
+            CollectionAssert.AreEqual(Digest(folder, root), Digest(packed, null));
+
+            // And with the legacy layout off, as a conforming reader that covers only elements/.
+            CollectionAssert.AreEqual(
+                Digest(OWFolderReader.Read(root, includeLegacySpatial: false), root),
+                Digest(OWWorldArchive.Read(archive, includeLegacySpatial: false), null));
+        }
+
+        [Test]
+        public void Read_ReportsPathsInsideTheWorld()
+        {
+            var packed = OWWorldArchive.Read(PackTo(MakeAbbey(), "abbey.owworld"));
+
+            var paths = packed.Elements.Concat(packed.LegacyElements).Select(e => e.Path)
+                .Concat(packed.Skipped.Select(s => s.Path)).ToList();
+            Assert.That(paths, Has.Member("spatial/pin/no-id.json"));
+            foreach (var p in paths) Assert.IsFalse(Path.IsPathRooted(p), p);
+        }
+
+        [Test]
+        public void Read_WritesNoTempFolder()
+        {
+            var archive = PackTo(MakeAbbey(), "abbey.owworld");
+            var before = Directory.GetDirectories(Path.GetTempPath(), "ow-owworld-*").Length;
+
+            OWWorldArchive.Read(archive);
+            Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Read(MakeZip("none.owworld", ("a/b.json", "{}"))));
+
+            Assert.AreEqual(before, Directory.GetDirectories(Path.GetTempPath(), "ow-owworld-*").Length);
+        }
+
+        // -- The in-memory read is the folder read ----------------------------------------
+
+        /// <summary>A read, in its own order: what a cache is filled in, element by element.</summary>
+        private static List<string> OrderedDigest(OWFolderReadResult read, string folderRoot)
+        {
+            var prefix = folderRoot == null ? null : Path.GetFullPath(folderRoot).TrimEnd('\\', '/') + Path.DirectorySeparatorChar;
+            string Rel(string p) => prefix != null && p.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+                ? p.Substring(prefix.Length).Replace('\\', '/')
+                : p;
+
+            var lines = new List<string> { "world " + read.World.ToString(Formatting.None) };
+            lines.AddRange(read.Elements.Select(e =>
+                $"element {e.Id} {e.Type} {e.TypeInferred} {Rel(e.Path)} {e.Body.ToString(Formatting.None)}"));
+            lines.AddRange(read.LegacyElements.Select(e =>
+                $"legacy {e.Id} {e.Type} {e.TypeInferred} {Rel(e.Path)} {e.Body.ToString(Formatting.None)}"));
+            lines.AddRange(read.Skipped.Select(s => $"skipped {Rel(s.Path)} {s.Reason}"));
+            return lines;
+        }
+
+        /// <summary>Every file under a folder, as (path inside it, text): the folder, held in memory.</summary>
+        private static List<KeyValuePair<string, string>> Entries(string root)
+        {
+            var full = Path.GetFullPath(root).TrimEnd('\\', '/');
+            return Directory.GetFiles(full, "*", SearchOption.AllDirectories)
+                .Select(f => new KeyValuePair<string, string>(f.Substring(full.Length + 1), File.ReadAllText(f)))
+                .ToList();
+        }
+
+        [TestCase(true)]
+        [TestCase(false)]
+        public void ReadEntries_EqualsRead_TheFixture_InOrder(bool legacy)
+        {
+            var root = RequireFixture();
+            var folder = OWFolderReader.Read(root, legacy);
+
+            Assert.That(folder.Elements.Count, Is.GreaterThan(0));
+            CollectionAssert.AreEqual(OrderedDigest(folder, root),
+                OrderedDigest(OWFolderReader.ReadEntries(Entries(root), legacy), null));
+        }
+
+        [TestCase(true)]
+        [TestCase(false)]
+        public void ReadEntries_EqualsRead_AnAbbeyInTheLegacyLayout_InOrder(bool legacy)
+        {
+            var root = MakeAbbey();
+            var folder = OWFolderReader.Read(root, legacy);
+
+            Assert.AreEqual(legacy ? 4 : 0, folder.LegacyElements.Count);
+            CollectionAssert.AreEqual(OrderedDigest(folder, root),
+                OrderedDigest(OWFolderReader.ReadEntries(Entries(root), legacy), null));
+        }
+
+        [Test]
+        public void ReadEntries_ReadsOnlyWhereTheFolderReads_AndSkipsAnUnreadableText()
+        {
+            var read = OWFolderReader.ReadEntries(new Dictionary<string, string>
+            {
+                ["world.json"] = WorldJson("0695db52-0000-7000-8000-0000000000aa", "W"),
+                [@"elements\character\one.json"] = ElementBody,
+                ["elements/character/nested/deep.json"] = ElementBody.Replace("e1", "e2"),
+                // A folder named like a file: the folder form's GetFiles never returns what is inside it.
+                ["elements/character/sub.json/deep.json"] = ElementBody.Replace("e1", "e6"),
+                ["elements/character/notes.txt"] = "{}",
+                ["elements/top.json"] = ElementBody.Replace("e1", "e3"),
+                ["spatial/region/r.json"] = ElementBody.Replace("e1", "e4"),
+                ["spatial/pin/gone.json"] = null,
+                ["media/x/x.meta.json"] = ElementBody.Replace("e1", "e5"),
+            });
+
+            Assert.AreEqual(new[] { "0695db83-0000-7000-8000-0000000000e1" }, read.Elements.Select(e => e.Id).ToArray());
+            Assert.AreEqual("elements/character/one.json", read.Elements[0].Path);
+            Assert.AreEqual(0, read.LegacyElements.Count);
+            Assert.AreEqual(1, read.Skipped.Count);
+            Assert.AreEqual("spatial/pin/gone.json", read.Skipped[0].Path);
+            Assert.AreEqual("unparseable JSON", read.Skipped[0].Reason, "As the folder form says of a file it cannot read.");
+        }
+
+        [Test]
+        public void ReadEntries_RefusesNoWorldJson_ABadOne_AndARepeatedPath()
+        {
+            var e = Assert.Throws<OWFolderFormatException>(() => OWFolderReader.ReadEntries(
+                new Dictionary<string, string> { ["elements/character/one.json"] = ElementBody }, source: "test.owworld"));
+            StringAssert.Contains("test.owworld", e.Message);
+
+            Assert.Throws<OWFolderFormatException>(() => OWFolderReader.ReadEntries(
+                new Dictionary<string, string> { ["world.json"] = "{\"name\": \"no id\"}" }));
+            Assert.Throws<OWFolderFormatException>(() => OWFolderReader.ReadEntries(
+                new Dictionary<string, string> { ["world.json"] = null }));
+            Assert.Throws<ArgumentException>(() => OWFolderReader.ReadEntries(new[]
+            {
+                new KeyValuePair<string, string>("world.json", WorldJson("0695db52-0000-7000-8000-0000000000aa", "W")),
+                new KeyValuePair<string, string>("elements/character/one.json", ElementBody),
+                new KeyValuePair<string, string>(@"elements\character\one.json", ElementBody),
+            }));
+        }
+
+        // -- Where the world sits in the zip -----------------------------------------
+
+        [Test]
+        public void Read_AcceptsWorldJsonAtTheRoot()
+        {
+            var archive = MakeZip("root.owworld",
+                ("world.json", WorldJson("0695db52-0000-7000-8000-0000000000aa", "Root")),
+                ("elements/character/one.json", ElementBody),
+                ("README.txt", "not the world"));
+
+            var read = OWWorldArchive.Read(archive);
+            Assert.AreEqual("Root", read.WorldName);
+            Assert.AreEqual(new[] { "0695db83-0000-7000-8000-0000000000e1" }, read.Elements.Select(e => e.Id).ToArray());
+        }
+
+        [Test]
+        public void Read_AcceptsOneTopLevelFolder_IgnoringWhatSitsBesideIt()
+        {
+            var archive = MakeZip("one.owworld",
+                ("README.txt", "not the world"),
+                ("__MACOSX/top/._world.json", "junk"),
+                (".atlas/world.json", WorldJson("0695db52-0000-7000-8000-0000000000ff", "A tool's")),
+                ("top/world.json", WorldJson("0695db52-0000-7000-8000-0000000000aa", "Top")),
+                ("top/elements/character/one.json", ElementBody));
+
+            var read = OWWorldArchive.Read(archive);
+            Assert.AreEqual("Top", read.WorldName);
+            Assert.AreEqual(1, read.Elements.Count);
+        }
+
+        [Test]
+        public void Read_RefusesTwoWorlds()
+        {
+            var archive = MakeZip("two.owworld",
+                ("a/world.json", WorldJson("0695db52-0000-7000-8000-0000000000aa", "A")),
+                ("b/world.json", WorldJson("0695db52-0000-7000-8000-0000000000bb", "B")));
+
+            var e = Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Read(archive));
+            StringAssert.Contains("2 worlds", e.Message);
+        }
+
+        [Test]
+        public void Read_RefusesAWorldAtTheRootBesideOneInAFolder()
+        {
+            var archive = MakeZip("both.owworld",
+                ("world.json", WorldJson("0695db52-0000-7000-8000-0000000000aa", "Root")),
+                ("b/world.json", WorldJson("0695db52-0000-7000-8000-0000000000bb", "B")));
+
+            Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Read(archive));
+        }
+
+        [Test]
+        public void Read_RefusesNoWorld_IncludingOneNestedTooDeep()
+        {
+            var archive = MakeZip("deep.owworld",
+                ("onlyworlds-atlas/abbey-0695/world.json", WorldJson("0695db52-0000-7000-8000-0000000000aa", "Deep")));
+
+            var e = Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Read(archive));
+            StringAssert.Contains("No world.json", e.Message);
+        }
+
+        [Test]
+        public void Read_RefusesAFileThatIsNotAZip()
+        {
+            var path = Path.Combine(_temp, "json.owworld");
+            File.WriteAllText(path, WorldJson("0695db52-0000-7000-8000-0000000000aa", "Not a zip"));
+
+            var e = Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Read(path));
+            StringAssert.Contains("not a zip", e.Message);
+        }
+
+        // -- Hostile entry names ----------------------------------------------------------
+
+        [TestCase("w/../escaped.json")]
+        [TestCase("../escaped.json")]
+        [TestCase("w/elements/../../../escaped.json")]
+        [TestCase("/etc/escaped.json")]
+        [TestCase(@"\\server\share\escaped.json")]
+        [TestCase("C:/escaped.json")]
+        [TestCase(@"C:\escaped.json")]
+        public void Read_RefusesAnEntryThatIsAbsoluteOrClimbsOut(string hostile)
+        {
+            var archive = MakeZip("hostile.owworld",
+                ("w/world.json", WorldJson("0695db52-0000-7000-8000-0000000000aa", "W")),
+                ("w/elements/character/one.json", ElementBody),
+                (hostile, ElementBody.Replace("e1", "e9")));
+
+            var e = Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Read(archive));
+            StringAssert.Contains("refusing the archive", e.Message);
+        }
+
+        [Test]
+        public void Read_RefusesTwoEntriesOfOneName_AfterNormalizing()
+        {
+            var archive = MakeZip("twice.owworld",
+                ("w/world.json", WorldJson("0695db52-0000-7000-8000-0000000000aa", "W")),
+                ("w/elements/character/one.json", ElementBody),
+                (@"w\elements\character\one.json", ElementBody.Replace("One", "Other")));
+
+            var e = Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Read(archive));
+            StringAssert.Contains("second entry", e.Message);
+        }
+
+        [Test]
+        public void Read_ResolvesAClimbThatStaysInside_ToItsPlainPath()
+        {
+            var archive = MakeZip("inside.owworld",
+                ("w/world.json", WorldJson("0695db52-0000-7000-8000-0000000000aa", "W")),
+                ("w/elements/location/../character/./one.json", ElementBody));
+
+            var read = OWWorldArchive.Read(archive);
+            Assert.AreEqual("elements/character/one.json", read.Elements.Single().Path);
+            Assert.AreEqual("character", read.Elements.Single().Type);
+        }
+
+        // -- The key carries no machine's path -----------------------------------------
+
+        private const string AbbeyGuid = "4F1A9C0E2B7D4E8FA1C3B5D7E9F0A2B4";
+
+        [Test]
+        public void LoadInto_KeysOnTheAssetGuid_NoDriveNoUsersSegment_AndIsReadOnly()
+        {
+            var archive = PackTo(MakeAbbey(), "abbey.owworld");
+            var cache = UnityEngine.ScriptableObject.CreateInstance<OWWorldCache>();
+
+            OWWorldArchive.LoadInto(cache, archive, AbbeyGuid);
+
+            Assert.AreEqual(OWSourceKind.Folder, cache.Key.Source);
+            Assert.AreEqual(AbbeyWorldId, cache.Key.WorldId);
+            Assert.AreEqual("guid:" + AbbeyGuid.ToLowerInvariant(), cache.Key.Origin);
+            Assert.AreEqual(OWWorldArchive.KeyFor(AbbeyWorldId, AbbeyGuid), cache.Key, "LoadInto keys as KeyFor does.");
+            foreach (var text in new[] { cache.Key.Origin, cache.Key.ToString(), cache.Key.ToAssetKey() })
+            {
+                Assert.IsFalse(System.Text.RegularExpressions.Regex.IsMatch(text, @"[A-Za-z]:[\\/_]"), "drive letter in " + text);
+                Assert.IsFalse(text.Split('/', '\\', '_').Any(s => s.Equals("Users", StringComparison.OrdinalIgnoreCase)), "Users in " + text);
+                Assert.IsFalse(text.Contains(Path.GetTempPath().TrimEnd('\\', '/')), "temp path in " + text);
+                Assert.IsFalse(text.Contains(_temp), "the archive's own path in " + text);
+            }
+
+            Assert.IsTrue(cache.ReadOnly, "An archive is a capture: read-only though the world does not declare it.");
+            Assert.AreEqual(5, cache.Count, "1 in elements/, 4 only in spatial/.");
+            StringAssert.Contains("\"map\":", cache.AllRaw("pin").Single(), "Links under the schema's names, as a folder load.");
+        }
+
+        [Test]
+        public void LoadInto_TheSerializedCacheCarriesNoAbsolutePath()
+        {
+            var archive = PackTo(MakeAbbey(), "abbey.owworld");
+            var cache = UnityEngine.ScriptableObject.CreateInstance<OWWorldCache>();
+            OWWorldArchive.LoadInto(cache, archive, AbbeyGuid);
+
+            // Unity's own serializer, the one that writes the imported artifact: needs the Editor.
+            var json = UnityEngine.JsonUtility.ToJson(cache);
+
+            StringAssert.Contains("\"_origin\":\"guid:" + AbbeyGuid.ToLowerInvariant() + "\"", json);
+            Assert.IsFalse(System.Text.RegularExpressions.Regex.IsMatch(json, @"[A-Za-z]:\\\\"), "a drive path in the asset");
+            Assert.IsFalse(json.Contains("Users"), "a Users segment in the asset");
+        }
+
+        [TestCase(@"C:\Users\someone\Project\Assets\abbey.owworld")]
+        [TestCase("C:/Users/someone/Project/Assets/abbey.owworld")]
+        [TestCase("/home/someone/Project/Assets/abbey.owworld")]
+        [TestCase("Assets/Worlds/abbey.owworld")]
+        [TestCase("")]
+        [TestCase(null)]
+        [TestCase("4f1a9c0e2b7d4e8fa1c3b5d7e9f0a2b")]
+        [TestCase("4f1a9c0e2b7d4e8fa1c3b5d7e9f0a2b4f")]
+        [TestCase("4f1a9c0e-2b7d-4e8f-a1c3-b5d7e9f0")]
+        [TestCase("zf1a9c0e2b7d4e8fa1c3b5d7e9f0a2b4")]
+        [TestCase("00000000000000000000000000000000")]
+        public void KeyFor_RefusesAnythingButAnAssetGuid(string notAGuid)
+        {
+            Assert.Throws<ArgumentException>(() => OWWorldArchive.KeyFor(AbbeyWorldId, notAGuid));
+        }
+
+        [Test]
+        public void KeyFor_IsPure_CaseInsensitive_AndTellsTwoArchivesOfOneWorldApart()
+        {
+            var a = OWWorldArchive.KeyFor(AbbeyWorldId, AbbeyGuid);
+            var again = OWWorldArchive.KeyFor(AbbeyWorldId, AbbeyGuid.ToLowerInvariant());
+            var b = OWWorldArchive.KeyFor(AbbeyWorldId, "0123456789abcdef0123456789abcdef");
+
+            Assert.AreEqual(a, again);
+            Assert.AreEqual("guid:4f1a9c0e2b7d4e8fa1c3b5d7e9f0a2b4", a.Origin);
+            Assert.AreNotEqual(a, b);
+        }
+
+        // -- LoadInto(cache, read) is LoadInto(cache, path) ---------------------------
+
+        [Test]
+        public void LoadInto_ResultForm_EqualsPathForm_TheFixture()
+        {
+            var root = RequireFixture();
+            AssertSameCache(root);
+        }
+
+        [Test]
+        public void LoadInto_ResultForm_EqualsPathForm_AnAbbeyInTheLegacyLayout()
+        {
+            AssertSameCache(MakeAbbey());
+        }
+
+        [Test]
+        public void LoadInto_ResultForm_HonoursAFrozenSnapshot_AsThePathFormDoes()
+        {
+            var root = Path.Combine(_temp, "frozen");
+            Write(root, "world.json",
+                "{\n  \"id\": \"0695db52-0000-7000-8000-0000000000aa\",\n  \"name\": \"Frozen\",\n  \"writable\": false\n}\n");
+            Write(root, "elements/character/one.json", ElementBody);
+
+            var byResult = AssertSameCache(root);
+            Assert.IsTrue(byResult.ReadOnly);
+        }
+
+        private static OWWorldCache AssertSameCache(string root)
+        {
+            var byPath = UnityEngine.ScriptableObject.CreateInstance<OWWorldCache>();
+            var pathRead = OWFolderLoader.LoadInto(byPath, root);
+
+            var byResult = UnityEngine.ScriptableObject.CreateInstance<OWWorldCache>();
+            var read = OWFolderReader.Read(root);
+            var returned = OWFolderLoader.LoadInto(byResult, read, OWWorldKey.FromFolder(read.WorldId, root));
+
+            Assert.AreSame(read, returned);
+            Assert.That(byPath.Count, Is.GreaterThan(0));
+            CollectionAssert.AreEqual(Digest(byPath), Digest(byResult));
+            Assert.AreEqual(pathRead.Skipped.Count, read.Skipped.Count);
+            return byResult;
+        }
+
+        // -- The menu's default name ----------------------------------------------------
+
+        [Test]
+        public void DefaultArchiveName_IsTheWorldNameSlug_ElseTheIdTail()
+        {
+            Assert.AreEqual("watabou-s-abbey.owworld", OWWorldArchive.DefaultArchiveName(MakeAbbey()));
+
+            var root = Path.Combine(_temp, "unnamed");
+            Write(root, "world.json", WorldJson("0695db52-0000-7000-8000-0000000000aa", ""));
+            Assert.AreEqual("000000aa.owworld", OWWorldArchive.DefaultArchiveName(root));
+        }
+    }
+}
