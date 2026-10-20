@@ -33,6 +33,27 @@ namespace OnlyWorlds.Sdk
         public string Name;
     }
 
+    /// <summary>
+    /// One Character a party link offers, from its preview's <see cref="OWJoinPreview.Characters"/>: the player
+    /// picks one not <see cref="Taken"/> and sends its id to <see cref="OWJoin.RedeemAsync"/>.
+    /// </summary>
+    [Serializable]
+    public class OWJoinPick
+    {
+        [JsonProperty("id")]
+        public string Id;
+
+        [JsonProperty("name")]
+        public string Name;
+
+        [JsonProperty("image_url")]
+        public string ImageUrl;
+
+        /// <summary>A live seat in the world plays it already, a person's included. Keel's order puts these last.</summary>
+        [JsonProperty("taken")]
+        public bool Taken;
+    }
+
     /// <summary>An agent's seat in the world, from an agent code's answer.</summary>
     [Serializable]
     public class OWJoinSeat
@@ -84,6 +105,31 @@ namespace OnlyWorlds.Sdk
         /// <summary>ISO 8601, UTC, as sent.</summary>
         [JsonProperty("expires_at")]
         public string ExpiresAt;
+
+        // A party link (a table: one link, up to 50 players) adds the four below; a link for one sends none of them.
+
+        /// <summary>How many players the link seats, 2 to 50; null on a link for one.</summary>
+        [JsonProperty("max_uses")]
+        public int? MaxUses;
+
+        /// <summary>How many places are left at the table; null on a link for one.</summary>
+        [JsonProperty("uses_left")]
+        public int? UsesLeft;
+
+        /// <summary>
+        /// True when the table lists no Characters: redeem with a <c>name</c> and no <c>character</c>, and the
+        /// player gets a fresh Character. Null on a link for one.
+        /// </summary>
+        [JsonProperty("name_required")]
+        public bool? NameRequired;
+
+        /// <summary>The Characters to pick from, in the owner's order; empty when <see cref="NameRequired"/>, null on a link for one.</summary>
+        [JsonProperty("characters")]
+        public List<OWJoinPick> Characters;
+
+        /// <summary>A party link: more than one player joins by it, each as a picked or a fresh Character.</summary>
+        [JsonIgnore]
+        public bool IsTable => MaxUses.HasValue && MaxUses.Value > 1;
     }
 
     /// <summary>
@@ -198,14 +244,20 @@ namespace OnlyWorlds.Sdk
         /// telling the answers apart. <paramref name="name"/> is a player's (optional: the Character's
         /// name, or "Player", when left out); <paramref name="agentName"/> an agent's (required for an
         /// agent code, a 422 on <c>agent_name</c> without it). A person's code is a 404 here.
+        /// <paramref name="character"/> is a party link's pick, an id from the preview's
+        /// <see cref="OWJoinPreview.Characters"/> (refused as <see cref="OWApiError.IsCharacterTaken"/> or
+        /// <see cref="OWApiError.IsCharacterInvalid"/>); a table that lists none wants <paramref name="name"/>
+        /// instead, and a link for one ignores it. It comes last so a caller passing the others by position keeps
+        /// working.
         /// </summary>
         public static Task<OWJoined> RedeemAsync(
             string code, IOWTransport transport, string name = null, string agentName = null,
-            string baseUrl = null, CancellationToken ct = default)
+            string baseUrl = null, CancellationToken ct = default, string character = null)
         {
             var body = new JObject { ["code"] = code };
             if (name != null) body["name"] = name;
             if (agentName != null) body["agent_name"] = agentName;
+            if (character != null) body["character"] = character;
 
             return PostAsync<OWJoined>("/join", body, transport, baseUrl, ct);
         }

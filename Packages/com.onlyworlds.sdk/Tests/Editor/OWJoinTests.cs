@@ -27,6 +27,21 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ""invited_by"":""Sam"",""owner_character"":""The Mapmaker"",""role"":""guest"",""with_character"":true,
             ""expires_at"":""2026-10-26T14:00:00+00:00""}";
 
+        // A party link's preview: keel's table_preview keys after the seven (accounts/agents.py, PR 110).
+        private const string TablePreview = @"{""reader"":""player"",""world"":{""name"":""Moppetopia"",""description"":""A demo""},
+            ""invited_by"":""Sam"",""owner_character"":null,""role"":""guest"",""with_character"":true,
+            ""expires_at"":""2026-10-26T14:00:00+00:00"",
+            ""max_uses"":4,""uses_left"":3,""name_required"":false,
+            ""characters"":[{""id"":""c-ana"",""name"":""Ana"",""image_url"":null,""taken"":false},
+                            {""id"":""c-bo"",""name"":""Bo"",""image_url"":""https://media.onlyworlds.com/bo.webp"",""taken"":true}]}";
+
+        private static FakeTransport Refusing(string code, string param) => new FakeTransport
+        {
+            Status = 422,
+            ResponseBody = @"{""error"":{""type"":""invalid_request"",""code"":""" + code + @""",""param"":"
+                + (param == null ? "null" : @"""" + param + @"""") + @",""message"":""refused""}}",
+        };
+
         // -- ParseLink --------------------------------------------------------
 
         [TestCase("https://www.onlyworlds.com/join#" + Code, Code)]
@@ -159,6 +174,41 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual("guest", p.Role);
             Assert.IsTrue(p.WithCharacter);
             Assert.AreEqual("2026-10-26T14:00:00+00:00", p.ExpiresAt);
+
+            // A link for one carries none of a table's keys.
+            Assert.IsFalse(p.IsTable);
+            Assert.IsNull(p.MaxUses);
+            Assert.IsNull(p.UsesLeft);
+            Assert.IsNull(p.NameRequired);
+            Assert.IsNull(p.Characters);
+        }
+
+        [Test]
+        public async Task ATablePreview_ReadsItsPlacesAndItsCharactersInOrder()
+        {
+            var t = new FakeTransport { ResponseBody = TablePreview };
+            var p = await OWJoin.PreviewAsync(Code, t, Base);
+
+            Assert.IsTrue(p.IsTable);
+            Assert.AreEqual(4, p.MaxUses);
+            Assert.AreEqual(3, p.UsesLeft);
+            Assert.AreEqual(false, p.NameRequired);
+            Assert.IsNull(p.OwnerCharacter);
+            Assert.AreEqual(new[] { "c-ana", "c-bo" }, p.Characters.ConvertAll(c => c.Id));
+            Assert.AreEqual("Bo", p.Characters[1].Name);
+            Assert.IsNull(p.Characters[0].ImageUrl);
+            Assert.AreEqual("https://media.onlyworlds.com/bo.webp", p.Characters[1].ImageUrl);
+            Assert.AreEqual((false, true), (p.Characters[0].Taken, p.Characters[1].Taken));
+        }
+
+        [Test]
+        public async Task Redeem_SendsThePick()
+        {
+            var t = new FakeTransport { Status = 201, ResponseBody = PlayerJoined };
+            await OWJoin.RedeemAsync(Code, t, baseUrl: Base, character: "c-ana");
+
+            Assert.AreEqual("c-ana", (string)t.LastBody["character"]);
+            Assert.AreEqual(2, t.LastBody.Count, "the code and the pick, nothing else");
         }
 
         // -- Refusals ---------------------------------------------------------
@@ -189,6 +239,40 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             var ex = Assert.ThrowsAsync<OWApiError>(async () => await OWJoin.RedeemAsync(Code, t, baseUrl: Base));
             Assert.AreEqual("agent_name", ex.Param);
+        }
+
+        [Test]
+        public void ATakenPick_IsCharacterTakenAndNothingElse()
+        {
+            var ex = Assert.ThrowsAsync<OWApiError>(async () =>
+                await OWJoin.RedeemAsync(Code, Refusing("character_taken", "character"), baseUrl: Base, character: "c-bo"));
+            Assert.AreEqual((true, false, false), (ex.IsCharacterTaken, ex.IsCharacterInvalid, ex.IsWorldFull));
+        }
+
+        [Test]
+        public void APickOffTheList_IsCharacterInvalid_ButAMissingName_IsNot()
+        {
+            var off = Assert.ThrowsAsync<OWApiError>(async () =>
+                await OWJoin.RedeemAsync(Code, Refusing("invalid_request", "character"), baseUrl: Base, character: "c-zed"));
+            Assert.AreEqual((false, true, false), (off.IsCharacterTaken, off.IsCharacterInvalid, off.IsWorldFull));
+
+            var noName = Assert.ThrowsAsync<OWApiError>(async () =>
+                await OWJoin.RedeemAsync(Code, Refusing("invalid_request", "name"), baseUrl: Base));
+            Assert.IsFalse(noName.IsCharacterInvalid);
+            Assert.AreEqual("name", noName.Param);
+        }
+
+        [Test]
+        public void AFullWorld_IsWorldFull_OnlyAsA422()
+        {
+            var full = Assert.ThrowsAsync<OWApiError>(async () =>
+                await OWJoin.RedeemAsync(Code, Refusing("world_full", null), baseUrl: Base));
+            Assert.AreEqual((false, false, true), (full.IsCharacterTaken, full.IsCharacterInvalid, full.IsWorldFull));
+
+            var t = Refusing("world_full", null);
+            t.Status = 409;
+            var other = Assert.ThrowsAsync<OWApiError>(async () => await OWJoin.RedeemAsync(Code, t, baseUrl: Base));
+            Assert.IsFalse(other.IsWorldFull, "the code on another status is not it");
         }
 
         [Test]

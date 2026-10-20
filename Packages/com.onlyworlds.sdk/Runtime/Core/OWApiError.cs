@@ -53,6 +53,21 @@ namespace OnlyWorlds.Sdk
         public bool IsNotFound => StatusCode == 404 && Code == "not_found";
 
         /// <summary>
+        /// A party link's pick is played already (422 <c>character_taken</c>, param <c>character</c>): read the
+        /// preview again and pick another. Nothing was spent.
+        /// </summary>
+        public bool IsCharacterTaken => StatusCode == 422 && Code == "character_taken";
+
+        /// <summary>
+        /// The pick is missing, not on the link's list, hidden or deleted since, or sent to a table that lists no
+        /// Characters (422 <c>invalid_request</c>, param <c>character</c>). Nothing was spent.
+        /// </summary>
+        public bool IsCharacterInvalid => StatusCode == 422 && Code == "invalid_request" && Param == "character";
+
+        /// <summary>The world has its 50 players (422 <c>world_full</c>), whichever player link was used.</summary>
+        public bool IsWorldFull => StatusCode == 422 && Code == "world_full";
+
+        /// <summary>
         /// A contributor or guest key changed, relinked or deleted an element someone else created
         /// (403 <c>not_author</c>). Retrying will not help.
         /// </summary>

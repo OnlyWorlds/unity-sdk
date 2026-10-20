@@ -6,6 +6,19 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+- Party links (one join link for a table of up to 50 players): `OWJoinPreview` reads `MaxUses`, `UsesLeft`,
+  `NameRequired` and `Characters` (`OWJoinPick`: id, name, image url, taken), and `IsTable` tells a party link from a
+  link for one, which sends none of them.
+- `OWJoin.RedeemAsync` takes `character`, the player's pick from the preview's list. It is the last parameter, so
+  existing positional calls keep working.
+- `OWApiError.IsCharacterTaken`, `IsCharacterInvalid` and `IsWorldFull`, matching the npm SDK's helpers.
+
+### Changed
+- The wire check also compares request body keys, response keys and error codes with keel's OpenAPI document
+  (`tools/refresh_wire.py`; the fixture refreshed from production). The SDK's join keys, the preview's and a join's
+  answer keys, and every code an `OWApiError` helper names are checked against what keel declares.
+
 ## [0.8.0] - 2026-10-20
 
 A world folder zipped as one `.owworld` file imports into Unity as a read-only world cache, measured in the Editor, a
