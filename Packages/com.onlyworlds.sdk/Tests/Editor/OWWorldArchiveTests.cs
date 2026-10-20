@@ -274,7 +274,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         // -- Pack skips tool state ----------------------------------------------
 
         [Test]
-        public void Pack_SkipsDotFoldersDotFilesUnityMetasAndNonWorldContent()
+        public void Pack_SkipsToolStateAndNonWorldContent_ButCarriesRecordsWhole()
         {
             var root = Path.Combine(_temp, "w");
             Write(root, "world.json", WorldJson("0695db52-0000-7000-8000-0000000000aa", "W"));
@@ -291,15 +291,25 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Write(root, ".gitignore", ".*/\n");
             Write(root, "README.md", "# w\n");
             Write(root, "records/r.json", "{}\n");
+            Write(root, "records/r.json.meta", "fileFormatVersion: 2\n");
+            Write(root, "records/lab/.cursor", "7\n");
+            Write(root, "records/lab/ticks/1.json", "{\"entries\":[]}\r\n");
+            Write(root, "records/lab/plan.meta", "a producer's own file, no sibling\n");
             Write(root, "world.json.meta", "fileFormatVersion: 2\n");
 
             var entries = OWWorldArchive.Pack(root, Path.Combine(_temp, "w.owworld"));
 
+            // records/ goes in whole (folder spec §4.5 rules 1 and 6), a producer's dot-file and its own .meta
+            // included; only Unity's .meta beside a file is left out.
             var expected = new List<string>
             {
                 "w/elements/character/one--000000e1.json",
                 "w/media/0000e1/base-image/0000e1.meta.json",
                 "w/media/0000e1/base-image/0000e1.png",
+                "w/records/lab/.cursor",
+                "w/records/lab/plan.meta",
+                "w/records/lab/ticks/1.json",
+                "w/records/r.json",
                 "w/world.json",
             };
             CollectionAssert.AreEqual(expected, entries);
@@ -582,6 +592,41 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var read = OWWorldArchive.Read(archive);
             Assert.AreEqual("Root", read.WorldName);
             Assert.AreEqual(new[] { "0695db83-0000-7000-8000-0000000000e1" }, read.Elements.Select(e => e.Id).ToArray());
+        }
+
+        [Test]
+        public void Read_ARecordsWorldJson_IsTheWorldsData_NotASecondWorld()
+        {
+            // A producer may keep a world.json of its own under records/ (folder spec §4.5 rule 2).
+            var archive = MakeZip("records.owworld",
+                ("world.json", WorldJson("0695db52-0000-7000-8000-0000000000aa", "Root")),
+                ("elements/character/one.json", ElementBody),
+                ("records/world.json", "{\"producer\": \"its own\"}"));
+
+            var read = OWWorldArchive.Read(archive);
+            Assert.AreEqual("Root", read.WorldName);
+            Assert.AreEqual(1, read.Elements.Count, "records/ is never read as elements (§4.5 rule 4).");
+        }
+
+        [Test]
+        public void Pack_CarriesRecordsByteForByte()
+        {
+            var root = Path.Combine(_temp, "w");
+            Write(root, "world.json", WorldJson("0695db52-0000-7000-8000-0000000000aa", "W"));
+            var bytes = new byte[] { 0x7B, 0x7D, 0x0D, 0x0A, 0xEF, 0xBB, 0xBF, 0x00, 0xFF };
+            Directory.CreateDirectory(Path.Combine(root, "records", "lab"));
+            File.WriteAllBytes(Path.Combine(root, "records", "lab", "ledger.bin"), bytes);
+
+            var archive = Path.Combine(_temp, "w.owworld");
+            OWWorldArchive.Pack(root, archive);
+
+            using (var zip = ZipFile.OpenRead(archive))
+            using (var stream = zip.GetEntry("w/records/lab/ledger.bin").Open())
+            using (var copy = new MemoryStream())
+            {
+                stream.CopyTo(copy);
+                CollectionAssert.AreEqual(bytes, copy.ToArray(), "A producer's file travels untouched (§4.5 rule 6).");
+            }
         }
 
         [Test]

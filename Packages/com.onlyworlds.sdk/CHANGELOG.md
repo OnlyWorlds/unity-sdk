@@ -16,7 +16,8 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   refuses the archive. `Assets/OnlyWorlds/Pack World Folder...` packs a folder from anywhere
   on disk into the project and imports it; `OWWorldArchive.Pack(folder, archive)` is the same step from code. Pack
   writes only the archive, never into the folder; packs `world.json`, `elements/`, `spatial/` and `media/`, leaving out
-  dot-folders, dot-files and Unity `.meta` files; drops `world.json`'s `api` block (it holds a key) unless asked to
+  dot-folders, dot-files and Unity `.meta` files, and `records/` whole and byte for byte (folder spec §4.5: a producer's
+  files are never dropped; the importer reads none of them); drops `world.json`'s `api` block (it holds a key) unless asked to
   keep it; and is deterministic (ordinal entry order, a fixed timestamp). `OWWorldArchive.Read(archive)` gives a folder
   read's result. Media travels in the archive but is not imported yet.
 - `OWFolderReader.ReadEntries(entries, includeLegacySpatial?, source?)` reads a world held in memory, as

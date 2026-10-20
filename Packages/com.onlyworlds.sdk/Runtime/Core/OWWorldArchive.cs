@@ -25,12 +25,15 @@ namespace OnlyWorlds.Sdk
     /// needs no new reference, so a desktop player can open an <c>.owworld</c> the same way.
     /// </para>
     /// <para>
-    /// <b>The rule: what an archive holds.</b> Exactly <c>world.json</c>, <c>elements/</c>, <c>spatial/</c> and
-    /// <c>media/</c>, the world content the folder format names (<c>spatial/</c> being its dated layout, which most
-    /// real worlds still use). An allowlist, because a world folder in a repository carries more than the world: a
-    /// README, a <c>.gitignore</c>, a simulation's output such as <c>records/</c>. An archive is a capture of the
-    /// world, so none of that goes in. Inside those folders every dot-folder and dot-file (a tool's private state)
-    /// and every Unity <c>.meta</c> is left out too.
+    /// <b>The rule: what an archive holds.</b> Exactly <c>world.json</c>, <c>elements/</c>, <c>spatial/</c>,
+    /// <c>media/</c> and <c>records/</c>, the world data the folder format names (<c>spatial/</c> being its dated
+    /// layout, which most real worlds still use; <c>records/</c> its non-element world data, folder spec §4.5). An
+    /// allowlist, because a world folder in a repository carries more than the world: a README, a
+    /// <c>.gitignore</c>, a tool's dot-directory. Inside the content folders every dot-folder and dot-file (a tool's
+    /// private state) and every Unity <c>.meta</c> is left out too. <c>records/</c> travels whole and byte for byte
+    /// (§4.5 rules 1 and 6: a tool that does not know a producer never drops its files), dot-files included; only
+    /// Unity's own <c>.meta</c> beside a file is left out there. The importer reads none of it: records are never
+    /// elements (rule 4).
     /// </para>
     /// <para>
     /// <b>The rule: no key travels.</b> <c>world.json</c>'s <c>api</c> block is dropped unless the caller asks to keep
@@ -64,6 +67,9 @@ namespace OnlyWorlds.Sdk
         /// <summary>The folders an archive holds beside <c>world.json</c> (the class's first rule).</summary>
         internal static readonly string[] ContentFolders = { "elements", "spatial", "media" };
 
+        /// <summary>Non-element world data (folder spec §4.5): packed whole, never read by the importer.</summary>
+        internal const string RecordsFolder = "records";
+
         // -- Pack ---------------------------------------------------------------
 
         /// <summary>
@@ -83,7 +89,8 @@ namespace OnlyWorlds.Sdk
         /// Inside the archive the world sits in one top-level folder named after <paramref name="worldFolder"/>, so
         /// extracting it by hand gives back a recognisable folder. Every dot-folder and dot-file is left out (a
         /// tool's private state: <c>.atlas/</c>, <c>.git/</c>, <c>.ow/</c>), and so is every Unity <c>.meta</c>
-        /// (present when the folder sits under <c>Assets/</c>, and never the world's).
+        /// (present when the folder sits under <c>Assets/</c>, and never the world's); <c>records/</c> goes in whole
+        /// (see the class's first rule).
         /// </para>
         /// <para>
         /// Deterministic: entries in ordinal path order, each stamped <see cref="EntryTime"/>, so the same folder
@@ -154,6 +161,9 @@ namespace OnlyWorlds.Sdk
                 if (Directory.Exists(dir)) Collect(dir, folder, plan);
             }
 
+            var records = Path.Combine(root, RecordsFolder);
+            if (Directory.Exists(records)) CollectRecords(records, RecordsFolder, plan);
+
             // Ordinal, never the file system's order: NTFS lists case-insensitively, ext4 in hash order, and the
             // archive's bytes must not depend on which one packed it.
             plan.Sort((a, b) => string.CompareOrdinal(a.relative, b.relative));
@@ -175,6 +185,30 @@ namespace OnlyWorlds.Sdk
                 if (IsToolLitter(name)) continue;
                 Collect(sub, relative + "/" + name, into);
             }
+        }
+
+        /// <summary>
+        /// <c>records/</c> whole: a producer's files are its own, dot-files included (§4.5 rule 6). Only Unity's
+        /// <c>.meta</c> for a file or folder beside it is left out, since Unity writes it, not a producer.
+        /// </summary>
+        private static void CollectRecords(string dir, string relative, List<(string relative, string source)> into)
+        {
+            foreach (var file in Directory.GetFiles(dir))
+            {
+                var name = Path.GetFileName(file);
+                if (IsUnityMeta(dir, name)) continue;
+                into.Add((relative + "/" + name, file));
+            }
+
+            foreach (var sub in Directory.GetDirectories(dir))
+                CollectRecords(sub, relative + "/" + Path.GetFileName(sub), into);
+        }
+
+        private static bool IsUnityMeta(string dir, string name)
+        {
+            if (!name.EndsWith(".meta", StringComparison.OrdinalIgnoreCase)) return false;
+            var owner = Path.Combine(dir, name.Substring(0, name.Length - 5));
+            return File.Exists(owner) || Directory.Exists(owner);
         }
 
         /// <summary>A dot-prefixed name: a tool's private state or litter, never the world (spec, Rules for Tools).</summary>
@@ -256,7 +290,9 @@ namespace OnlyWorlds.Sdk
                 }
 
                 var parts = name.Split('/');
-                if (parts.Length == 2 && parts[1] == WorldFile && parts[0].Length > 0 && !IsToolLitter(parts[0]))
+                // records/ is a world's own data, never a second world (a producer may keep a world.json there).
+                if (parts.Length == 2 && parts[1] == WorldFile && parts[0].Length > 0 && !IsToolLitter(parts[0])
+                    && parts[0] != RecordsFolder)
                     roots.Add(parts[0] + "/");
             }
 
