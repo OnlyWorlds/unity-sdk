@@ -6,6 +6,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-20
+
+Party links: one join link seats a table of players, each picking a Character from the link's list (or typing a name
+at a table that lists none), walked live on onlyworlds.com through a game's door; the wire check now reads request
+and response bodies and error codes; the schema pin moves to dist.35. A minor release because it adds public API
+(below).
+
 ### Added
 - Party links (one join link for a table of up to 50 players): `OWJoinPreview` reads `MaxUses`, `UsesLeft`,
   `NameRequired` and `Characters` (`OWJoinPick`: id, name, image url, taken), and `IsTable` tells a party link from a
