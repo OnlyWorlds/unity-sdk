@@ -115,9 +115,12 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>JSON.parse, or null when the text is not JSON. Dates stay strings (Newtonsoft would turn
-        /// them into DateTime), and trailing content is refused as JSON.parse refuses it.</summary>
+        /// them into DateTime), and trailing content is refused as JSON.parse refuses it. Strict JSON only (the
+        /// profile, dist.32): Newtonsoft alone also reads single quotes, bare names, comments, NaN, hex and trailing
+        /// commas, so <see cref="StrictJson"/> checks the text first.</summary>
         static JToken ParseJson(string text)
         {
+            if (!StrictJson.IsValid(text)) return null;
             try
             {
                 using (var reader = new JsonTextReader(new StringReader(text)) { DateParseHandling = DateParseHandling.None })
@@ -134,6 +137,143 @@ namespace OnlyWorlds.Sdk
             {
                 return null;
             }
+        }
+    }
+
+    /// <summary>
+    /// Whether a text is one JSON value by RFC 8259 and nothing else, as <c>JSON.parse</c> takes it: double-quoted
+    /// strings and names, no comments, no trailing commas, numbers without hex, leading zeros, NaN or Infinity,
+    /// whitespace of space, tab, LF and CR only. Reads the grammar, builds nothing.
+    /// </summary>
+    internal static class StrictJson
+    {
+        const int MaxDepth = 512;
+
+        public static bool IsValid(string text)
+        {
+            if (text == null) return false;
+            var i = 0;
+            Ws(text, ref i);
+            if (!Value(text, ref i, 0)) return false;
+            Ws(text, ref i);
+            return i == text.Length;
+        }
+
+        static void Ws(string s, ref int i)
+        {
+            while (i < s.Length && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r')) i++;
+        }
+
+        static bool Value(string s, ref int i, int depth)
+        {
+            if (i >= s.Length || depth > MaxDepth) return false;
+            switch (s[i])
+            {
+                case '{': return Object(s, ref i, depth + 1);
+                case '[': return Array(s, ref i, depth + 1);
+                case '"': return String(s, ref i);
+                case 't': return Literal(s, ref i, "true");
+                case 'f': return Literal(s, ref i, "false");
+                case 'n': return Literal(s, ref i, "null");
+                default: return Number(s, ref i);
+            }
+        }
+
+        static bool Object(string s, ref int i, int depth)
+        {
+            i++;
+            Ws(s, ref i);
+            if (i < s.Length && s[i] == '}') { i++; return true; }
+            while (true)
+            {
+                if (i >= s.Length || s[i] != '"' || !String(s, ref i)) return false;
+                Ws(s, ref i);
+                if (i >= s.Length || s[i] != ':') return false;
+                i++;
+                Ws(s, ref i);
+                if (!Value(s, ref i, depth)) return false;
+                Ws(s, ref i);
+                if (i >= s.Length) return false;
+                if (s[i] == '}') { i++; return true; }
+                if (s[i] != ',') return false;
+                i++;
+                Ws(s, ref i);
+            }
+        }
+
+        static bool Array(string s, ref int i, int depth)
+        {
+            i++;
+            Ws(s, ref i);
+            if (i < s.Length && s[i] == ']') { i++; return true; }
+            while (true)
+            {
+                if (!Value(s, ref i, depth)) return false;
+                Ws(s, ref i);
+                if (i >= s.Length) return false;
+                if (s[i] == ']') { i++; return true; }
+                if (s[i] != ',') return false;
+                i++;
+                Ws(s, ref i);
+            }
+        }
+
+        static bool String(string s, ref int i)
+        {
+            i++;
+            while (i < s.Length)
+            {
+                var c = s[i++];
+                if (c == '"') return true;
+                if (c < 0x20) return false;
+                if (c != '\\') continue;
+                if (i >= s.Length) return false;
+                var e = s[i++];
+                if (e == 'u')
+                {
+                    if (i + 4 > s.Length) return false;
+                    for (var k = 0; k < 4; k++) if (!Uri.IsHexDigit(s[i + k])) return false;
+                    i += 4;
+                }
+                else if ("\"\\/bfnrt".IndexOf(e) < 0) return false;
+            }
+            return false;
+        }
+
+        static bool Literal(string s, ref int i, string word)
+        {
+            if (string.CompareOrdinal(s, i, word, 0, word.Length) != 0) return false;
+            i += word.Length;
+            return true;
+        }
+
+        static bool Number(string s, ref int i)
+        {
+            var start = i;
+            if (i < s.Length && s[i] == '-') i++;
+            if (i >= s.Length) return false;
+            if (s[i] == '0') i++;
+            else if (s[i] >= '1' && s[i] <= '9') Digits(s, ref i);
+            else return false;
+            if (i < s.Length && s[i] == '.')
+            {
+                i++;
+                if (!Digits(s, ref i)) return false;
+            }
+            if (i < s.Length && (s[i] == 'e' || s[i] == 'E'))
+            {
+                i++;
+                if (i < s.Length && (s[i] == '+' || s[i] == '-')) i++;
+                if (!Digits(s, ref i)) return false;
+            }
+            return i > start;
+        }
+
+        static bool Digits(string s, ref int i)
+        {
+            var start = i;
+            while (i < s.Length && s[i] >= '0' && s[i] <= '9') i++;
+            return i > start;
         }
     }
 }

@@ -118,5 +118,28 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             Assert.IsNull(OWCalendarLens.ResolveLensNeverChosen(Elements));
         }
+
+        [Test]
+        public void AValueWrittenAsAString_IsReadOnlyWhenItIsStrictJson()
+        {
+            // The profile (dist.32): a calendar written as a JSON string is strict JSON, as JSON.parse reads it.
+            Assert.IsNotNull(OWCalendarLens.ReadCalendarValue(new JValue(" {\"version\": 1, \"grain\": \"year\", \"eras\": [{\"name\": \"A\", \"start\": -1.5e2}]}\n")));
+
+            var loose = new[]
+            {
+                "{'version': 1, 'grain': 'year'}",
+                "{version: 1, grain: \"year\"}",
+                "{\"version\": 1, \"grain\": \"year\"} // a note",
+                "{\"version\": 1, /* x */ \"grain\": \"year\"}",
+                "{\"version\": 1, \"grain\": \"year\",}",
+                "{\"version\": 0x1, \"grain\": \"year\"}",
+                "{\"version\": 01, \"grain\": \"year\"}",
+                "{\"version\": 1, \"grain\": \"year\", \"x\": NaN}",
+                "{\"version\": 1, \"grain\": \"ye\tar\"}",
+                "﻿{\"version\": 1, \"grain\": \"year\"}",
+            };
+            foreach (var text in loose)
+                Assert.IsNull(OWCalendarLens.ReadCalendarValue(new JValue(text)), "loose JSON is not a calendar: " + text);
+        }
     }
 }
