@@ -55,8 +55,8 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// Wins a tie at equal starts (the profile: "at equal starts an up era wins"). As the TypeScript kernel reads
-        /// it: <c>direction</c> missing, or exactly <c>"up"</c>; an explicit null, another spelling or a non-string
-        /// value does not, though it still counts up.
+        /// it (<c>calendar.ts</c>: <c>(direction ?? 'up') === 'up'</c>): <c>direction</c> missing or null, or exactly
+        /// <c>"up"</c>; another spelling or a non-string value does not, though it still counts up.
         /// </summary>
         public bool WinsTie { get; set; } = true;
     }
@@ -361,7 +361,7 @@ namespace OnlyWorlds.Sdk
                         Start = start,
                         Restart = !(eo["restart"] is JValue r && r.Type == JTokenType.Boolean && !(bool)r),
                         Direction = OptString(eo["direction"]),
-                        WinsTie = eo["direction"] == null
+                        WinsTie = IsNullish(eo["direction"])
                                   || (eo["direction"].Type == JTokenType.String && (string)eo["direction"] == "up"),
                         Closed = IsTruthy(eo["closed"]),
                     };

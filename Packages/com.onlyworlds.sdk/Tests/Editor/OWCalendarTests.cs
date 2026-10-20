@@ -734,6 +734,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 { ""name"": ""A"", ""start"": 0, ""end"": 10 },
                 { ""name"": ""B"", ""start"": 0 } ] }");
             Assert.AreEqual("4 B", OWCalendar.FormatStep(plain, 3), "a missing direction is up and wins");
+
+            var nulled = Read(@"{""version"": 1, ""grain"": ""year"", ""eras"": [
+                { ""name"": ""A"", ""start"": 0, ""end"": 10 },
+                { ""name"": ""B"", ""start"": 0, ""direction"": null } ] }");
+            Assert.AreEqual("4 B", OWCalendar.FormatStep(nulled, 3), "an explicit null is up too: TS reads direction ?? 'up' (Kael h58 #8943)");
         }
     }
 }
