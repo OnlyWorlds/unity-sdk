@@ -32,6 +32,19 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 - `OWJoin.ParseLink` names the link shape with the preview on, `<site>/join/<world_id>#<code>` (keel #422), and a
   test holds it. Its behaviour is unchanged: it always read the code after the last `#`.
+- The schema pin moves from dist.24 to `v0.32.2-dist.33` (canonical `00.32.02`): two descriptions in the generated
+  models (an Event's `characters` are those who know of it; a Narrative's dates are when it is told), and
+  `ow-presentation.json` gains each type's `public` list (the fields shown on a known-of element). The walk and the
+  rulings are unchanged.
+
+### Fixed
+
+- **The calendar reader follows the `atlas_calendar` profile** (schema-dist `profiles/calendar.md`, dist.33) and the
+  TypeScript kernel 4.42.2, checked by the profile's conformance fixture, now vendored (`OWCalendarFixtureTests`: 52
+  cases, 113 steps). A down era counts its years from the one holding the step before its pivot, so a mid-year pivot
+  has no year 0, and `ParseDate` is its inverse again; at equal starts an up era wins over a down one, then the later
+  in the list; an `eras` or `intercalary` that is present but not a list (`false`, `0`, `""`) is not a calendar; a
+  calendar written as a JSON string is read only when it is strict JSON.
 
 ## [0.7.0] - 2026-10-20
 

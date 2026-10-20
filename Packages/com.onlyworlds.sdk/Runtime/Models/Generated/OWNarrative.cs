@@ -1,9 +1,9 @@
 // GENERATED from the OnlyWorlds schema distribution -- DO NOT EDIT.
 // Regenerate: python codegen/generate_models.py   (drift guard: codegen/check_drift.py)
 //
-// canonical: 00.32.00
-// serial: 24
-// published: 2026-10-15
+// canonical: 00.32.02
+// serial: 33
+// published: 2026-10-20
 
 using System;
 using System.Collections.Generic;
@@ -43,11 +43,11 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("consequences")]
         [SerializeField] private string _consequences = "";
 
-        /// <summary>Date when the narrative begins, measured in world TIME units</summary>
+        /// <summary>Date when the narrative is first told or recorded, measured in world TIME units; the span it recounts lives on its events</summary>
         [JsonProperty("start_date")]
         [SerializeField] private SerializableNullable<int> _startDate;
 
-        /// <summary>Date when the narrative ends, measured in world TIME units</summary>
+        /// <summary>Date when the narrative stops being told, measured in world TIME units; empty while it is still told</summary>
         [JsonProperty("end_date")]
         [SerializeField] private SerializableNullable<int> _endDate;
 

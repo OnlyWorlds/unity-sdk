@@ -29,13 +29,13 @@ namespace OnlyWorlds.Sdk
         public const string Repository = "https://github.com/OnlyWorlds/schema-dist";
 
         /// <summary>Canonical schema version, as the dist's own VERSION file reports it.</summary>
-        public const string CanonicalVersion = "00.32.00";
+        public const string CanonicalVersion = "00.32.02";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 24;
+        public const int DistSerial = 33;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.32.0-dist.24";
+        public const string Tag = "v0.32.2-dist.33";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -91,9 +91,18 @@ namespace OnlyWorlds.Sdk
         /// <c>rulings.yaml</c> are byte-identical, and so is <c>presentation.json</c>; the generated models
         /// changed only in their serial and date stamps.
         /// </para>
+        /// <para>
+        /// <b>24 -> 33 (2026-10-20)</b>: canonical <c>00.32.02</c>, two descriptions sharpened (an Event's
+        /// <c>characters</c> are those who know of it: present, aware or involved; a Narrative's dates are when it is
+        /// told). The dist gained <c>profiles/</c>, the first extension profiles (<c>identity.md</c>,
+        /// <c>calendar.md</c>) and the calendar's conformance fixture (<c>calendar.fixture.json</c>, vendored for
+        /// <c>OWCalendarFixtureTests</c>). <c>presentation.json</c> moved for the first time since 15: each type gained
+        /// a <c>public</c> list, the fields the platform shows on a known-of element. <c>schema_walk.py</c> and
+        /// <c>rulings.yaml</c> are byte-identical.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "b62695ba6bcfd5ed95e143f61436ddceb3389547c4ea515d872df0abcc344496";
+            "754eac50b3b4ead4f8758bb90423f36b58a306ef1daab6e8e51853ced7ea316c";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.
@@ -104,10 +113,10 @@ namespace OnlyWorlds.Sdk
         /// silently the way an unguarded vendored copy always eventually does.
         /// </remarks>
         public const string PresentationSha256 =
-            "776b5e48d9b27c1d99baabfdaffe7d2fe3995580450452c26e5ab7e30176264f";
+            "3c20afa9fee3c191c390452f74f415eb999156bbbf966c56beac283fa0ea91a4";
 
         /// <summary>When these constants were last verified against the published dist.</summary>
-        public const string PinnedOn = "2026-10-16";
+        public const string PinnedOn = "2026-10-20";
 
         /// <summary>
         /// ⚑ Rulings that bind THIS SDK and any emitter generating into it. Read the row, not the key.

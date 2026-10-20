@@ -1,9 +1,9 @@
 // GENERATED from the OnlyWorlds schema distribution -- DO NOT EDIT.
 // Regenerate: python codegen/generate_models.py   (drift guard: codegen/check_drift.py)
 //
-// canonical: 00.32.00
-// serial: 24
-// published: 2026-10-15
+// canonical: 00.32.02
+// serial: 33
+// published: 2026-10-20
 
 using System;
 using System.Collections.Generic;
@@ -62,7 +62,7 @@ namespace OnlyWorlds.Sdk
 
         // -- Involves ----------------------------------------------------
 
-        /// <summary>Key characters relevant to the event</summary>
+        /// <summary>Characters who know about the event: they were present, aware of it, or involved in it</summary>
         /// <remarks>Link: UUIDs of character. Bare ids -- resolve through the cache.</remarks>
         [JsonProperty("characters")]
         [SerializeField] private List<string> _characters = new List<string>();
