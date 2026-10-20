@@ -6,6 +6,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-20
+
+A world folder zipped as one `.owworld` file imports into Unity as a read-only world cache, measured in the Editor, a
+desktop player, an Android IL2CPP player and a WebGL player; the calendar reader follows the new `atlas_calendar`
+profile and its conformance fixture; the schema pin moves to dist.33. A minor release because it adds public API
+(below).
+
 ### Added
 
 - **World archives, `.owworld`** (a spec world zip, renamed: one world, as one top-level folder or with `world.json`
