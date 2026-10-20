@@ -52,6 +52,13 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>True when the era counts down toward its pivot.</summary>
         public bool IsDown => Direction == "down";
+
+        /// <summary>
+        /// Wins a tie at equal starts (the profile: "at equal starts an up era wins"). As the TypeScript kernel reads
+        /// it: <c>direction</c> missing, or exactly <c>"up"</c>; an explicit null, another spelling or a non-string
+        /// value does not, though it still counts up.
+        /// </summary>
+        public bool WinsTie { get; set; } = true;
     }
 
     /// <summary>The months of a year: names and lengths, same count.</summary>
@@ -336,8 +343,10 @@ namespace OnlyWorlds.Sdk
                 cfg.Bundles = bundles;
             }
 
+            // Absent or null: no eras. Any other non-list (false, 0, "") is not a calendar (the profile, dist.31); the
+            // TypeScript kernel throws on those, where the page says refuse.
             var et = o["eras"];
-            if (!IsFalsy(et))
+            if (!IsNullish(et))
             {
                 if (!(et is JArray eras)) return null;
                 foreach (var e in eras)
@@ -352,6 +361,8 @@ namespace OnlyWorlds.Sdk
                         Start = start,
                         Restart = !(eo["restart"] is JValue r && r.Type == JTokenType.Boolean && !(bool)r),
                         Direction = OptString(eo["direction"]),
+                        WinsTie = eo["direction"] == null
+                                  || (eo["direction"].Type == JTokenType.String && (string)eo["direction"] == "up"),
                         Closed = IsTruthy(eo["closed"]),
                     };
                     var end = eo["end"];
@@ -371,7 +382,7 @@ namespace OnlyWorlds.Sdk
             }
 
             var it = o["intercalary"];
-            if (!IsFalsy(it))
+            if (!IsNullish(it))
             {
                 if (!(it is JArray inter)) return null;
                 foreach (var i in inter)
@@ -521,7 +532,7 @@ namespace OnlyWorlds.Sdk
             foreach (var d in ResolveEraDomains(eras))
             {
                 if (!(step >= d.Lo && step < d.Hi)) continue;
-                if (best == null || d.Era.Start > best.Start || (d.Era.Start == best.Start && !d.Era.IsDown)) best = d.Era;
+                if (best == null || d.Era.Start > best.Start || (d.Era.Start == best.Start && d.Era.WinsTie)) best = d.Era;
             }
             return best;
         }

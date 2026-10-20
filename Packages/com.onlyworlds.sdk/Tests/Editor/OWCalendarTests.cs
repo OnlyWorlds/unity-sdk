@@ -701,5 +701,39 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(453, Step(OWCalendar.ParseDate(cfg, "Year 203 YSL")));
             Assert.AreEqual(249, Step(OWCalendar.ParseDate(cfg, "Year 1 BT")));
         }
+
+        // ---- The profile's own words (schema-dist profiles/calendar.md, dist.31) ----
+
+        [Test]
+        public void Profile_ErasOrIntercalaryThatIsNotAList_IsNotACalendar()
+        {
+            const string year = @"{""version"": 1, ""grain"": ""year""}";
+            foreach (var key in new[] { "eras", "intercalary" })
+            foreach (var value in new JToken[] { new JValue(false), new JValue(0), new JValue("") })
+            {
+                var o = JObject.Parse(year);
+                o[key] = value;
+                Assert.IsNull(OWCalendar.ReadConfig(o), $"{key}: {value.ToString(Newtonsoft.Json.Formatting.None)} is not a list");
+            }
+            var nulls = JObject.Parse(year);
+            nulls["eras"] = JValue.CreateNull();
+            nulls["intercalary"] = JValue.CreateNull();
+            Assert.IsNotNull(OWCalendar.ReadConfig(nulls), "null reads as absent");
+        }
+
+        [Test]
+        public void Profile_AtEqualStarts_OnlyAMissingOrExactUpDirectionWins()
+        {
+            // The TypeScript kernel's test: direction missing or exactly "up". "Up" counts up but does not win the tie.
+            var cfg = Read(@"{""version"": 1, ""grain"": ""year"", ""eras"": [
+                { ""name"": ""A"", ""start"": 0, ""end"": 10 },
+                { ""name"": ""B"", ""start"": 0, ""direction"": ""Up"" } ] }");
+            Assert.AreEqual("4 A", OWCalendar.FormatStep(cfg, 3));
+
+            var plain = Read(@"{""version"": 1, ""grain"": ""year"", ""eras"": [
+                { ""name"": ""A"", ""start"": 0, ""end"": 10 },
+                { ""name"": ""B"", ""start"": 0 } ] }");
+            Assert.AreEqual("4 B", OWCalendar.FormatStep(plain, 3), "a missing direction is up and wins");
+        }
     }
 }
