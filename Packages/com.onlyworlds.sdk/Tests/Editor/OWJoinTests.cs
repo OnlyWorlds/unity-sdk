@@ -31,6 +31,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
         [TestCase("https://www.onlyworlds.com/join#" + Code, Code)]
         [TestCase("  http://localhost:8000/join#" + Code + "\n", Code)]
+        [TestCase("https://www.onlyworlds.com/join/0196f0a2-0000-7000-8000-000000000001#" + Code, Code)]
         [TestCase(Code, Code)]
         [TestCase("#" + Code, Code)]
         public void ParseLink_FindsTheCode(string text, string expected)

@@ -6,6 +6,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- `OWJoin.ParseLink` names the link shape with the preview on, `<site>/join/<world_id>#<code>` (keel #422), and a
+  test holds it. Its behaviour is unchanged: it always read the code after the last `#`.
+
 ## [0.7.0] - 2026-10-20
 
 Join a world by link, read the one-file export and write it as a folder, and an export's `world.json` says where it

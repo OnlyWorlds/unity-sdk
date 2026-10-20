@@ -148,7 +148,8 @@ namespace OnlyWorlds.Sdk
     /// the wire is the same.
     /// </para>
     /// <para>
-    /// A link is <c>&lt;site&gt;/join#&lt;code&gt;</c>: the code sits after <c>#</c>, so it never reaches a
+    /// A link is <c>&lt;site&gt;/join#&lt;code&gt;</c>, or <c>&lt;site&gt;/join/&lt;world_id&gt;#&lt;code&gt;</c> when
+    /// its owner turned the preview on (keel #422): the code sits after <c>#</c>, so it never reaches a
     /// server log. Every bad code (unknown, used, revoked, expired, or for another reader) is the same
     /// 404 <c>not_found</c>, byte for byte: <see cref="OWApiError.IsNotFound"/>.
     /// </para>
@@ -161,7 +162,8 @@ namespace OnlyWorlds.Sdk
         public const string DefaultBaseUrl = "https://www.onlyworlds.com/api/v2";
 
         /// <summary>
-        /// The join code in a pasted link (<c>https://www.onlyworlds.com/join#ow_j_…</c>, any host) or
+        /// The join code in a pasted link (<c>https://www.onlyworlds.com/join#ow_j_…</c> or
+        /// <c>…/join/&lt;world_id&gt;#ow_j_…</c>, any host) or
         /// a bare code, or null when the text holds none. Only the shape is checked: the server is the
         /// only judge of whether a code is good.
         /// </summary>
