@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.32.02";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 33;
+        public const int DistSerial = 35;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.32.2-dist.33";
+        public const string Tag = "v0.32.2-dist.35";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -100,9 +100,16 @@ namespace OnlyWorlds.Sdk
         /// a <c>public</c> list, the fields the platform shows on a known-of element. <c>schema_walk.py</c> and
         /// <c>rulings.yaml</c> are byte-identical.
         /// </para>
+        /// <para>
+        /// <b>33 -> 35 (2026-10-20)</b>: canonical unchanged. <c>example/world-export.json</c>, the portal's download,
+        /// carries the provenance lines (<c>world.source</c>, <c>world.exported_as</c>; keel PR 133), vendored for
+        /// <c>OWEnvelopeReaderTests</c>; <c>walk/lint_folder.py</c> reads known-of stubs and never reads
+        /// <c>records/</c> (34). <c>presentation.json</c>, <c>schema_walk.py</c> and <c>rulings.yaml</c> are
+        /// byte-identical; the generated models changed only in their serial.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "754eac50b3b4ead4f8758bb90423f36b58a306ef1daab6e8e51853ced7ea316c";
+            "407c9b581444d7da770834dd5576e3e3c51392da3b52a8453b6ef2e4bf743fc3";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.

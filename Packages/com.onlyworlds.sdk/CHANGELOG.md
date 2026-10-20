@@ -15,6 +15,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 - `OWApiError.IsCharacterTaken`, `IsCharacterInvalid` and `IsWorldFull`, matching the npm SDK's helpers.
 
 ### Changed
+- The schema pin moves to dist.35 (`v0.32.2-dist.35`; canonical `00.32.02` unchanged). The portal's example download,
+  vendored for the envelope tests, now carries `world.source` and `world.exported_as` as keel writes them, and the
+  reader and the file export keep both. The generated models changed only in their serial.
 - The wire check also compares request body keys, response keys and error codes with keel's OpenAPI document
   (`tools/refresh_wire.py`; the fixture refreshed from production). The SDK's join keys, the preview's and a join's
   answer keys, and every code an `OWApiError` helper names are checked against what keel declares.

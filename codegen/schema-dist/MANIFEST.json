@@ -37,7 +37,7 @@
     "example/hyperion/elements/trait/swamp-rage--dff0708a.json": "6bd7a73f73f9a8c37d8ca603af8209c75251ad524aa485fc06538a63c0123588",
     "example/hyperion/elements/zone/swamps--d138f887.json": "d9e9caf3360daaecee51dab9716c7e4a444b47736284c0a6b4269d8b84ae2c45",
     "example/hyperion/world.json": "eeaa6f45d6c232e7aae2114a40eb68a7d30fa7eadcb9e51e6a77908db8d738bb",
-    "example/world-export.json": "598ccc49ed1858b4b7c91e9635f0c06a5f545267a1c5365dfbaef9e387a4e8b1",
+    "example/world-export.json": "54acc3d02fe9d29d5dee175352fc08c4da2809be989e73ae0d3d1e0f03406fb8",
     "LICENSE": "ab9469f20388ba53771315ed7cb94461d5e3de6e0113bd8f0280f3364434fe18",
     "presentation.json": "3c20afa9fee3c191c390452f74f415eb999156bbbf966c56beac283fa0ea91a4",
     "profiles/calendar.fixture.json": "3fc361a1651e532b6d6a78359a0ddd3dc3a9ea6511f31dc4143f6c6076cc970d",
@@ -69,8 +69,8 @@
     "schema/world.yaml": "167091ddf5637abeae9a81a49c82f837cafea2437635ce6610cc4d2ccc3794ed",
     "schema/zone.yaml": "9474902bf71703ac82495b28ad253266edc0ffc69894ac8846e3934b268c81a5",
     "schema.json": "cee2462d581ed79eb45bdaf72203379f1cdd7832a7a24d2b74d1a9c564221076",
-    "VERSION": "d4e09bb0be6d5319c1486c0ffe289e127706c521418c3625f34078ec0371f2e5",
-    "walk/lint_folder.py": "c3c2df9c78ee11bd70157d70908a6b6f94b02e1eed917958771cd1cea602ef18",
+    "VERSION": "203da24604196323e9a04832216ec08cd126ea9f2f66afe9a933a00738512663",
+    "walk/lint_folder.py": "169c95f2518af50d7e70a2fcf3a76013f77a601c3d6451d725a80c9e0bb7a76b",
     "walk/rulings.yaml": "75fff534c7dd47763ba79d489a31c7792b4f0569e5d3cbbf44f46e677e92deef",
     "walk/schema_walk.py": "0ab025b14a05e87890075b6750d1224f8c560b92246b8f35280605a4115e2966"
   }

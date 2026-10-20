@@ -1,6 +1,7 @@
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
+using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -9,14 +10,14 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// <summary>
     /// The portal's one-file export (keel's <c>world_export</c>, spec §8c). The fixture is keel's own: the emitter's
     /// output for one fixed world, pinned by keel's <c>tests/test_export_fixture.py</c> and published in schema-dist as
-    /// <c>example/world-export.json</c> (serial 25, tag <c>v0.32.0-dist.25</c>), vendored byte for byte. When keel's
+    /// <c>example/world-export.json</c> (serial 35, tag <c>v0.32.2-dist.35</c>), vendored byte for byte. When keel's
     /// emitter moves on purpose, the dist moves with it: re-vendor from the dist and update the hash below. The edge
     /// cases are inline.
     /// </summary>
     public class OWEnvelopeReaderTests
     {
-        /// <summary>The fixture's sha256 as dist.25's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "e9475145aa17b47595c9424e7915b58ece6237f89c2ad463a79822c780d2461c";
+        /// <summary>The fixture's sha256 as dist.35's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "54acc3d02fe9d29d5dee175352fc08c4da2809be989e73ae0d3d1e0f03406fb8";
 
         private const string WorldId = "01999999-0000-7000-8000-000000000420";
         private const string Keep = "01999999-0000-7000-8000-000000000001";
@@ -59,7 +60,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(WorldId, read.WorldId);
             Assert.AreEqual("Fixture World", read.WorldName);
             Assert.AreEqual("onlyworlds-world-export", read.Format);
-            Assert.AreEqual("00.32.00", read.SchemaVersion);
+            Assert.AreEqual("00.32.02", read.SchemaVersion);
             Assert.AreEqual("2026-10-19T12:30:00+00:00", read.ExportedAt);
             Assert.AreEqual(5, read.Elements.Count);
             Assert.IsEmpty(read.Skipped);
@@ -70,6 +71,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(2, byType["location"]);
             Assert.AreEqual(1, byType["trait"]);
             Assert.IsTrue(read.Elements.All(e => !e.TypeInferred));
+
+            // Keel's download says where it came from and as whom (keel PR 133, folder spec §4.2), and the world keeps both.
+            Assert.AreEqual("https://www.onlyworlds.com", (string)read.World["source"]["server"]);
+            Assert.AreEqual(WorldId, (string)read.World["source"]["world"]);
+            Assert.AreEqual("owner", (string)read.World["exported_as"]["kind"]);
+            Assert.AreEqual(JTokenType.Null, read.World["exported_as"]["character"].Type);
         }
 
         [Test]
