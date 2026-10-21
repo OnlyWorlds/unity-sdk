@@ -4,10 +4,31 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using Newtonsoft.Json.Linq;
 
 namespace OnlyWorlds.Sdk
 {
+    /// <summary>The budget <see cref="OWWorldArchive.Read"/> holds an archive to, as the TypeScript reader's are.</summary>
+    /// <remarks>
+    /// An archive someone sent is untrusted input, and an importer opens it unasked: past either limit it is refused
+    /// before anything is inflated. Raise them for one read of a world known to be larger.
+    /// </remarks>
+    public sealed class OWWorldArchiveReadOptions
+    {
+        /// <summary>
+        /// The most bytes the archive's files may hold uncompressed, all files counted, by their declared sizes.
+        /// <see cref="OWWorldArchive.DefaultMaxBytes"/> (1 GiB) by default.
+        /// </summary>
+        public long MaxBytes = OWWorldArchive.DefaultMaxBytes;
+
+        /// <summary>
+        /// The most files the archive may hold, directories not counted. <see cref="OWWorldArchive.DefaultMaxEntries"/>
+        /// (200,000) by default.
+        /// </summary>
+        public int MaxEntries = OWWorldArchive.DefaultMaxEntries;
+    }
+
     /// <summary>
     /// A world folder as one file: the spec's world zip, named <c>.owworld</c>.
     /// </summary>
@@ -70,6 +91,29 @@ namespace OnlyWorlds.Sdk
         /// <summary>Non-element world data (folder spec §4.5): packed whole, never read by the importer.</summary>
         internal const string RecordsFolder = "records";
 
+        /// <summary>
+        /// The most an archive's files may hold uncompressed, by default: 1 GiB. <see cref="Read"/> refuses past it.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The TypeScript SDK's reader budget (<c>WORLD_FILE_MAX_BYTES</c> in <c>world-file.ts</c>, Atlas's), so one
+        /// file opens or is refused the same in both. Sikelia today is 25 MB in 20,570 files.
+        /// </para>
+        /// <para>
+        /// Not decided: what the spec's floor is, the size every reader must accept. Boss proposes 500,000 elements
+        /// and 2 GiB, which needs zip64 (a classic zip holds at most 65,535 entries; zip64 in Unity's .NET Standard
+        /// 2.1 profile is unmeasured). The floor is the Captain's to rule; these defaults follow the TypeScript
+        /// reader's until then, and <see cref="OWWorldArchiveReadOptions"/> raises them for one read.
+        /// </para>
+        /// </remarks>
+        public const long DefaultMaxBytes = 1L << 30;
+
+        /// <summary>
+        /// The most files an archive may hold, by default: 200,000, the TypeScript SDK's <c>WORLD_FILE_MAX_ENTRIES</c>
+        /// (an open question, as <see cref="DefaultMaxBytes"/> says).
+        /// </summary>
+        public const int DefaultMaxEntries = 200_000;
+
         // -- Pack ---------------------------------------------------------------
 
         /// <summary>
@@ -99,7 +143,7 @@ namespace OnlyWorlds.Sdk
         /// </para>
         /// </remarks>
         /// <exception cref="DirectoryNotFoundException">The folder does not exist.</exception>
-        /// <exception cref="OWFolderFormatException">No readable <c>world.json</c>, or it has no id.</exception>
+        /// <exception cref="OWFolderFormatException">No readable <c>world.json</c>, or no id (a non-empty string) in it.</exception>
         /// <exception cref="ArgumentException"><paramref name="archivePath"/> is inside the folder.</exception>
         public static List<string> Pack(string worldFolder, string archivePath, bool keepApiBlock = false)
         {
@@ -188,8 +232,9 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
-        /// <c>records/</c> whole: a producer's files are its own, dot-files included (§4.5 rule 6). Only Unity's
-        /// <c>.meta</c> for a file or folder beside it is left out, since Unity writes it, not a producer.
+        /// <c>records/</c> whole: a producer's files are its own, dot-files and its own <c>.meta</c> files included
+        /// (§4.5 rule 6). Only Unity's <c>.meta</c> for a file or folder beside it is left out, since Unity writes it,
+        /// not a producer (<see cref="IsUnityMeta"/> tells the two apart).
         /// </summary>
         private static void CollectRecords(string dir, string relative, List<(string relative, string source)> into)
         {
@@ -204,12 +249,41 @@ namespace OnlyWorlds.Sdk
                 CollectRecords(sub, relative + "/" + Path.GetFileName(sub), into);
         }
 
+        /// <summary>
+        /// Unity's own <c>.meta</c>: named after a file or folder beside it, and opening as Unity opens every one it
+        /// writes, <c>fileFormatVersion: N</c> then <c>guid: </c> and 32 lowercase hex digits.
+        /// </summary>
+        /// <remarks>
+        /// The name alone is not enough: a producer may keep its own <c>x.meta</c> beside its own <c>x</c> in
+        /// <c>records/</c>, and that file travels byte for byte (§4.5 rule 6a). The content tells the two apart
+        /// exactly: Unity writes those two lines first in every <c>.meta</c>, for a file or a folder, and no producer
+        /// opens a file with Unity's version line and a GUID by accident. Where the folder sits cannot tell them
+        /// apart: a world under <c>Assets/</c> holds both kinds side by side, and Unity writes <c>.meta</c> files
+        /// under <c>Packages/</c> too. Only the opening bytes are read; a line may end in CRLF (a git checkout's).
+        /// </remarks>
         private static bool IsUnityMeta(string dir, string name)
         {
             if (!name.EndsWith(".meta", StringComparison.OrdinalIgnoreCase)) return false;
             var owner = Path.Combine(dir, name.Substring(0, name.Length - 5));
-            return File.Exists(owner) || Directory.Exists(owner);
+            if (!File.Exists(owner) && !Directory.Exists(owner)) return false;
+
+            var head = new byte[UnityMetaHeadBytes];
+            var count = 0;
+            using (var stream = File.OpenRead(Path.Combine(dir, name)))
+            {
+                int read;
+                while (count < head.Length && (read = stream.Read(head, count, head.Length - count)) > 0) count += read;
+            }
+
+            return UnityMetaHead.IsMatch(Encoding.ASCII.GetString(head, 0, count));
         }
+
+        /// <summary>The two lines that open every <c>.meta</c> Unity writes.</summary>
+        private static readonly Regex UnityMetaHead =
+            new Regex(@"\AfileFormatVersion: [0-9]+\r?\nguid: [0-9a-f]{32}\r?(\n|\z)", RegexOptions.CultureInvariant);
+
+        /// <summary>Enough bytes for those two lines (about 60), and few enough to read a large file's start only.</summary>
+        private const int UnityMetaHeadBytes = 128;
 
         /// <summary>A dot-prefixed name: a tool's private state or litter, never the world (spec, Rules for Tools).</summary>
         private static bool IsToolLitter(string name) => name.StartsWith(".", StringComparison.Ordinal);
@@ -230,8 +304,11 @@ namespace OnlyWorlds.Sdk
                 throw new OWFolderFormatException($"world.json in '{root}' is not valid JSON.", e);
             }
 
-            if (string.IsNullOrEmpty(world["id"]?.ToString()))
-                throw new OWFolderFormatException($"world.json in '{root}' has no id, so it cannot be packed as a world.");
+            if (OWFolderReader.WorldIdOf(world) == null)
+            {
+                throw new OWFolderFormatException(
+                    $"world.json in '{root}' has no id (a non-empty string), so it cannot be packed as a world.");
+            }
 
             if (keepApiBlock || world.Property("api") == null) return bytes;
 
@@ -242,7 +319,7 @@ namespace OnlyWorlds.Sdk
         /// <summary>
         /// A default file name for a folder's archive: <c>&lt;world name slug&gt;.owworld</c>, else the id's tail.
         /// </summary>
-        /// <exception cref="OWFolderFormatException">No readable <c>world.json</c>, or it has no id.</exception>
+        /// <exception cref="OWFolderFormatException">No readable <c>world.json</c>, or no id (a non-empty string) in it.</exception>
         public static string DefaultArchiveName(string worldFolder)
         {
             var root = FullDirectory(worldFolder);
@@ -253,8 +330,8 @@ namespace OnlyWorlds.Sdk
             try { world = OWFolderWriter.ReadJsonFile(path); }
             catch (Exception e) { throw new OWFolderFormatException($"world.json in '{root}' is not valid JSON.", e); }
 
-            var id = world["id"]?.ToString();
-            if (string.IsNullOrEmpty(id)) throw new OWFolderFormatException($"world.json in '{root}' has no id.");
+            var id = OWFolderReader.WorldIdOf(world);
+            if (id == null) throw new OWFolderFormatException($"world.json in '{root}' has no id (a non-empty string).");
 
             var slug = OWFolderWriter.Slugify(world["name"]?.ToString() ?? string.Empty);
             return (string.IsNullOrEmpty(slug) ? OWFolderWriter.IdTail(id) : slug) + "." + Extension;
@@ -317,6 +394,10 @@ namespace OnlyWorlds.Sdk
         /// </summary>
         /// <param name="archivePath">The archive on disk.</param>
         /// <param name="includeLegacySpatial">As <see cref="OWFolderReader.Read(string, bool)"/>: also read <c>spatial/</c>.</param>
+        /// <param name="options">
+        /// The budget the archive is held to. Null uses the defaults, <see cref="DefaultMaxBytes"/> and
+        /// <see cref="DefaultMaxEntries"/>.
+        /// </param>
         /// <returns>
         /// The folder read's result, with each element's and skipped file's <c>Path</c> its path inside the world
         /// (<c>elements/character/x.json</c>, forward slashes).
@@ -334,14 +415,24 @@ namespace OnlyWorlds.Sdk
         /// archive someone sent is untrusted input, and an importer runs on it unasked: nothing is written, but a
         /// hostile name must not become an element's path.
         /// </para>
+        /// <para>
+        /// So is its size held to a budget before anything is inflated: more files than
+        /// <see cref="OWWorldArchiveReadOptions.MaxEntries"/>, or more bytes declared than
+        /// <see cref="OWWorldArchiveReadOptions.MaxBytes"/>, refuses the archive from its directory alone. A declared
+        /// size can lie (a zip bomb is a small file that inflates to gigabytes), so each entry is inflated at most to
+        /// the size it declares, and one that holds more refuses the archive there: what is held in memory never
+        /// passes the budget. The TypeScript reader's rule, by its numbers.
+        /// </para>
         /// </remarks>
         /// <exception cref="FileNotFoundException">The archive does not exist.</exception>
         /// <exception cref="OWFolderFormatException">
-        /// Not a zip; an absolute, climbing or repeated entry name; no world or more than one in it; or the world's
-        /// own <c>world.json</c> is unreadable.
+        /// Not a zip; an absolute, climbing or repeated entry name; past the budget, or an entry inflating past its
+        /// declared size; no world or more than one in it; or the world's own <c>world.json</c> is unreadable.
         /// </exception>
-        public static OWFolderReadResult Read(string archivePath, bool includeLegacySpatial = true)
+        public static OWFolderReadResult Read(
+            string archivePath, bool includeLegacySpatial = true, OWWorldArchiveReadOptions options = null)
         {
+            var budget = options ?? new OWWorldArchiveReadOptions();
             if (string.IsNullOrEmpty(archivePath)) throw new ArgumentNullException(nameof(archivePath));
             if (!File.Exists(archivePath)) throw new FileNotFoundException($"No archive at '{archivePath}'.", archivePath);
 
@@ -359,8 +450,11 @@ namespace OnlyWorlds.Sdk
 
             using (zip)
             {
-                // Every name is checked against the archive first, before the world is even found.
+                // Every name and the budget are checked against the archive first, before the world is even found
+                // and before one byte is inflated: the central directory gives each entry's name and declared size.
                 var named = new List<(ZipArchiveEntry entry, string written, string resolved)>(zip.Entries.Count);
+                var files = 0;
+                long declared = 0;
                 foreach (var entry in zip.Entries)
                 {
                     var written = NormalizeEntry(entry.FullName);
@@ -368,6 +462,22 @@ namespace OnlyWorlds.Sdk
 
                     var resolved = IsAbsolute(written) ? null : Resolve(written);
                     if (resolved == null) throw Hostile(entry.FullName, "is absolute or climbs out of the archive");
+
+                    if (++files > budget.MaxEntries)
+                    {
+                        throw PastBudget(archivePath, $"holds more than {budget.MaxEntries} files",
+                            nameof(budget.MaxEntries));
+                    }
+
+                    // Compared by what is left, never by adding: two declared sizes can overflow a long (and a zip64
+                    // size past long's range reads negative).
+                    if (entry.Length < 0 || entry.Length > budget.MaxBytes - declared)
+                    {
+                        throw PastBudget(archivePath, $"declares more than {budget.MaxBytes} bytes uncompressed",
+                            nameof(budget.MaxBytes));
+                    }
+
+                    declared += entry.Length;
                     if (resolved.Length == 0) continue;
 
                     named.Add((entry, written, resolved));
@@ -402,17 +512,50 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>An entry's text as <c>File.ReadAllText</c> reads a file (UTF-8, BOM honoured); null when unreadable.</summary>
         /// <remarks>Null is what the folder form gets from a file it cannot read: the element is skipped, not fatal.</remarks>
+        /// <exception cref="OWFolderFormatException">The entry inflates past the size it declares: never skipped.</exception>
         private static string TryReadText(ZipArchiveEntry entry)
         {
+            MemoryStream held;
             try
             {
-                using (var reader = new StreamReader(entry.Open())) return reader.ReadToEnd();
+                held = InflateAsDeclared(entry);
             }
             catch (Exception)
             {
                 return null;
             }
+
+            if (held == null) throw Hostile(entry.FullName, $"inflates past the {entry.Length} bytes it declares");
+            using (var reader = new StreamReader(held)) return reader.ReadToEnd();
         }
+
+        /// <summary>An entry's bytes, inflated at most to the size it declares; null when it holds more.</summary>
+        /// <remarks>
+        /// The declared sizes were held to the budget before any entry was opened, so stopping each entry at its own
+        /// keeps the whole read inside the budget, whatever the runtime's inflater does with a size that lies.
+        /// </remarks>
+        private static MemoryStream InflateAsDeclared(ZipArchiveEntry entry)
+        {
+            var held = new MemoryStream();
+            var buffer = new byte[81920];
+            using (var input = entry.Open())
+            {
+                int read;
+                while ((read = input.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    if (read > entry.Length - held.Length) return null;
+                    held.Write(buffer, 0, read);
+                }
+            }
+
+            held.Position = 0;
+            return held;
+        }
+
+        private static OWFolderFormatException PastBudget(string archivePath, string what, string option)
+            => new OWFolderFormatException(
+                $"'{archivePath}' {what}, past the reader's budget (OWWorldArchiveReadOptions.{option}); "
+                + "refusing the archive.");
 
         private static OWFolderFormatException Hostile(string entryName, string why)
             => new OWFolderFormatException($"The archive's entry '{entryName}' {why}; refusing the archive.");
@@ -476,17 +619,19 @@ namespace OnlyWorlds.Sdk
         /// <param name="archivePath">The archive on disk (any path; it is read, never stored).</param>
         /// <param name="assetGuid">The archive asset's GUID: the key's origin.</param>
         /// <param name="includeLegacySpatial">Also load the dated <c>spatial/</c> layout. On by default.</param>
+        /// <param name="options">As <see cref="Read"/>: the budget. Null uses the defaults.</param>
         /// <remarks>
         /// Always read-only, whatever the world declares: an archive is a capture, with nothing to write back to.
         /// The importer's whole body is this call.
         /// </remarks>
         public static OWFolderReadResult LoadInto(
-            OWWorldCache cache, string archivePath, string assetGuid, bool includeLegacySpatial = true)
+            OWWorldCache cache, string archivePath, string assetGuid, bool includeLegacySpatial = true,
+            OWWorldArchiveReadOptions options = null)
         {
             if (cache == null) throw new ArgumentNullException(nameof(cache));
             var origin = GuidOrigin(assetGuid);
 
-            var read = Read(archivePath, includeLegacySpatial);
+            var read = Read(archivePath, includeLegacySpatial, options);
             return OWFolderLoader.LoadInto(cache, read, OWWorldKey.FromFolder(read.WorldId, origin), readOnly: true);
         }
 

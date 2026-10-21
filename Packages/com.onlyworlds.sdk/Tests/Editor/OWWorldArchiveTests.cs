@@ -160,6 +160,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
         private const string ElementBody = "{\n  \"id\": \"0695db83-0000-7000-8000-0000000000e1\",\n  \"name\": \"One\"\n}\n";
 
+        /// <summary>A <c>.meta</c> as Unity writes one beside a file it imports: the version, then the GUID.</summary>
+        private const string UnityMeta =
+            "fileFormatVersion: 2\nguid: 3f9d2c4b8a1e4f6d9b0c7a5e2d1f8c3b\nDefaultImporter:\n  externalObjects: {}\n"
+            + "  userData: \n  assetBundleName: \n  assetBundleVariant: \n";
+
         private static List<string> EntryNames(string archive)
         {
             using (var zip = ZipFile.OpenRead(archive)) return zip.Entries.Select(e => e.FullName).ToList();
@@ -291,7 +296,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Write(root, ".gitignore", ".*/\n");
             Write(root, "README.md", "# w\n");
             Write(root, "records/r.json", "{}\n");
-            Write(root, "records/r.json.meta", "fileFormatVersion: 2\n");
+            Write(root, "records/r.json.meta", UnityMeta);
             Write(root, "records/lab/.cursor", "7\n");
             Write(root, "records/lab/ticks/1.json", "{\"entries\":[]}\r\n");
             Write(root, "records/lab/plan.meta", "a producer's own file, no sibling\n");
@@ -579,6 +584,30 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             }));
         }
 
+        // The spec's world.json requires "id (non-empty string)" (folder spec §4.1); the TypeScript reader refuses the
+        // same cases (sdk/test/world-file.test.mjs: a number id, a blank id).
+        [TestCase("{\"id\": 7, \"name\": \"number id\"}")]
+        [TestCase("{\"id\": \"  \", \"name\": \"blank id\"}")]
+        [TestCase("{\"id\": \"\", \"name\": \"empty id\"}")]
+        [TestCase("{\"id\": null, \"name\": \"null id\"}")]
+        [TestCase("{\"id\": true, \"name\": \"bool id\"}")]
+        [TestCase("{\"id\": [\"0695db52-0000-7000-8000-0000000000aa\"], \"name\": \"list id\"}")]
+        public void Read_RefusesAWorldIdThatIsNotANonEmptyString_InAnArchive_AFolder_AndAPack(string worldJson)
+        {
+            var e = Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Read(MakeZip("id.owworld",
+                ("w/world.json", worldJson), ("w/elements/character/one.json", ElementBody))));
+            StringAssert.Contains("id", e.Message);
+
+            var root = Path.Combine(_temp, "w");
+            Write(root, "world.json", worldJson);
+            Write(root, "elements/character/one.json", ElementBody);
+            Assert.Throws<OWFolderFormatException>(() => OWFolderReader.Read(root));
+
+            // A writer refuses what a reader would: Pack never makes an archive its own Read refuses.
+            Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Pack(root, Path.Combine(_temp, "id-pack.owworld")));
+            Assert.IsFalse(File.Exists(Path.Combine(_temp, "id-pack.owworld")), "A refused pack wrote nothing.");
+        }
+
         // -- Where the world sits in the zip -----------------------------------------
 
         [Test]
@@ -627,6 +656,41 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 stream.CopyTo(copy);
                 CollectionAssert.AreEqual(bytes, copy.ToArray(), "A producer's file travels untouched (§4.5 rule 6).");
             }
+        }
+
+        [Test]
+        public void Pack_Records_LeavesOutUnitysMeta_ButKeepsAProducersOwnXMetaBesideX()
+        {
+            var root = Path.Combine(_temp, "w");
+            Write(root, "world.json", WorldJson("0695db52-0000-7000-8000-0000000000aa", "W"));
+            // The producer's pair: its own file x and its own x.meta, which only shares Unity's suffix.
+            var producerMeta = new byte[] { 0x7B, 0x22, 0x6E, 0x22, 0x3A, 0x31, 0x7D, 0x0D, 0x0A, 0x00, 0xFF };
+            Write(root, "records/lab/ledger", "1\n");
+            Directory.CreateDirectory(Path.Combine(root, "records", "lab"));
+            File.WriteAllBytes(Path.Combine(root, "records", "lab", "ledger.meta"), producerMeta);
+            // Unity's litter: a .meta beside a file (LF, and CRLF as a git checkout may leave it) and beside a folder.
+            Write(root, "records/lab/plan.json", "{}\n");
+            Write(root, "records/lab/plan.json.meta", UnityMeta);
+            Write(root, "records/lab/tick.json", "{}\n");
+            Write(root, "records/lab/tick.json.meta", UnityMeta.Replace("\n", "\r\n"));
+            Write(root, "records/lab/days/1.json", "{}\n");
+            Write(root, "records/lab/days.meta", "fileFormatVersion: 2\nguid: 0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e\n"
+                + "folderAsset: yes\nDefaultImporter:\n  externalObjects: {}\n");
+
+            var archive = Path.Combine(_temp, "w.owworld");
+            var entries = OWWorldArchive.Pack(root, archive);
+
+            CollectionAssert.AreEqual(new[]
+            {
+                "w/records/lab/days/1.json",
+                "w/records/lab/ledger",
+                "w/records/lab/ledger.meta",
+                "w/records/lab/plan.json",
+                "w/records/lab/tick.json",
+                "w/world.json",
+            }, entries);
+            CollectionAssert.AreEqual(producerMeta, EntryBytes(archive, "w/records/lab/ledger.meta"),
+                "A producer's own x.meta travels byte for byte (§4.5 rule 6a).");
         }
 
         [Test]
@@ -683,6 +747,96 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             var e = Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Read(path));
             StringAssert.Contains("not a zip", e.Message);
+        }
+
+        // -- The budget (a zip bomb is refused before it is inflated) ---------------------------
+
+        [Test]
+        public void Read_HoldsTheTypeScriptReadersBudget_ByDefault()
+        {
+            // sdk/src/world-file.ts: WORLD_FILE_MAX_BYTES = 1024 ** 3, WORLD_FILE_MAX_ENTRIES = 200_000.
+            Assert.AreEqual(1073741824L, OWWorldArchive.DefaultMaxBytes);
+            Assert.AreEqual(200000, OWWorldArchive.DefaultMaxEntries);
+
+            var options = new OWWorldArchiveReadOptions();
+            Assert.AreEqual(OWWorldArchive.DefaultMaxBytes, options.MaxBytes);
+            Assert.AreEqual(OWWorldArchive.DefaultMaxEntries, options.MaxEntries);
+        }
+
+        [Test]
+        public void Read_RefusesPastTheBudget_ByDeclaredSize_AndByCount_AndAcceptsUpToIt()
+        {
+            // The TypeScript reader's vector (world-file.test.mjs, "refuses past the budget"): a media file past the
+            // bytes, one file past the count. Media is never inflated here, so only its declared size can refuse it.
+            var world = WorldJson("0695db52-0000-7000-8000-0000000000aa", "W");
+            var archive = MakeZip("budget.owworld",
+                ("w/world.json", world),
+                ("w/elements/character/one.json", ElementBody),
+                ("w/media/big.bin", new string('x', 64)));
+            long total = Encoding.UTF8.GetByteCount(world) + Encoding.UTF8.GetByteCount(ElementBody) + 64;
+
+            var bytes = Assert.Throws<OWFolderFormatException>(() =>
+                OWWorldArchive.Read(archive, options: new OWWorldArchiveReadOptions { MaxBytes = total - 1 }));
+            StringAssert.Contains("MaxBytes", bytes.Message);
+            Assert.AreEqual(1, OWWorldArchive.Read(archive, options: new OWWorldArchiveReadOptions { MaxBytes = total }).Elements.Count);
+
+            var count = Assert.Throws<OWFolderFormatException>(() =>
+                OWWorldArchive.Read(archive, options: new OWWorldArchiveReadOptions { MaxEntries = 2 }));
+            StringAssert.Contains("MaxEntries", count.Message);
+            Assert.AreEqual(1, OWWorldArchive.Read(archive, options: new OWWorldArchiveReadOptions { MaxEntries = 3 }).Elements.Count);
+
+            Assert.AreEqual(1, OWWorldArchive.Read(archive).Elements.Count, "The defaults take a small world.");
+        }
+
+        [Test]
+        public void Read_RefusesAnEntryThatInflatesPastItsDeclaredSize()
+        {
+            // The TypeScript reader's lying size (world-file.test.mjs, lyingSize): the headers say 1 byte, the entry
+            // holds 4 KiB. The declared total passes the budget; the inflated bytes must not.
+            var big = "{\n  \"id\": \"0695db83-0000-7000-8000-0000000000b1\",\n  \"pad\": \"" + new string('x', 4096) + "\"\n}\n";
+            var archive = MakeZip("lying.owworld",
+                ("w/world.json", WorldJson("0695db52-0000-7000-8000-0000000000aa", "W")),
+                ("w/elements/character/big.json", big));
+            var budget = new OWWorldArchiveReadOptions { MaxBytes = 1024 };
+
+            var honest = Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Read(archive, options: budget));
+            StringAssert.Contains("MaxBytes", honest.Message, "Told the truth, the size refuses it unopened.");
+
+            DeclareSize(archive, "w/elements/character/big.json", 1);
+            var e = Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Read(archive, options: budget));
+            StringAssert.Contains("inflates past the 1 bytes it declares", e.Message);
+        }
+
+        /// <summary>
+        /// Rewrites the uncompressed size an entry declares, in its local header and the central directory: a size
+        /// that lies, as <c>world-file.test.mjs</c>'s <c>lyingSize</c> makes one.
+        /// </summary>
+        private static void DeclareSize(string archive, string name, uint size)
+        {
+            var bytes = File.ReadAllBytes(archive);
+            var target = Encoding.UTF8.GetBytes(name);
+            var patched = 0;
+
+            bool NameAt(int at, int length)
+                => length == target.Length && at + length <= bytes.Length
+                   && bytes.Skip(at).Take(length).SequenceEqual(target);
+
+            void Put(int at)
+            {
+                var value = BitConverter.GetBytes(size); // little-endian on every platform Unity runs on
+                Array.Copy(value, 0, bytes, at, 4);
+                patched++;
+            }
+
+            for (var i = 0; i + 46 < bytes.Length; i++)
+            {
+                var sig = BitConverter.ToUInt32(bytes, i);
+                if (sig == 0x04034b50 && NameAt(i + 30, BitConverter.ToUInt16(bytes, i + 26))) Put(i + 22);
+                if (sig == 0x02014b50 && NameAt(i + 46, BitConverter.ToUInt16(bytes, i + 28))) Put(i + 24);
+            }
+
+            Assert.AreEqual(2, patched, "The local header and the central directory both declare the size.");
+            File.WriteAllBytes(archive, bytes);
         }
 
         // -- Hostile entry names ----------------------------------------------------------
