@@ -175,7 +175,7 @@ namespace OnlyWorlds.Sdk
         /// </param>
         /// <exception cref="DirectoryNotFoundException">The folder does not exist.</exception>
         /// <exception cref="OWFolderFormatException">
-        /// There is no readable <c>world.json</c>, or it has no id. That is the one failure that
+        /// There is no readable <c>world.json</c>, or it has no id (a non-empty string). That is the one failure that
         /// makes the whole folder unreadable -- everything else degrades to a skipped file.
         /// </exception>
         public static OWFolderReadResult Read(string folderPath, bool includeLegacySpatial = true)
@@ -250,7 +250,9 @@ namespace OnlyWorlds.Sdk
         /// </para>
         /// </remarks>
         /// <exception cref="ArgumentException">Two entries with the same path.</exception>
-        /// <exception cref="OWFolderFormatException">No <c>world.json</c>, it is not JSON, or it has no id.</exception>
+        /// <exception cref="OWFolderFormatException">
+        /// No <c>world.json</c>, it is not JSON, or it has no id (a non-empty string).
+        /// </exception>
         public static OWFolderReadResult ReadEntries(
             IEnumerable<KeyValuePair<string, string>> entries, bool includeLegacySpatial = true, string source = null)
         {
@@ -433,15 +435,32 @@ namespace OnlyWorlds.Sdk
                 throw new OWFolderFormatException($"world.json in '{where}' is not valid JSON.", e);
             }
 
-            var id = world["id"]?.ToString();
-            if (string.IsNullOrEmpty(id))
+            if (WorldIdOf(world) == null)
             {
                 throw new OWFolderFormatException(
-                    $"world.json in '{where}' has no id. Id and name are the only required "
+                    $"world.json in '{where}' has no id (a non-empty string). Id and name are the only required "
                     + "keys, and a world without an id cannot be keyed or compared.");
             }
 
             return world;
+        }
+
+        /// <summary>
+        /// world.json's id when it is one: a string that is not blank. Null for no id, a blank one, or one of any
+        /// other JSON type.
+        /// </summary>
+        /// <remarks>
+        /// The spec requires "<c>id</c> (non-empty string)" (folder spec §4.1), and the TypeScript reader refuses
+        /// the rest (<c>world-file.ts</c>'s <c>parseWorld</c>: a string, not blank once trimmed). Read as text,
+        /// <c>7</c> would key the world as <c>"7"</c> and <c>"  "</c> as a blank, and neither is an id another tool
+        /// keys the same world by. The folder read, the archive read and the archive's pack all ask this one question.
+        /// </remarks>
+        internal static string WorldIdOf(JObject world)
+        {
+            var id = world?["id"];
+            if (id == null || id.Type != JTokenType.String) return null;
+            var text = (string)id;
+            return string.IsNullOrWhiteSpace(text) ? null : text;
         }
 
         private static void ReadElement(

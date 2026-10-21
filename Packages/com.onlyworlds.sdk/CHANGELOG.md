@@ -6,6 +6,25 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **An `.owworld` is read within a budget**: `OWWorldArchive.Read` and `LoadInto` (and so the importer) refuse an
+  archive that holds more than 200,000 files or declares more than 1 GiB uncompressed, before inflating anything, and
+  refuse one with an entry that inflates past the size it declares (a zip bomb's lie), so a hostile file cannot fill
+  memory. The numbers are the TypeScript SDK's reader budget, as `OWWorldArchive.DefaultMaxBytes` and
+  `DefaultMaxEntries`; the new `OWWorldArchiveReadOptions` (`MaxBytes`, `MaxEntries`), passed to `Read` or
+  `LoadInto`, raises them for one read. The size every reader must accept is not yet ruled, so the defaults may
+  move. Parity with the TypeScript SDK, its test vectors ported.
+
+### Fixed
+
+- `world.json`'s `id` must be a non-empty string, as the folder spec requires (§4.1): a folder read, an archive read
+  and `OWWorldArchive.Pack` refuse an `id` that is a number, a boolean, a list or blank (`"  "`). Before, `7` was read
+  as the id `"7"` and a blank id passed. The TypeScript reader refuses the same.
+- `OWWorldArchive.Pack` keeps a producer's own `x.meta` beside its `x` in `records/`, byte for byte (§4.5 rule 6).
+  It left out every `.meta` named after a file or folder beside it as Unity's; now only one that opens as Unity
+  writes them (`fileFormatVersion:`, then a `guid:` line) is left out.
+
 ## [0.10.0] - 2026-10-21
 
 Known-of elements (folder format v0.3.10, §4.4): onlyworlds.com hands a guest or player key some elements as stubs
