@@ -6,6 +6,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Fixed
+- `OWCalendar.ParseDate` refuses a date its typed era does not hold ("not a date in Before Gate") instead of reading
+  the number as an absolute year that lands in another era ("10 Thaw, 1 BG" read as 10 Thaw, 2 AG). The absolute
+  reading stays for a step in no era, where `FormatStep` prints the absolute year. Parity with the TypeScript SDK
+  4.42.4, its test vector ported.
+
 ## [0.9.0] - 2026-10-20
 
 Party links: one join link seats a table of players, each picking a Character from the link's list (or typing a name

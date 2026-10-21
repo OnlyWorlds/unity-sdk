@@ -532,6 +532,20 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public void Parser_ADateTheTypedEraDoesNotHold_IsRefused()
+        {
+            // npm 4.42.4's vector (sdk a119342, Kael h58 #9314, from Temper #9304): a typed era names the date's era.
+            var cfg = Read(@"{ version: 1, grain: 'day', bundles: { months: { names: ['Frost', 'Thaw'], lengths: [10, 10] } },
+                eras: [ { name: 'Before Gate', abbrev: 'BG', start: 5, direction: 'down' }, { name: 'After Gate', abbrev: 'AG', start: 5 } ] }");
+            // year 1 BG holds 1 to 5 Frost only; the absolute reading landed in AG (step 39) before
+            Assert.IsTrue(OWCalendar.IsParseError(OWCalendar.ParseDate(cfg, "10 Thaw, 1 BG")));
+            // there is no year 0 BG; the absolute reading landed on 3 Frost, 1 BG (step 2) before
+            Assert.IsTrue(OWCalendar.IsParseError(OWCalendar.ParseDate(cfg, "3 Frost, 0 BG")));
+            Assert.AreEqual(2, OWCalendar.ParseDate(cfg, "3 Frost, 1 BG").Step);
+            Assert.AreEqual(19, OWCalendar.ParseDate(cfg, "10 Thaw, 1 AG").Step);
+        }
+
+        [Test]
         public void Parser_RejectsGarbageWithAReason_NeverAGuess()
         {
             Assert.IsTrue(OWCalendar.IsParseError(OWCalendar.ParseDate(KIRROWMOSS, "the fifth of never")));

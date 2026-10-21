@@ -984,7 +984,13 @@ namespace OnlyWorlds.Sdk
             var viaEra = ResolveInYear(AbsYearForEraYear(cfg, target, year.Value));
             if (viaEra.IsError) return viaEra;
             if (ReferenceEquals(EraForStep(cfg, viaEra.Step), target)) return viaEra;
-            return ResolveInYear(year.Value);
+            var viaAbs = ResolveInYear(year.Value);
+            // A typed era names the date's era: an absolute reading that lands in an era is a date the input never
+            // named ("10 Thaw, 1 BG" read as "10 Thaw, 2 AG" when year 1 BG holds only 1 to 5 Frost). Refused; the
+            // fallback stays for a step in no era, where format prints the absolute year (npm 4.42.4, Temper h58 #9304).
+            if (era != null && !viaAbs.IsError && EraForStep(cfg, viaAbs.Step) != null)
+                return ParseResult.Fail("not a date in " + era.Name);
+            return viaAbs;
         }
 
         /// <summary>True when a parse failed (the TS type guard isParseError).</summary>
