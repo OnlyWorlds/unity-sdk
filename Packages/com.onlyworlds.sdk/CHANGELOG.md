@@ -6,9 +6,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-21
+
 Known-of elements (folder format v0.3.10, §4.4): onlyworlds.com hands a guest or player key some elements as stubs
 (`known_of: true`), an element its Character only knows of. An export now writes a stub as it is, a reader can tell a
-stub from a whole element, and the client refuses to write one back. An export declares folder format 0.3.12.
+stub from a whole element, and the client refuses to write one back. An export declares folder format 0.3.12, and a
+typed calendar era refuses a date it does not hold. A minor release because it adds public API (below).
 
 ### Added
 
