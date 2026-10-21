@@ -512,6 +512,26 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public void Parser_AMidYearDownPivotRoundTrips_EveryStep()
+        {
+            // npm 4.42.3's parity vector (sdk 67df160, Kael h58 #9273): formatStep then parseDate gives the step back on both
+            // sides of a down era's pivot, at the year's start and mid-year, for every step from -55 to 65.
+            foreach (var pivot in new[] { 0, 5 })
+            {
+                var cfg = Read(@"{ version: 1, grain: 'day', bundles: { months: { names: ['Frost', 'Thaw'], lengths: [10, 10] } },
+                    eras: [ { name: 'Before', abbrev: 'BG', start: " + pivot + @", direction: 'down' },
+                            { name: 'After', abbrev: 'AG', start: " + pivot + " } ] }");
+                for (long step = -55; step <= 65; step++)
+                {
+                    string f = OWCalendar.FormatStep(cfg, step);
+                    var r = OWCalendar.ParseDate(cfg, f);
+                    Assert.IsFalse(OWCalendar.IsParseError(r), "pivot " + pivot + ", step " + step + ": \"" + f + "\" did not parse");
+                    Assert.AreEqual(step, r.Step, "pivot " + pivot + ": \"" + f + "\"");
+                }
+            }
+        }
+
+        [Test]
         public void Parser_RejectsGarbageWithAReason_NeverAGuess()
         {
             Assert.IsTrue(OWCalendar.IsParseError(OWCalendar.ParseDate(KIRROWMOSS, "the fifth of never")));
