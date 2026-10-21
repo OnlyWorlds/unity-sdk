@@ -411,7 +411,7 @@ namespace OnlyWorlds.Sdk
         /// <para>
         /// Every entry name is checked before anything is read. One that is absolute (<c>/x</c>, <c>C:/x</c>) or
         /// climbs out of the archive (<c>../x</c>) refuses the whole archive; so does one written under the world's
-        /// folder that climbs out of it (<c>w/../x</c>), and a second entry of one name in the world. An
+        /// folder that climbs out of it (<c>w/../x</c>), and a second entry of one name. An
         /// archive someone sent is untrusted input, and an importer runs on it unasked: nothing is written, but a
         /// hostile name must not become an element's path.
         /// </para>
@@ -423,11 +423,23 @@ namespace OnlyWorlds.Sdk
         /// the size it declares, and one that holds more refuses the archive there: what is held in memory never
         /// passes the budget. The TypeScript reader's rule, by its numbers.
         /// </para>
+        /// <para>
+        /// And every entry must be one that lands safely on any disk, anywhere in the archive, not only in the world:
+        /// no two entries of one name, and no two names that are one once case and Unicode normalization (NFC) are
+        /// ignored (one file on Windows and macOS); no path both a file and a folder; no symbolic link or special file
+        /// (by the Unix mode in the external attributes); nothing encrypted, and only stored or deflated entries (an
+        /// entry in another method is refused, never skipped); no Windows device name (<c>CON</c>, <c>nul.txt</c>,
+        /// <c>COM1</c>...), trailing dot or space, <c>&lt;&gt;:"|?*</c> or control character in a name; and no
+        /// non-ASCII name without the zip's UTF-8 flag. Inside the world, a second <c>world.json</c> anywhere but
+        /// under <c>records/</c> is a second world.
+        /// </para>
         /// </remarks>
         /// <exception cref="FileNotFoundException">The archive does not exist.</exception>
         /// <exception cref="OWFolderFormatException">
-        /// Not a zip; an absolute, climbing or repeated entry name; past the budget, or an entry inflating past its
-        /// declared size; no world or more than one in it; or the world's own <c>world.json</c> is unreadable.
+        /// Not a zip; an absolute, climbing, repeated, colliding or unsafe entry name, a path both a file and a folder,
+        /// a link, an encrypted entry or one in a method other than stored or deflate; past the budget, or an entry
+        /// inflating past its declared size; no world or more than one in it, a nested one included; or the world's
+        /// own <c>world.json</c> is unreadable.
         /// </exception>
         public static OWFolderReadResult Read(
             string archivePath, bool includeLegacySpatial = true, OWWorldArchiveReadOptions options = null)
@@ -450,18 +462,46 @@ namespace OnlyWorlds.Sdk
 
             using (zip)
             {
+                // What ZipArchiveEntry leaves out (a name's raw bytes and flags, the method, a Unix mode) is read from
+                // the central directory by hand, one record per entry, in the same order. The zip reads its own first.
+                var entryCount = zip.Entries.Count;
+                var directory = ReadCentralDirectory(stream);
+                if (directory == null || directory.Count != entryCount)
+                {
+                    throw new OWFolderFormatException(
+                        $"'{archivePath}' has a central directory that cannot be walked entry by entry; refusing the archive.");
+                }
+
                 // Every name and the budget are checked against the archive first, before the world is even found
                 // and before one byte is inflated: the central directory gives each entry's name and declared size.
                 var named = new List<(ZipArchiveEntry entry, string written, string resolved)>(zip.Entries.Count);
+                var names = new HashSet<string>(StringComparer.Ordinal);
+                var filePaths = new HashSet<string>(StringComparer.Ordinal);
+                var folderPaths = new HashSet<string>(StringComparer.Ordinal);
+                var folded = new Dictionary<string, string>(StringComparer.Ordinal);
                 var files = 0;
                 long declared = 0;
-                foreach (var entry in zip.Entries)
+                for (var i = 0; i < zip.Entries.Count; i++)
                 {
+                    var entry = zip.Entries[i];
                     var written = NormalizeEntry(entry.FullName);
-                    if (written.EndsWith("/", StringComparison.Ordinal)) continue; // a directory
+                    var isFolder = written.EndsWith("/", StringComparison.Ordinal);
+                    var path = isFolder ? written.TrimEnd('/') : written;
 
-                    var resolved = IsAbsolute(written) ? null : Resolve(written);
+                    var resolved = IsAbsolute(path) ? null : Resolve(path);
                     if (resolved == null) throw Hostile(entry.FullName, "is absolute or climbs out of the archive");
+
+                    CheckEntry(directory[i], entry.FullName, path);
+                    if (resolved.Length > 0)
+                    {
+                        if (!names.Add(isFolder ? resolved + "/" : resolved))
+                            throw Hostile(entry.FullName, $"is a second entry named '{resolved}'");
+                        CheckCollision(resolved, entry.FullName, folded);
+                        AddFolders(resolved, isFolder, folderPaths);
+                        if (!isFolder) filePaths.Add(resolved);
+                    }
+
+                    if (isFolder) continue;
 
                     if (++files > budget.MaxEntries)
                     {
@@ -483,6 +523,16 @@ namespace OnlyWorlds.Sdk
                     named.Add((entry, written, resolved));
                 }
 
+                // A path that is a file and also a folder of another path cannot both land on a disk.
+                foreach (var folder in folderPaths)
+                {
+                    if (filePaths.Contains(folder))
+                    {
+                        throw new OWFolderFormatException(
+                            $"The archive's path '{folder}' is both a file and a folder; refusing the archive.");
+                    }
+                }
+
                 var root = FindWorldRoot(named.Select(n => n.resolved));
 
                 // Then against the world: an entry written under the world's folder must resolve inside it.
@@ -495,6 +545,16 @@ namespace OnlyWorlds.Sdk
                     var relative = Resolve(written.Substring(root.Length));
                     if (relative == null) throw Hostile(entry.FullName, "climbs out of its world");
                     if (!seen.Add(relative)) throw Hostile(entry.FullName, $"is a second entry named '{relative}'");
+
+                    // records/ is a producer's own data, which may hold a world.json; anywhere else it is a second world.
+                    if (relative != WorldFile && relative.EndsWith("/" + WorldFile, StringComparison.Ordinal)
+                        && !relative.StartsWith(RecordsFolder + "/", StringComparison.Ordinal))
+                    {
+                        throw new OWFolderFormatException(
+                            $"The archive holds a second world.json inside its world, at '{entry.FullName}'. One world "
+                            + "per archive: inside a world, a world.json belongs only under records/; refusing the archive.");
+                    }
+
                     if (!IsRead(relative, includeLegacySpatial)) continue;
 
                     entries.Add(new KeyValuePair<string, string>(relative, TryReadText(entry)));
@@ -586,6 +646,268 @@ namespace OnlyWorlds.Sdk
 
             return string.Join("/", kept);
         }
+
+        // -- What an entry may be ------------------------------------------------
+
+        /// <summary>
+        /// One entry's own refusals, from its central-directory record: a link or a special file, encryption, a method
+        /// other than stored or deflate, and a name that would not land safely on every disk.
+        /// </summary>
+        /// <param name="record">The entry's central-directory record.</param>
+        /// <param name="entryName">The name as written, for the message.</param>
+        /// <param name="path">The name with <c>/</c> separators and no trailing slash.</param>
+        private static void CheckEntry(DirectoryRecord record, string entryName, string path)
+        {
+            // A Unix mode sits in the external attributes' high 16 bits; none (0), a file or a folder is all a world holds.
+            var kind = (record.ExternalAttributes >> 16) & UnixTypeMask;
+            if (kind == UnixSymlink) throw Hostile(entryName, "is a symbolic link");
+            if (kind != 0 && kind != UnixFile && kind != UnixFolder)
+            {
+                throw Hostile(entryName,
+                    $"is a special file (Unix type {Convert.ToString(kind, 8)}), neither a file nor a folder");
+            }
+
+            // Bit 0 is encryption (ZipCrypto, or AES as method 99), bit 6 strong encryption.
+            if ((record.Flags & 0x0041) != 0) throw Hostile(entryName, "is encrypted; an .owworld is never encrypted");
+
+            if (record.Method != MethodStored && record.Method != MethodDeflate)
+            {
+                throw Hostile(entryName,
+                    $"is compressed with method {record.Method}; an .owworld holds only stored (0) and deflated (8) entries");
+            }
+
+            // Without bit 11 a name's bytes are in a code page the zip does not name: past ASCII, its spelling is a guess.
+            if (record.NonAscii && (record.Flags & 0x0800) == 0)
+            {
+                throw Hostile(entryName, "has a name that is not ASCII and lacks the zip's UTF-8 flag, so its spelling is a guess");
+            }
+
+            var fault = NameFault(path);
+            if (fault != null) throw Hostile(entryName, fault);
+        }
+
+        /// <summary>
+        /// Why a name would not land on every disk (Windows the strictest), or null: per segment, a reserved device
+        /// name with or without an extension, a trailing dot or space, a character Windows refuses or a control
+        /// character.
+        /// </summary>
+        /// <remarks>
+        /// Empty, <c>.</c> and <c>..</c> segments are the path rules' (<see cref="Resolve"/>), never a name's.
+        /// </remarks>
+        private static string NameFault(string path)
+        {
+            foreach (var segment in path.Split('/'))
+            {
+                if (segment.Length == 0 || segment == "." || segment == "..") continue;
+
+                foreach (var c in segment)
+                {
+                    if (c < 0x20 || c == 0x7F)
+                        return $"holds a control character (U+{(int)c:X4}), which no disk takes in a name";
+                    if (WindowsRefused.IndexOf(c) >= 0)
+                        return $"holds the character '{c}', which Windows refuses in a name";
+                }
+
+                var last = segment[segment.Length - 1];
+                if (last == '.' || last == ' ')
+                    return $"has a name ending in a {(last == '.' ? "dot" : "space")} ('{segment}'), which Windows drops";
+
+                var stem = segment.Split('.')[0];
+                if (WindowsDevices.Contains(stem))
+                    return $"has the Windows reserved name '{stem}' ('{segment}'), a device on Windows whatever its extension";
+            }
+
+            return null;
+        }
+
+        /// <summary>The characters Windows refuses in a name (control characters aside).</summary>
+        private const string WindowsRefused = "<>:\"|?*";
+
+        /// <summary>Windows device names: reserved as a name's stem, whatever the extension and case.</summary>
+        private static readonly HashSet<string> WindowsDevices = new HashSet<string>(
+            new[] { "CON", "PRN", "AUX", "NUL" }
+                .Concat(Enumerable.Range(1, 9).Select(n => "COM" + n))
+                .Concat(Enumerable.Range(1, 9).Select(n => "LPT" + n)),
+            StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Refuses a path (or any folder above it) that is another one once case and Unicode normalization are
+        /// ignored: one file on Windows and on macOS. <paramref name="folded"/> maps each fold to the first spelling.
+        /// </summary>
+        private static void CheckCollision(string path, string entryName, Dictionary<string, string> folded)
+        {
+            var at = 0;
+            while (at >= 0)
+            {
+                at = path.IndexOf('/', at + 1);
+                var prefix = at < 0 ? path : path.Substring(0, at);
+                var key = Fold(prefix);
+                if (!folded.TryGetValue(key, out var first))
+                {
+                    folded.Add(key, prefix);
+                }
+                else if (!string.Equals(first, prefix, StringComparison.Ordinal))
+                {
+                    throw Hostile(entryName,
+                        $"names '{prefix}', which is '{first}' once case and Unicode normalization are ignored (one name on "
+                        + "Windows and macOS)");
+                }
+            }
+        }
+
+        /// <summary>
+        /// One fold for a name: Unicode NFC, then a simple case fold (upper, then lower, so <c>ſ</c> meets <c>s</c>
+        /// and the Kelvin sign meets <c>k</c>).
+        /// </summary>
+        private static string Fold(string name)
+        {
+            try
+            {
+                name = name.Normalize(NormalizationForm.FormC);
+            }
+            catch (ArgumentException)
+            {
+                // Not valid UTF-16 (a lone surrogate): folded by case alone.
+            }
+
+            return name.ToUpperInvariant().ToLowerInvariant();
+        }
+
+        /// <summary>Adds every folder above <paramref name="path"/>, and the path itself when it is a folder.</summary>
+        private static void AddFolders(string path, bool isFolder, HashSet<string> into)
+        {
+            if (isFolder) into.Add(path);
+            for (var at = path.IndexOf('/'); at >= 0; at = path.IndexOf('/', at + 1)) into.Add(path.Substring(0, at));
+        }
+
+        private const int UnixTypeMask = 0xF000;
+        private const int UnixFile = 0x8000;
+        private const int UnixFolder = 0x4000;
+        private const int UnixSymlink = 0xA000;
+        private const int MethodStored = 0;
+        private const int MethodDeflate = 8;
+
+        // -- The central directory ------------------------------------------------
+
+        /// <summary>One entry's central-directory record: the fields <see cref="ZipArchiveEntry"/> does not expose.</summary>
+        private sealed class DirectoryRecord
+        {
+            public int Flags;
+            public int Method;
+            public uint ExternalAttributes;
+
+            /// <summary>A name byte past 0x7F.</summary>
+            public bool NonAscii;
+        }
+
+        /// <summary>
+        /// The archive's central directory, one record per entry in its own order (the order
+        /// <see cref="ZipArchive.Entries"/> keeps); null when it cannot be walked. Reads the end records and the
+        /// directory only, never an entry's data.
+        /// </summary>
+        /// <remarks>
+        /// .NET Standard 2.1's <see cref="ZipArchiveEntry"/> has no flags, method or raw name, and its
+        /// <c>IsEncrypted</c> came later, so the records are read here: the end of central directory record (found
+        /// from the file's end, as <see cref="ZipArchive"/> finds it), its zip64 form when a zip64 locator precedes
+        /// it, then each <c>PK\1\2</c> record's fixed fields and name.
+        /// </remarks>
+        private static List<DirectoryRecord> ReadCentralDirectory(Stream stream)
+        {
+            try
+            {
+                var length = stream.Length;
+                if (length < EndRecordSize) return null;
+
+                var tailLength = (int)Math.Min(length, EndRecordSize + ushort.MaxValue + Zip64LocatorSize);
+                var tail = ReadAt(stream, length - tailLength, tailLength);
+                var end = -1;
+                for (var i = tailLength - EndRecordSize; i >= 0; i--)
+                {
+                    if (U32(tail, i) == 0x06054b50) { end = i; break; }
+                }
+
+                if (end < 0) return null;
+
+                long count = U16(tail, end + 10);
+                long size = U32(tail, end + 12);
+                long offset = U32(tail, end + 16);
+
+                if (end >= Zip64LocatorSize && U32(tail, end - Zip64LocatorSize) == 0x07064b50)
+                {
+                    var at = (long)U64(tail, end - Zip64LocatorSize + 8);
+                    if (at < 0 || at > length - Zip64EndRecordSize) return null;
+                    var record = ReadAt(stream, at, Zip64EndRecordSize);
+                    if (U32(record, 0) != 0x06064b50) return null;
+                    count = (long)U64(record, 32);
+                    size = (long)U64(record, 40);
+                    offset = (long)U64(record, 48);
+                }
+
+                if (count < 0 || size < 0 || offset < 0 || size > length || offset > length - size) return null;
+                if (size > int.MaxValue || count > size / DirectoryRecordSize) return null;
+
+                var directory = ReadAt(stream, offset, (int)size);
+                var records = new List<DirectoryRecord>((int)count);
+                var pos = 0;
+                for (long n = 0; n < count; n++)
+                {
+                    if (pos > directory.Length - DirectoryRecordSize || U32(directory, pos) != 0x02014b50) return null;
+
+                    var nameLength = U16(directory, pos + 28);
+                    var next = (long)pos + DirectoryRecordSize + nameLength + U16(directory, pos + 30) + U16(directory, pos + 32);
+                    if (next > directory.Length) return null;
+
+                    var nonAscii = false;
+                    for (var b = pos + DirectoryRecordSize; b < pos + DirectoryRecordSize + nameLength; b++)
+                    {
+                        if (directory[b] > 0x7F) { nonAscii = true; break; }
+                    }
+
+                    records.Add(new DirectoryRecord
+                    {
+                        Flags = U16(directory, pos + 8),
+                        Method = U16(directory, pos + 10),
+                        ExternalAttributes = U32(directory, pos + 38),
+                        NonAscii = nonAscii,
+                    });
+                    pos = (int)next;
+                }
+
+                return records;
+            }
+            catch (IOException)
+            {
+                return null;
+            }
+        }
+
+        private const int EndRecordSize = 22;
+        private const int Zip64LocatorSize = 20;
+        private const int Zip64EndRecordSize = 56;
+        private const int DirectoryRecordSize = 46;
+
+        /// <summary><paramref name="count"/> bytes from <paramref name="offset"/>; an <see cref="IOException"/> when the file is shorter.</summary>
+        private static byte[] ReadAt(Stream stream, long offset, int count)
+        {
+            var bytes = new byte[count];
+            stream.Seek(offset, SeekOrigin.Begin);
+            var held = 0;
+            while (held < count)
+            {
+                var read = stream.Read(bytes, held, count - held);
+                if (read <= 0) throw new EndOfStreamException();
+                held += read;
+            }
+
+            return bytes;
+        }
+
+        // Little-endian, as the zip format is, whatever the machine.
+        private static int U16(byte[] b, int at) => b[at] | (b[at + 1] << 8);
+
+        private static uint U32(byte[] b, int at) => (uint)(b[at] | (b[at + 1] << 8) | (b[at + 2] << 16) | (b[at + 3] << 24));
+
+        private static ulong U64(byte[] b, int at) => U32(b, at) | ((ulong)U32(b, at + 4) << 32);
 
         // -- Load ---------------------------------------------------------------
 
