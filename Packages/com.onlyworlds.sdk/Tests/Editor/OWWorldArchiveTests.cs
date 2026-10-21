@@ -71,7 +71,6 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 string projectRoot = null;
                 try { projectRoot = Directory.GetParent(UnityEngine.Application.dataPath)?.FullName; }
                 catch (Exception) { }
-
                 foreach (var root in new[] { "Packages", "Library/PackageCache" })
                 {
                     if (projectRoot == null) break;
@@ -812,6 +811,14 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         /// that lies, as <c>world-file.test.mjs</c>'s <c>lyingSize</c> makes one.
         /// </summary>
         private static void DeclareSize(string archive, string name, uint size)
+            => PatchEntry(archive, name, (bytes, at, central) => PutU32(bytes, at + (central ? 24 : 22), size));
+
+        /// <summary>
+        /// Rewrites one entry's two headers in place: <paramref name="patch"/> gets the archive's bytes, where a
+        /// header naming <paramref name="name"/> starts, and whether it is the central directory's record (else the
+        /// local header). A reader may trust either, so both are patched where both carry the field.
+        /// </summary>
+        private static void PatchEntry(string archive, string name, Action<byte[], int, bool> patch)
         {
             var bytes = File.ReadAllBytes(archive);
             var target = Encoding.UTF8.GetBytes(name);
@@ -821,23 +828,53 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 => length == target.Length && at + length <= bytes.Length
                    && bytes.Skip(at).Take(length).SequenceEqual(target);
 
-            void Put(int at)
-            {
-                var value = BitConverter.GetBytes(size); // little-endian on every platform Unity runs on
-                Array.Copy(value, 0, bytes, at, 4);
-                patched++;
-            }
-
             for (var i = 0; i + 46 < bytes.Length; i++)
             {
                 var sig = BitConverter.ToUInt32(bytes, i);
-                if (sig == 0x04034b50 && NameAt(i + 30, BitConverter.ToUInt16(bytes, i + 26))) Put(i + 22);
-                if (sig == 0x02014b50 && NameAt(i + 46, BitConverter.ToUInt16(bytes, i + 28))) Put(i + 24);
+                if (sig == 0x04034b50 && NameAt(i + 30, BitConverter.ToUInt16(bytes, i + 26)))
+                {
+                    patch(bytes, i, false);
+                    patched++;
+                }
+                else if (sig == 0x02014b50 && NameAt(i + 46, BitConverter.ToUInt16(bytes, i + 28)))
+                {
+                    patch(bytes, i, true);
+                    patched++;
+                }
             }
 
-            Assert.AreEqual(2, patched, "The local header and the central directory both declare the size.");
+            Assert.AreEqual(2, patched, "One local header and one central-directory record name the entry.");
             File.WriteAllBytes(archive, bytes);
         }
+
+        // Little-endian on every platform Unity runs on, as the zip format is.
+        private static void PutU16(byte[] bytes, int at, int value) => Array.Copy(BitConverter.GetBytes((ushort)value), 0, bytes, at, 2);
+
+        private static void PutU32(byte[] bytes, int at, uint value) => Array.Copy(BitConverter.GetBytes(value), 0, bytes, at, 4);
+
+        /// <summary>Sets general-purpose flag bits on an entry (local header offset 6, central record offset 8).</summary>
+        private static void SetFlags(string archive, string name, int set, int clear = 0)
+            => PatchEntry(archive, name, (bytes, at, central) =>
+            {
+                var field = at + (central ? 8 : 6);
+                PutU16(bytes, field, (BitConverter.ToUInt16(bytes, field) | set) & ~clear);
+            });
+
+        /// <summary>Declares a compression method on an entry (local header offset 8, central record offset 10).</summary>
+        private static void SetMethod(string archive, string name, int method)
+            => PatchEntry(archive, name, (bytes, at, central) => PutU16(bytes, at + (central ? 10 : 8), method));
+
+        /// <summary>
+        /// Gives an entry a Unix mode, as a zip made on Unix records it: the central record's "made by" host is Unix
+        /// (3) and the mode sits in the external attributes' high 16 bits. The local header carries neither.
+        /// </summary>
+        private static void SetUnixMode(string archive, string name, int mode)
+            => PatchEntry(archive, name, (bytes, at, central) =>
+            {
+                if (!central) return;
+                bytes[at + 5] = 3;
+                PutU32(bytes, at + 38, (uint)mode << 16);
+            });
 
         // -- Hostile entry names ----------------------------------------------------------
 
@@ -881,6 +918,152 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var read = OWWorldArchive.Read(archive);
             Assert.AreEqual("elements/character/one.json", read.Elements.Single().Path);
             Assert.AreEqual("character", read.Elements.Single().Type);
+        }
+
+        // -- Entries that land safely on any disk (owworld-as-tests OW-5, OW-17 to OW-22) ----------------
+
+        private const string WId = "0695db52-0000-7000-8000-0000000000aa";
+
+        /// <summary>The world <c>w/</c> with one element, plus <paramref name="more"/>.</summary>
+        private string WorldZip(string fileName, params (string name, string text)[] more)
+            => MakeZip(fileName, new[] { ("w/world.json", WorldJson(WId, "W")), ("w/elements/character/one.json", ElementBody) }
+                .Concat(more).ToArray());
+
+        private static OWFolderFormatException Refused(string archive)
+            => Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Read(archive));
+
+        [Test]
+        public void Read_RefusesASecondWorldJsonInsideTheWorld_ButNotAProducersUnderRecords()
+        {
+            // OW-5: only records/ may hold a world.json inside a world (folder spec §4.5 rules 2 and 6a).
+            var nested = WorldZip("nested.owworld", ("w/inner/world.json", WorldJson("0695db52-0000-7000-8000-0000000000bb", "Inner")));
+            StringAssert.Contains("second world.json", Refused(nested).Message);
+
+            var atRoot = MakeZip("nested-root.owworld",
+                ("world.json", WorldJson(WId, "Root")),
+                ("elements/character/one.json", ElementBody),
+                ("elements/character/world.json", WorldJson("0695db52-0000-7000-8000-0000000000bb", "Inner")));
+            StringAssert.Contains("second world.json", Refused(atRoot).Message);
+
+            var records = WorldZip("records.owworld", ("w/records/lab/world.json", WorldJson("0695db52-0000-7000-8000-0000000000bb", "Lab")));
+            Assert.AreEqual("W", OWWorldArchive.Read(records).WorldName);
+        }
+
+        [Test]
+        public void Read_RefusesTwoEntriesOfOneName_OutsideTheWorldToo()
+        {
+            // OW-17: a duplicate anywhere, not only in the world's folder.
+            var archive = WorldZip("twice-outside.owworld", ("README.txt", "one"), ("README.txt", "two"));
+            StringAssert.Contains("second entry", Refused(archive).Message);
+        }
+
+        [TestCase("w/elements/character/Ana.json", "w/elements/character/ana.json")]
+        [TestCase("w/media/café.png", "w/media/café.png")] // NFC beside NFD
+        [TestCase("w/Elements/character/two.json", "w/elements/character/three.json")] // a folder, by case
+        [TestCase("README.txt", "readme.TXT")] // outside the world too
+        public void Read_RefusesNamesThatAreOneOnceCaseAndNormalizationAreIgnored(string first, string second)
+        {
+            // OW-18: one file on Windows and macOS (Unicode NFC, then case).
+            var archive = WorldZip("collide.owworld", (first, "{}"), (second, "{}"));
+            StringAssert.Contains("once case and Unicode normalization are ignored", Refused(archive).Message);
+        }
+
+        [Test]
+        public void Read_RefusesAPathThatIsBothAFileAndAFolder()
+        {
+            // OW-19: w/media is a file, and w/media/a.png sits under it.
+            var archive = WorldZip("file-folder.owworld", ("w/media", "a file"), ("w/media/a.png", "png"));
+            StringAssert.Contains("both a file and a folder", Refused(archive).Message);
+
+            var entry = WorldZip("file-folder-entry.owworld", ("w/media", "a file"), ("w/media/", string.Empty));
+            StringAssert.Contains("both a file and a folder", Refused(entry).Message, "A folder's own entry counts too.");
+        }
+
+        [TestCase(0xA1FF, "symbolic link")] // 0o120777, a symlink
+        [TestCase(0x11A4, "special file")] // 0o010644, a FIFO
+        [TestCase(0x21A4, "special file")] // 0o020644, a character device
+        public void Read_RefusesALinkOrASpecialFile_ByItsUnixMode(int mode, string said)
+        {
+            // OW-20: the Unix mode in the external attributes' high 16 bits.
+            var archive = WorldZip("link.owworld", ("w/media/passwd", "../../etc/passwd"));
+            SetUnixMode(archive, "w/media/passwd", mode);
+            StringAssert.Contains(said, Refused(archive).Message);
+        }
+
+        [Test]
+        public void Read_AcceptsAFileAndAFolderMode_AsAUnixZipWritesThem()
+        {
+            var archive = WorldZip("modes.owworld", ("w/media/", string.Empty), ("w/media/a.png", "png"));
+            SetUnixMode(archive, "w/media/a.png", 0x81A4); // 0o100644
+            SetUnixMode(archive, "w/media/", 0x41ED); // 0o040755
+            Assert.AreEqual(1, OWWorldArchive.Read(archive).Elements.Count);
+        }
+
+        [Test]
+        public void Read_RefusesAnEncryptedEntry_ByItsFlag()
+        {
+            // OW-21: general-purpose bit 0, refused for what it is (not by a size check it happens to trip).
+            var archive = WorldZip("encrypted.owworld");
+            SetFlags(archive, "w/elements/character/one.json", 0x0001);
+            StringAssert.Contains("is encrypted", Refused(archive).Message);
+        }
+
+        [TestCase(14)] // LZMA
+        [TestCase(9)] // deflate64
+        [TestCase(12)] // bzip2
+        public void Read_RefusesAnEntryInAMethodOtherThanStoredOrDeflate_NeverSkipsIt(int method)
+        {
+            // OW-21: before, an element the runtime could not inflate was skipped and the read went on.
+            var archive = WorldZip("method.owworld");
+            SetMethod(archive, "w/elements/character/one.json", method);
+            StringAssert.Contains($"method {method}", Refused(archive).Message);
+        }
+
+        [TestCase("w/elements/character/CON.json", "reserved name 'CON'")]
+        [TestCase("w/media/nul.txt", "reserved name 'nul'")]
+        [TestCase("w/media/com1.json", "reserved name 'com1'")]
+        [TestCase("w/media/LPT9", "reserved name 'LPT9'")]
+        [TestCase("w/aux/x.json", "reserved name 'aux'")] // a folder
+        [TestCase("w/media/a.png.", "ending in a dot")]
+        [TestCase("w/media/b.png ", "ending in a space")]
+        [TestCase("w/media/a?.png", "character '?'")]
+        [TestCase("w/media/a<b.png", "character '<'")]
+        [TestCase("w/media/a>b.png", "character '>'")]
+        [TestCase("w/media/a:b.png", "character ':'")]
+        [TestCase("w/media/a\"b.png", "character '\"'")]
+        [TestCase("w/media/a|b.png", "character '|'")]
+        [TestCase("w/media/a*b.png", "character '*'")]
+        [TestCase("w/media/a\u0001.png", "control character (U+0001)")]
+        [TestCase("w/media/a\u007f.png", "control character (U+007F)")]
+        [TestCase("NUL", "reserved name 'NUL'")] // outside the world too
+        public void Read_RefusesANameThatWouldNotLandOnEveryDisk(string name, string said)
+        {
+            // OW-22: Windows is the strictest disk.
+            var archive = WorldZip("name.owworld", (name, "{}"));
+            StringAssert.Contains(said, Refused(archive).Message);
+        }
+
+        [Test]
+        public void Read_AcceptsANameThatOnlyStartsLikeADevice()
+        {
+            // con--0000e1's stem is con--0000e1, not CON; COM10 and CONSOLE are no devices.
+            var archive = WorldZip("not-devices.owworld",
+                ("w/elements/character/con--0000e1.json", ElementBody.Replace("e1\"", "e2\"")),
+                ("w/media/COM10.png", "png"),
+                ("w/media/console.png", "png"),
+                ("w/media/.cursor", "a dot-file"));
+            Assert.AreEqual(2, OWWorldArchive.Read(archive).Elements.Count);
+        }
+
+        [Test]
+        public void Read_RefusesANonAsciiNameWithoutTheUtf8Flag_AndReadsItWithTheFlag()
+        {
+            // OW-22: without bit 11 a name's bytes are in a code page the zip does not name.
+            var flagged = WorldZip("flagged.owworld", ("w/media/café.png", "png"));
+            Assert.AreEqual(1, OWWorldArchive.Read(flagged).Elements.Count, "Flagged UTF-8, the name is what it says.");
+
+            SetFlags(flagged, "w/media/café.png", set: 0, clear: 0x0800);
+            StringAssert.Contains("UTF-8 flag", Refused(flagged).Message);
         }
 
         // -- The key carries no machine's path -----------------------------------------

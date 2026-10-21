@@ -24,6 +24,23 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 - `OWWorldArchive.Pack` keeps a producer's own `x.meta` beside its `x` in `records/`, byte for byte (§4.5 rule 6).
   It left out every `.meta` named after a file or folder beside it as Unity's; now only one that opens as Unity
   writes them (`fileFormatVersion:`, then a `guid:` line) is left out.
+- `OWWorldArchive.Read` (and so `LoadInto` and the importer) refuses an `.owworld` whose entries would not land
+  safely on every disk, anywhere in the archive, not only in the world's folder:
+  - two entries of one name (before, only inside the world's folder);
+  - two names that are one once case and Unicode normalization (NFC) are ignored, files or folders (`Ana.json`
+    beside `ana.json`; `café` in NFC beside NFD; `Elements/` beside `elements/`): one file on Windows and macOS;
+  - a path that is both a file and a folder (`w/media` beside `w/media/a.png`);
+  - a symbolic link or special file, by the Unix mode in the entry's external attributes;
+  - an encrypted entry, by its flag (ZipCrypto was refused only because its header made the size wrong), and an
+    entry in a method other than stored or deflate (LZMA, deflate64, bzip2): before, an element the runtime could
+    not inflate was skipped and the read went on, and deflate64 was read where the runtime could;
+  - a Windows device name as a name's stem, with or without an extension (`CON.json`, `nul.txt`, `COM1`-`COM9`,
+    `LPT1`-`LPT9`), a name ending in a dot or a space, the characters `<>:"|?*` or a control character;
+  - a non-ASCII name without the zip's UTF-8 flag, whose spelling is a guess.
+
+  And a second `world.json` inside the world (`w/inner/world.json`) is refused as a second world; one under
+  `records/` stays a producer's own data. The TypeScript reader also refuses a file-and-folder path and a nested
+  `world.json`; it has none of the other checks yet. Each refusal names the entry and why.
 
 ## [0.10.0] - 2026-10-21
 
