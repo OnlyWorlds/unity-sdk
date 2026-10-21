@@ -6,7 +6,42 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+Known-of elements (folder format v0.3.10, §4.4): onlyworlds.com hands a guest or player key some elements as stubs
+(`known_of: true`), an element its Character only knows of. An export now writes a stub as it is, a reader can tell a
+stub from a whole element, and the client refuses to write one back. An export declares folder format 0.3.12.
+
+### Added
+
+- **A stub is written as it is**: `OWFolderExport.ExportAsync` and `ExportFileAsync` write a stub with the keys it
+  keeps (`id`, `type`, `name`, `description`, `supertype`, `subtype`, `image_url`, `created_at`, `updated_at`,
+  `change_seq`, `OWFolderExport.KnownOfKeeps`), every other field it was sent with a value (a Character's public
+  `physicality` or `height`), and `known_of: true` last. The unset fields the server sends (`""`, `null`, `[]`) are
+  left out: on disk they would read as a whole element with nothing filled in. `0` and `false` are values and are
+  kept. A whole element is written as served, and an element served as a stub and then whole (or the other way) is
+  written as it came last. The rule is `OWFolderExport.KnownOfForDisk(body)`, a port of the Python package's
+  `known_of_for_disk`, checked against its bytes.
+- **A reader can say "stub"**: `OWPayload.IsKnownOf(body)` (true only for `known_of: true`), `OWElement.IsKnownOf`
+  on every typed model, `OWFolderElement.KnownOf`, `OWFolderReadResult.KnownOf` (the ids of the stubs a folder holds,
+  sorted) and `OWWorldCache.IsKnownOf(id)`. A stub's absent or empty fields are unknown, not empty: a typed model of
+  one reads `""`, `[]` or null for them exactly as a whole element with nothing filled in would, so check the flag.
+  `IsKnownOf` is read from the model's extension fields, never a modelled bool, so a whole element never sends
+  `known_of: false`.
+- `OWApiError.IsKnownOfNotWritable` (422 `known_of_not_writable`), matching the npm SDK's helper.
+
+### Changed
+
+- **A stub is never written back**: `OWClient.CreateAsync`, `PatchAsync` and each item of `BulkAsync` throw an
+  `ArgumentException` for a body (typed or raw) marked `known_of: true` before anything is sent; the bulk message
+  names the item (`bulk: items[1]: ...`). Its empty fields are not the element's values, and writing it would blank
+  them. `OWEdit.Begin` refuses a stub the same way.
+- `known_of` joins `OWPayload.ReadOnlyFields` (six fields now, as the npm SDK 4.42.3's list), so a body carrying
+  `known_of: false` has it stripped rather than refused by the server.
+- An export declares folder format `0.3.12` (`OWFolderExport.FormatVersion`), as the Python package's 0.10.4 does.
+  0.3.11 (an element's id replaced) and 0.3.12 (the `records/RECORDS.json` manifest) need nothing more here: the SDK
+  never replaces an id, and it carries `records/` byte for byte. Folders stamped `0.3.9` stay valid.
+
 ### Fixed
+
 - `OWCalendar.ParseDate` refuses a date its typed era does not hold ("not a date in Before Gate") instead of reading
   the number as an absolute year that lands in another era ("10 Thaw, 1 BG" read as 10 Thaw, 2 AG). The absolute
   reading stays for a step in no era, where `FormatStep` prints the absolute year. Parity with the TypeScript SDK

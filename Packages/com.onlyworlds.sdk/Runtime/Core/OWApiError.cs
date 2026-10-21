@@ -68,6 +68,15 @@ namespace OnlyWorlds.Sdk
         public bool IsWorldFull => StatusCode == 422 && Code == "world_full";
 
         /// <summary>
+        /// An element write carried <c>known_of</c> (422 <c>known_of_not_writable</c>, param <c>known_of</c>;
+        /// keel PR 117), true or false: the key marks a stub and is never written. This client never sends
+        /// it (<see cref="OWPayload.ReadOnlyFields"/> strips it, and a stub is refused before sending), so it
+        /// reaches you only from a body sent some other way. <c>/bulk/</c> never throws for it: the item's
+        /// slot carries the code, and its siblings apply.
+        /// </summary>
+        public bool IsKnownOfNotWritable => StatusCode == 422 && Code == "known_of_not_writable";
+
+        /// <summary>
         /// A contributor or guest key changed, relinked or deleted an element someone else created
         /// (403 <c>not_author</c>). Retrying will not help.
         /// </summary>

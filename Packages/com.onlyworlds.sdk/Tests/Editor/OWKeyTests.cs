@@ -59,13 +59,14 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [Test]
         public void ReadOnlyFields_MatchTheWireContract()
         {
-            // Mirrors READ_ONLY_FIELDS in the npm SDK. A divergence means one client gets 422s
-            // the other does not.
+            // Mirrors READ_ONLY_FIELDS in the npm SDK (4.42.3). A divergence means one client gets
+            // 422s the other does not.
             CollectionAssert.AreEquivalent(
-                new[] { "world", "type", "created_at", "updated_at", "change_seq" },
+                new[] { "world", "type", "created_at", "updated_at", "change_seq", "known_of" },
                 OWPayload.ReadOnlyFields);
 
             Assert.IsTrue(OWPayload.IsReadOnly("world"));
+            Assert.IsTrue(OWPayload.IsReadOnly("known_of"));
             Assert.IsFalse(OWPayload.IsReadOnly("name"));
         }
     }

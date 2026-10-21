@@ -167,7 +167,7 @@ namespace OnlyWorlds.Sdk
         /// </para>
         /// <para>
         /// <b><c>world</c> is rejected in POST/PATCH bodies</b> -- the API key header determines the
-        /// world. Already handled: it is one of the five stripped fields.
+        /// world. Already handled: it is one of the six stripped fields.
         /// </para>
         /// </remarks>
         public const string RulingsPath = "walk/rulings.yaml";

@@ -79,6 +79,24 @@ namespace OnlyWorlds.Sdk
                                        && !World["writable"].Value<bool>();
 
         public bool IsSnapshot => World?["snapshot_of"] != null;
+
+        /// <summary>
+        /// Ids of the known-of stubs among <see cref="Elements"/> and <see cref="LegacyElements"/> (§4.4,
+        /// <c>known_of: true</c>), sorted ordinally: elements this folder knows of but does not hold whole.
+        /// </summary>
+        /// <remarks>
+        /// A stub's absent fields are unknown, not empty: never read them as values or as a deletion, and never
+        /// push one. The bodies are as on disk; the reader fills nothing in.
+        /// </remarks>
+        public List<string> KnownOf
+        {
+            get
+            {
+                var ids = Elements.Concat(LegacyElements).Where(e => e.KnownOf).Select(e => e.Id).ToList();
+                ids.Sort(StringComparer.Ordinal);
+                return ids;
+            }
+        }
     }
 
     /// <summary>One element as it sits on disk.</summary>
@@ -100,6 +118,12 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Absolute path this element was read from.</summary>
         public string Path;
+
+        /// <summary>
+        /// True for a known-of stub (<c>known_of: true</c>, §4.4): known of, never whole. Its absent fields are
+        /// unknown, not empty, and it is never pushed.
+        /// </summary>
+        public bool KnownOf => OWPayload.IsKnownOf(Body);
     }
 
     /// <summary>A file the reader could not use.</summary>

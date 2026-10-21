@@ -83,10 +83,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsFalse(t.Last.Headers.ContainsKey("API-Pin"), "Read keys are the share primitive -- no PIN.");
         }
 
-        // -- The five read-only fields ---------------------------------------
+        // -- The six read-only fields ----------------------------------------
 
         [Test]
-        public async Task Patch_StripsAllFiveReadOnlyFields()
+        public async Task Patch_StripsAllSixReadOnlyFields()
         {
             var t = new FakeTransport();
             await Make(t).PatchAsync<JObject>("character", "x", new JObject
@@ -98,10 +98,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 ["created_at"] = "2026-01-01T00:00:00Z",
                 ["updated_at"] = "2026-01-02T00:00:00Z",
                 ["change_seq"] = 42,
+                ["known_of"] = false,
             });
 
             var sent = t.LastBody;
-            foreach (var f in new[] { "world", "type", "created_at", "updated_at", "change_seq" })
+            foreach (var f in new[] { "world", "type", "created_at", "updated_at", "change_seq", "known_of" })
             {
                 Assert.IsFalse(sent.ContainsKey(f), $"{f} must be stripped -- the server 422s on it.");
             }

@@ -123,6 +123,33 @@ namespace OnlyWorlds.Sdk
             return !string.IsNullOrEmpty(id) && _byId.ContainsKey(id);
         }
 
+        /// <summary>
+        /// True when the id is held as a known-of stub (<c>known_of: true</c>, folder format §4.4), read from
+        /// its raw JSON without building a typed model. False for a whole element and for an id not held.
+        /// </summary>
+        /// <remarks>
+        /// <see cref="Get{T}"/> on a stub returns a model whose unset fields read <c>""</c>, <c>[]</c> or null,
+        /// exactly as a whole element with nothing filled in would; this, or the model's own
+        /// <see cref="OWElement.IsKnownOf"/>, is how a caller tells the two apart.
+        /// </remarks>
+        public bool IsKnownOf(string id)
+        {
+            EnsureIndex();
+            if (string.IsNullOrEmpty(id) || !_byId.TryGetValue(id, out var i)) return false;
+
+            var raw = _elements[i].RawJson;
+            if (string.IsNullOrEmpty(raw) || raw.IndexOf("\"" + OWPayload.KnownOf + "\"", StringComparison.Ordinal) < 0) return false;
+
+            try
+            {
+                return OWPayload.IsKnownOf(OWJson.ParseObject(raw));
+            }
+            catch (Newtonsoft.Json.JsonException)
+            {
+                return false;
+            }
+        }
+
         /// <summary>Every element of a type.</summary>
         public List<T> All<T>(string typeSlug) where T : OWElement
         {
