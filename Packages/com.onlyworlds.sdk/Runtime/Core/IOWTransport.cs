@@ -49,7 +49,7 @@ namespace OnlyWorlds.Sdk
     /// <remarks>
     /// <para>
     /// Exists so the client can be tested without a network. Contract tests assert on the REQUEST
-    /// the client would have sent -- that PATCH strips the five read-only fields, that an account
+    /// the client would have sent -- that PATCH strips the six read-only fields, that an account
     /// key uses Bearer while a world key uses API-Key/API-Pin, that a create mints a UUID. Those
     /// are the assertions that catch wire drift, and they must not depend on a live server.
     /// </para>

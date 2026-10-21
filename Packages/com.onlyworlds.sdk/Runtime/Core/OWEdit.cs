@@ -159,9 +159,29 @@ namespace OnlyWorlds.Sdk
         /// Starts tracking changes to an element. Take this immediately after reading it.
         /// </summary>
         /// <remarks>
+        /// <para>
         /// The baseline is captured at this moment, so anything mutated BEFORE the call is
         /// invisible to the diff and will not be sent.
+        /// </para>
+        /// <para>
+        /// A known-of stub (<see cref="OWElement.IsKnownOf"/>) is refused here, before any edit is
+        /// tracked: no PATCH is made from a <c>known_of</c> file (folder format §4.4, rule 3), even one
+        /// that would send only the fields changed since. Its empty fields are not the element's, so
+        /// an edit built on them edits an element nobody has read. Read the element whole first.
+        /// </para>
         /// </remarks>
-        public static OWEdit<T> Begin<T>(T element) where T : OWElement => new OWEdit<T>(element);
+        /// <exception cref="ArgumentException">The element is a known-of stub.</exception>
+        public static OWEdit<T> Begin<T>(T element) where T : OWElement
+        {
+            if (element != null && element.IsKnownOf)
+            {
+                throw new ArgumentException(
+                    $"Element {element.Id} is a known-of stub (known_of: true), not the element: its empty fields are "
+                    + "not its values, so it is never edited or written back. Edit a whole copy.",
+                    nameof(element));
+            }
+
+            return new OWEdit<T>(element);
+        }
     }
 }

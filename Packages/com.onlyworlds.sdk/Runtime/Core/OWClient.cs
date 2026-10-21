@@ -190,9 +190,14 @@ namespace OnlyWorlds.Sdk
         /// derive the same id for the same key.
         /// </para>
         /// </remarks>
+        /// <exception cref="ArgumentException">
+        /// The element is a known-of stub (<see cref="OWPayload.IsKnownOf"/>); nothing was sent.
+        /// </exception>
         public Task<T> CreateAsync<T>(string type, object element, string idempotencyKey = null, CancellationToken ct = default)
         {
-            var body = Sanitize(JObject.FromObject(element, Newtonsoft.Json.JsonSerializer.Create(OWJson.Settings)), type);
+            var raw = JObject.FromObject(element, Newtonsoft.Json.JsonSerializer.Create(OWJson.Settings));
+            RefuseKnownOf(raw, "create", nameof(element));
+            var body = Sanitize(raw, type);
 
             if (body["id"] == null || string.IsNullOrEmpty(body["id"].ToString()))
             {
@@ -211,10 +216,15 @@ namespace OnlyWorlds.Sdk
         /// so send only what changed. Never PATCH a link array to add one item -- that replaces the
         /// whole array; use <see cref="EditLinksAsync"/>.
         /// </remarks>
+        /// <exception cref="ArgumentException">
+        /// The partial is a known-of stub (<see cref="OWPayload.IsKnownOf"/>); nothing was sent.
+        /// </exception>
         public Task<T> PatchAsync<T>(string type, string id, object partial, CancellationToken ct = default)
-            => RequestAsync<T>("PATCH", $"/{type}/{id}/",
-                body: Sanitize(JObject.FromObject(partial, Newtonsoft.Json.JsonSerializer.Create(OWJson.Settings)), type),
-                write: true, ct: ct);
+        {
+            var raw = JObject.FromObject(partial, Newtonsoft.Json.JsonSerializer.Create(OWJson.Settings));
+            RefuseKnownOf(raw, "patch", nameof(partial));
+            return RequestAsync<T>("PATCH", $"/{type}/{id}/", body: Sanitize(raw, type), write: true, ct: ct);
+        }
 
         /// <summary>DELETE /{type}/{id}/</summary>
         public Task DeleteAsync(string type, string id, CancellationToken ct = default)
@@ -242,7 +252,7 @@ namespace OnlyWorlds.Sdk
         /// caller can act on.
         /// </para>
         /// <para>
-        /// Each element is sanitized exactly as a single write is -- the five server-owned fields
+        /// Each element is sanitized exactly as a single write is -- the six read-only fields
         /// are stripped from every item, and a null scalar string is sent as <c>""</c> -- and each
         /// gets a client-minted UUID when it has none. Under a key that id is derived from the key and
         /// the item's position (<see cref="OWId.Keyed"/>), so a retry sends the same body and replays,
@@ -250,6 +260,9 @@ namespace OnlyWorlds.Sdk
         /// retry of id-less items writes them twice: a caller who retries passes a key.
         /// </para>
         /// </remarks>
+        /// <exception cref="ArgumentException">
+        /// An item is a known-of stub (<see cref="OWPayload.IsKnownOf"/>), named by its index; nothing was sent.
+        /// </exception>
         public async Task<OWBulkResult> BulkAsync(
             IEnumerable<OWBulkItem> items, bool atomic = false, string idempotencyKey = null,
             CancellationToken ct = default)
@@ -267,6 +280,7 @@ namespace OnlyWorlds.Sdk
                     throw new ArgumentException("Every bulk item needs a type.", nameof(items));
                 }
 
+                RefuseKnownOf(item.Element, $"bulk: items[{count}]", nameof(items));
                 var element = Sanitize(item.Element != null ? (JObject)item.Element.DeepClone() : new JObject(), item.Type);
 
                 if (element["id"] == null || string.IsNullOrEmpty(element["id"].ToString()))
@@ -490,7 +504,29 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
-        /// Removes the five fields the server owns, and sends a null scalar string as <c>""</c>.
+        /// A known-of stub (<see cref="OWPayload.IsKnownOf"/>) is an <see cref="ArgumentException"/> before
+        /// anything is sent: no create, PATCH or bulk item is made from one (folder format §4.4, rule 3).
+        /// </summary>
+        /// <remarks>
+        /// A stub's empty fields are not the element's values. Stripping the marker and sending the rest
+        /// would turn keel's 422 into a write that blanks the element (a PATCH clears every field it names)
+        /// for any key that may write it, such as an owner pushing a copy a player made. The npm SDK
+        /// (<c>refuseKnownOf</c>) and the Python package (<c>_refuse_known_of</c>) refuse the same bodies
+        /// with the same words.
+        /// </remarks>
+        private static void RefuseKnownOf(JObject body, string where, string paramName)
+        {
+            if (!OWPayload.IsKnownOf(body)) return;
+
+            throw new ArgumentException(
+                $"{where}: this body is a known-of stub (known_of: true), not the element: its empty fields are not "
+                + "its values, and writing it would blank them. Write from a whole copy, or send only the fields you "
+                + "mean to change.",
+                paramName);
+        }
+
+        /// <summary>
+        /// Removes the six read-only fields (<see cref="OWPayload.ReadOnlyFields"/>), and sends a null scalar string as <c>""</c>.
         /// </summary>
         /// <param name="payload">The body about to be sent. Changed in place.</param>
         /// <param name="type">The element type slug, which says which keys are scalar strings.</param>

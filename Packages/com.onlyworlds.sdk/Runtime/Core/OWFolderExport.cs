@@ -108,7 +108,7 @@ namespace OnlyWorlds.Sdk
     public static class OWFolderExport
     {
         /// <summary>The OW Folder Format version an export declares in <c>world.json</c>.</summary>
-        public const string FormatVersion = "0.3.9";
+        public const string FormatVersion = "0.3.12";
 
         /// <summary>
         /// Wire key to disk key for <c>world.json</c> (spec §5, v0.3.5): the file follows the canonical
@@ -120,6 +120,55 @@ namespace OnlyWorlds.Sdk
         };
 
         private const string UserAgent = "onlyworlds-unity-sdk";
+
+        /// <summary>
+        /// The keys every known-of stub keeps (§4.4, keel's <c>KNOWN_OF_BASE</c>), written even when empty.
+        /// </summary>
+        public static IReadOnlyCollection<string> KnownOfKeeps => KnownOfKeepSet;
+
+        private static readonly HashSet<string> KnownOfKeepSet = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "id", "type", "name", "description", "supertype", "subtype", "image_url", "created_at", "updated_at", "change_seq",
+        };
+
+        /// <summary>
+        /// A known-of stub as §4.4 writes it, its keys in received order, then <c>known_of: true</c>: every
+        /// <see cref="KnownOfKeeps"/> key, and every other key the server sent with a value. The input is not changed.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The package's <c>known_of_for_disk</c>. The unset fields keel serves on a stub (<c>""</c>, <c>null</c>,
+        /// <c>[]</c>) are left out, never written: on disk they would read as a whole element with nothing filled
+        /// in. Anything else it sent is kept, whatever the field (a Character's public <c>physicality</c>,
+        /// <c>height</c>, <c>species</c>: keel PR 117), since a writer never drops data it has (§3). <c>0</c> and
+        /// <c>false</c> are values. This reads the body, never a list of public fields, so a type that gains
+        /// public fields needs no change here.
+        /// </para>
+        /// <para>
+        /// The export applies it to each body that <see cref="OWPayload.IsKnownOf"/> calls a stub, and only those:
+        /// a whole element is written as served. A stub and a whole body for one id write whichever came last.
+        /// </para>
+        /// </remarks>
+        public static JObject KnownOfForDisk(JObject body)
+        {
+            if (body == null) throw new ArgumentNullException(nameof(body));
+
+            var disk = new JObject();
+            foreach (var property in body.Properties())
+            {
+                if (property.Name == OWPayload.KnownOf) continue;
+                if (KnownOfKeepSet.Contains(property.Name) || IsSet(property.Value)) disk[property.Name] = property.Value.DeepClone();
+            }
+
+            disk[OWPayload.KnownOf] = true;
+            return disk;
+        }
+
+        /// <summary>A value is anything but <c>""</c>, <c>null</c> and <c>[]</c>: <c>0</c> and <c>false</c> are values.</summary>
+        private static bool IsSet(JToken value)
+            => !(value.Type == JTokenType.Null
+                 || (value.Type == JTokenType.String && ((string)value).Length == 0)
+                 || (value.Type == JTokenType.Array && !((JArray)value).HasValues));
 
         /// <summary>
         /// The <c>world.json</c> body for a wire <c>GET /world/</c> body: every key carried in received order,
@@ -459,7 +508,8 @@ namespace OnlyWorlds.Sdk
                         var names = filenames[type];
                         foreach (var pair in bodies)
                         {
-                            WriteFile(Path.Combine(directory, names[pair.Key]), OWFolderWriter.Serialize(pair.Value));
+                            var body = OWPayload.IsKnownOf(pair.Value) ? KnownOfForDisk(pair.Value) : pair.Value;
+                            WriteFile(Path.Combine(directory, names[pair.Key]), OWFolderWriter.Serialize(body));
                         }
 
                         report.Counts[type] = bodies.Count;

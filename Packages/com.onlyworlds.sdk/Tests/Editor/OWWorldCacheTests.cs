@@ -96,6 +96,26 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public void AKnownOfStub_SaysSo_ByIdAndOnItsTypedModel()
+        {
+            // Folder format §4.4: a stub's unset fields read "" or null on the model, as a whole element
+            // with nothing filled in would; the flag is what tells the two apart.
+            _cache.Upsert("c1", "character",
+                "{\"id\":\"c1\",\"type\":\"character\",\"name\":\"Dev\",\"supertype\":\"Ferryman\",\"known_of\":true}");
+            Add("c2", "character", "Mara");
+            _cache.Upsert("c3", "character", "{\"id\":\"c3\",\"type\":\"character\",\"name\":\"Oz\",\"known_of\":false}");
+
+            Assert.IsTrue(_cache.IsKnownOf("c1"));
+            Assert.IsTrue(_cache.Get<OWCharacter>("c1").IsKnownOf);
+            Assert.AreEqual("Ferryman", _cache.Get<OWCharacter>("c1").Supertype);
+            Assert.IsFalse(_cache.IsKnownOf("c2"));
+            Assert.IsFalse(_cache.Get<OWCharacter>("c2").IsKnownOf);
+            Assert.IsFalse(_cache.IsKnownOf("c3"), "only true marks a stub");
+            Assert.IsFalse(_cache.IsKnownOf("nope"));
+            Assert.IsFalse(_cache.IsKnownOf(null));
+        }
+
+        [Test]
         public void MissingId_ReturnsNull_NotAnException()
         {
             Assert.IsNull(_cache.Get<OWCharacter>("nope"));

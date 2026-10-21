@@ -151,6 +151,21 @@ namespace OnlyWorlds.Sdk
         [SerializeField] private List<OWExtensionField> _extensionsForUnity = new List<OWExtensionField>();
 
         /// <summary>
+        /// True for a stub the reader only knows of (<c>known_of: true</c>, folder format §4.4): its unset
+        /// fields are unknown, not empty, and it is never written back (<see cref="OWPayload.IsKnownOf"/>).
+        /// </summary>
+        /// <remarks>
+        /// Read from the extensions bag, deliberately not a <c>[JsonProperty("known_of")] bool</c>: a modelled
+        /// bool would serialize <c>known_of: false</c> into every write of a whole element, and keel refuses
+        /// <c>known_of</c> at any value (422 <c>known_of_not_writable</c>). In the bag it goes back out only
+        /// when it came in, where the client strips it or, when <c>true</c>, refuses the write.
+        /// </remarks>
+        public bool IsKnownOf
+            => _extensions != null
+               && _extensions.TryGetValue(OWPayload.KnownOf, out var marker)
+               && marker != null && marker.Type == Newtonsoft.Json.Linq.JTokenType.Boolean && (bool)marker;
+
+        /// <summary>
         /// Every unmodeled field on this element, as key + raw JSON.
         /// </summary>
         /// <remarks>
