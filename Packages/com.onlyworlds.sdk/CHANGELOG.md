@@ -23,6 +23,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 - An export declares folder format `0.3.13` (`OWFolderExport.FormatVersion`), as the Python package's 0.15.0 does.
   0.3.13 rules the `.owworld` archive (§4.7), which this SDK's reader already follows on the whole conformance set;
   it asks nothing more of a folder. A `format_version` a world already carries is still kept as it is.
+- The wire check's snapshot of keel's API document is refreshed (2026-10-22): every route, query parameter, header,
+  body key and error code the client uses is still one keel declares, and every key the join models read is one it
+  serves.
 
 ### Fixed
 
