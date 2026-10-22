@@ -1092,6 +1092,78 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsFalse(page.Unchanged);
         }
 
+        // -- Why the epoch moved (keel #421: epoch_reason, a 409's reason; npm's vectors) --
+
+        [Test]
+        public async Task EpochReason_PassesThroughWhenKeelSendsIt()
+        {
+            const string cursor = "4021:ffffffff-ffff-ffff-ffff-ffffffffffff:3";
+            var t = new FakeTransport
+            {
+                ResponseBody = $@"{{""cursor"":""{cursor}"",""changes"":[],""has_more"":false,""head"":4021,""epoch"":3,""epoch_reason"":""role""}}",
+            };
+            var guest = await Make(t).ChangesAsync(headOnly: true);
+            Assert.AreEqual("role", guest.EpochReason);
+            Assert.AreEqual(3, guest.Epoch);
+
+            t.ResponseBody = @"{""cursor"":7,""changes"":[],""has_more"":false,""head"":7,""epoch"":null,""epoch_reason"":null}";
+            Assert.IsNull((await Make(t).ChangesAsync(headOnly: true)).EpochReason);
+
+            t.ResponseBody = $@"{{""cursor"":""{cursor}"",""changes"":[],""has_more"":false,""head"":4021,""epoch"":3,""epoch_reason"":""view""}}";
+            Assert.AreEqual("view", (await Make(t).ChangesAsync(cursor)).EpochReason, "a feed page carries it too");
+        }
+
+        [Test]
+        public async Task EpochReason_A304DropsIt_AsTheNpmSdkDoes()
+        {
+            var t = new FakeTransport();
+            t.Then(200, @"{""cursor"":""9"",""changes"":[],""has_more"":false,""head"":9,""epoch"":3,""epoch_reason"":""view""}", "W/\"9:3\"");
+            t.Then(304, "", "\"9:3\"");
+            var c = Make(t);
+
+            Assert.AreEqual("view", (await c.ChangesAsync(headOnly: true)).EpochReason);
+            var tip = await c.ChangesAsync(headOnly: true);
+
+            Assert.IsTrue(tip.Unchanged);
+            Assert.AreEqual(3, tip.Epoch);
+            Assert.IsNull(tip.EpochReason, "npm's 304 answer carries no epoch_reason (Python's carries the held one)");
+        }
+
+        [TestCase("role")]
+        [TestCase("view")]
+        public void ResyncReason_ReadsThe409EnvelopesReason(string reason)
+        {
+            var t = new FakeTransport
+            {
+                Status = 409,
+                ResponseBody = @"{""error"":{""type"":""invalid_request"",""code"":""resync_required"",""message"":""m"",""reason"":""" + reason + @"""}}",
+            };
+            var e = Assert.ThrowsAsync<OWApiError>(() => Make(t).ChangesAsync("12:abc:3"));
+
+            Assert.IsTrue(e.IsResyncRequired);
+            Assert.AreEqual(reason, e.ResyncReason);
+        }
+
+        [Test]
+        public void ResyncReason_IsNullWithoutOne_ForAnUnknownOne_AndOnAnotherError()
+        {
+            ExpectReason(409, "resync_required", null, null);
+            ExpectReason(409, "resync_required", "something", null);
+            ExpectReason(409, "id_conflict", "role", null);
+
+            void ExpectReason(int status, string code, string reason, string expected)
+            {
+                var t = new FakeTransport
+                {
+                    Status = status,
+                    ResponseBody = @"{""error"":{""type"":""invalid_request"",""code"":""" + code + @""",""message"":""m"""
+                        + (reason == null ? "" : @",""reason"":""" + reason + @"""") + "}}",
+                };
+                var e = Assert.ThrowsAsync<OWApiError>(() => Make(t).ChangesAsync("12:abc"));
+                Assert.AreEqual(expected, e.ResyncReason, $"{status} {code} reason {reason ?? "none"}");
+            }
+        }
+
         // -- Construction guards ----------------------------------------------
 
         [Test]

@@ -36,6 +36,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   now, and nothing is deleted. On an element already gone it is the idempotent 204. A negative `ifMatch` is an
   `ArgumentOutOfRangeException` before anything is sent. The parameter comes after `ct`, so existing calls compile
   as they were. Parity with the TypeScript SDK 4.61.0, its test vector ported.
+- **Why a view restarted** (keel #421, while keel's hidden mark is on): `OWChangesPage.EpochReason` says why the epoch
+  last moved, `role` (the key's own role or membership moved: keep what a fresh walk no longer names, it is out of
+  view, not gone) or `view` (something left the key's view: drop it); `OWApiError.ResyncReason` reads the same word
+  from a 409 `resync_required`, and covers every move since the cursor. Both are null when keel sends none. A
+  conditional tip read answered 304 carries no `EpochReason`, as in the TypeScript SDK. Parity with the TypeScript
+  SDK's `epoch_reason` and `resyncReason`, their test vectors ported.
 
 ### Changed
 

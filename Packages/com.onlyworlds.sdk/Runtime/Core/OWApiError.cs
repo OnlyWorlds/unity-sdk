@@ -95,6 +95,33 @@ namespace OnlyWorlds.Sdk
         public bool IsResyncRequired => StatusCode == 409 && Code == "resync_required";
 
         /// <summary>
+        /// Why <c>/changes</c> refused the cursor, from the 409 <c>resync_required</c> envelope's <c>reason</c> (keel #421,
+        /// only while keel's hidden mark is on): <c>role</c> (this key's own role or membership moved: keep what the
+        /// local copy holds that the new walk does not name; it is out of view now, not gone) or <c>view</c> (something
+        /// left this key's view: drop what the new walk does not name). When both happened since the cursor, keel says
+        /// <c>role</c>. Null for any other error, or when keel sends no reason (then keep the copy: a reset never empties
+        /// one).
+        /// </summary>
+        public string ResyncReason
+        {
+            get
+            {
+                if (!IsResyncRequired || string.IsNullOrEmpty(RawBody)) return null;
+
+                try
+                {
+                    var reason = (JObject.Parse(RawBody)["error"] as JObject)?["reason"] as JValue;
+                    var text = reason?.Type == JTokenType.String ? (string)reason : null;
+                    return text == "role" || text == "view" ? text : null;
+                }
+                catch (Exception)
+                {
+                    return null;
+                }
+            }
+        }
+
+        /// <summary>
         /// A conditional write's <c>If-Match</c> was stale (412 <c>precondition_failed</c>, keel #563 on a delete): the
         /// element changed since the <c>change_seq</c> you sent, and nothing was written. <see cref="Current"/> is
         /// the element as it is now; decide from it, then send again with its <c>change_seq</c>.
