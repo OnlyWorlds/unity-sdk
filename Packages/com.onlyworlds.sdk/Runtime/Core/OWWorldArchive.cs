@@ -159,6 +159,11 @@ namespace OnlyWorlds.Sdk
         /// system's listing order or the files' mtimes. Same bytes across runtimes is not claimed: the deflate stream
         /// is the runtime's zlib.
         /// </para>
+        /// <para>
+        /// No <c>mimetype</c> marker is written yet. Folder spec §4.7 (OW-6) has a writer SHOULD place one first and
+        /// stored, but Mono's <see cref="ZipArchive"/> writes <see cref="CompressionLevel.NoCompression"/> as deflate
+        /// (method 8), and a deflated marker breaks the shape a reader may check; an absent one breaks nothing.
+        /// </para>
         /// </remarks>
         /// <exception cref="DirectoryNotFoundException">The folder does not exist.</exception>
         /// <exception cref="OWFolderFormatException">No readable <c>world.json</c>, or no id (a non-empty string) in it.</exception>
