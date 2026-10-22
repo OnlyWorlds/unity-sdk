@@ -30,6 +30,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   the Charter names). `OWFrontDoor.Of(me)` reads it from `GetMeAsync`'s answer, and an agent's join answer carries it
   as `OWJoined.FrontDoor` (null for a player). Parity with the TypeScript SDK 4.60.0 (which shipped the types with no
   test; these tests are this package's own, with a wire check that the model maps exactly the keys keel serves).
+- **A conditional delete** (keel #563): `DeleteAsync(type, id, ifMatch: changeSeq)` sends the element's `change_seq`
+  as you read it in `If-Match`. The delete lands only if nothing changed since; otherwise it throws an `OWApiError`
+  whose new `IsPreconditionFailed` is true (412 `precondition_failed`) and whose new `Current` is the element as it is
+  now, and nothing is deleted. On an element already gone it is the idempotent 204. A negative `ifMatch` is an
+  `ArgumentOutOfRangeException` before anything is sent. The parameter comes after `ct`, so existing calls compile
+  as they were. Parity with the TypeScript SDK 4.61.0, its test vector ported.
 
 ### Changed
 

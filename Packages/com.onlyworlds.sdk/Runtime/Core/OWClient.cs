@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Net;
 using System.Text;
 using System.Threading;
@@ -283,8 +284,23 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>DELETE /{type}/{id}/</summary>
-        public Task DeleteAsync(string type, string id, CancellationToken ct = default)
-            => RequestAsync<object>("DELETE", $"/{type}/{id}/", allowEmpty: true, write: true, ct: ct);
+        /// <param name="ifMatch">
+        /// The element's <c>change_seq</c> as you read it (keel #563), sent as <c>If-Match</c>. The delete lands only if
+        /// nothing changed since; otherwise an <see cref="OWApiError"/> with <see cref="OWApiError.IsPreconditionFailed"/>
+        /// whose <see cref="OWApiError.Current"/> is the element as it is now, and nothing is deleted. On an element
+        /// already gone it is the idempotent 204. Last, so a caller passing <paramref name="ct"/> by position keeps working.
+        /// </param>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="ifMatch"/> is negative; nothing was sent.</exception>
+        public Task DeleteAsync(string type, string id, CancellationToken ct = default, long? ifMatch = null)
+        {
+            if (ifMatch < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(ifMatch), ifMatch,
+                    "ifMatch must be a whole number, an element's change_seq.");
+            }
+
+            return RequestAsync<object>("DELETE", $"/{type}/{id}/", allowEmpty: true, write: true, ct: ct, ifMatch: ifMatch);
+        }
 
         /// <summary>
         /// POST /bulk/ -- writes many elements of mixed types in one request.
@@ -498,10 +514,10 @@ namespace OnlyWorlds.Sdk
         private async Task<T> RequestAsync<T>(
             string method, string path,
             string query = null, JObject body = null, string idempotencyKey = null,
-            bool allowEmpty = false, bool write = false, CancellationToken ct = default)
+            bool allowEmpty = false, bool write = false, CancellationToken ct = default, long? ifMatch = null)
         {
             var result = await RequestWithResponseAsync<T>(
-                method, path, query, body, idempotencyKey, allowEmpty, write, ct).ConfigureAwait(false);
+                method, path, query, body, idempotencyKey, allowEmpty, write, ct, ifMatch: ifMatch).ConfigureAwait(false);
 
             return result.Value;
         }
@@ -513,11 +529,12 @@ namespace OnlyWorlds.Sdk
         /// </summary>
         /// <param name="ifNoneMatch">A tag sent as <c>If-None-Match</c> exactly as given (keel #518, the tip read).</param>
         /// <param name="notModified">A 304 is returned with a default value instead of thrown; the caller reads the status.</param>
+        /// <param name="ifMatch">A <c>change_seq</c> sent as <c>If-Match</c>, quoted (keel #563 on a delete).</param>
         private async Task<(T Value, OWResponse Response)> RequestWithResponseAsync<T>(
             string method, string path,
             string query = null, JObject body = null, string idempotencyKey = null,
             bool allowEmpty = false, bool write = false, CancellationToken ct = default,
-            string ifNoneMatch = null, bool notModified = false)
+            string ifNoneMatch = null, bool notModified = false, long? ifMatch = null)
         {
             var url = BaseUrl + path;
             if (!string.IsNullOrEmpty(query)) url += "?" + query;
@@ -555,6 +572,7 @@ namespace OnlyWorlds.Sdk
             if (write) headers["X-OW-Client"] = ClientName;
 
             if (ifNoneMatch != null) headers["If-None-Match"] = ifNoneMatch;
+            if (ifMatch.HasValue) headers["If-Match"] = "\"" + ifMatch.Value.ToString(CultureInfo.InvariantCulture) + "\"";
 
             var request = new OWRequest
             {

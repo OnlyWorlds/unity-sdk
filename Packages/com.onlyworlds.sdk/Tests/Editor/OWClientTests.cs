@@ -573,6 +573,59 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsNull(page.Changes[1].DeletedClient);
         }
 
+        // -- Delete takes ifMatch (keel #563; npm 4.61.0's vector) -----------
+
+        private const string Fix412 = @"{""error"":{""type"":""invalid_request"",""code"":""precondition_failed"",
+            ""message"":""The element has changed since change_seq 41 (now 44)."",""param"":""If-Match"",
+            ""doc_url"":""https://onlyworlds.github.io/api/errors/#precondition_failed""},
+            ""current"":{""type"":""character"",""id"":""x"",""name"":""Theirs"",""change_seq"":44}}";
+
+        [Test]
+        public async Task Delete_WithIfMatch_SendsIfMatch_WithoutIt_NoHeader()
+        {
+            var t = new FakeTransport { Status = 204, ResponseBody = "" };
+            var c = Make(t);
+
+            await c.DeleteAsync("character", "x", ifMatch: 44);
+            Assert.AreEqual("DELETE", t.Last.Method);
+            Assert.AreEqual("\"44\"", t.Last.Headers["If-Match"], "a quoted change_seq");
+
+            await c.DeleteAsync("character", "x");
+            Assert.IsFalse(t.Last.Headers.ContainsKey("If-Match"));
+        }
+
+        [Test]
+        public void Delete_WithANegativeIfMatch_IsRefusedBeforeSending()
+        {
+            var t = new FakeTransport { Status = 204, ResponseBody = "" };
+            Assert.ThrowsAsync<System.ArgumentOutOfRangeException>(() => Make(t).DeleteAsync("character", "x", ifMatch: -1));
+            Assert.AreEqual(0, t.Calls.Count);
+        }
+
+        [Test]
+        public void Delete_AStaleOne_IsPreconditionFailed_CarryingTheElementAsItIsNow()
+        {
+            var t = new FakeTransport { Status = 412, ResponseBody = Fix412 };
+            var e = Assert.ThrowsAsync<OWApiError>(() => Make(t).DeleteAsync("character", "x", ifMatch: 41));
+
+            Assert.IsTrue(e.IsPreconditionFailed);
+            Assert.AreEqual(44, (int)e.Current["change_seq"]);
+            Assert.AreEqual("Theirs", (string)e.Current["name"]);
+        }
+
+        [Test]
+        public void PreconditionFailed_IsA412WithItsCode_AndAnErrorWithoutCurrentHasNone()
+        {
+            var other = new FakeTransport { Status = 422, ResponseBody = @"{""error"":{""code"":""precondition_failed""}}" };
+            var e = Assert.ThrowsAsync<OWApiError>(() => Make(other).DeleteAsync("character", "x"));
+
+            Assert.IsFalse(e.IsPreconditionFailed, "the code without its status");
+            Assert.IsNull(e.Current);
+
+            var html = new FakeTransport { Status = 412, ResponseBody = "<html>Precondition Failed</html>" };
+            Assert.IsNull(Assert.ThrowsAsync<OWApiError>(() => Make(html).DeleteAsync("character", "x", ifMatch: 1)).Current);
+        }
+
         // -- The front door on /me (keel #558) --------------------------------
 
         [Test]

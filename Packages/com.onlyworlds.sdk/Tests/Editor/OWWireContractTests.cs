@@ -126,11 +126,15 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             await c.CreateAsync<JObject>("character", new JObject { ["name"] = "N" });
             await c.PatchAsync<JObject>("character", "c1", new JObject { ["name"] = "M" });
             await c.DeleteAsync("character", "c1");
+            await c.DeleteAsync("character", "c1", ifMatch: 7);
             await c.EditLinksAsync<JObject>("character", "c1", "friends", add: new[] { "a1" });
             await c.BulkAsync(new[] { new OWBulkItem { Type = "character", Element = new JObject { ["name"] = "B" } } });
             t.ResponseBody = @"{""changes"":[],""has_more"":false,""head"":0}";
             await c.ChangesAsync("4:069620b9-0794-708d-8000-42b0ea685f38");
+            t.ResponseHeaders = new Dictionary<string, string> { ["etag"] = "W/\"0:-\"" };
             await c.ChangesAsync(headOnly: true);
+            await c.ChangesAsync(headOnly: true); // sends If-None-Match
+            t.ResponseHeaders = new Dictionary<string, string>();
 
             // Joining is keyless, so it is not on the client; the same transport records it. The redeem passes every
             // option at once (no real code takes all three) so each key it can put in the body is on the wire here.
@@ -408,7 +412,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public async Task TheRecordingCoversEveryCall()
         {
             // An empty recording would pass the checks above with nothing checked.
-            Assert.AreEqual(13, (await RecordEveryCall()).Count);
+            var calls = await RecordEveryCall();
+            Assert.AreEqual(15, calls.Count);
+
+            // The conditional headers are on the wire here, so the header check above saw them.
+            Assert.That(calls.Any(c => c.Headers.ContainsKey("If-Match")), "a delete with ifMatch is recorded");
+            Assert.That(calls.Any(c => c.Headers.ContainsKey("If-None-Match")), "a tip read with a tag is recorded");
         }
     }
 }

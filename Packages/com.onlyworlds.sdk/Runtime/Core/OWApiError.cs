@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.Net;
+using Newtonsoft.Json.Linq;
 
 namespace OnlyWorlds.Sdk
 {
@@ -92,6 +93,34 @@ namespace OnlyWorlds.Sdk
         /// <see cref="OWSync.IncrementalAsync"/> does this itself.
         /// </summary>
         public bool IsResyncRequired => StatusCode == 409 && Code == "resync_required";
+
+        /// <summary>
+        /// A conditional write's <c>If-Match</c> was stale (412 <c>precondition_failed</c>, keel #563 on a delete): the
+        /// element changed since the <c>change_seq</c> you sent, and nothing was written. <see cref="Current"/> is
+        /// the element as it is now; decide from it, then send again with its <c>change_seq</c>.
+        /// </summary>
+        public bool IsPreconditionFailed => StatusCode == 412 && Code == "precondition_failed";
+
+        /// <summary>
+        /// The <c>current</c> object beside a 412's envelope: the element as the server holds it now. Null on any other
+        /// answer, or when the body is not JSON.
+        /// </summary>
+        public JObject Current
+        {
+            get
+            {
+                if (StatusCode != 412 || string.IsNullOrEmpty(RawBody)) return null;
+
+                try
+                {
+                    return JObject.Parse(RawBody)["current"] as JObject;
+                }
+                catch (Exception)
+                {
+                    return null;
+                }
+            }
+        }
 
         /// <summary>
         /// Seconds to wait before retrying, from the <c>Retry-After</c> header (a delay in seconds,
