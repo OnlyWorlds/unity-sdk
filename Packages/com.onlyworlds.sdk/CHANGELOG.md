@@ -6,6 +6,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The schema pin moves to dist.42 (`v0.32.2-dist.42`; canonical `00.32.02` unchanged, and no decoded file moved).
+  The `.owworld` conformance set gains two cases, which the package's own test now runs: a stored entry shorter than
+  its declared size (`fail-OW-14-stored-short`, refused as `not_openable`) and a `mimetype` marker with a byte order
+  mark before the media type (`fail-OW-6-marker-bom`, refused as `marker`), 81 zips. The reader already refused both
+  for the cause the set names, so no read changed. The generated models changed only in their serial.
+
 ## [0.12.0] - 2026-10-22
 
 The world file's last checks, and the folder's maker. An `.owworld` entry whose bytes fail their CRC-32 now refuses

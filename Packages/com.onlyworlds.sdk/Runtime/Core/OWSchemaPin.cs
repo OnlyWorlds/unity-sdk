@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.32.02";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 40;
+        public const int DistSerial = 42;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.32.2-dist.40";
+        public const string Tag = "v0.32.2-dist.42";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -121,9 +121,16 @@ namespace OnlyWorlds.Sdk
         /// spec 4.7's size bullet), with its <c>verdicts.json</c> entry and generator lines: 79 zips. The generated models
         /// changed only in their serial stamp.
         /// </para>
+        /// <para>
+        /// <b>40 -> 42 (2026-10-22)</b>: canonical unchanged, no decoded file moved. The conformance set gained
+        /// <c>fail-OW-14-stored-short</c> (a stored entry shorter than its declared size, <c>not_openable</c>; serial 41)
+        /// and <c>fail-OW-6-marker-bom</c> (a <c>mimetype</c> marker with a byte order mark before the media type,
+        /// <c>marker</c>; serial 42), with their <c>verdicts.json</c> entries and generator lines: 81 zips. The reader
+        /// already refused both for the cause the set names. The generated models changed only in their serial stamp.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "b73fe08d76c57f3dcef2013919cd21723ff0f90dcfc03200455de5e379dc1a44";
+            "a0fff6799f44d04dbece127229576ac6e4e137b488727ebecc0a5f87f83481e0";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.

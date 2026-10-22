@@ -279,6 +279,17 @@
       "bytes": 2553
     },
     {
+      "file": "fail-OW-6-marker-bom.owworld",
+      "test": "OW-6",
+      "role": "reader",
+      "reader": "refuse",
+      "writer": "refuse",
+      "rule": "The UTF-8 byte order mark before the media type: a reader that decodes the entry as text first drops the mark and passes it (the TypeScript reader did, SDK 4.53.2 fixed it, Kael h58 #9992); the bytes are compared as bytes, so these are other bytes, refused.",
+      "reason": "marker",
+      "sha256": "be68b474abf796d01faceeb5409abec6239ee2702d6dcd9973b30bfa83b41c63",
+      "bytes": 2555
+    },
+    {
       "file": "pass-OW-6-marker-deflated.owworld",
       "test": "OW-6",
       "role": "reader",
@@ -498,6 +509,17 @@
       "reason": "too_big",
       "sha256": "3bf7937384c4375e84f81738a0d9e31b7f388585af587a91957b1b104984474e",
       "bytes": 2613
+    },
+    {
+      "file": "fail-OW-14-stored-short.owworld",
+      "test": "OW-14",
+      "role": "reader",
+      "reader": "refuse",
+      "writer": "refuse",
+      "rule": "A stored entry declares 137 bytes and holds 73: fewer than it declares is a broken entry, not_openable (only more is too_big; Skeld h58 #9944).",
+      "reason": "not_openable",
+      "sha256": "c260c8122affc5d37ec0d86f308b15d7e4985e0d1771d61d487a189544849a07",
+      "bytes": 2615
     },
     {
       "file": "fail-OW-14-crc.owworld",
