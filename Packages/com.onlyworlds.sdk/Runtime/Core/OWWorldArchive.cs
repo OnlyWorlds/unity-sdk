@@ -166,8 +166,9 @@ namespace OnlyWorlds.Sdk
         /// </para>
         /// <para>
         /// <see cref="OWWorldArchiveReadOptions"/> sets another budget for one read: lower, for a caller that wants
-        /// less held in memory, or higher, for a world known to be larger. A media file is never inflated, so only an
-        /// archive whose elements reach the budget costs that much memory.
+        /// less held in memory, or higher, for a world known to be larger. A media file is inflated only to check its
+        /// CRC-32, through one buffer, and never held, so only an archive whose elements reach the budget costs that
+        /// much memory.
         /// </para>
         /// </remarks>
         public const long DefaultMaxBytes = 2L << 30;
@@ -503,8 +504,9 @@ namespace OnlyWorlds.Sdk
         /// <remarks>
         /// <para>
         /// In memory because extracting to disk was nearly the whole cost: Tuvsh Ul's 3,832 entries took 5.5-8 s
-        /// through a temp folder, against 0.33 s to unzip in memory (harness, 2026-10-20). <c>media/</c> stays in
-        /// the zip: nothing reads it yet.
+        /// through a temp folder, against 0.33 s to unzip in memory (harness, 2026-10-20). <c>media/</c> and
+        /// <c>records/</c> are not returned (nothing reads them yet), but every file in the archive is checked against
+        /// its size and CRC-32, as the TypeScript reader checks them: a corrupt image refuses the archive.
         /// </para>
         /// <para>
         /// Every entry name is checked before anything is read, and must be a plain relative path, <c>/</c>-separated
@@ -522,7 +524,8 @@ namespace OnlyWorlds.Sdk
         /// the size it declares, and one that holds more refuses the archive there: what is held in memory never
         /// passes the budget. The TypeScript reader's rule; the default numbers are the spec's floor. An entry that is
         /// read must also hold exactly the bytes it declares and match its CRC-32 (OW-14), or the archive is refused
-        /// (<c>not_openable</c>), never read as other text.
+        /// (<c>not_openable</c>), never read as other text; so must every other file in the archive, which is checked
+        /// through one buffer and never held.
         /// </para>
         /// <para>
         /// And every entry must be one that lands safely on any disk, anywhere in the archive, not only in the world:
@@ -545,7 +548,7 @@ namespace OnlyWorlds.Sdk
         /// Its <see cref="OWFolderFormatException.Reason"/> names the cause (<see cref="OWWorldArchiveReason"/>). Not a
         /// zip; an entry name that is not a plain relative path, or is repeated, colliding or unsafe; a path both a
         /// file and a folder, a link, an encrypted entry or one in a method other than stored or deflate; past the
-        /// budget, or an entry inflating past its declared size; a read entry that is broken, short or fails its CRC-32;
+        /// budget, or an entry inflating past its declared size; an entry that is broken, short or fails its CRC-32;
         /// a marker holding other bytes; no world or more than
         /// one in it, a nested one included; or the world's own <c>world.json</c> is unreadable.
         /// </exception>
@@ -603,7 +606,7 @@ namespace OnlyWorlds.Sdk
                     CheckEntry(directory[i], entry.FullName, path);
 
                     // A stored entry holds its bytes as they are, so its stored size is its size: one that holds more
-                    // than it declares lies as a zip bomb does (OW-14), found here without reading it (media/ never is).
+                    // than it declares lies as a zip bomb does (OW-14), found here without reading it.
                     if (directory[i].Method == MethodStored && entry.CompressedLength != entry.Length)
                     {
                         throw Hostile(
@@ -677,12 +680,20 @@ namespace OnlyWorlds.Sdk
 
                 // Every name and the shape are settled before one byte of content is inflated, as the TypeScript reader
                 // orders it, so an archive with two faults is refused for the same one by every reader.
+                // Every file is checked against its headers, in the archive's order; only the world's read entries are
+                // kept. The rest (media/, records/, what sits beside the world) are inflated through one buffer and let
+                // go: a corrupt image refuses the archive as a corrupt element does (§4.7: "an entry whose bytes fail its
+                // CRC"), and holding them costs no memory.
                 var entries = new List<KeyValuePair<string, string>>();
                 foreach (var (entry, path, record) in named)
                 {
-                    if (!path.StartsWith(root, StringComparison.Ordinal)) continue;
-                    var relative = path.Substring(root.Length);
-                    if (!IsRead(relative, includeLegacySpatial)) continue;
+                    if (path == MarkerEntry) continue; // checked above
+                    var relative = path.StartsWith(root, StringComparison.Ordinal) ? path.Substring(root.Length) : null;
+                    if (relative == null || !IsRead(relative, includeLegacySpatial))
+                    {
+                        Inflate(entry, record, keep: false);
+                        continue;
+                    }
 
                     entries.Add(new KeyValuePair<string, string>(relative, ReadText(entry, record)));
                 }
@@ -754,11 +765,15 @@ namespace OnlyWorlds.Sdk
         /// never skipped as an unreadable file would be in a folder: it is a broken archive, and the TypeScript reader
         /// and the reference checker refuse it.
         /// </exception>
-        private static MemoryStream Inflate(ZipArchiveEntry entry, DirectoryRecord record)
+        /// <param name="entry">The entry.</param>
+        /// <param name="record">Its central-directory record, for the CRC-32.</param>
+        /// <param name="keep">False checks the entry and keeps nothing: the result is null.</param>
+        private static MemoryStream Inflate(ZipArchiveEntry entry, DirectoryRecord record, bool keep = true)
         {
-            var held = new MemoryStream();
+            var held = keep ? new MemoryStream() : null;
             var buffer = new byte[81920];
             var crc = Crc32Start;
+            long total = 0;
             try
             {
                 using (var input = entry.Open())
@@ -766,10 +781,11 @@ namespace OnlyWorlds.Sdk
                     int read;
                     while ((read = input.Read(buffer, 0, buffer.Length)) > 0)
                     {
-                        if (read > entry.Length - held.Length)
+                        if (read > entry.Length - total)
                             throw Hostile(OWWorldArchiveReason.TooBig, entry.FullName, $"inflates past the {entry.Length} bytes it declares");
                         crc = Crc32Update(crc, buffer, read);
-                        held.Write(buffer, 0, read);
+                        held?.Write(buffer, 0, read);
+                        total += read;
                     }
                 }
             }
@@ -783,10 +799,10 @@ namespace OnlyWorlds.Sdk
                     $"The archive's entry '{entry.FullName}' cannot be inflated ({e.GetType().Name}: {e.Message}); refusing the archive.", e);
             }
 
-            if (held.Length != entry.Length)
+            if (total != entry.Length)
             {
                 throw Hostile(OWWorldArchiveReason.NotOpenable, entry.FullName,
-                    $"holds {held.Length} bytes and declares {entry.Length}");
+                    $"holds {total} bytes and declares {entry.Length}");
             }
 
             var actual = ~crc;
@@ -796,7 +812,7 @@ namespace OnlyWorlds.Sdk
                     $"fails its CRC-32 (its bytes give {actual:x8}, its header says {record.Crc32:x8})");
             }
 
-            held.Position = 0;
+            if (held != null) held.Position = 0;
             return held;
         }
 

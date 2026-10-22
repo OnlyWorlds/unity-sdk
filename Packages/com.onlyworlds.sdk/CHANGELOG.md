@@ -36,7 +36,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   central directory's. In the same pass, an entry that inflates to fewer bytes than it declares, or whose deflate
   stream is broken, refuses the archive as `not_openable` (it was skipped like an unreadable file in a folder), and a
   `mimetype` marker that is a broken entry refuses as `not_openable`, not `marker`: the TypeScript reader's and the
-  reference checker's causes.
+  reference checker's causes. Every file in the archive is checked this way, not only the ones the read returns: a
+  corrupt image under `media/`, a broken file under `records/` or beside the world refuses the archive too, as in the
+  TypeScript reader. Those files are inflated through one buffer and never held, so the read's memory is unchanged.
 - A folder read (`OWFolderReader.Read`, `ReadEntries`, and so an `.owworld` read and `LoadInto`) no longer takes a
   tool's litter for an element (folder spec §4): a dot-prefixed folder under `elements/` (`.atlas/`) is not read, and
   a dot-prefixed file in a type directory (an editor's swap file, a sync client's `._` twin) is skipped and listed in

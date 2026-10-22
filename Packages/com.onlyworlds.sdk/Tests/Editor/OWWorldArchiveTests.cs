@@ -830,23 +830,34 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [Test]
         public void Read_AcceptsUpToTheFloorsBytes_ByDefault_AndRefusesOneByteMore()
         {
-            // A media file is never inflated, so declaring its size is enough to put the archive at the floor.
+            // The budget is held from declared sizes alone, so declaring a media file's size puts the archive at the
+            // floor without a 2 GiB file. That file then lies (it holds 1 byte), which the later check of every entry
+            // refuses as a broken entry: inside the budget means refused for that, never for MaxBytes.
             var world = WorldJson(WId, "W");
             var archive = MakeZip("floor.owworld",
                 ("w/world.json", world), ("w/elements/character/one.json", ElementBody), ("w/media/big.bin", "x"));
             long others = Encoding.UTF8.GetByteCount(world) + Encoding.UTF8.GetByteCount(ElementBody);
 
+            void InsideTheBudget(string why, OWWorldArchiveReadOptions options = null)
+            {
+                var past = Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Read(archive, options: options));
+                Assert.AreEqual(OWWorldArchiveReason.NotOpenable, past.Reason, why);
+                StringAssert.Contains("holds 1 bytes and declares", past.Message, why);
+            }
+
             DeclareSize(archive, "w/media/big.bin", (uint)(OWWorldArchive.DefaultMaxBytes - others));
-            Assert.AreEqual(1, OWWorldArchive.Read(archive).Elements.Count, "Exactly 2 GiB declared: inside the floor.");
+            InsideTheBudget("Exactly 2 GiB declared: inside the floor.");
 
             DeclareSize(archive, "w/media/big.bin", (uint)(OWWorldArchive.DefaultMaxBytes - others + 1));
-            StringAssert.Contains("MaxBytes", Refused(archive).Message);
+            var over = Refused(archive);
+            Assert.AreEqual(OWWorldArchiveReason.TooBig, over.Reason);
+            StringAssert.Contains("MaxBytes", over.Message);
 
             // A caller's lower budget still holds.
             DeclareSize(archive, "w/media/big.bin", 1u << 30);
             var lower = new OWWorldArchiveReadOptions { MaxBytes = 1L << 30 };
-            Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Read(archive, options: lower));
-            Assert.AreEqual(1, OWWorldArchive.Read(archive).Elements.Count, "1 GiB and more is inside the floor.");
+            StringAssert.Contains("MaxBytes", Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Read(archive, options: lower)).Message);
+            InsideTheBudget("1 GiB and more is inside the floor.");
         }
 
         [Test]
@@ -956,6 +967,33 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var s = Refused(shorter);
             Assert.AreEqual(OWWorldArchiveReason.NotOpenable, s.Reason);
             StringAssert.Contains($"holds {Encoding.UTF8.GetByteCount(ElementBody)} bytes and declares", s.Message);
+        }
+
+        [TestCase("w/media/a.png")]
+        [TestCase("w/records/lab/ledger.bin")]
+        [TestCase("README.txt")] // beside the world, outside it
+        public void Read_RefusesAnyFileWhoseBytesFailItsCrc_NotOnlyTheOnesItReads(string name)
+        {
+            // §4.7: "an entry whose bytes fail its CRC refuses the archive". The read returns none of these, but the
+            // TypeScript reader and the reference checker check every file, so a corrupt image refuses here too.
+            var archive = WorldZip("crc-any.owworld", (name, "bytes the world never reads"));
+            Assert.AreEqual(1, OWWorldArchive.Read(archive).Elements.Count, "Untouched, the world reads.");
+
+            FlipCrc(archive, name);
+            var e = Refused(archive);
+            Assert.AreEqual(OWWorldArchiveReason.NotOpenable, e.Reason);
+            StringAssert.Contains($"'{name}' fails its CRC-32", e.Message);
+        }
+
+        [Test]
+        public void Read_RefusesAMediaFileThatInflatesPastItsDeclaredSize()
+        {
+            // The lying size (OW-14) in a deflated image: refused when it is checked, as in an element.
+            var archive = WorldZip("media-lying.owworld", ("w/media/a.png", new string('x', 4096)));
+            DeclareSize(archive, "w/media/a.png", 64);
+            var e = Refused(archive);
+            Assert.AreEqual(OWWorldArchiveReason.TooBig, e.Reason);
+            StringAssert.Contains("inflates past the 64 bytes it declares", e.Message);
         }
 
         /// <summary>Flips the lowest bit of the CRC-32 an entry declares, in its local header (14) and its central record (16).</summary>
