@@ -15,6 +15,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   `DefaultMaxEntries`; the new `OWWorldArchiveReadOptions` (`MaxBytes`, `MaxEntries`), passed to `Read` or
   `LoadInto`, raises them for one read. The size every reader must accept is not yet ruled, so the defaults may
   move. Parity with the TypeScript SDK, its test vectors ported.
+- **An `.owworld` entry name must be a plain relative path** (folder spec §4.7, OW-16, ruled strict):
+  `OWWorldArchive.Read` (and so `LoadInto` and the importer) refuses an archive with an entry name that holds a
+  backslash, or has an empty, `.` or `..` segment, whatever it would resolve to. Before, `w\x.json`,
+  `w//x.json`, `w/./x.json` and `w/a/../x.json` were resolved and read; one name with two spellings is a file two
+  readers can take for different entries. The TypeScript reader's rule.
 
 ### Fixed
 

@@ -409,11 +409,12 @@ namespace OnlyWorlds.Sdk
         /// the zip: nothing reads it yet.
         /// </para>
         /// <para>
-        /// Every entry name is checked before anything is read. One that is absolute (<c>/x</c>, <c>C:/x</c>) or
-        /// climbs out of the archive (<c>../x</c>) refuses the whole archive; so does one written under the world's
-        /// folder that climbs out of it (<c>w/../x</c>), and a second entry of one name. An
-        /// archive someone sent is untrusted input, and an importer runs on it unasked: nothing is written, but a
-        /// hostile name must not become an element's path.
+        /// Every entry name is checked before anything is read, and must be a plain relative path, <c>/</c>-separated
+        /// (folder spec §4.7, OW-16, strict): one that is absolute (<c>/x</c>, <c>C:/x</c>), holds a backslash, or has
+        /// an empty, <c>.</c> or <c>..</c> segment refuses the whole archive, whatever it would resolve to
+        /// (<c>w/a/../b.json</c> too), and so does a second entry of one name. An archive someone sent is untrusted
+        /// input, and an importer runs on it unasked: nothing is written, but a hostile name must not become an
+        /// element's path, and one name must not have two spellings.
         /// </para>
         /// <para>
         /// So is its size held to a budget before anything is inflated: more files than
@@ -436,7 +437,7 @@ namespace OnlyWorlds.Sdk
         /// </remarks>
         /// <exception cref="FileNotFoundException">The archive does not exist.</exception>
         /// <exception cref="OWFolderFormatException">
-        /// Not a zip; an absolute, climbing, repeated, colliding or unsafe entry name, a path both a file and a folder,
+        /// Not a zip; an entry name that is not a plain relative path, or is repeated, colliding or unsafe; a path both a file and a folder,
         /// a link, an encrypted entry or one in a method other than stored or deflate; past the budget, or an entry
         /// inflating past its declared size; no world or more than one in it, a nested one included; or the world's
         /// own <c>world.json</c> is unreadable.
@@ -474,7 +475,7 @@ namespace OnlyWorlds.Sdk
 
                 // Every name and the budget are checked against the archive first, before the world is even found
                 // and before one byte is inflated: the central directory gives each entry's name and declared size.
-                var named = new List<(ZipArchiveEntry entry, string written, string resolved)>(zip.Entries.Count);
+                var named = new List<(ZipArchiveEntry entry, string path)>(zip.Entries.Count);
                 var names = new HashSet<string>(StringComparer.Ordinal);
                 var filePaths = new HashSet<string>(StringComparer.Ordinal);
                 var folderPaths = new HashSet<string>(StringComparer.Ordinal);
@@ -484,22 +485,19 @@ namespace OnlyWorlds.Sdk
                 for (var i = 0; i < zip.Entries.Count; i++)
                 {
                     var entry = zip.Entries[i];
-                    var written = NormalizeEntry(entry.FullName);
+                    var written = entry.FullName ?? string.Empty;
                     var isFolder = written.EndsWith("/", StringComparison.Ordinal);
-                    var path = isFolder ? written.TrimEnd('/') : written;
+                    var path = isFolder ? written.Substring(0, written.Length - 1) : written;
 
-                    var resolved = IsAbsolute(path) ? null : Resolve(path);
-                    if (resolved == null) throw Hostile(entry.FullName, "is absolute or climbs out of the archive");
+                    var fault = PathFault(path);
+                    if (fault != null) throw Hostile(entry.FullName, fault);
 
                     CheckEntry(directory[i], entry.FullName, path);
-                    if (resolved.Length > 0)
-                    {
-                        if (!names.Add(isFolder ? resolved + "/" : resolved))
-                            throw Hostile(entry.FullName, $"is a second entry named '{resolved}'");
-                        CheckCollision(resolved, entry.FullName, folded);
-                        AddFolders(resolved, isFolder, folderPaths);
-                        if (!isFolder) filePaths.Add(resolved);
-                    }
+                    if (!names.Add(isFolder ? path + "/" : path))
+                        throw Hostile(entry.FullName, $"is a second entry named '{path}'");
+                    CheckCollision(path, entry.FullName, folded);
+                    AddFolders(path, isFolder, folderPaths);
+                    if (!isFolder) filePaths.Add(path);
 
                     if (isFolder) continue;
 
@@ -518,9 +516,7 @@ namespace OnlyWorlds.Sdk
                     }
 
                     declared += entry.Length;
-                    if (resolved.Length == 0) continue;
-
-                    named.Add((entry, written, resolved));
+                    named.Add((entry, path));
                 }
 
                 // A path that is a file and also a folder of another path cannot both land on a disk.
@@ -533,18 +529,14 @@ namespace OnlyWorlds.Sdk
                     }
                 }
 
-                var root = FindWorldRoot(named.Select(n => n.resolved));
+                var root = FindWorldRoot(named.Select(n => n.path));
 
-                // Then against the world: an entry written under the world's folder must resolve inside it.
+                // Then the world's own entries: every name is already a plain path, so its place is its name.
                 var entries = new List<KeyValuePair<string, string>>();
-                var seen = new HashSet<string>(StringComparer.Ordinal);
-                foreach (var (entry, written, _) in named)
+                foreach (var (entry, path) in named)
                 {
-                    if (!written.StartsWith(root, StringComparison.Ordinal)) continue;
-
-                    var relative = Resolve(written.Substring(root.Length));
-                    if (relative == null) throw Hostile(entry.FullName, "climbs out of its world");
-                    if (!seen.Add(relative)) throw Hostile(entry.FullName, $"is a second entry named '{relative}'");
+                    if (!path.StartsWith(root, StringComparison.Ordinal)) continue;
+                    var relative = path.Substring(root.Length);
 
                     // records/ is a producer's own data, which may hold a world.json; anywhere else it is a second world.
                     if (relative != WorldFile && relative.EndsWith("/" + WorldFile, StringComparison.Ordinal)
@@ -620,31 +612,29 @@ namespace OnlyWorlds.Sdk
         private static OWFolderFormatException Hostile(string entryName, string why)
             => new OWFolderFormatException($"The archive's entry '{entryName}' {why}; refusing the archive.");
 
-        /// <summary>A rooted name (<c>/x</c>, <c>//server/x</c> once slashes are normalized) or a drive (<c>C:x</c>).</summary>
-        private static bool IsAbsolute(string name)
-            => name.StartsWith("/", StringComparison.Ordinal) || (name.Length > 1 && name[1] == ':');
-
         /// <summary>
-        /// A <c>/</c>-separated relative path with its <c>.</c>, <c>..</c> and empty segments resolved; null when a
-        /// <c>..</c> climbs above where the path starts.
+        /// Why an entry's name (a folder's without its one trailing <c>/</c>) is not a plain relative path, or null:
+        /// a backslash, a root (<c>/x</c>, <c>//server/x</c>), a drive (<c>C:x</c>), or an empty, <c>.</c> or
+        /// <c>..</c> segment.
         /// </summary>
-        private static string Resolve(string name)
+        /// <remarks>
+        /// Strict, as folder spec §4.7 rules OW-16 ("whatever they would resolve to"): <c>w/a/../b.json</c> and
+        /// <c>w\b.json</c> refuse the archive though they would land inside it. Resolving them is a second spelling of
+        /// one name, and readers that resolve differently disagree on which file an entry is.
+        /// </remarks>
+        private static string PathFault(string name)
         {
-            var kept = new List<string>();
+            if (name.IndexOf('\\') >= 0) return "holds a backslash; a zip's only separator is '/'";
+            if (name.StartsWith("/", StringComparison.Ordinal) || (name.Length > 1 && name[1] == ':'))
+                return "is absolute (a root, a server or a drive)";
+
             foreach (var segment in name.Split('/'))
             {
-                if (segment.Length == 0 || segment == ".") continue;
-                if (segment == "..")
-                {
-                    if (kept.Count == 0) return null;
-                    kept.RemoveAt(kept.Count - 1);
-                    continue;
-                }
-
-                kept.Add(segment);
+                if (segment.Length == 0 || segment == "." || segment == "..")
+                    return "has an empty, '.' or '..' segment; an entry name is a plain relative path, whatever it would resolve to";
             }
 
-            return string.Join("/", kept);
+            return null;
         }
 
         // -- What an entry may be ------------------------------------------------
@@ -692,14 +682,12 @@ namespace OnlyWorlds.Sdk
         /// character.
         /// </summary>
         /// <remarks>
-        /// Empty, <c>.</c> and <c>..</c> segments are the path rules' (<see cref="Resolve"/>), never a name's.
+        /// Runs after <see cref="PathFault"/>, so every segment is a name: none is empty, <c>.</c> or <c>..</c>.
         /// </remarks>
         private static string NameFault(string path)
         {
             foreach (var segment in path.Split('/'))
             {
-                if (segment.Length == 0 || segment == "." || segment == "..") continue;
-
                 foreach (var c in segment)
                 {
                     if (c < 0x20 || c == 0x7F)

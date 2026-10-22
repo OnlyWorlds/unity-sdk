@@ -896,28 +896,37 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             StringAssert.Contains("refusing the archive", e.Message);
         }
 
-        [Test]
-        public void Read_RefusesTwoEntriesOfOneName_AfterNormalizing()
+        [TestCase(@"w\elements\character\one.json", "backslash")] // would be a second spelling of one.json
+        [TestCase(@"w\elements\character\two.json", "backslash")]
+        [TestCase("w/elements/location/../character/two.json", "'..' segment")] // stays inside the world
+        [TestCase("w/elements/./character/two.json", "'..' segment")]
+        [TestCase("w//elements/character/two.json", "'..' segment")]
+        [TestCase("w/elements/character//", "'..' segment")] // a folder entry with an empty segment
+        [TestCase("./w/media/a.png", "'..' segment")]
+        public void Read_RefusesASoftPath_WhateverItWouldResolveTo(string soft, string said)
         {
-            var archive = MakeZip("twice.owworld",
+            // Folder spec §4.7, OW-16, ruled strict: an entry name is a plain relative path. Before, these were
+            // resolved and read (a backslash as '/', '.' and empty segments dropped, '..' climbed back inside).
+            var archive = MakeZip("soft.owworld",
                 ("w/world.json", WorldJson("0695db52-0000-7000-8000-0000000000aa", "W")),
                 ("w/elements/character/one.json", ElementBody),
-                (@"w\elements\character\one.json", ElementBody.Replace("One", "Other")));
+                (soft, ElementBody.Replace("e1\"", "e2\"")));
 
             var e = Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Read(archive));
-            StringAssert.Contains("second entry", e.Message);
+            StringAssert.Contains(said, e.Message);
+            StringAssert.Contains("refusing the archive", e.Message);
         }
 
         [Test]
-        public void Read_ResolvesAClimbThatStaysInside_ToItsPlainPath()
+        public void Read_AcceptsFolderEntries_TheirOneTrailingSlashIsNoEmptySegment()
         {
-            var archive = MakeZip("inside.owworld",
+            var archive = MakeZip("folders.owworld",
+                ("w/", string.Empty),
+                ("w/elements/", string.Empty),
                 ("w/world.json", WorldJson("0695db52-0000-7000-8000-0000000000aa", "W")),
-                ("w/elements/location/../character/./one.json", ElementBody));
+                ("w/elements/character/one.json", ElementBody));
 
-            var read = OWWorldArchive.Read(archive);
-            Assert.AreEqual("elements/character/one.json", read.Elements.Single().Path);
-            Assert.AreEqual("character", read.Elements.Single().Type);
+            Assert.AreEqual("elements/character/one.json", OWWorldArchive.Read(archive).Elements.Single().Path);
         }
 
         // -- Entries that land safely on any disk (owworld-as-tests OW-5, OW-17 to OW-22) ----------------
