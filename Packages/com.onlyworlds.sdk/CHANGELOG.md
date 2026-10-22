@@ -6,6 +6,17 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **The client's name on every element write** (keel #520): `OWClientConfig.Client` names the software that
+  writes, sent as `X-OW-Client` on `CreateAsync`, `PatchAsync`, `DeleteAsync`, `EditLinksAsync` and `BulkAsync`, never
+  on a read. keel stores it on the element as `OWElement.ChangedClient` and on a `/changes` delete as the new
+  `OWChange.DeletedClient`, so a reader can tell which tool made a change. Left null it is `unity-sdk`
+  (`OWClient.DefaultClientName`); a game or tool passes its own (`"atlas"`). The rule is keel's, `[a-z0-9-]{1,32}`
+  (lower case letters, digits and hyphens, no version): anything else, the empty string included, is an
+  `ArgumentException` when the client is built, never trimmed. The name is the client's claim, not proof, and it
+  changes no permission: an agent still sets `Agent`. Parity with the TypeScript SDK 4.56.0, its test vector ported.
+
 ### Changed
 
 - **A folder export declares folder format 0.3.15** (`OWFolderExport.FormatVersion`), with the onlyworlds Python

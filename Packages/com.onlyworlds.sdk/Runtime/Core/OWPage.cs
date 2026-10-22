@@ -81,6 +81,14 @@ namespace OnlyWorlds.Sdk
         /// <summary>On a delete: the door it came through (<see cref="OWWriteDoor"/>), or null.</summary>
         [JsonProperty("deleted_via")]
         public string DeletedVia;
+
+        /// <summary>
+        /// On a delete: the name the deleting client gave in its <c>X-OW-Client</c> header (keel #520), as an
+        /// element's <see cref="OWElement.ChangedClient"/>: the client's claim, never proof. Null when none was
+        /// recorded, and on a <c>hidden</c> row.
+        /// </summary>
+        [JsonProperty("deleted_client")]
+        public string DeletedClient;
     }
 
     /// <summary>A page of the <c>/changes</c> feed.</summary>

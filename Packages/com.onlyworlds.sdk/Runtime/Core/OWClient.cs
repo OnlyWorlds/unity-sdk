@@ -29,6 +29,22 @@ namespace OnlyWorlds.Sdk
         /// recorded as an agent without it.
         /// </summary>
         public bool Agent;
+
+        /// <summary>
+        /// This client's own name, sent as <c>X-OW-Client</c> on every element write (create, patch, delete, link
+        /// edit, bulk) and on no read (keel #520). keel stores it on the element as
+        /// <see cref="OWElement.ChangedClient"/>, and on a <c>/changes</c> delete as <see cref="OWChange.DeletedClient"/>,
+        /// so a reader can tell which tool made a change. Null (the default) sends
+        /// <see cref="OWClient.DefaultClientName"/>; a game or tool passes its own.
+        /// </summary>
+        /// <remarks>
+        /// The rule is keel's: lower case letters, digits and hyphens, 1 to 32 characters (<c>[a-z0-9-]{1,32}</c>),
+        /// no version (<c>atlas</c>, not <c>atlas-1.76</c>). Anything else, the empty string included, is an
+        /// <see cref="ArgumentException"/> when the client is built, and nothing is trimmed (keel would store null
+        /// for it). It is the client's claim about itself, not proof, and it changes no permission and no door:
+        /// whether an agent made a write is <see cref="Agent"/>'s business.
+        /// </remarks>
+        public string Client;
     }
 
     /// <summary>
@@ -54,7 +70,13 @@ namespace OnlyWorlds.Sdk
         private readonly IOWTransport _transport;
         private readonly bool _agent;
 
+        /// <summary>The name sent as <c>X-OW-Client</c> when <see cref="OWClientConfig.Client"/> is null.</summary>
+        public const string DefaultClientName = "unity-sdk";
+
         public string BaseUrl { get; }
+
+        /// <summary>The name this client sends as <c>X-OW-Client</c> on element writes (keel #520).</summary>
+        public string ClientName { get; }
         public int PageSize { get; }
         public OWKeyKind KeyKind { get; }
 
@@ -74,6 +96,33 @@ namespace OnlyWorlds.Sdk
             BaseUrl = (config.BaseUrl ?? "https://www.onlyworlds.com/api/v2").TrimEnd('/');
             PageSize = config.PageSize > 0 ? config.PageSize : 100;
             KeyKind = OWKey.DetectKind(config.ApiKey);
+            ClientName = ClientNameOf(config.Client);
+        }
+
+        /// <summary>
+        /// keel #520's rule for <c>X-OW-Client</c>, exact here: keel trims and stores null for anything else, this
+        /// client refuses it. Checked by hand, not by a regex, whose <c>$</c> would let a trailing newline through.
+        /// </summary>
+        private static string ClientNameOf(string value)
+        {
+            if (value == null) return DefaultClientName;
+
+            var ok = value.Length >= 1 && value.Length <= 32;
+            foreach (var c in value)
+            {
+                if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-')) ok = false;
+            }
+
+            if (!ok)
+            {
+                throw new ArgumentException(
+                    $"Client must be lower case letters, digits and hyphens, 1 to 32 characters ([a-z0-9-]{{1,32}}), "
+                    + $"such as 'atlas'; got \"{value}\". It is sent as X-OW-Client on element writes; leave it null "
+                    + $"for '{DefaultClientName}'.",
+                    "config");
+            }
+
+            return value;
         }
 
         // -- World meta -------------------------------------------------------
@@ -417,6 +466,11 @@ namespace OnlyWorlds.Sdk
             // keel #299 (D104): presence is the declaration, the value is never stored. Opt-in, and
             // on the element writes alone, the operations keel's document declares it on.
             if (_agent && write) headers["X-OW-Agent"] = "1";
+
+            // keel #520: the client's own name, on the element writes, never on a read. Every write this client has
+            // is an element write; npm's elementWrite flag exists because its hide, file ticket, setMyCharacter and
+            // mintWorldKey take X-OW-Agent and not X-OW-Client. Split the flag when a write like those arrives here.
+            if (write) headers["X-OW-Client"] = ClientName;
 
             var request = new OWRequest
             {

@@ -334,6 +334,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
         [TestCase(typeof(OWJoinPreview), "/api/v2/join/preview", "POST")]
         [TestCase(typeof(OWJoined), "/api/v2/join", "POST")]
+        [TestCase(typeof(OWChangesPage), "/api/v2/changes", "GET")]
         public void EveryKeyAJoinModelReads_IsOneKeelServes(Type model, string path, string method)
         {
             var op = Wire["paths"]?[path]?[method] as JObject;

@@ -372,6 +372,100 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsTrue(OWWriteDoor.IsAgent(page.Changes[0].DeletedVia));
         }
 
+        // -- The client's name (keel #520: X-OW-Client; npm 4.56.0's vector) --
+
+        private static OWClient MakeNamed(FakeTransport t, string client)
+            => new OWClient(new OWClientConfig
+            {
+                ApiKey = "ow_w_test",
+                ApiPin = "0000",
+                Transport = t,
+                BaseUrl = "https://example.test/api/v2",
+                Client = client,
+            });
+
+        [Test]
+        public async Task Client_IsUnitySdkByDefault_OnEveryElementWrite()
+        {
+            var t = new FakeTransport();
+            await RunEveryWrite(MakeNamed(t, null));
+
+            Assert.AreEqual(5, t.Calls.Count);
+            foreach (var call in t.Calls)
+            {
+                Assert.IsTrue(call.Headers.ContainsKey("X-OW-Client"), $"{call.Method} {call.Url} should name the client.");
+                Assert.AreEqual("unity-sdk", call.Headers["X-OW-Client"], $"{call.Method} {call.Url}");
+            }
+        }
+
+        [TestCase("atlas")]
+        [TestCase("a-1")]
+        [TestCase("zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz")] // 32: inside the rule
+        public async Task Client_AGivenName_RidesEveryElementWriteInstead(string name)
+        {
+            var t = new FakeTransport();
+            await RunEveryWrite(MakeNamed(t, name));
+
+            Assert.AreEqual(5, t.Calls.Count);
+            foreach (var call in t.Calls) Assert.AreEqual(name, call.Headers["X-OW-Client"], $"{call.Method} {call.Url}");
+        }
+
+        [Test]
+        public async Task Client_NoReadCarriesTheName()
+        {
+            var t = new FakeTransport();
+            var c = MakeNamed(t, "atlas");
+            await c.GetWorldAsync();
+            await c.GetMeAsync();
+            await c.GetAsync<JObject>("character", "c1");
+            t.ResponseBody = @"{""data"":[],""has_more"":false}";
+            await c.ListAsync<JObject>("character");
+            t.ResponseBody = @"{""changes"":[],""has_more"":false,""head"":0}";
+            await c.ChangesAsync();
+            await c.ChangesAsync(headOnly: true);
+
+            Assert.AreEqual(6, t.Calls.Count);
+            foreach (var call in t.Calls)
+            {
+                Assert.IsFalse(call.Headers.ContainsKey("X-OW-Client"),
+                    $"{call.Method} {call.Url}: keel reads the name on the element writes only.");
+            }
+        }
+
+        [Test]
+        public void Client_ANameOutsideTheRule_IsRefusedAtConstruction_NamingTheOptionAndTheRule()
+        {
+            var bad = new[]
+            {
+                "Atlas", "", new string('z', 33), "a b", " atlas", "atlas\n", "atlas_1", (char)0xE4 + "tlas", "atlas ",
+            };
+
+            foreach (var name in bad)
+            {
+                var t = new FakeTransport();
+                var e = Assert.Throws<System.ArgumentException>(() => MakeNamed(t, name), $"'{name}'");
+                StringAssert.Contains("Client", e.Message, $"'{name}'");
+                StringAssert.Contains("[a-z0-9-]", e.Message, $"'{name}'");
+                StringAssert.Contains("32", e.Message, $"'{name}'");
+                Assert.AreEqual(0, t.Calls.Count);
+            }
+
+            Assert.DoesNotThrow(() => MakeNamed(new FakeTransport(), null));
+        }
+
+        [Test]
+        public void ChangeFeed_ReadsTheDeletingClientsName()
+        {
+            var page = OWJson.Deserialize<OWChangesPage>(
+                @"{""changes"":[{""op"":""delete"",""type"":""character"",""id"":""c1"",""change_seq"":9,
+                    ""deleted_by"":null,""deleted_via"":""api"",""deleted_client"":""atlas""},
+                    {""op"":""delete"",""type"":""character"",""id"":""c2"",""change_seq"":10,""deleted_client"":null}],
+                  ""has_more"":false,""head"":10}");
+
+            Assert.AreEqual("atlas", page.Changes[0].DeletedClient);
+            Assert.IsNull(page.Changes[1].DeletedClient);
+        }
+
         // -- Errors -----------------------------------------------------------
 
         [Test]
