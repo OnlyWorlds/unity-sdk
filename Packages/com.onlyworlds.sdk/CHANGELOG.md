@@ -8,6 +8,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Added
 
+- **A world's own words for the types** (the names profile, schema-dist serial 48): `OWNames.TypeWord(world, type,
+  supertype, many)` reads the World's `x_names` and returns the word a tool prints for a type, such as *Employee* for a
+  Character in a work world or *AI agent* for one with supertype `Agent`, or null for the standard's name. The
+  supertype's word comes first, matched trimmed and without regard to case, then the type's; a plural is asked with
+  `many`. A value that is not a names map reads as null everywhere, and a bad entry is ignored, never an error. A
+  display lookup only: the API, folders, the schema and every id keep the standard's names. It is a port of the
+  TypeScript SDK's `typeWord`, checked by the profile's conformance fixture, vendored (`OWNamesTests`: 23 cases).
 - **`OWElement.ChangedClient`** (keel #520, schema-dist serial 46): the name the client gave on an element's last
   write, such as `atlas`, or null. The client's claim about itself, never proof. Read-only like the other server
   fields; before, it landed among an element's extensions.
@@ -18,7 +25,8 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   room profile gains its mark, `x_room_of` (45), and defines "trimmed and without regard to case" once for every
   profile (47); element bodies carry `changed_client` (46, keel #520), so the example export the envelope tests read
   moved; two profiles join the dist, `checks` (47, house rules on a work world's Charter, which this SDK does not read)
-  and `names` (48, a world's own words for the types). The generated models changed only in their serial.
+  and `names` (48, a world's own words for the types, read by `OWNames` above). The generated models changed only in
+  their serial.
 
 ## [0.13.0] - 2026-10-22
 

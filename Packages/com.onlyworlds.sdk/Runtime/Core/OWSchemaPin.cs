@@ -145,8 +145,9 @@ namespace OnlyWorlds.Sdk
         /// regard to case" once for every profile (47). Element bodies carry <c>changed_client</c> beside
         /// <c>changed_by</c> and <c>changed_via</c> (46, keel #520): the example export and the folder lint's body keys
         /// say so, and the export is re-vendored for <c>OWEnvelopeReaderTests</c>. Two profiles joined: <c>checks</c>
-        /// (47, <c>x_checks_rules</c> on a work world's Charter) and <c>names</c> (48, <c>x_names</c> on the World, a
-        /// world's own words for the types), neither read here yet. <c>presentation.json</c>, <c>schema_walk.py</c> and
+        /// (47, <c>x_checks_rules</c> on a work world's Charter), which this SDK does not read, and <c>names</c> (48,
+        /// <c>x_names</c> on the World, a world's own words for the types), read by <see cref="OWNames"/>, its fixture
+        /// vendored for <c>OWNamesTests</c>. <c>presentation.json</c>, <c>schema_walk.py</c> and
         /// <c>rulings.yaml</c> are byte-identical; the generated models changed only in their serial stamp.
         /// </para>
         /// </remarks>
