@@ -12,21 +12,70 @@ namespace OnlyWorlds.Sdk
     /// <summary>The budget <see cref="OWWorldArchive.Read"/> holds an archive to, as the TypeScript reader's are.</summary>
     /// <remarks>
     /// An archive someone sent is untrusted input, and an importer opens it unasked: past either limit it is refused
-    /// before anything is inflated. Raise them for one read of a world known to be larger.
+    /// before anything is inflated. The defaults are folder spec §4.7's floor, the size every reader accepts; lower
+    /// them to hold less, or raise them for one read of a world known to be larger.
     /// </remarks>
     public sealed class OWWorldArchiveReadOptions
     {
         /// <summary>
         /// The most bytes the archive's files may hold uncompressed, all files counted, by their declared sizes.
-        /// <see cref="OWWorldArchive.DefaultMaxBytes"/> (1 GiB) by default.
+        /// <see cref="OWWorldArchive.DefaultMaxBytes"/> (2 GiB) by default.
         /// </summary>
         public long MaxBytes = OWWorldArchive.DefaultMaxBytes;
 
         /// <summary>
         /// The most files the archive may hold, directories not counted. <see cref="OWWorldArchive.DefaultMaxEntries"/>
-        /// (200,000) by default.
+        /// (500,000) by default.
         /// </summary>
         public int MaxEntries = OWWorldArchive.DefaultMaxEntries;
+    }
+
+    /// <summary>
+    /// Why <see cref="OWWorldArchive.Read"/> refused an archive: the values of
+    /// <see cref="OWFolderFormatException.Reason"/>, one cause from folder spec §4.7's shared list.
+    /// </summary>
+    /// <remarks>
+    /// The names are the spec's, the same the TypeScript reader and the conformance fixture set use, so a refusal can
+    /// be compared across readers ("a reader that refuses for a different cause fails the case"). The exception's
+    /// message says which entry and why, in words.
+    /// </remarks>
+    public static class OWWorldArchiveReason
+    {
+        /// <summary>Not a zip, or a zip that cannot be read (its central directory cannot be walked; spanned).</summary>
+        public const string NotOpenable = "not_openable";
+
+        /// <summary>No <c>world.json</c> at the root or in one top-level folder, or one that is not a world.</summary>
+        public const string NotAWorld = "not_a_world";
+
+        /// <summary>More than one world: two top-level worlds, or a second <c>world.json</c> inside the world.</summary>
+        public const string MoreThanOne = "more_than_one";
+
+        /// <summary>An entry name that is not a plain relative path, or a path both a file and a folder.</summary>
+        public const string UnsafePath = "unsafe_path";
+
+        /// <summary>Past the budget's bytes, declared or inflated.</summary>
+        public const string TooBig = "too_big";
+
+        /// <summary>Past the budget's file count.</summary>
+        public const string TooMany = "too_many";
+
+        /// <summary>Two entries of one name.</summary>
+        public const string Duplicate = "duplicate";
+
+        /// <summary>Two names that are one after NFC then simple case folding.</summary>
+        public const string Collision = "collision";
+
+        /// <summary>A symbolic link or another special file, by its Unix mode.</summary>
+        public const string Link = "link";
+
+        /// <summary>An encrypted entry, or one compressed with a method other than stored or deflate.</summary>
+        public const string Method = "method";
+
+        /// <summary>A name that would not land on every disk, or a non-ASCII name without the UTF-8 flag.</summary>
+        public const string Name = "name";
+
+        /// <summary>A <c>mimetype</c> marker that holds other bytes than <see cref="OWWorldArchive.MediaType"/>.</summary>
+        public const string Marker = "marker";
     }
 
     /// <summary>
@@ -58,9 +107,9 @@ namespace OnlyWorlds.Sdk
     /// </para>
     /// <para>
     /// <b>The rule: no key travels.</b> <c>world.json</c>'s <c>api</c> block is dropped unless the caller asks to keep
-    /// it. That block holds an API key, and an archive is made to be shared: committed with a project, sent, shipped
-    /// in a build. The spec's rule for a copy to share is this one: it "may drop the <c>api</c> block, which holds a
-    /// key, and nothing else". Nothing else in <c>world.json</c> changes.
+    /// it (a private copy, not a portable <c>.owworld</c>). That block holds an API key, and an archive is made to be
+    /// shared: committed with a project, sent, shipped in a build. Nothing else in <c>world.json</c> changes. A read
+    /// strips the block from whatever archive it meets and never returns it (folder spec §4.7, OW-10).
     /// </para>
     /// <para>
     /// <b>Known gap, media.</b> <see cref="Pack"/> carries <c>media/</c> (it is world content), but
@@ -72,6 +121,20 @@ namespace OnlyWorlds.Sdk
     {
         /// <summary>The file extension, without its dot.</summary>
         public const string Extension = "owworld";
+
+        /// <summary>
+        /// The <c>.owworld</c> media type, the bytes of the marker entry (folder spec §4.7, OW-6): ASCII, no newline.
+        /// </summary>
+        /// <remarks>
+        /// A reader never requires the marker (every file made before §4.7 has none), and refuses one that holds
+        /// other bytes. The type is in the <c>vnd.</c> tree; its registration with IANA is a separate act.
+        /// </remarks>
+        public const string MediaType = "application/vnd.onlyworlds.world+zip";
+
+        /// <summary>The marker entry's name, at the archive's root: EPUB's shape, the media type as the whole file.</summary>
+        internal const string MarkerEntry = "mimetype";
+
+        private static readonly byte[] MediaTypeBytes = Encoding.ASCII.GetBytes(MediaType);
 
         /// <summary>
         /// The time stamped on every entry: the zip format's own epoch, 1980-01-01 00:00.
@@ -92,27 +155,28 @@ namespace OnlyWorlds.Sdk
         internal const string RecordsFolder = "records";
 
         /// <summary>
-        /// The most an archive's files may hold uncompressed, by default: 1 GiB. <see cref="Read"/> refuses past it.
+        /// The most an archive's files may hold uncompressed, by default: 2 GiB, the spec's floor.
+        /// <see cref="Read"/> refuses past it.
         /// </summary>
         /// <remarks>
         /// <para>
-        /// The TypeScript SDK's reader budget (<c>WORLD_FILE_MAX_BYTES</c> in <c>world-file.ts</c>, Atlas's), so one
-        /// file opens or is refused the same in both. Sikelia today is 25 MB in 20,570 files.
+        /// Folder spec §4.7 (OW-15): "the floor every reader accepts is 500,000 entries and 2 GiB", which means zip64
+        /// on read (a classic zip holds at most 65,535 entries; <see cref="Read"/> reads zip64). A smaller default
+        /// would refuse a file every other reader opens. Sikelia today is 25 MB in 20,570 files.
         /// </para>
         /// <para>
-        /// Not decided: what the spec's floor is, the size every reader must accept. Boss proposes 500,000 elements
-        /// and 2 GiB, which needs zip64 (a classic zip holds at most 65,535 entries; zip64 in Unity's .NET Standard
-        /// 2.1 profile is unmeasured). The floor is the Captain's to rule; these defaults follow the TypeScript
-        /// reader's until then, and <see cref="OWWorldArchiveReadOptions"/> raises them for one read.
+        /// <see cref="OWWorldArchiveReadOptions"/> sets another budget for one read: lower, for a caller that wants
+        /// less held in memory, or higher, for a world known to be larger. A media file is never inflated, so only an
+        /// archive whose elements reach the budget costs that much memory.
         /// </para>
         /// </remarks>
-        public const long DefaultMaxBytes = 1L << 30;
+        public const long DefaultMaxBytes = 2L << 30;
 
         /// <summary>
-        /// The most files an archive may hold, by default: 200,000, the TypeScript SDK's <c>WORLD_FILE_MAX_ENTRIES</c>
-        /// (an open question, as <see cref="DefaultMaxBytes"/> says).
+        /// The most files an archive may hold, by default: 500,000, the spec's floor (folder spec §4.7, OW-15; see
+        /// <see cref="DefaultMaxBytes"/>).
         /// </summary>
-        public const int DefaultMaxEntries = 200_000;
+        public const int DefaultMaxEntries = 500_000;
 
         // -- Pack ---------------------------------------------------------------
 
@@ -122,10 +186,11 @@ namespace OnlyWorlds.Sdk
         /// <param name="worldFolder">Directory containing <c>world.json</c>.</param>
         /// <param name="archivePath">The archive to write. Replaced if it exists. Must not be inside the folder.</param>
         /// <param name="keepApiBlock">
-        /// Keep <c>world.json</c>'s <c>api</c> block. Off by default: that block holds an API key, and an archive is
-        /// a copy made to be shared -- committed, sent, shipped. The spec's rule for a copy to share is exactly this:
-        /// it "may drop the <c>api</c> block, which holds a key, and nothing else". A <c>world.json</c> with no
-        /// <c>api</c> block goes in byte for byte; one that loses it is re-emitted in the format's own bytes.
+        /// Keep <c>world.json</c>'s <c>api</c> block: a private copy, for the caller's own machine, and <b>not a
+        /// portable <c>.owworld</c></b> (folder spec §4.7, OW-10: a writer never emits the block). Off by default:
+        /// that block holds an API key, and an archive is a copy made to be shared -- committed, sent, shipped. A
+        /// <c>world.json</c> with no <c>api</c> block goes in byte for byte; one that loses it is re-emitted in the
+        /// format's own bytes. <see cref="Read"/> strips the block from any archive, this one included.
         /// </param>
         /// <returns>The entry names written, in order.</returns>
         /// <remarks>
@@ -137,9 +202,15 @@ namespace OnlyWorlds.Sdk
         /// (see the class's first rule).
         /// </para>
         /// <para>
-        /// Deterministic: entries in ordinal path order, each stamped <see cref="EntryTime"/>, so the same folder
-        /// packs to the same bytes whatever the file system's listing order or the files' mtimes. Same bytes across
-        /// runtimes is not claimed: the deflate stream is the runtime's zlib.
+        /// Deterministic: entries in the order of their names' UTF-8 bytes (code point order, folder spec §4.7,
+        /// OW-13), each stamped <see cref="EntryTime"/>, so the same folder packs to the same bytes whatever the file
+        /// system's listing order or the files' mtimes. Same bytes across runtimes is not claimed: the deflate stream
+        /// is the runtime's zlib.
+        /// </para>
+        /// <para>
+        /// No <c>mimetype</c> marker is written yet. Folder spec §4.7 (OW-6) has a writer SHOULD place one first and
+        /// stored, but Mono's <see cref="ZipArchive"/> writes <see cref="CompressionLevel.NoCompression"/> as deflate
+        /// (method 8), and a deflated marker breaks the shape a reader may check; an absent one breaks nothing.
         /// </para>
         /// </remarks>
         /// <exception cref="DirectoryNotFoundException">The folder does not exist.</exception>
@@ -192,7 +263,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// What <see cref="Pack"/> would write: each file's path inside the world (forward slashes) and on disk, in
-        /// ordinal path order. Reads directory listings only.
+        /// code point order. Reads directory listings only.
         /// </summary>
         internal static List<(string relative, string source)> PackPlan(string worldFolder)
         {
@@ -208,11 +279,35 @@ namespace OnlyWorlds.Sdk
             var records = Path.Combine(root, RecordsFolder);
             if (Directory.Exists(records)) CollectRecords(records, RecordsFolder, plan);
 
-            // Ordinal, never the file system's order: NTFS lists case-insensitively, ext4 in hash order, and the
-            // archive's bytes must not depend on which one packed it.
-            plan.Sort((a, b) => string.CompareOrdinal(a.relative, b.relative));
+            // By code point, never the file system's order: NTFS lists case-insensitively, ext4 in hash order, and
+            // the archive's bytes must not depend on which one packed it.
+            plan.Sort((a, b) => CompareByCodePoint(a.relative, b.relative));
             return plan;
         }
+
+        /// <summary>
+        /// Orders two names by code point, which is the order of their UTF-8 bytes (folder spec §4.7, OW-13), where
+        /// <see cref="string.CompareOrdinal(string, string)"/> orders UTF-16 code units.
+        /// </summary>
+        /// <remarks>
+        /// The two differ only where a surrogate (a code point past U+FFFF, such as an emoji) meets a unit from
+        /// U+E000 to U+FFFF (a fullwidth letter, a private-use character): UTF-16 puts the surrogate first, code point
+        /// order puts it last. Shifting the surrogates above that range and that range down below them gives code
+        /// point order unit by unit, with no decoding.
+        /// </remarks>
+        private static int CompareByCodePoint(string a, string b)
+        {
+            var shared = Math.Min(a.Length, b.Length);
+            for (var i = 0; i < shared; i++)
+            {
+                if (a[i] != b[i]) return InCodePointOrder(a[i]) - InCodePointOrder(b[i]);
+            }
+
+            return a.Length - b.Length;
+        }
+
+        private static int InCodePointOrder(char unit)
+            => unit < 0xD800 ? unit : unit >= 0xE000 ? unit - 0x800 : unit + 0x2000;
 
         private static void Collect(string dir, string relative, List<(string relative, string source)> into)
         {
@@ -310,9 +405,9 @@ namespace OnlyWorlds.Sdk
                     $"world.json in '{root}' has no id (a non-empty string), so it cannot be packed as a world.");
             }
 
-            if (keepApiBlock || world.Property("api") == null) return bytes;
+            if (keepApiBlock || world.Property(ApiBlock) == null) return bytes;
 
-            world.Remove("api");
+            world.Remove(ApiBlock);
             return new UTF8Encoding(false).GetBytes(OWFolderWriter.Serialize(world));
         }
 
@@ -345,8 +440,9 @@ namespace OnlyWorlds.Sdk
         /// </summary>
         /// <param name="entryNames">Every entry name in the archive.</param>
         /// <exception cref="OWFolderFormatException">
-        /// No world, or more than one. Never a guess: a zip with two worlds in it opened as one of them is the wrong
-        /// world with a correct-looking UI, the failure the cache's key exists to prevent.
+        /// No world (its <see cref="OWFolderFormatException.Reason"/> <c>not_a_world</c>), or more than one
+        /// (<c>more_than_one</c>). Never a guess: a zip with two worlds in it opened as one of them is the wrong world
+        /// with a correct-looking UI, the failure the cache's key exists to prevent.
         /// </exception>
         /// <remarks>
         /// Only <c>world.json</c> directly at the root or directly in a top-level folder counts; a top-level
@@ -377,13 +473,13 @@ namespace OnlyWorlds.Sdk
 
             if (roots.Count == 0)
             {
-                throw new OWFolderFormatException(
+                throw new OWFolderFormatException(OWWorldArchiveReason.NotAWorld,
                     "No world.json in the archive. An .owworld holds one world: world.json at its root, or one "
                     + "top-level folder holding world.json.");
             }
 
             var named = string.Join(", ", roots.Select(r => r.Length == 0 ? "(root)" : r.TrimEnd('/')));
-            throw new OWFolderFormatException(
+            throw new OWFolderFormatException(OWWorldArchiveReason.MoreThanOne,
                 $"The archive holds {roots.Count} worlds ({named}). One world per archive: pack each on its own.");
         }
 
@@ -400,7 +496,9 @@ namespace OnlyWorlds.Sdk
         /// </param>
         /// <returns>
         /// The folder read's result, with each element's and skipped file's <c>Path</c> its path inside the world
-        /// (<c>elements/character/x.json</c>, forward slashes).
+        /// (<c>elements/character/x.json</c>, forward slashes). Its <c>World</c> never carries an <c>api</c> block:
+        /// one in the archive is stripped (folder spec §4.7, OW-10), so the result is never
+        /// <see cref="OWFolderReadResult.IsSyncable"/>.
         /// </returns>
         /// <remarks>
         /// <para>
@@ -409,11 +507,12 @@ namespace OnlyWorlds.Sdk
         /// the zip: nothing reads it yet.
         /// </para>
         /// <para>
-        /// Every entry name is checked before anything is read. One that is absolute (<c>/x</c>, <c>C:/x</c>) or
-        /// climbs out of the archive (<c>../x</c>) refuses the whole archive; so does one written under the world's
-        /// folder that climbs out of it (<c>w/../x</c>), and a second entry of one name. An
-        /// archive someone sent is untrusted input, and an importer runs on it unasked: nothing is written, but a
-        /// hostile name must not become an element's path.
+        /// Every entry name is checked before anything is read, and must be a plain relative path, <c>/</c>-separated
+        /// (folder spec §4.7, OW-16, strict): one that is absolute (<c>/x</c>, <c>C:/x</c>), holds a backslash, or has
+        /// an empty, <c>.</c> or <c>..</c> segment refuses the whole archive, whatever it would resolve to
+        /// (<c>w/a/../b.json</c> too), and so does a second entry of one name. An archive someone sent is untrusted
+        /// input, and an importer runs on it unasked: nothing is written, but a hostile name must not become an
+        /// element's path, and one name must not have two spellings.
         /// </para>
         /// <para>
         /// So is its size held to a budget before anything is inflated: more files than
@@ -421,7 +520,7 @@ namespace OnlyWorlds.Sdk
         /// <see cref="OWWorldArchiveReadOptions.MaxBytes"/>, refuses the archive from its directory alone. A declared
         /// size can lie (a zip bomb is a small file that inflates to gigabytes), so each entry is inflated at most to
         /// the size it declares, and one that holds more refuses the archive there: what is held in memory never
-        /// passes the budget. The TypeScript reader's rule, by its numbers.
+        /// passes the budget. The TypeScript reader's rule; the default numbers are the spec's floor.
         /// </para>
         /// <para>
         /// And every entry must be one that lands safely on any disk, anywhere in the archive, not only in the world:
@@ -433,13 +532,19 @@ namespace OnlyWorlds.Sdk
         /// non-ASCII name without the zip's UTF-8 flag. Inside the world, a second <c>world.json</c> anywhere but
         /// under <c>records/</c> is a second world.
         /// </para>
+        /// <para>
+        /// A <c>mimetype</c> entry at the archive's root is the marker (OW-6): never required, and when present it
+        /// must hold exactly <see cref="MediaType"/>, or the archive is refused. Its shape (first, stored) is a
+        /// writer's rule, not checked here.
+        /// </para>
         /// </remarks>
         /// <exception cref="FileNotFoundException">The archive does not exist.</exception>
         /// <exception cref="OWFolderFormatException">
-        /// Not a zip; an absolute, climbing, repeated, colliding or unsafe entry name, a path both a file and a folder,
-        /// a link, an encrypted entry or one in a method other than stored or deflate; past the budget, or an entry
-        /// inflating past its declared size; no world or more than one in it, a nested one included; or the world's
-        /// own <c>world.json</c> is unreadable.
+        /// Its <see cref="OWFolderFormatException.Reason"/> names the cause (<see cref="OWWorldArchiveReason"/>). Not a
+        /// zip; an entry name that is not a plain relative path, or is repeated, colliding or unsafe; a path both a
+        /// file and a folder, a link, an encrypted entry or one in a method other than stored or deflate; past the
+        /// budget, or an entry inflating past its declared size; a marker holding other bytes; no world or more than
+        /// one in it, a nested one included; or the world's own <c>world.json</c> is unreadable.
         /// </exception>
         public static OWFolderReadResult Read(
             string archivePath, bool includeLegacySpatial = true, OWWorldArchiveReadOptions options = null)
@@ -457,7 +562,8 @@ namespace OnlyWorlds.Sdk
             catch (InvalidDataException e)
             {
                 stream.Dispose();
-                throw new OWFolderFormatException($"'{archivePath}' is not a zip archive.", e);
+                throw new OWFolderFormatException(OWWorldArchiveReason.NotOpenable,
+                    $"'{archivePath}' is not a zip archive.", e);
             }
 
             using (zip)
@@ -468,13 +574,13 @@ namespace OnlyWorlds.Sdk
                 var directory = ReadCentralDirectory(stream);
                 if (directory == null || directory.Count != entryCount)
                 {
-                    throw new OWFolderFormatException(
+                    throw new OWFolderFormatException(OWWorldArchiveReason.NotOpenable,
                         $"'{archivePath}' has a central directory that cannot be walked entry by entry; refusing the archive.");
                 }
 
                 // Every name and the budget are checked against the archive first, before the world is even found
                 // and before one byte is inflated: the central directory gives each entry's name and declared size.
-                var named = new List<(ZipArchiveEntry entry, string written, string resolved)>(zip.Entries.Count);
+                var named = new List<(ZipArchiveEntry entry, string path)>(zip.Entries.Count);
                 var names = new HashSet<string>(StringComparer.Ordinal);
                 var filePaths = new HashSet<string>(StringComparer.Ordinal);
                 var folderPaths = new HashSet<string>(StringComparer.Ordinal);
@@ -484,43 +590,48 @@ namespace OnlyWorlds.Sdk
                 for (var i = 0; i < zip.Entries.Count; i++)
                 {
                     var entry = zip.Entries[i];
-                    var written = NormalizeEntry(entry.FullName);
+                    var written = entry.FullName ?? string.Empty;
                     var isFolder = written.EndsWith("/", StringComparison.Ordinal);
-                    var path = isFolder ? written.TrimEnd('/') : written;
+                    var path = isFolder ? written.Substring(0, written.Length - 1) : written;
 
-                    var resolved = IsAbsolute(path) ? null : Resolve(path);
-                    if (resolved == null) throw Hostile(entry.FullName, "is absolute or climbs out of the archive");
+                    var fault = PathFault(path);
+                    if (fault != null) throw Hostile(OWWorldArchiveReason.UnsafePath, entry.FullName, fault);
 
                     CheckEntry(directory[i], entry.FullName, path);
-                    if (resolved.Length > 0)
+
+                    // A stored entry holds its bytes as they are, so its stored size is its size: one that holds more
+                    // than it declares lies as a zip bomb does (OW-14), found here without reading it (media/ never is).
+                    if (directory[i].Method == MethodStored && entry.CompressedLength != entry.Length)
                     {
-                        if (!names.Add(isFolder ? resolved + "/" : resolved))
-                            throw Hostile(entry.FullName, $"is a second entry named '{resolved}'");
-                        CheckCollision(resolved, entry.FullName, folded);
-                        AddFolders(resolved, isFolder, folderPaths);
-                        if (!isFolder) filePaths.Add(resolved);
+                        throw Hostile(
+                            entry.CompressedLength > entry.Length ? OWWorldArchiveReason.TooBig : OWWorldArchiveReason.NotOpenable,
+                            entry.FullName, $"is stored and declares {entry.Length} bytes but holds {entry.CompressedLength}");
                     }
+
+                    if (!names.Add(isFolder ? path + "/" : path))
+                        throw Hostile(OWWorldArchiveReason.Duplicate, entry.FullName, $"is a second entry named '{path}'");
+                    CheckCollision(path, entry.FullName, folded);
+                    AddFolders(path, isFolder, folderPaths);
+                    if (!isFolder) filePaths.Add(path);
 
                     if (isFolder) continue;
 
                     if (++files > budget.MaxEntries)
                     {
-                        throw PastBudget(archivePath, $"holds more than {budget.MaxEntries} files",
-                            nameof(budget.MaxEntries));
+                        throw PastBudget(OWWorldArchiveReason.TooMany, archivePath,
+                            $"holds more than {budget.MaxEntries} files", nameof(budget.MaxEntries));
                     }
 
                     // Compared by what is left, never by adding: two declared sizes can overflow a long (and a zip64
                     // size past long's range reads negative).
                     if (entry.Length < 0 || entry.Length > budget.MaxBytes - declared)
                     {
-                        throw PastBudget(archivePath, $"declares more than {budget.MaxBytes} bytes uncompressed",
-                            nameof(budget.MaxBytes));
+                        throw PastBudget(OWWorldArchiveReason.TooBig, archivePath,
+                            $"declares more than {budget.MaxBytes} bytes uncompressed", nameof(budget.MaxBytes));
                     }
 
                     declared += entry.Length;
-                    if (resolved.Length == 0) continue;
-
-                    named.Add((entry, written, resolved));
+                    named.Add((entry, path));
                 }
 
                 // A path that is a file and also a folder of another path cannot both land on a disk.
@@ -528,29 +639,35 @@ namespace OnlyWorlds.Sdk
                 {
                     if (filePaths.Contains(folder))
                     {
-                        throw new OWFolderFormatException(
+                        throw new OWFolderFormatException(OWWorldArchiveReason.UnsafePath,
                             $"The archive's path '{folder}' is both a file and a folder; refusing the archive.");
                     }
                 }
 
-                var root = FindWorldRoot(named.Select(n => n.resolved));
-
-                // Then against the world: an entry written under the world's folder must resolve inside it.
-                var entries = new List<KeyValuePair<string, string>>();
-                var seen = new HashSet<string>(StringComparer.Ordinal);
-                foreach (var (entry, written, _) in named)
+                // The marker (OW-6) is never required, but one that is there must say exactly what the file is.
+                foreach (var (entry, path) in named)
                 {
-                    if (!written.StartsWith(root, StringComparison.Ordinal)) continue;
+                    if (path == MarkerEntry && !HoldsTheMediaType(entry))
+                    {
+                        throw Hostile(OWWorldArchiveReason.Marker, entry.FullName,
+                            $"is the marker but does not hold exactly '{MediaType}' (ASCII, no newline)");
+                    }
+                }
 
-                    var relative = Resolve(written.Substring(root.Length));
-                    if (relative == null) throw Hostile(entry.FullName, "climbs out of its world");
-                    if (!seen.Add(relative)) throw Hostile(entry.FullName, $"is a second entry named '{relative}'");
+                var root = FindWorldRoot(named.Select(n => n.path));
+
+                // Then the world's own entries: every name is already a plain path, so its place is its name.
+                var entries = new List<KeyValuePair<string, string>>();
+                foreach (var (entry, path) in named)
+                {
+                    if (!path.StartsWith(root, StringComparison.Ordinal)) continue;
+                    var relative = path.Substring(root.Length);
 
                     // records/ is a producer's own data, which may hold a world.json; anywhere else it is a second world.
                     if (relative != WorldFile && relative.EndsWith("/" + WorldFile, StringComparison.Ordinal)
                         && !relative.StartsWith(RecordsFolder + "/", StringComparison.Ordinal))
                     {
-                        throw new OWFolderFormatException(
+                        throw new OWFolderFormatException(OWWorldArchiveReason.MoreThanOne,
                             $"The archive holds a second world.json inside its world, at '{entry.FullName}'. One world "
                             + "per archive: inside a world, a world.json belongs only under records/; refusing the archive.");
                     }
@@ -560,7 +677,42 @@ namespace OnlyWorlds.Sdk
                     entries.Add(new KeyValuePair<string, string>(relative, TryReadText(entry)));
                 }
 
-                return OWFolderReader.ReadEntries(entries, includeLegacySpatial, archivePath);
+                OWFolderReadResult read;
+                try
+                {
+                    read = OWFolderReader.ReadEntries(entries, includeLegacySpatial, archivePath);
+                }
+                catch (OWFolderFormatException e)
+                {
+                    // The folder read refuses only the world's own world.json: unparseable, not an object, no id.
+                    throw new OWFolderFormatException(OWWorldArchiveReason.NotAWorld, e.Message, e);
+                }
+
+                // OW-10: an archive is a copy made to be shared, so an api block in it is a key in the wrong place.
+                // It is stripped and never returned (so the world reads as unlinked), and the file is still read.
+                read.World?.Remove(ApiBlock);
+                return read;
+            }
+        }
+
+        /// <summary><c>world.json</c>'s key holding a linked folder's API key: never written to an archive, never read from one.</summary>
+        private const string ApiBlock = "api";
+
+        /// <summary>
+        /// True when the marker entry holds exactly <see cref="MediaType"/>'s bytes. Its declared size is compared
+        /// first, so a marker of another length is never inflated; one that cannot be inflated holds other bytes.
+        /// </summary>
+        private static bool HoldsTheMediaType(ZipArchiveEntry entry)
+        {
+            if (entry.Length != MediaTypeBytes.Length) return false;
+            try
+            {
+                var held = InflateAsDeclared(entry);
+                return held != null && held.ToArray().SequenceEqual(MediaTypeBytes);
+            }
+            catch (Exception)
+            {
+                return false;
             }
         }
 
@@ -585,7 +737,8 @@ namespace OnlyWorlds.Sdk
                 return null;
             }
 
-            if (held == null) throw Hostile(entry.FullName, $"inflates past the {entry.Length} bytes it declares");
+            if (held == null)
+                throw Hostile(OWWorldArchiveReason.TooBig, entry.FullName, $"inflates past the {entry.Length} bytes it declares");
             using (var reader = new StreamReader(held)) return reader.ReadToEnd();
         }
 
@@ -612,39 +765,37 @@ namespace OnlyWorlds.Sdk
             return held;
         }
 
-        private static OWFolderFormatException PastBudget(string archivePath, string what, string option)
-            => new OWFolderFormatException(
+        private static OWFolderFormatException PastBudget(string reason, string archivePath, string what, string option)
+            => new OWFolderFormatException(reason,
                 $"'{archivePath}' {what}, past the reader's budget (OWWorldArchiveReadOptions.{option}); "
                 + "refusing the archive.");
 
-        private static OWFolderFormatException Hostile(string entryName, string why)
-            => new OWFolderFormatException($"The archive's entry '{entryName}' {why}; refusing the archive.");
-
-        /// <summary>A rooted name (<c>/x</c>, <c>//server/x</c> once slashes are normalized) or a drive (<c>C:x</c>).</summary>
-        private static bool IsAbsolute(string name)
-            => name.StartsWith("/", StringComparison.Ordinal) || (name.Length > 1 && name[1] == ':');
+        private static OWFolderFormatException Hostile(string reason, string entryName, string why)
+            => new OWFolderFormatException(reason, $"The archive's entry '{entryName}' {why}; refusing the archive.");
 
         /// <summary>
-        /// A <c>/</c>-separated relative path with its <c>.</c>, <c>..</c> and empty segments resolved; null when a
-        /// <c>..</c> climbs above where the path starts.
+        /// Why an entry's name (a folder's without its one trailing <c>/</c>) is not a plain relative path, or null:
+        /// a backslash, a root (<c>/x</c>, <c>//server/x</c>), a drive (<c>C:x</c>), or an empty, <c>.</c> or
+        /// <c>..</c> segment.
         /// </summary>
-        private static string Resolve(string name)
+        /// <remarks>
+        /// Strict, as folder spec §4.7 rules OW-16 ("whatever they would resolve to"): <c>w/a/../b.json</c> and
+        /// <c>w\b.json</c> refuse the archive though they would land inside it. Resolving them is a second spelling of
+        /// one name, and readers that resolve differently disagree on which file an entry is.
+        /// </remarks>
+        private static string PathFault(string name)
         {
-            var kept = new List<string>();
+            if (name.IndexOf('\\') >= 0) return "holds a backslash; a zip's only separator is '/'";
+            if (name.StartsWith("/", StringComparison.Ordinal) || (name.Length > 1 && name[1] == ':'))
+                return "is absolute (a root, a server or a drive)";
+
             foreach (var segment in name.Split('/'))
             {
-                if (segment.Length == 0 || segment == ".") continue;
-                if (segment == "..")
-                {
-                    if (kept.Count == 0) return null;
-                    kept.RemoveAt(kept.Count - 1);
-                    continue;
-                }
-
-                kept.Add(segment);
+                if (segment.Length == 0 || segment == "." || segment == "..")
+                    return "has an empty, '.' or '..' segment; an entry name is a plain relative path, whatever it would resolve to";
             }
 
-            return string.Join("/", kept);
+            return null;
         }
 
         // -- What an entry may be ------------------------------------------------
@@ -660,30 +811,39 @@ namespace OnlyWorlds.Sdk
         {
             // A Unix mode sits in the external attributes' high 16 bits; none (0), a file or a folder is all a world holds.
             var kind = (record.ExternalAttributes >> 16) & UnixTypeMask;
-            if (kind == UnixSymlink) throw Hostile(entryName, "is a symbolic link");
+            if (kind == UnixSymlink) throw Hostile(OWWorldArchiveReason.Link, entryName, "is a symbolic link");
             if (kind != 0 && kind != UnixFile && kind != UnixFolder)
             {
-                throw Hostile(entryName,
+                throw Hostile(OWWorldArchiveReason.Link, entryName,
                     $"is a special file (Unix type {Convert.ToString(kind, 8)}), neither a file nor a folder");
             }
 
             // Bit 0 is encryption (ZipCrypto, or AES as method 99), bit 6 strong encryption.
-            if ((record.Flags & 0x0041) != 0) throw Hostile(entryName, "is encrypted; an .owworld is never encrypted");
+            if ((record.Flags & 0x0041) != 0)
+                throw Hostile(OWWorldArchiveReason.Method, entryName, "is encrypted; an .owworld is never encrypted");
 
             if (record.Method != MethodStored && record.Method != MethodDeflate)
             {
-                throw Hostile(entryName,
+                throw Hostile(OWWorldArchiveReason.Method, entryName,
                     $"is compressed with method {record.Method}; an .owworld holds only stored (0) and deflated (8) entries");
             }
 
             // Without bit 11 a name's bytes are in a code page the zip does not name: past ASCII, its spelling is a guess.
             if (record.NonAscii && (record.Flags & 0x0800) == 0)
             {
-                throw Hostile(entryName, "has a name that is not ASCII and lacks the zip's UTF-8 flag, so its spelling is a guess");
+                throw Hostile(OWWorldArchiveReason.Name, entryName,
+                    "has a name that is not ASCII and lacks the zip's UTF-8 flag, so its spelling is a guess");
+            }
+
+            // With bit 11 the bytes must be UTF-8; the runtime would read bad ones as U+FFFD, another name than written.
+            if (record.NotUtf8 && (record.Flags & 0x0800) != 0)
+            {
+                throw Hostile(OWWorldArchiveReason.Name, entryName,
+                    "has the zip's UTF-8 flag but a name whose bytes are not UTF-8, so its spelling is a guess");
             }
 
             var fault = NameFault(path);
-            if (fault != null) throw Hostile(entryName, fault);
+            if (fault != null) throw Hostile(OWWorldArchiveReason.Name, entryName, fault);
         }
 
         /// <summary>
@@ -692,14 +852,12 @@ namespace OnlyWorlds.Sdk
         /// character.
         /// </summary>
         /// <remarks>
-        /// Empty, <c>.</c> and <c>..</c> segments are the path rules' (<see cref="Resolve"/>), never a name's.
+        /// Runs after <see cref="PathFault"/>, so every segment is a name: none is empty, <c>.</c> or <c>..</c>.
         /// </remarks>
         private static string NameFault(string path)
         {
             foreach (var segment in path.Split('/'))
             {
-                if (segment.Length == 0 || segment == "." || segment == "..") continue;
-
                 foreach (var c in segment)
                 {
                     if (c < 0x20 || c == 0x7F)
@@ -748,7 +906,7 @@ namespace OnlyWorlds.Sdk
                 }
                 else if (!string.Equals(first, prefix, StringComparison.Ordinal))
                 {
-                    throw Hostile(entryName,
+                    throw Hostile(OWWorldArchiveReason.Collision, entryName,
                         $"names '{prefix}', which is '{first}' once case and Unicode normalization are ignored (one name on "
                         + "Windows and macOS)");
                 }
@@ -756,8 +914,9 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
-        /// One fold for a name: Unicode NFC, then a simple case fold (upper, then lower, so <c>ſ</c> meets <c>s</c>
-        /// and the Kelvin sign meets <c>k</c>).
+        /// One fold for a name, the one every reader uses (folder spec §4.7, OW-18): Unicode NFC, then simple case
+        /// folding from Unicode's own table (<see cref="OWCaseFold"/>), so <c>ς</c> meets <c>σ</c>, <c>ſ</c> meets
+        /// <c>s</c>, and <c>ß</c> stays apart from <c>ss</c>, on every runtime.
         /// </summary>
         private static string Fold(string name)
         {
@@ -770,7 +929,7 @@ namespace OnlyWorlds.Sdk
                 // Not valid UTF-16 (a lone surrogate): folded by case alone.
             }
 
-            return name.ToUpperInvariant().ToLowerInvariant();
+            return OWCaseFold.Fold(name);
         }
 
         /// <summary>Adds every folder above <paramref name="path"/>, and the path itself when it is a folder.</summary>
@@ -798,7 +957,12 @@ namespace OnlyWorlds.Sdk
 
             /// <summary>A name byte past 0x7F.</summary>
             public bool NonAscii;
+
+            /// <summary>The name's bytes are not well-formed UTF-8 (checked only when they are not ASCII).</summary>
+            public bool NotUtf8;
         }
+
+        private static readonly UTF8Encoding StrictUtf8 = new UTF8Encoding(false, true);
 
         /// <summary>
         /// The archive's central directory, one record per entry in its own order (the order
@@ -863,12 +1027,20 @@ namespace OnlyWorlds.Sdk
                         if (directory[b] > 0x7F) { nonAscii = true; break; }
                     }
 
+                    var notUtf8 = false;
+                    if (nonAscii)
+                    {
+                        try { StrictUtf8.GetString(directory, pos + DirectoryRecordSize, nameLength); }
+                        catch (ArgumentException) { notUtf8 = true; } // DecoderFallbackException is one
+                    }
+
                     records.Add(new DirectoryRecord
                     {
                         Flags = U16(directory, pos + 8),
                         Method = U16(directory, pos + 10),
                         ExternalAttributes = U32(directory, pos + 38),
                         NonAscii = nonAscii,
+                        NotUtf8 = notUtf8,
                     });
                     pos = (int)next;
                 }

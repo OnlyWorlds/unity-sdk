@@ -371,6 +371,42 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             }, entries);
         }
 
+        [Test]
+        public void Pack_WritesEntriesInUtf8ByteOrder_NotUtf16Order()
+        {
+            // Folder spec §4.7 (OW-13): the order is the UTF-8 bytes of the name, code point order. UTF-16 order
+            // (string.CompareOrdinal, JS <) puts an emoji's surrogates (D83D...) before U+E000 to U+FFFF.
+            var root = Path.Combine(_temp, "w");
+            Write(root, "world.json", WorldJson("0695db52-0000-7000-8000-0000000000aa", "W"));
+            foreach (var name in new[] { "\U0001F600.png", "Ａ.png", ".png", "z.png", "é.png", "\U00010400.png" })
+                Write(root, "media/" + name, "png");
+
+            var archive = Path.Combine(_temp, "w.owworld");
+            var entries = OWWorldArchive.Pack(root, archive);
+
+            CollectionAssert.AreEqual(new[]
+            {
+                "w/media/z.png", "w/media/é.png", "w/media/.png", "w/media/Ａ.png",
+                "w/media/\U00010400.png", "w/media/\U0001F600.png", "w/world.json",
+            }, entries);
+
+            var bytes = entries.Select(e => Encoding.UTF8.GetBytes(e)).ToList();
+            for (var i = 1; i < bytes.Count; i++)
+                Assert.Less(CompareBytes(bytes[i - 1], bytes[i]), 0, $"{entries[i - 1]} before {entries[i]}");
+            Assert.AreNotEqual(entries.OrderBy(e => e, StringComparer.Ordinal).ToList(), entries,
+                "UTF-16 order would give another order here, so this test tells the two apart.");
+
+            CollectionAssert.AreEqual(entries, EntryNames(archive), "The file holds what Pack said, in that order.");
+            Assert.AreEqual(0, OWWorldArchive.Read(archive).Elements.Count, "The names read back (the UTF-8 flag is set).");
+        }
+
+        private static int CompareBytes(byte[] a, byte[] b)
+        {
+            for (var i = 0; i < Math.Min(a.Length, b.Length); i++)
+                if (a[i] != b[i]) return a[i] - b[i];
+            return a.Length - b.Length;
+        }
+
         // -- The api block ----------------------------------------------------------
 
         [Test]
@@ -397,6 +433,34 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             OWWorldArchive.Pack(fixture, plain);
             CollectionAssert.AreEqual(File.ReadAllBytes(Path.Combine(fixture, "world.json")),
                 EntryBytes(plain, Path.GetFileName(fixture) + "/world.json"), "No api block: world.json goes in byte for byte.");
+        }
+
+        [Test]
+        public void Read_StripsAnApiBlock_NeverReturnsIt_AndStillReadsTheFile()
+        {
+            // Folder spec §4.7, OW-10: a reader strips the block and does not refuse the file (refusing would strand
+            // a person's own leaked copy). Before, Read returned it, and the world read as linked.
+            var world = "{\n  \"id\": \"" + WId + "\",\n  \"name\": \"Leaked\",\n"
+                        + "  \"api\": {\n    \"world_id\": \"0695db52-0000-7000-8000-0000000000bb\",\n    \"api_key\": \"ow_k_secret\"\n  },\n"
+                        + "  \"time_current\": 5\n}\n";
+            var archive = MakeZip("leaked.owworld", ("w/world.json", world), ("w/elements/character/one.json", ElementBody));
+
+            var read = OWWorldArchive.Read(archive);
+            Assert.IsNull(read.World["api"], "The key came back.");
+            Assert.IsFalse(read.World.ToString().Contains("ow_k_secret"));
+            Assert.IsFalse(read.IsSyncable, "A world read from an archive is never linked.");
+            Assert.AreEqual(WId, read.ServerWorldId, "No api.world_id to prefer once it is stripped.");
+            Assert.AreEqual("Leaked", read.WorldName);
+            Assert.AreEqual(5, read.World["time_current"].Value<int>(), "Only the api block goes.");
+            Assert.AreEqual(1, read.Elements.Count);
+
+            // A private copy Pack kept the block in is stripped on read the same way.
+            var root = Path.Combine(_temp, "linked");
+            Write(root, "world.json", world);
+            var kept = Path.Combine(_temp, "kept.owworld");
+            OWWorldArchive.Pack(root, kept, keepApiBlock: true);
+            StringAssert.Contains("ow_k_secret", ArchiveText(kept), "The private copy holds the key.");
+            Assert.IsNull(OWWorldArchive.Read(kept).World["api"]);
         }
 
         private string PackTo(string root, string fileName)
@@ -751,15 +815,38 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         // -- The budget (a zip bomb is refused before it is inflated) ---------------------------
 
         [Test]
-        public void Read_HoldsTheTypeScriptReadersBudget_ByDefault()
+        public void Read_HoldsTheSpecsFloor_ByDefault()
         {
-            // sdk/src/world-file.ts: WORLD_FILE_MAX_BYTES = 1024 ** 3, WORLD_FILE_MAX_ENTRIES = 200_000.
-            Assert.AreEqual(1073741824L, OWWorldArchive.DefaultMaxBytes);
-            Assert.AreEqual(200000, OWWorldArchive.DefaultMaxEntries);
+            // Folder spec §4.7 (OW-15): every reader accepts 500,000 entries and 2 GiB. The defaults were the
+            // TypeScript reader's (1 GiB, 200,000), below the floor.
+            Assert.AreEqual(2147483648L, OWWorldArchive.DefaultMaxBytes);
+            Assert.AreEqual(500000, OWWorldArchive.DefaultMaxEntries);
 
             var options = new OWWorldArchiveReadOptions();
             Assert.AreEqual(OWWorldArchive.DefaultMaxBytes, options.MaxBytes);
             Assert.AreEqual(OWWorldArchive.DefaultMaxEntries, options.MaxEntries);
+        }
+
+        [Test]
+        public void Read_AcceptsUpToTheFloorsBytes_ByDefault_AndRefusesOneByteMore()
+        {
+            // A media file is never inflated, so declaring its size is enough to put the archive at the floor.
+            var world = WorldJson(WId, "W");
+            var archive = MakeZip("floor.owworld",
+                ("w/world.json", world), ("w/elements/character/one.json", ElementBody), ("w/media/big.bin", "x"));
+            long others = Encoding.UTF8.GetByteCount(world) + Encoding.UTF8.GetByteCount(ElementBody);
+
+            DeclareSize(archive, "w/media/big.bin", (uint)(OWWorldArchive.DefaultMaxBytes - others));
+            Assert.AreEqual(1, OWWorldArchive.Read(archive).Elements.Count, "Exactly 2 GiB declared: inside the floor.");
+
+            DeclareSize(archive, "w/media/big.bin", (uint)(OWWorldArchive.DefaultMaxBytes - others + 1));
+            StringAssert.Contains("MaxBytes", Refused(archive).Message);
+
+            // A caller's lower budget still holds.
+            DeclareSize(archive, "w/media/big.bin", 1u << 30);
+            var lower = new OWWorldArchiveReadOptions { MaxBytes = 1L << 30 };
+            Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Read(archive, options: lower));
+            Assert.AreEqual(1, OWWorldArchive.Read(archive).Elements.Count, "1 GiB and more is inside the floor.");
         }
 
         [Test]
@@ -804,6 +891,38 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             DeclareSize(archive, "w/elements/character/big.json", 1);
             var e = Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Read(archive, options: budget));
             StringAssert.Contains("inflates past the 1 bytes it declares", e.Message);
+        }
+
+        [Test]
+        public void Read_RefusesAStoredEntryWhoseSizeLies_WithoutReadingIt()
+        {
+            // Folder spec §4.7 (OW-14): a stored entry holding more than it declares is the zip bomb's lie, too_big,
+            // found from the directory alone, so in media/ too, which is never read. Mono writes no stored entry, so
+            // the method is declared over a deflated one: its stored bytes are then the deflate stream.
+            var more = WorldZip("stored-more.owworld", ("w/media/a.png", "png")); // 3 bytes deflate to 5
+            SetMethod(more, "w/media/a.png", 0);
+            var e = Refused(more);
+            Assert.AreEqual(OWWorldArchiveReason.TooBig, e.Reason);
+            StringAssert.Contains("is stored and declares 3 bytes but holds", e.Message);
+
+            var fewer = WorldZip("stored-fewer.owworld", ("w/media/a.png", new string('x', 64))); // 64 deflate to a few
+            SetMethod(fewer, "w/media/a.png", 0);
+            Assert.AreEqual(OWWorldArchiveReason.NotOpenable, Refused(fewer).Reason, "Holding less is a broken entry.");
+        }
+
+        [Test]
+        public void Read_RefusesAUtf8FlaggedNameWhoseBytesAreNotUtf8()
+        {
+            // Folder spec §4.7 (OW-22): the flag says UTF-8; bytes that are not would be read as U+FFFD.
+            var archive = WorldZip("bad-utf8.owworld", ("w/media/café.png", "png"));
+            var good = Encoding.UTF8.GetBytes("w/media/café.png");
+            var bad = (byte[])good.Clone();
+            bad[Array.IndexOf(bad, (byte)0xC3)] = 0xE9; // a Latin-1 é, then 0xA9 as a stray continuation byte
+            PatchEntry(archive, "w/media/café.png", (bytes, at, central) => Array.Copy(bad, 0, bytes, at + (central ? 46 : 30), bad.Length));
+
+            var e = Refused(archive);
+            Assert.AreEqual(OWWorldArchiveReason.Name, e.Reason);
+            StringAssert.Contains("bytes are not UTF-8", e.Message);
         }
 
         /// <summary>
@@ -896,28 +1015,115 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             StringAssert.Contains("refusing the archive", e.Message);
         }
 
-        [Test]
-        public void Read_RefusesTwoEntriesOfOneName_AfterNormalizing()
+        [TestCase(@"w\elements\character\one.json", "backslash")] // would be a second spelling of one.json
+        [TestCase(@"w\elements\character\two.json", "backslash")]
+        [TestCase("w/elements/location/../character/two.json", "'..' segment")] // stays inside the world
+        [TestCase("w/elements/./character/two.json", "'..' segment")]
+        [TestCase("w//elements/character/two.json", "'..' segment")]
+        [TestCase("w/elements/character//", "'..' segment")] // a folder entry with an empty segment
+        [TestCase("./w/media/a.png", "'..' segment")]
+        public void Read_RefusesASoftPath_WhateverItWouldResolveTo(string soft, string said)
         {
-            var archive = MakeZip("twice.owworld",
+            // Folder spec §4.7, OW-16, ruled strict: an entry name is a plain relative path. Before, these were
+            // resolved and read (a backslash as '/', '.' and empty segments dropped, '..' climbed back inside).
+            var archive = MakeZip("soft.owworld",
                 ("w/world.json", WorldJson("0695db52-0000-7000-8000-0000000000aa", "W")),
                 ("w/elements/character/one.json", ElementBody),
-                (@"w\elements\character\one.json", ElementBody.Replace("One", "Other")));
+                (soft, ElementBody.Replace("e1\"", "e2\"")));
 
             var e = Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Read(archive));
-            StringAssert.Contains("second entry", e.Message);
+            StringAssert.Contains(said, e.Message);
+            StringAssert.Contains("refusing the archive", e.Message);
+        }
+
+        // -- Every refusal names its cause (folder spec §4.7) --------------------------------
+
+        [Test]
+        public void Read_NamesTheCauseOfEveryRefusal_FromTheSpecsList()
+        {
+            string Why(string archive, OWWorldArchiveReadOptions options = null)
+                => Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Read(archive, options: options)).Reason;
+
+            var notZip = Path.Combine(_temp, "not-zip.owworld");
+            File.WriteAllText(notZip, "{}");
+            Assert.AreEqual(OWWorldArchiveReason.NotOpenable, Why(notZip));
+            Assert.AreEqual(OWWorldArchiveReason.NotAWorld, Why(MakeZip("none.owworld", ("a/b.json", "{}"))));
+            Assert.AreEqual(OWWorldArchiveReason.NotAWorld, Why(MakeZip("no-id.owworld", ("w/world.json", "{}"))));
+            Assert.AreEqual(OWWorldArchiveReason.MoreThanOne, Why(MakeZip("two.owworld",
+                ("a/world.json", WorldJson(WId, "A")), ("b/world.json", WorldJson(WId, "B")))));
+            Assert.AreEqual(OWWorldArchiveReason.MoreThanOne, Why(WorldZip("nested.owworld", ("w/x/world.json", WorldJson(WId, "X")))));
+            Assert.AreEqual(OWWorldArchiveReason.UnsafePath, Why(WorldZip("climb.owworld", ("w/../x.json", "{}"))));
+            Assert.AreEqual(OWWorldArchiveReason.UnsafePath, Why(WorldZip("file-folder.owworld", ("w/media", "a"), ("w/media/a.png", "b"))));
+            Assert.AreEqual(OWWorldArchiveReason.TooBig, Why(WorldZip("big.owworld"), new OWWorldArchiveReadOptions { MaxBytes = 8 }));
+            Assert.AreEqual(OWWorldArchiveReason.TooMany, Why(WorldZip("many.owworld"), new OWWorldArchiveReadOptions { MaxEntries = 1 }));
+            Assert.AreEqual(OWWorldArchiveReason.Duplicate, Why(WorldZip("twice.owworld", ("README.txt", "1"), ("README.txt", "2"))));
+            Assert.AreEqual(OWWorldArchiveReason.Collision, Why(WorldZip("case.owworld", ("w/media/A.png", "1"), ("w/media/a.png", "2"))));
+            Assert.AreEqual(OWWorldArchiveReason.Name, Why(WorldZip("con.owworld", ("w/media/CON.png", "1"))));
+            Assert.AreEqual(OWWorldArchiveReason.Marker, Why(WorldZip("marker.owworld", ("mimetype", "application/zip"))));
+
+            var link = WorldZip("link.owworld", ("w/media/l", "x"));
+            SetUnixMode(link, "w/media/l", 0xA1FF);
+            Assert.AreEqual(OWWorldArchiveReason.Link, Why(link));
+
+            var method = WorldZip("method.owworld");
+            SetMethod(method, "w/elements/character/one.json", 14);
+            Assert.AreEqual(OWWorldArchiveReason.Method, Why(method));
+
+            // A folder's refusal has no archive cause.
+            var folder = Path.Combine(_temp, "empty-folder");
+            Directory.CreateDirectory(folder);
+            Assert.IsNull(Assert.Throws<OWFolderFormatException>(() => OWFolderReader.Read(folder)).Reason);
+        }
+
+        // -- The marker (folder spec §4.7, OW-6) --------------------------------------------
+
+        [Test]
+        public void Read_AcceptsTheMarker_AndNeverRequiresIt()
+        {
+            Assert.AreEqual("application/vnd.onlyworlds.world+zip", OWWorldArchive.MediaType);
+
+            var marked = MakeZip("marked.owworld", ("mimetype", OWWorldArchive.MediaType),
+                ("w/world.json", WorldJson(WId, "W")), ("w/elements/character/one.json", ElementBody));
+            Assert.AreEqual(1, OWWorldArchive.Read(marked).Elements.Count);
+
+            // Its shape is a writer's rule: a reader takes the right bytes deflated or late (the set's U2 reading).
+            var late = WorldZip("late.owworld", ("mimetype", OWWorldArchive.MediaType));
+            Assert.AreEqual(1, OWWorldArchive.Read(late).Elements.Count);
+
+            Assert.AreEqual(1, OWWorldArchive.Read(WorldZip("unmarked.owworld")).Elements.Count, "Never required.");
+        }
+
+        [TestCase("application/zip")]
+        [TestCase("application/vnd.onlyworlds.world+zip\n")]
+        [TestCase("application/vnd.onlyworlds.world+zip\r\n")]
+        [TestCase("﻿application/vnd.onlyworlds.world+zip")] // a BOM
+        [TestCase("APPLICATION/VND.ONLYWORLDS.WORLD+ZIP")]
+        [TestCase("application/vnd.onlyworlds.world+zi")]
+        [TestCase("")]
+        public void Read_RefusesAMarkerThatHoldsOtherBytes(string marker)
+        {
+            var archive = WorldZip("marker.owworld", ("mimetype", marker));
+            StringAssert.Contains("is the marker but does not hold exactly", Refused(archive).Message);
         }
 
         [Test]
-        public void Read_ResolvesAClimbThatStaysInside_ToItsPlainPath()
+        public void Read_AMimetypeInsideTheWorld_IsNoMarker()
         {
-            var archive = MakeZip("inside.owworld",
-                ("w/world.json", WorldJson("0695db52-0000-7000-8000-0000000000aa", "W")),
-                ("w/elements/location/../character/./one.json", ElementBody));
+            // The marker sits at the archive's root; w/mimetype is a file in the world's folder, never read.
+            var archive = WorldZip("inner.owworld", ("w/mimetype", "text/plain"));
+            Assert.AreEqual(1, OWWorldArchive.Read(archive).Elements.Count);
+        }
 
-            var read = OWWorldArchive.Read(archive);
-            Assert.AreEqual("elements/character/one.json", read.Elements.Single().Path);
-            Assert.AreEqual("character", read.Elements.Single().Type);
+        [Test]
+        public void Read_AcceptsFolderEntries_TheirOneTrailingSlashIsNoEmptySegment()
+        {
+            var archive = MakeZip("folders.owworld",
+                ("w/", string.Empty),
+                ("w/elements/", string.Empty),
+                ("w/world.json", WorldJson("0695db52-0000-7000-8000-0000000000aa", "W")),
+                ("w/elements/character/one.json", ElementBody));
+
+            Assert.AreEqual("elements/character/one.json", OWWorldArchive.Read(archive).Elements.Single().Path);
         }
 
         // -- Entries that land safely on any disk (owworld-as-tests OW-5, OW-17 to OW-22) ----------------
@@ -961,11 +1167,28 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [TestCase("w/media/café.png", "w/media/café.png")] // NFC beside NFD
         [TestCase("w/Elements/character/two.json", "w/elements/character/three.json")] // a folder, by case
         [TestCase("README.txt", "readme.TXT")] // outside the world too
+        [TestCase("w/media/ς.png", "w/media/σ.png")] // final sigma: lowercasing keeps them apart, folding does not
+        [TestCase("w/media/ſ.png", "w/media/s.png")] // long s
+        [TestCase("w/media/K.png", "w/media/k.png")] // the Kelvin sign
+        [TestCase("w/media/ꭰ.png", "w/media/Ꭰ.png")] // Cherokee, which folds to its capitals
+        [TestCase("w/media/\U00010400.png", "w/media/\U00010428.png")] // Deseret, past U+FFFF
+        [TestCase("w/media/ẞ.png", "w/media/ß.png")] // capital sharp s
+        [TestCase("w/media/Ǆ.png", "w/media/ǆ.png")]
         public void Read_RefusesNamesThatAreOneOnceCaseAndNormalizationAreIgnored(string first, string second)
         {
-            // OW-18: one file on Windows and macOS (Unicode NFC, then case).
+            // OW-18: one name after NFC then Unicode simple case folding (folder spec §4.7: one fold, every reader).
             var archive = WorldZip("collide.owworld", (first, "{}"), (second, "{}"));
             StringAssert.Contains("once case and Unicode normalization are ignored", Refused(archive).Message);
+        }
+
+        [TestCase("w/media/straße.png", "w/media/strasse.png")] // simple folding keeps ß; full folding would join them
+        [TestCase("w/media/İ.png", "w/media/i.png")] // dotted capital I: Turkic folding only
+        [TestCase("w/media/ı.png", "w/media/I.png")] // dotless i
+        [TestCase("w/media/ﬀ.png", "w/media/ff.png")] // a ligature folds to two letters only in full folding
+        public void Read_AcceptsNamesThatOnlyFullOrTurkicFoldingWouldJoin(string first, string second)
+        {
+            var archive = WorldZip("apart.owworld", (first, "{}"), (second, "{}"));
+            Assert.AreEqual(1, OWWorldArchive.Read(archive).Elements.Count);
         }
 
         [Test]
