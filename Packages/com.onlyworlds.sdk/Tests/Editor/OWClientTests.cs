@@ -573,6 +573,42 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsNull(page.Changes[1].DeletedClient);
         }
 
+        // -- The front door on /me (keel #558) --------------------------------
+
+        [Test]
+        public async Task Me_ReadsTheFrontDoor()
+        {
+            var t = new FakeTransport
+            {
+                ResponseBody = @"{""world"":{""id"":""w1"",""name"":""W""},""scope"":""write"",""kind"":""agent"",""role"":""contributor"",
+                    ""membership"":""m-bot"",""character"":""c-bot"",
+                    ""front_door"":{""sponsor"":{""id"":null,""kind"":""owner"",""name"":null},""sponsor_character"":null,
+                        ""my_character"":""c-bot"",""charter"":null,""charter_skill"":[]}}",
+            };
+
+            var door = OWFrontDoor.Of(await Make(t).GetMeAsync());
+
+            Assert.IsNull(door.Sponsor.Id, "the world's owner has no membership id");
+            Assert.AreEqual("owner", door.Sponsor.Kind);
+            Assert.IsNull(door.Sponsor.Name);
+            Assert.IsNull(door.SponsorCharacter);
+            Assert.AreEqual("c-bot", door.MyCharacter);
+            Assert.IsNull(door.Charter);
+            Assert.IsEmpty(door.CharterSkill);
+        }
+
+        [Test]
+        public void Me_AnOwnersKeyHasNoSponsor_AndAnAnswerWithoutTheDoorHasNone()
+        {
+            var owner = OWFrontDoor.Of(JObject.Parse(
+                @"{""front_door"":{""sponsor"":null,""sponsor_character"":null,""my_character"":""c-own"",""charter"":""law-1"",""charter_skill"":[""o1""]}}"));
+
+            Assert.IsNull(owner.Sponsor);
+            Assert.AreEqual("law-1", owner.Charter);
+            Assert.IsNull(OWFrontDoor.Of(JObject.Parse(@"{""kind"":""owner""}")), "an older keel sends none");
+            Assert.IsNull(OWFrontDoor.Of(null));
+        }
+
         // -- Errors -----------------------------------------------------------
 
         [Test]

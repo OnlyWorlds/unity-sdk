@@ -21,7 +21,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ""world"":{""id"":""0196f0a2-0000-7000-8000-000000000001"",""name"":""Moppetopia"",""description"":""""},
             ""seat"":{""id"":""s1"",""role"":""contributor"",""agent_name"":""Scribe""},
             ""with_character"":false,""character"":null,""key"":""ow_w_seat"",""pin"":""ow_s_secret"",
-            ""base_url"":""https://example.test/api/v2"",""env"":""OW_KEY=ow_w_seat"",""next"":[],""members"":[]}";
+            ""base_url"":""https://example.test/api/v2"",""env"":""OW_KEY=ow_w_seat"",""next"":[],""members"":[],
+            ""front_door"":{""sponsor"":{""id"":""m-sam"",""kind"":""person"",""name"":""The Mapmaker""},
+                ""sponsor_character"":""c-map"",""my_character"":null,""charter"":""law-1"",""charter_skill"":[""obj-1"",""obj-2""]}}";
 
         private const string Preview = @"{""reader"":""player"",""world"":{""name"":""Moppetopia"",""description"":""A demo""},
             ""invited_by"":""Sam"",""owner_character"":""The Mapmaker"",""role"":""guest"",""with_character"":true,
@@ -157,6 +159,30 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual("Scribe", joined.Seat.AgentName);
             Assert.IsNull(joined.Character);
             Assert.AreEqual("OW_KEY=ow_w_seat", joined.Env);
+        }
+
+        [Test]
+        public async Task AnAgentsAnswer_CarriesTheWorldsFrontDoor()
+        {
+            // keel #558 (D152): the sponsor who answers for the seat, their Character, and the Charter to read first.
+            var t = new FakeTransport { Status = 201, ResponseBody = AgentJoined };
+            var door = (await OWJoin.RedeemAsync(Code, t, agentName: "Scribe", baseUrl: Base)).FrontDoor;
+
+            Assert.IsNotNull(door);
+            Assert.AreEqual("m-sam", door.Sponsor.Id);
+            Assert.AreEqual("person", door.Sponsor.Kind);
+            Assert.AreEqual("The Mapmaker", door.Sponsor.Name);
+            Assert.AreEqual("c-map", door.SponsorCharacter);
+            Assert.IsNull(door.MyCharacter);
+            Assert.AreEqual("law-1", door.Charter);
+            CollectionAssert.AreEqual(new[] { "obj-1", "obj-2" }, door.CharterSkill);
+        }
+
+        [Test]
+        public async Task APlayersAnswer_HasNoFrontDoor()
+        {
+            var t = new FakeTransport { Status = 201, ResponseBody = PlayerJoined };
+            Assert.IsNull((await OWJoin.RedeemAsync(Code, t, baseUrl: Base)).FrontDoor);
         }
 
         [Test]

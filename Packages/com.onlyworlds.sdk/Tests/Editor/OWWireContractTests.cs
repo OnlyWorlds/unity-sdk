@@ -353,6 +353,19 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsEmpty(stale, "keel serves these now; drop them from NotServed: " + string.Join(", ", stale));
         }
 
+        [TestCase("/api/v2/me", "GET")]
+        [TestCase("/api/v2/join", "POST")]
+        public void EveryFrontDoorKey_IsOneKeelServes_AndEveryOneItServesIsRead(string path, string method)
+        {
+            // keel #558: front_door on /me and on an agent's join. GetMeAsync answers a JObject, so the model is checked here.
+            var served = Wire["paths"][path][method]["response"].Values<string>()
+                .Where(k => k.StartsWith("front_door.")).ToList();
+            var mapped = MappedKeys(typeof(OWFrontDoor), false).Select(k => "front_door." + k).ToList();
+
+            Assert.IsNotEmpty(served, $"{method} {path} serves no front_door keys in the fixture");
+            CollectionAssert.AreEquivalent(served, mapped);
+        }
+
         [Test]
         public void EveryErrorCodeAHelperNames_IsOneKeelLists()
         {

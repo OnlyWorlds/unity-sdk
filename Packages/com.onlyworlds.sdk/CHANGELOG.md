@@ -24,6 +24,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   made-up head. The client never polls on its own. `OWSync.HasChangesAsync` and `IncrementalAsync` read the tip this
   way unchanged, so a poll that mostly finds nothing costs little. Parity with the TypeScript SDK 4.57.0, its test
   vector ported.
+- **The world's front door** (keel #558): `OWFrontDoor`, who a key is in a world, who answers for it and the house
+  rules: `Sponsor` (membership id, kind and Character name of the person who answers for a seat; null for the
+  owner's keys), `SponsorCharacter`, `MyCharacter`, `Charter` (the Law to read first) and `CharterSkill` (the Objects
+  the Charter names). `OWFrontDoor.Of(me)` reads it from `GetMeAsync`'s answer, and an agent's join answer carries it
+  as `OWJoined.FrontDoor` (null for a player). Parity with the TypeScript SDK 4.60.0 (which shipped the types with no
+  test; these tests are this package's own, with a wire check that the model maps exactly the keys keel serves).
 
 ### Changed
 
