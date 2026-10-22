@@ -467,10 +467,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         // -- The rewind rule --------------------------------------------------
 
         [Test]
-        public async Task Incremental_RebaselinesWhenCursorIsAheadOfHead()
+        public async Task Incremental_RebaselinesWhenCursorIsAheadOfHead_AndKeepsWhatTheWalkDoesNotName()
         {
             // A cursor ahead of head means the server was restored from a backup: our cursor points
-            // at changes that no longer exist, so every future incremental would skip real data.
+            // at changes that no longer exist, so every future incremental would skip real data. The
+            // world is walked again, and what the copy holds that the walk does not name is kept: a
+            // reset never empties a copy (the Captain's ruling, keel PR 104; the room feed's "a head
+            // below ours walks again from zero and keeps what it no longer names", parlor/feed.test.ts).
             _cache.Upsert("stale", "character", @"{""id"":""stale"",""name"":""Old""}");
             _cache.SetCursor(9999, "t");
 
@@ -482,7 +485,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             Assert.IsTrue(result.WasRebaselined);
             Assert.AreEqual(100, _cache.Cursor, "The cursor must come down to the server's truth.");
-            Assert.IsFalse(_cache.Contains("stale"));
+            Assert.IsTrue(_cache.Contains("stale"), "a restore rewinds the server, not what this copy read");
+            Assert.AreEqual(1, result.Kept);
+            Assert.IsNull(result.ResyncReason, "no 409 was involved");
 
             // Assert the NUMBERS, not just the prose. Checking only the static suffix passes
             // whatever the interpolation says -- and it did: this message used to read

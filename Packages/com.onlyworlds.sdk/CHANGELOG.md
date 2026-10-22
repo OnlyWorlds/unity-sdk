@@ -89,6 +89,10 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   it in words. A reset whose walk fails now puts the cache and its cursor back as they were and throws, where it left
   the cache emptied. The rule the TypeScript SDK and the Python package document for their callers; the vectors are
   the crew's room feed's (view drops, role keeps) with the published doc's no-reason case.
+- **A cursor ahead of the server's head keeps the copy too**: when `OWSync.IncrementalAsync` finds the server rewound
+  (restored from a backup), it walks the world again as before, but keeps what the cache held that the restored
+  server no longer names (`OWSyncResult.Kept`), where it used to clear it, and a failed walk leaves the cache as it
+  was. A restore rewinds the server, not what this copy read.
 
 ## [0.15.0] - 2026-10-23
 

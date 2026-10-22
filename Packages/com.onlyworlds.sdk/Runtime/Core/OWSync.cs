@@ -27,8 +27,9 @@ namespace OnlyWorlds.Sdk
         public string ResyncReason;
 
         /// <summary>
-        /// On such a re-baseline for <c>role</c> or no reason: how many elements the cache held that the new walk did
-        /// not name, and kept (out of this key's view now, not gone). Zero on <c>view</c>, which drops them.
+        /// On such a re-baseline for <c>role</c> or no reason, and on one for a cursor ahead of the server's head: how
+        /// many elements the cache held that the new walk did not name, and kept (out of view or rewound, not gone).
+        /// Zero on <c>view</c>, which drops them.
         /// </summary>
         public int Kept;
 
@@ -120,7 +121,9 @@ namespace OnlyWorlds.Sdk
         /// <c>resync_required</c>. A cursor ahead of head means the server was restored from a
         /// backup: our cursor points at changes that no longer exist, so every incremental sync
         /// from here would silently skip real data. A cache that is confidently wrong is worse
-        /// than one that admits it needs rebuilding.
+        /// than one that admits it needs rebuilding. That walk keeps what the cache held and the
+        /// restored server no longer names (<see cref="OWSyncResult.Kept"/>): a restore rewinds the
+        /// server, not what this copy read.
         /// </para>
         /// <para>
         /// A resync means the key's view changed (a guest's or a contributor's, or its role), and
@@ -159,10 +162,13 @@ namespace OnlyWorlds.Sdk
                 // is gone by the time the string is built.
                 var staleCursor = cache.Cursor;
 
-                var result = await BaselineAsync(client, cache, ct: ct).ConfigureAwait(false);
+                // Walked again and KEPT: a restore rewinds the server, not what this copy read (a reset
+                // never empties a copy, the Captain's ruling, keel PR 104).
+                var result = await RewalkAsync(client, cache, keep: true, ct).ConfigureAwait(false);
                 result.RebaselineReason =
                     $"Cursor {staleCursor} was ahead of server head {tip.Head} -- the server was "
-                    + "likely restored from a backup. Rebuilt rather than trusting the cursor.";
+                    + "likely restored from a backup. Walked again rather than trusting the cursor, and kept "
+                    + $"{result.Kept} element(s) the new walk no longer names.";
                 return result;
             }
 
@@ -259,6 +265,28 @@ namespace OnlyWorlds.Sdk
         private static async Task<OWSyncResult> ResetAsync(
             OWClient client, OWWorldCache cache, string reason, CancellationToken ct)
         {
+            var keep = reason != "view";
+            var result = await RewalkAsync(client, cache, keep, ct).ConfigureAwait(false);
+
+            result.ResyncReason = reason;
+            result.RebaselineReason = keep
+                ? "The server asked for a full resync (409 resync_required, "
+                  + (reason == null ? "no reason given, kept as for role" : "reason role: this key's role or membership moved")
+                  + $"). Walked again from the start and kept {result.Kept} element(s) the new walk no longer names: "
+                  + "out of view now, not gone."
+                : "The server asked for a full resync (409 resync_required, reason view): something left this key's "
+                  + "view. Walked again from the start and dropped what the new walk no longer names.";
+            return result;
+        }
+
+        /// <summary>
+        /// A baseline that puts back, when <paramref name="keep"/>, every element the cache held that the new walk does not
+        /// name (counted in <see cref="OWSyncResult.Kept"/>); and that, when the walk throws, restores the cache and its
+        /// cursor as they were and rethrows. Both resets (a 409, a cursor ahead of head) go through it.
+        /// </summary>
+        private static async Task<OWSyncResult> RewalkAsync(
+            OWClient client, OWWorldCache cache, bool keep, CancellationToken ct)
+        {
             var held = cache.Snapshot();
             var heldCursor = cache.Cursor;
             var heldToken = cache.CursorToken;
@@ -278,7 +306,6 @@ namespace OnlyWorlds.Sdk
                 throw;
             }
 
-            var keep = reason != "view";
             if (keep)
             {
                 foreach (var element in held)
@@ -290,14 +317,6 @@ namespace OnlyWorlds.Sdk
                 }
             }
 
-            result.ResyncReason = reason;
-            result.RebaselineReason = keep
-                ? "The server asked for a full resync (409 resync_required, "
-                  + (reason == null ? "no reason given, kept as for role" : "reason role: this key's role or membership moved")
-                  + $"). Walked again from the start and kept {result.Kept} element(s) the new walk no longer names: "
-                  + "out of view now, not gone."
-                : "The server asked for a full resync (409 resync_required, reason view): something left this key's "
-                  + "view. Walked again from the start and dropped what the new walk no longer names.";
             return result;
         }
 
