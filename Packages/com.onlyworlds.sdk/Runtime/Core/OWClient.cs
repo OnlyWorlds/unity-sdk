@@ -273,14 +273,23 @@ namespace OnlyWorlds.Sdk
         /// so send only what changed. Never PATCH a link array to add one item -- that replaces the
         /// whole array; use <see cref="EditLinksAsync"/>.
         /// </remarks>
+        /// <param name="ifMatch">
+        /// The element's <c>change_seq</c> as you read it (keel #210), sent as <c>If-Match</c>. The update lands only if
+        /// nobody changed the element since; otherwise nothing is written and this throws an <see cref="OWApiError"/>
+        /// with <see cref="OWApiError.IsPreconditionFailed"/>, whose <see cref="OWApiError.Current"/> is the element as it
+        /// is now. Leave it null for an unconditional write. Last, so a caller passing <paramref name="ct"/> by
+        /// position keeps working.
+        /// </param>
         /// <exception cref="ArgumentException">
         /// The partial is a known-of stub (<see cref="OWPayload.IsKnownOf"/>); nothing was sent.
         /// </exception>
-        public Task<T> PatchAsync<T>(string type, string id, object partial, CancellationToken ct = default)
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="ifMatch"/> is negative; nothing was sent.</exception>
+        public Task<T> PatchAsync<T>(string type, string id, object partial, CancellationToken ct = default, long? ifMatch = null)
         {
+            RefuseNegative(ifMatch);
             var raw = JObject.FromObject(partial, Newtonsoft.Json.JsonSerializer.Create(OWJson.Settings));
             RefuseKnownOf(raw, "patch", nameof(partial));
-            return RequestAsync<T>("PATCH", $"/{type}/{id}/", body: Sanitize(raw, type), write: true, ct: ct);
+            return RequestAsync<T>("PATCH", $"/{type}/{id}/", body: Sanitize(raw, type), write: true, ct: ct, ifMatch: ifMatch);
         }
 
         /// <summary>DELETE /{type}/{id}/</summary>
@@ -293,13 +302,18 @@ namespace OnlyWorlds.Sdk
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="ifMatch"/> is negative; nothing was sent.</exception>
         public Task DeleteAsync(string type, string id, CancellationToken ct = default, long? ifMatch = null)
         {
+            RefuseNegative(ifMatch);
+            return RequestAsync<object>("DELETE", $"/{type}/{id}/", allowEmpty: true, write: true, ct: ct, ifMatch: ifMatch);
+        }
+
+        /// <summary>An <c>If-Match</c> is an element's <c>change_seq</c>, a whole number; anything else is refused before sending.</summary>
+        private static void RefuseNegative(long? ifMatch)
+        {
             if (ifMatch < 0)
             {
                 throw new ArgumentOutOfRangeException(nameof(ifMatch), ifMatch,
                     "ifMatch must be a whole number, an element's change_seq.");
             }
-
-            return RequestAsync<object>("DELETE", $"/{type}/{id}/", allowEmpty: true, write: true, ct: ct, ifMatch: ifMatch);
         }
 
         /// <summary>
@@ -396,17 +410,23 @@ namespace OnlyWorlds.Sdk
         /// wholesale, so two clients each adding one item means the second silently erases the
         /// first's addition.
         /// </remarks>
+        /// <param name="ifMatch">
+        /// As on <see cref="PatchAsync{T}"/> (keel #210): a link write moves the element too, so a stale
+        /// <c>change_seq</c> is a 412 and nothing is written.
+        /// </param>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="ifMatch"/> is negative; nothing was sent.</exception>
         public Task<T> EditLinksAsync<T>(
             string type, string id, string field,
             IEnumerable<string> add = null, IEnumerable<string> remove = null,
-            CancellationToken ct = default)
+            CancellationToken ct = default, long? ifMatch = null)
         {
+            RefuseNegative(ifMatch);
             var body = new JObject();
             if (add != null) body["add"] = new JArray(add);
             if (remove != null) body["remove"] = new JArray(remove);
 
             return RequestAsync<T>("POST", $"/{type}/{id}/links/{Uri.EscapeDataString(field)}",
-                body: body, write: true, ct: ct);
+                body: body, write: true, ct: ct, ifMatch: ifMatch);
         }
 
         // -- Sync -------------------------------------------------------------

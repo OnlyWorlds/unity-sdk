@@ -127,6 +127,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             await c.PatchAsync<JObject>("character", "c1", new JObject { ["name"] = "M" });
             await c.DeleteAsync("character", "c1");
             await c.DeleteAsync("character", "c1", ifMatch: 7);
+            await c.PatchAsync<JObject>("character", "c1", new JObject { ["name"] = "M" }, ifMatch: 7);
+            await c.EditLinksAsync<JObject>("character", "c1", "friends", add: new[] { "a1" }, ifMatch: 7);
             await c.EditLinksAsync<JObject>("character", "c1", "friends", add: new[] { "a1" });
             await c.BulkAsync(new[] { new OWBulkItem { Type = "character", Element = new JObject { ["name"] = "B" } } });
             t.ResponseBody = @"{""changes"":[],""has_more"":false,""head"":0}";
@@ -413,7 +415,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             // An empty recording would pass the checks above with nothing checked.
             var calls = await RecordEveryCall();
-            Assert.AreEqual(15, calls.Count);
+            Assert.AreEqual(17, calls.Count);
 
             // The conditional headers are on the wire here, so the header check above saw them.
             Assert.That(calls.Any(c => c.Headers.ContainsKey("If-Match")), "a delete with ifMatch is recorded");

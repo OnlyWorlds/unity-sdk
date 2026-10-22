@@ -594,6 +594,59 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsFalse(t.Last.Headers.ContainsKey("If-Match"));
         }
 
+        // keel #210: the PATCH and link-write precondition (npm c1d5d2a's vectors).
+
+        [Test]
+        public async Task Patch_WithIfMatch_SendsIfMatchAsAQuotedChangeSeq_WithoutIt_NoHeader()
+        {
+            var t = new FakeTransport { ResponseBody = @"{""id"":""x"",""change_seq"":45}" };
+            var c = Make(t);
+
+            await c.PatchAsync<JObject>("character", "x", new JObject { ["name"] = "Mine" }, ifMatch: 44);
+            Assert.AreEqual("\"44\"", t.Last.Headers["If-Match"]);
+            Assert.AreEqual("PATCH", t.Last.Method);
+
+            await c.PatchAsync<JObject>("character", "x", new JObject { ["name"] = "Mine" });
+            Assert.IsFalse(t.Last.Headers.ContainsKey("If-Match"));
+        }
+
+        [Test]
+        public async Task EditLinks_WithIfMatch_SendsIfMatchToo()
+        {
+            var t = new FakeTransport { ResponseBody = @"{""id"":""x"",""change_seq"":45}" };
+            var c = Make(t);
+
+            await c.EditLinksAsync<JObject>("character", "x", "species", add: new[] { "y" }, ifMatch: 7);
+            Assert.AreEqual("\"7\"", t.Last.Headers["If-Match"]);
+
+            await c.EditLinksAsync<JObject>("character", "x", "species", add: new[] { "y" });
+            Assert.IsFalse(t.Last.Headers.ContainsKey("If-Match"));
+        }
+
+        [Test]
+        public void Patch_AStaleOne_IsPreconditionFailed_CarryingTheElementAsItIsNow()
+        {
+            var t = new FakeTransport { Status = 412, ResponseBody = Fix412 };
+            var e = Assert.ThrowsAsync<OWApiError>(() =>
+                Make(t).PatchAsync<JObject>("character", "x", new JObject { ["name"] = "Mine" }, ifMatch: 41));
+
+            Assert.IsTrue(e.IsPreconditionFailed);
+            Assert.AreEqual(44, (int)e.Current["change_seq"]);
+        }
+
+        [Test]
+        public void PatchAndEditLinks_WithANegativeIfMatch_AreRefusedBeforeSending()
+        {
+            var t = new FakeTransport();
+            var c = Make(t);
+
+            Assert.ThrowsAsync<System.ArgumentOutOfRangeException>(() =>
+                c.PatchAsync<JObject>("character", "x", new JObject { ["name"] = "M" }, ifMatch: -1));
+            Assert.ThrowsAsync<System.ArgumentOutOfRangeException>(() =>
+                c.EditLinksAsync<JObject>("character", "x", "species", add: new[] { "y" }, ifMatch: -1));
+            Assert.AreEqual(0, t.Calls.Count);
+        }
+
         [Test]
         public void Delete_WithANegativeIfMatch_IsRefusedBeforeSending()
         {

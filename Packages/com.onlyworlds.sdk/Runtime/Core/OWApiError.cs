@@ -122,7 +122,8 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
-        /// A conditional write's <c>If-Match</c> was stale (412 <c>precondition_failed</c>, keel #563 on a delete): the
+        /// A conditional write's <c>If-Match</c> was stale (412 <c>precondition_failed</c>: a patch or link edit, keel
+        /// #210, or a delete, keel #563): the
         /// element changed since the <c>change_seq</c> you sent, and nothing was written. <see cref="Current"/> is
         /// the element as it is now; decide from it, then send again with its <c>change_seq</c>.
         /// </summary>
