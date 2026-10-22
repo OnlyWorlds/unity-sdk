@@ -598,6 +598,16 @@ namespace OnlyWorlds.Sdk
                     if (fault != null) throw Hostile(OWWorldArchiveReason.UnsafePath, entry.FullName, fault);
 
                     CheckEntry(directory[i], entry.FullName, path);
+
+                    // A stored entry holds its bytes as they are, so its stored size is its size: one that holds more
+                    // than it declares lies as a zip bomb does (OW-14), found here without reading it (media/ never is).
+                    if (directory[i].Method == MethodStored && entry.CompressedLength != entry.Length)
+                    {
+                        throw Hostile(
+                            entry.CompressedLength > entry.Length ? OWWorldArchiveReason.TooBig : OWWorldArchiveReason.NotOpenable,
+                            entry.FullName, $"is stored and declares {entry.Length} bytes but holds {entry.CompressedLength}");
+                    }
+
                     if (!names.Add(isFolder ? path + "/" : path))
                         throw Hostile(OWWorldArchiveReason.Duplicate, entry.FullName, $"is a second entry named '{path}'");
                     CheckCollision(path, entry.FullName, folded);
@@ -825,6 +835,13 @@ namespace OnlyWorlds.Sdk
                     "has a name that is not ASCII and lacks the zip's UTF-8 flag, so its spelling is a guess");
             }
 
+            // With bit 11 the bytes must be UTF-8; the runtime would read bad ones as U+FFFD, another name than written.
+            if (record.NotUtf8 && (record.Flags & 0x0800) != 0)
+            {
+                throw Hostile(OWWorldArchiveReason.Name, entryName,
+                    "has the zip's UTF-8 flag but a name whose bytes are not UTF-8, so its spelling is a guess");
+            }
+
             var fault = NameFault(path);
             if (fault != null) throw Hostile(OWWorldArchiveReason.Name, entryName, fault);
         }
@@ -940,7 +957,12 @@ namespace OnlyWorlds.Sdk
 
             /// <summary>A name byte past 0x7F.</summary>
             public bool NonAscii;
+
+            /// <summary>The name's bytes are not well-formed UTF-8 (checked only when they are not ASCII).</summary>
+            public bool NotUtf8;
         }
+
+        private static readonly UTF8Encoding StrictUtf8 = new UTF8Encoding(false, true);
 
         /// <summary>
         /// The archive's central directory, one record per entry in its own order (the order
@@ -1005,12 +1027,20 @@ namespace OnlyWorlds.Sdk
                         if (directory[b] > 0x7F) { nonAscii = true; break; }
                     }
 
+                    var notUtf8 = false;
+                    if (nonAscii)
+                    {
+                        try { StrictUtf8.GetString(directory, pos + DirectoryRecordSize, nameLength); }
+                        catch (ArgumentException) { notUtf8 = true; } // DecoderFallbackException is one
+                    }
+
                     records.Add(new DirectoryRecord
                     {
                         Flags = U16(directory, pos + 8),
                         Method = U16(directory, pos + 10),
                         ExternalAttributes = U32(directory, pos + 38),
                         NonAscii = nonAscii,
+                        NotUtf8 = notUtf8,
                     });
                     pos = (int)next;
                 }

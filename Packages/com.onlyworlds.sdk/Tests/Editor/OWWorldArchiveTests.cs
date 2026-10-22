@@ -893,6 +893,38 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             StringAssert.Contains("inflates past the 1 bytes it declares", e.Message);
         }
 
+        [Test]
+        public void Read_RefusesAStoredEntryWhoseSizeLies_WithoutReadingIt()
+        {
+            // Folder spec §4.7 (OW-14): a stored entry holding more than it declares is the zip bomb's lie, too_big,
+            // found from the directory alone, so in media/ too, which is never read. Mono writes no stored entry, so
+            // the method is declared over a deflated one: its stored bytes are then the deflate stream.
+            var more = WorldZip("stored-more.owworld", ("w/media/a.png", "png")); // 3 bytes deflate to 5
+            SetMethod(more, "w/media/a.png", 0);
+            var e = Refused(more);
+            Assert.AreEqual(OWWorldArchiveReason.TooBig, e.Reason);
+            StringAssert.Contains("is stored and declares 3 bytes but holds", e.Message);
+
+            var fewer = WorldZip("stored-fewer.owworld", ("w/media/a.png", new string('x', 64))); // 64 deflate to a few
+            SetMethod(fewer, "w/media/a.png", 0);
+            Assert.AreEqual(OWWorldArchiveReason.NotOpenable, Refused(fewer).Reason, "Holding less is a broken entry.");
+        }
+
+        [Test]
+        public void Read_RefusesAUtf8FlaggedNameWhoseBytesAreNotUtf8()
+        {
+            // Folder spec §4.7 (OW-22): the flag says UTF-8; bytes that are not would be read as U+FFFD.
+            var archive = WorldZip("bad-utf8.owworld", ("w/media/café.png", "png"));
+            var good = Encoding.UTF8.GetBytes("w/media/café.png");
+            var bad = (byte[])good.Clone();
+            bad[Array.IndexOf(bad, (byte)0xC3)] = 0xE9; // a Latin-1 é, then 0xA9 as a stray continuation byte
+            PatchEntry(archive, "w/media/café.png", (bytes, at, central) => Array.Copy(bad, 0, bytes, at + (central ? 46 : 30), bad.Length));
+
+            var e = Refused(archive);
+            Assert.AreEqual(OWWorldArchiveReason.Name, e.Reason);
+            StringAssert.Contains("bytes are not UTF-8", e.Message);
+        }
+
         /// <summary>
         /// Rewrites the uncompressed size an entry declares, in its local header and the central directory: a size
         /// that lies, as <c>world-file.test.mjs</c>'s <c>lyingSize</c> makes one.

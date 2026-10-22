@@ -64,7 +64,10 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
     not inflate was skipped and the read went on, and deflate64 was read where the runtime could;
   - a Windows device name as a name's stem, with or without an extension (`CON.json`, `nul.txt`, `COM1`-`COM9`,
     `LPT1`-`LPT9`), a name ending in a dot or a space, the characters `<>:"|?*` or a control character;
-  - a non-ASCII name without the zip's UTF-8 flag, whose spelling is a guess.
+  - a non-ASCII name without the zip's UTF-8 flag, whose spelling is a guess, and a name with the flag whose bytes
+    are not UTF-8 (the runtime read them as U+FFFD, another name than the one written);
+  - a stored entry whose stored size differs from the size it declares: holding more is the zip bomb's lie, refused
+    from the directory alone, so in `media/` too, which is never read.
 
   And a second `world.json` inside the world (`w/inner/world.json`) is refused as a second world; one under
   `records/` stays a producer's own data. The TypeScript reader also refuses a file-and-folder path and a nested
