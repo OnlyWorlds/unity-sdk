@@ -6,6 +6,16 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-22
+
+World archives follow the folder spec's `.owworld` section (§4.7): `OWWorldArchive.Read` (and so `LoadInto` and the
+importer) agrees with the shared conformance fixture set on every one of its 78 cases, as the TypeScript SDK 4.49.0
+does. A refusal names its cause from the spec's list, a `mimetype` marker is read, the default budget is the spec's
+floor (500,000 files, 2 GiB), entry names are strict, two names that one disk would merge are found by Unicode simple
+case folding pinned at 15.1.0, a world's `api` block is stripped on read, and `Pack` writes in code point order. A
+minor release because it adds public API (below). Also here: the archive budget, a records producer's own files kept
+whole, and entries refused that would not land safely on every disk.
+
 ### Added
 
 - **The `.owworld` marker** (folder spec §4.7, OW-6): `OWWorldArchive.MediaType` is the file's media type,
