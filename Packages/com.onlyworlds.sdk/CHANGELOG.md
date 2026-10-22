@@ -6,6 +6,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-10-22
+
+The world file's last checks, and the folder's maker. An `.owworld` entry whose bytes fail their CRC-32 now refuses
+the archive, every file checked, media and records too, as the TypeScript SDK and the reference do; the shared
+conformance set (schema-dist `fixtures/owworld/`, dist.40) runs as the package's own test, 79 cases agreed. An
+export declares folder format 0.3.14 and writes the producer line (§4.2): which tool made the folder, and from what.
+The schema pin moves to dist.40 (canonical `00.32.02` unchanged). A minor release because it adds public API (below).
+
 ### Added
 
 - **The `.owworld` conformance set runs as the package's own test** (schema-dist `fixtures/owworld/`, dist.40;
