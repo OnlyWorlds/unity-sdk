@@ -16,6 +16,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   (lower case letters, digits and hyphens, no version): anything else, the empty string included, is an
   `ArgumentException` when the client is built, never trimmed. The name is the client's claim, not proof, and it
   changes no permission: an agent still sets `Agent`. Parity with the TypeScript SDK 4.56.0, its test vector ported.
+- **The conditional tip read** (keel #518): `ChangesAsync(headOnly: true)` keeps the last tip read's `ETag` and sends
+  it back as `If-None-Match`, exactly as received. When nothing moved, keel answers 304 with no body (refunded against
+  the request budget), and the call returns the last 200's head, cursor and epoch with the new
+  `OWChangesPage.Unchanged` set; every 200 leaves it false. A 409 `resync_required` from any `ChangesAsync` call drops
+  the tag, so the next tip read is a full 200. A 304 while no tag is held is an `OWApiError` with status 304, never a
+  made-up head. The client never polls on its own. `OWSync.HasChangesAsync` and `IncrementalAsync` read the tip this
+  way unchanged, so a poll that mostly finds nothing costs little. Parity with the TypeScript SDK 4.57.0, its test
+  vector ported.
 
 ### Changed
 

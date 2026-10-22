@@ -23,6 +23,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         /// <summary>Successive statuses, beside <see cref="Bodies"/>; <see cref="Status"/> once it is empty.</summary>
         public Queue<int> Statuses = new Queue<int>();
 
+        /// <summary>Successive response headers, beside <see cref="Bodies"/>; <see cref="ResponseHeaders"/> once it is empty.</summary>
+        public Queue<Dictionary<string, string>> HeaderSets = new Queue<Dictionary<string, string>>();
+
         public Task<OWResponse> SendAsync(OWRequest request, CancellationToken ct = default)
         {
             Calls.Add(request);
@@ -31,8 +34,18 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             {
                 Status = Statuses.Count > 0 ? Statuses.Dequeue() : Status,
                 Body = body,
-                Headers = ResponseHeaders,
+                Headers = HeaderSets.Count > 0 ? HeaderSets.Dequeue() : ResponseHeaders,
             });
+        }
+
+        /// <summary>Scripts one answer: its status, body and headers (an ETag, when given).</summary>
+        public void Then(int status, string body, string etag = null)
+        {
+            Statuses.Enqueue(status);
+            Bodies.Enqueue(body);
+            HeaderSets.Enqueue(etag == null
+                ? new Dictionary<string, string>()
+                : new Dictionary<string, string> { ["etag"] = etag });
         }
 
         public OWRequest Last => Calls[Calls.Count - 1];
@@ -767,6 +780,133 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             await big.ChangesAsync();
 
             StringAssert.Contains("limit=1000", t.Last.Url);
+        }
+
+        // -- The conditional head poll (keel #518: ETag "<head>:<epoch>", If-None-Match, 304; npm 4.57.0's vector) --
+
+        private static string HeadBody(long head, string epoch = "null")
+            => $@"{{""cursor"":{head},""changes"":[],""has_more"":false,""head"":{head},""epoch"":{epoch}}}";
+
+        private const string Resync =
+            @"{""error"":{""type"":""invalid_request"",""code"":""resync_required"",""message"":""Walk the feed again.""}}";
+
+        private static string SentTag(FakeTransport t, int i)
+            => t.Calls[i].Headers.TryGetValue("If-None-Match", out var tag) ? tag : null;
+
+        [Test]
+        public async Task HeadPoll_FirstReadSendsNoTag_TheNextSendsTheETagBackExactlyAsReceived()
+        {
+            var t = new FakeTransport();
+            t.Then(200, HeadBody(821), "W/\"821:-\"");
+            t.Then(200, HeadBody(821), "W/\"821:-\"");
+            var c = Make(t);
+
+            var first = await c.ChangesAsync(headOnly: true);
+            Assert.IsNull(SentTag(t, 0));
+            Assert.IsFalse(first.Unchanged, "every 200 says unchanged: false");
+
+            await c.ChangesAsync(headOnly: true);
+            Assert.AreEqual("W/\"821:-\"", SentTag(t, 1), "W/ and quotes included, never compared");
+        }
+
+        [Test]
+        public async Task HeadPoll_A304_AnswersTheHeldHeadCursorAndEpoch_Unchanged_InOneRequest()
+        {
+            const string cursor = "4021:ffffffff-ffff-ffff-ffff-ffffffffffff:3";
+            var t = new FakeTransport();
+            t.Then(200, $@"{{""cursor"":""{cursor}"",""changes"":[],""has_more"":false,""head"":4021,""epoch"":3}}", "W/\"4021:3\"");
+            t.Then(304, "", "\"4021:3\"");
+            var c = Make(t);
+
+            await c.ChangesAsync(headOnly: true);
+            var tip = await c.ChangesAsync(headOnly: true);
+
+            Assert.IsTrue(tip.Unchanged);
+            Assert.AreEqual(4021, tip.Head);
+            Assert.AreEqual(cursor, tip.Cursor);
+            Assert.AreEqual(3, tip.Epoch);
+            Assert.IsEmpty(tip.Changes);
+            Assert.AreEqual(2, t.Calls.Count);
+            Assert.AreEqual("W/\"4021:3\"", SentTag(t, 1));
+        }
+
+        [Test]
+        public async Task HeadPoll_A200AfterA304StoresTheNewTag_A200WithoutAnETagLeavesNoneHeld()
+        {
+            var t = new FakeTransport();
+            t.Then(200, HeadBody(821), "W/\"821:-\"");
+            t.Then(304, "", "\"821:-\"");
+            t.Then(200, HeadBody(822), "W/\"822:-\"");
+            t.Then(200, HeadBody(823));
+            t.Then(200, HeadBody(823));
+            var c = Make(t);
+
+            await c.ChangesAsync(headOnly: true);
+            await c.ChangesAsync(headOnly: true);
+            var moved = await c.ChangesAsync(headOnly: true);
+            Assert.AreEqual(822, moved.Head);
+            Assert.AreEqual("822", moved.Cursor);
+            Assert.IsNull(moved.Epoch);
+            Assert.IsFalse(moved.Unchanged);
+
+            await c.ChangesAsync(headOnly: true);
+            Assert.AreEqual("W/\"822:-\"", SentTag(t, 3));
+            await c.ChangesAsync(headOnly: true);
+            Assert.IsNull(SentTag(t, 4));
+        }
+
+        [Test]
+        public async Task HeadPoll_A409ResyncRequired_FromTheFeedOrTheHeadRead_ClearsTheTag()
+        {
+            var t = new FakeTransport();
+            t.Then(200, HeadBody(9, "2"), "W/\"9:2\"");
+            t.Then(409, Resync);
+            t.Then(200, HeadBody(9, "3"), "W/\"9:3\"");
+            t.Then(409, Resync);
+            t.Then(200, HeadBody(9, "4"));
+            var c = Make(t);
+
+            await c.ChangesAsync(headOnly: true);
+            var e = Assert.ThrowsAsync<OWApiError>(() => c.ChangesAsync("9:x:2"));
+            Assert.IsTrue(e.IsResyncRequired);
+
+            var after = await c.ChangesAsync(headOnly: true);
+            Assert.AreEqual(3, after.Epoch);
+            Assert.IsFalse(after.Unchanged);
+            Assert.IsNull(SentTag(t, 2), "the feed's 409 dropped the tag");
+
+            e = Assert.ThrowsAsync<OWApiError>(() => c.ChangesAsync(headOnly: true));
+            Assert.IsTrue(e.IsResyncRequired);
+            Assert.AreEqual("W/\"9:3\"", SentTag(t, 3));
+
+            await c.ChangesAsync(headOnly: true);
+            Assert.IsNull(SentTag(t, 4), "the head read's own 409 dropped the tag");
+        }
+
+        [Test]
+        public void HeadPoll_A304WhileNothingIsHeld_IsAnErrorNamingIt_NeverAnInventedHead()
+        {
+            var t = new FakeTransport();
+            t.Then(304, "", "\"821:-\"");
+
+            var e = Assert.ThrowsAsync<OWApiError>(() => Make(t).ChangesAsync(headOnly: true));
+            Assert.AreEqual(304, e.StatusCode);
+            StringAssert.Contains("nothing is held", e.Message);
+        }
+
+        [Test]
+        public async Task HeadPoll_TheFeedsOwnPagesSendNoTag()
+        {
+            var t = new FakeTransport();
+            t.Then(200, HeadBody(5), "W/\"5:-\"");
+            t.Then(200, HeadBody(5), "W/\"5:-\"");
+            var c = Make(t);
+
+            await c.ChangesAsync(headOnly: true);
+            var page = await c.ChangesAsync("5");
+
+            Assert.IsNull(SentTag(t, 1), "If-None-Match rides the head read alone");
+            Assert.IsFalse(page.Unchanged);
         }
 
         // -- Construction guards ----------------------------------------------

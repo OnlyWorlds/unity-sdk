@@ -130,5 +130,14 @@ namespace OnlyWorlds.Sdk
         /// </summary>
         [JsonProperty("epoch")]
         public long? Epoch;
+
+        /// <summary>
+        /// On a tip read (<c>headOnly</c>): keel answered 304 Not Modified to the tag the client held, so
+        /// <see cref="Head"/>, <see cref="Cursor"/> and <see cref="Epoch"/> are the last 200's, handed back. Nothing
+        /// moved since this client's last tip read, which is not the same as since your last walk: compare
+        /// <see cref="Head"/> and <see cref="Epoch"/> with what you applied. False on every 200. Never on the wire.
+        /// </summary>
+        [JsonIgnore]
+        public bool Unchanged;
     }
 }

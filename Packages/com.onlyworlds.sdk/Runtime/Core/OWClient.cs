@@ -400,10 +400,23 @@ namespace OnlyWorlds.Sdk
         /// </param>
         /// <param name="headOnly">Cheap tip check: returns <c>head</c>, a <c>cursor</c> to follow from, and <c>epoch</c>, with no changes.</param>
         /// <remarks>
+        /// <para>
         /// A page holds <see cref="PageSize"/> changes, at most 1000: the feed refuses a larger
         /// <c>limit</c> with a 422 where the element lists clamp it.
+        /// </para>
+        /// <para>
+        /// The tip read is conditional (keel #518): keel tags its answer with an ETag covering the head and the
+        /// epoch, the client keeps the last one and sends it as <c>If-None-Match</c> on its next tip read, exactly as
+        /// received (<c>W/</c> and quotes included, never compared). When nothing moved keel answers 304 with no
+        /// body, refunded against the request budget, and this returns the last 200's head, cursor and epoch with
+        /// <see cref="OWChangesPage.Unchanged"/> true. A poller reads the tip, waits when it is unchanged, and walks
+        /// the feed when head or epoch moved past what it applied; the interval is the caller's, the client never
+        /// polls on its own. The tag is per client instance. A 409 <c>resync_required</c> from any call here drops
+        /// it, so the next tip read is a full 200. A 304 while no tag is held is an <see cref="OWApiError"/> with
+        /// status 304: the client never makes up a head.
+        /// </para>
         /// </remarks>
-        public Task<OWChangesPage> ChangesAsync(string cursor = null, bool headOnly = false, CancellationToken ct = default)
+        public async Task<OWChangesPage> ChangesAsync(string cursor = null, bool headOnly = false, CancellationToken ct = default)
         {
             var query = new List<string>();
             if (headOnly)
@@ -416,11 +429,62 @@ namespace OnlyWorlds.Sdk
                 query.Add("limit=" + Math.Min(PageSize, MaxChangesLimit));
             }
 
-            return RequestAsync<OWChangesPage>("GET", "/changes/", query: string.Join("&", query), ct: ct);
+            // One reference, swapped whole, so a tip read racing another sees one poll's state or the other's.
+            var held = headOnly ? _headPoll : null;
+
+            OWChangesPage page;
+            OWResponse response;
+            try
+            {
+                (page, response) = await RequestWithResponseAsync<OWChangesPage>(
+                    "GET", "/changes/", query: string.Join("&", query), ct: ct,
+                    ifNoneMatch: held?.Tag, notModified: headOnly).ConfigureAwait(false);
+            }
+            catch (OWApiError e) when (e.IsResyncRequired)
+            {
+                _headPoll = null;
+                throw;
+            }
+
+            if (!headOnly) return page;
+
+            if (response.Status == 304)
+            {
+                if (held == null)
+                {
+                    throw new OWApiError((HttpStatusCode)304,
+                        "GET /changes?head=true answered 304 Not Modified while nothing is held: no tip read has "
+                        + "answered 200 on this client, so there is no head to return", rawBody: response.Body);
+                }
+
+                return new OWChangesPage { Cursor = held.Cursor, Head = held.Head, Epoch = held.Epoch, Unchanged = true };
+            }
+
+            var tag = ReadHeader(response, "ETag");
+            _headPoll = page == null ? null : new HeadPoll
+            {
+                Tag = string.IsNullOrEmpty(tag) ? null : tag,
+                Cursor = page.Cursor,
+                Head = page.Head,
+                Epoch = page.Epoch,
+            };
+
+            return page;
         }
 
         /// <summary>keel's cap on one <c>/changes</c> page (<c>core/changes.py</c>); over it is a 422.</summary>
         private const int MaxChangesLimit = 1000;
+
+        /// <summary>The last tip read's ETag (null when it sent none) and the head, cursor and epoch its 200 answered.</summary>
+        private sealed class HeadPoll
+        {
+            public string Tag;
+            public string Cursor;
+            public long Head;
+            public long? Epoch;
+        }
+
+        private volatile HeadPoll _headPoll;
 
         // -- Core -------------------------------------------------------------
 
@@ -438,12 +502,15 @@ namespace OnlyWorlds.Sdk
         /// <summary>
         /// As <see cref="RequestAsync{T}"/>, but hands back the raw response alongside the parsed
         /// body. Needed wherever a response HEADER carries meaning -- bulk's replay flag is the
-        /// only case today, and duplicating the auth/error path to reach it would be worse.
+        /// and the tip read's ETag, and duplicating the auth/error path to reach them would be worse.
         /// </summary>
+        /// <param name="ifNoneMatch">A tag sent as <c>If-None-Match</c> exactly as given (keel #518, the tip read).</param>
+        /// <param name="notModified">A 304 is returned with a default value instead of thrown; the caller reads the status.</param>
         private async Task<(T Value, OWResponse Response)> RequestWithResponseAsync<T>(
             string method, string path,
             string query = null, JObject body = null, string idempotencyKey = null,
-            bool allowEmpty = false, bool write = false, CancellationToken ct = default)
+            bool allowEmpty = false, bool write = false, CancellationToken ct = default,
+            string ifNoneMatch = null, bool notModified = false)
         {
             var url = BaseUrl + path;
             if (!string.IsNullOrEmpty(query)) url += "?" + query;
@@ -472,6 +539,8 @@ namespace OnlyWorlds.Sdk
             // mintWorldKey take X-OW-Agent and not X-OW-Client. Split the flag when a write like those arrives here.
             if (write) headers["X-OW-Client"] = ClientName;
 
+            if (ifNoneMatch != null) headers["If-None-Match"] = ifNoneMatch;
+
             var request = new OWRequest
             {
                 Method = method,
@@ -494,6 +563,9 @@ namespace OnlyWorlds.Sdk
                 // The request never got an answer. Distinct from an API rejection -- see OWTransportError.
                 throw new OWTransportError($"OnlyWorlds request failed: {method} {path}", e);
             }
+
+            // A 304 has no body: the caller that sent a tag reads the status it is handed.
+            if (notModified && response.Status == 304) return (default, response);
 
             if (!response.IsSuccess) throw BuildError(response);
 
