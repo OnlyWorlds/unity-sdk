@@ -38,6 +38,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   private records go too: one that is not UTF-8 (a byte order mark is read past), holds an entry that is not an
   object, or marks private an entry whose `producer` is not one directory name (missing, empty, `.`, `..`, or with a
   `/` or `\`). 0.15.0 skipped such entries, so a private producer it could not name travelled.
+- **`API-Pin` goes only where keel checks it**: on every write, on `GetMeAsync`, and on every request of a 10-digit
+  legacy key; a prefixed key's other reads now go without it, and an account token never sent it. keel verifies a
+  PIN wherever one is sent, at a real memory cost per request, so reads carrying one loaded the server for nothing.
+  A wrong PIN therefore no longer fails a read: the settings window's Test Connection now asks `GET /me` for a key
+  that takes a PIN, so it still catches one. Parity with the TypeScript SDK 4.59.0, its test vector ported.
 
 ## [0.15.0] - 2026-10-23
 

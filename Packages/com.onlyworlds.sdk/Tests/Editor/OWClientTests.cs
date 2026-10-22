@@ -66,14 +66,108 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         // -- Auth shape -------------------------------------------------------
 
         [Test]
-        public async Task WorldKey_UsesApiKeyAndPin()
+        public async Task WorldKey_UsesApiKey_AndApiPinOnAWrite()
         {
             var t = new FakeTransport();
-            await Make(t).GetWorldAsync();
+            var c = Make(t);
+            await c.GetWorldAsync();
 
             Assert.AreEqual("ow_w_test", t.Last.Headers["API-Key"]);
-            Assert.AreEqual("0000", t.Last.Headers["API-Pin"]);
+            Assert.IsFalse(t.Last.Headers.ContainsKey("API-Pin"), "a read (h29 #10663)");
             Assert.IsFalse(t.Last.Headers.ContainsKey("Authorization"));
+
+            await c.PatchAsync<JObject>("character", "c1", new JObject { ["name"] = "M" });
+            Assert.AreEqual("0000", t.Last.Headers["API-Pin"]);
+        }
+
+        // -- API-Pin only where keel checks it (Skeld's ruling, OW Keel h29 #10663; npm 4.59.0's vector) --
+        //
+        // keel verifies a PIN wherever it is sent (argon2, 64 MiB each), and reads sent with one OOM-killed
+        // staging on a cold cache (2026-10-22). Each call states its own expectation for a prefixed key, so the
+        // test does not re-derive the rule from the method it checks.
+
+        private static readonly (string Name, string Verb, bool Pin, System.Func<OWClient, Task> Run)[] PinCalls =
+        {
+            // reads
+            ("list", "GET", false, c => c.ListAsync<JObject>("location")),
+            ("list (name search)", "GET", false, c => c.ListAsync<JObject>("location", new OWListParams { NameContains = "harb" })),
+            ("get", "GET", false, c => c.GetAsync<JObject>("location", "l1")),
+            ("changes", "GET", false, c => c.ChangesAsync()),
+            ("changes head", "GET", false, c => c.ChangesAsync(headOnly: true)),
+            ("world", "GET", false, c => c.GetWorldAsync()),
+            // the one read keel checks a PIN on
+            ("me", "GET", true, c => c.GetMeAsync()),
+            // writes, each verb
+            ("create", "POST", true, c => c.CreateAsync<JObject>("location", new JObject { ["name"] = "Harbour" })),
+            ("patch", "PATCH", true, c => c.PatchAsync<JObject>("location", "l1", new JObject { ["description"] = "x" })),
+            ("delete", "DELETE", true, c => c.DeleteAsync("location", "l1")),
+            ("links", "POST", true, c => c.EditLinksAsync<JObject>("location", "l1", "zones", add: new[] { "z1" })),
+            ("bulk", "POST", true, c => c.BulkAsync(new[] { new OWBulkItem { Type = "location", Element = new JObject { ["name"] = "B" } } })),
+        };
+
+        /// <summary>Every call the client may make, each through its own client; the request each sent.</summary>
+        private static async Task<List<(string Name, bool Pin, OWRequest Sent)>> PinSweep(string key, string pin)
+        {
+            var sent = new List<(string, bool, OWRequest)>();
+            foreach (var call in PinCalls)
+            {
+                var t = new FakeTransport
+                {
+                    ResponseBody = @"{""data"":[],""has_more"":false,""changes"":[],""head"":0,""cursor"":""0"",""results"":[]}",
+                };
+                await call.Run(Make(t, key, pin));
+
+                Assert.AreEqual(1, t.Calls.Count, $"{call.Name}: one request");
+                Assert.AreEqual(call.Verb, t.Last.Method, $"{call.Name}: sent as {call.Verb}");
+                sent.Add((call.Name, call.Pin, t.Last));
+            }
+
+            return sent;
+        }
+
+        private static string PinOf(OWRequest sent)
+            => sent.Headers.TryGetValue("API-Pin", out var pin) ? pin : null;
+
+        [Test]
+        public async Task ApiPin_WorldKeyWithAPin_OnEveryWriteAndOnGetMe_OnNoOtherRead()
+        {
+            foreach (var (name, pin, sent) in await PinSweep("ow_w_test", "1234"))
+            {
+                Assert.AreEqual("ow_w_test", sent.Headers["API-Key"], name);
+                Assert.AreEqual(pin ? "1234" : null, PinOf(sent), $"{name} ({sent.Method} {sent.Url})");
+            }
+        }
+
+        [Test]
+        public async Task ApiPin_TenDigitLegacyKeyWithAPin_OnEveryRequest_ReadsIncluded()
+        {
+            // keel #421: a legacy key needs it on reads of a world with a PIN (v1 parity).
+            foreach (var (name, _, sent) in await PinSweep("0123456789", "1234"))
+            {
+                Assert.AreEqual("0123456789", sent.Headers["API-Key"], name);
+                Assert.AreEqual("1234", PinOf(sent), $"{name} ({sent.Method} {sent.Url})");
+            }
+        }
+
+        [Test]
+        public async Task ApiPin_ReadKeyWithNoPin_Never()
+        {
+            foreach (var (name, _, sent) in await PinSweep("ow_r_test", null))
+            {
+                Assert.AreEqual("ow_r_test", sent.Headers["API-Key"], name);
+                Assert.IsFalse(sent.Headers.ContainsKey("API-Pin"), name);
+            }
+        }
+
+        [Test]
+        public async Task ApiPin_AccountToken_Never_EvenWithAPinConfigured_BearerAndNoApiKey()
+        {
+            foreach (var (name, _, sent) in await PinSweep("ow_a_acct", "1234"))
+            {
+                Assert.AreEqual("Bearer ow_a_acct", sent.Headers["Authorization"], name);
+                Assert.IsFalse(sent.Headers.ContainsKey("API-Pin"), name);
+                Assert.IsFalse(sent.Headers.ContainsKey("API-Key"), name);
+            }
         }
 
         [Test]

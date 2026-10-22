@@ -12,6 +12,13 @@ namespace OnlyWorlds.Sdk
     public class OWClientConfig
     {
         public string ApiKey;
+
+        /// <summary>
+        /// The PIN (or an agent seat's <c>ow_s_</c> secret), needed for writes when the world has one, and for a
+        /// legacy key's reads of a world with a PIN. Sent as <c>API-Pin</c> only where keel checks it: on every
+        /// write, on <see cref="OWClient.GetMeAsync"/> (the connection test), and on every request of a 10-digit
+        /// legacy key. A prefixed key's other reads go without it, and an account token never sends it.
+        /// </summary>
         public string ApiPin;
         public string BaseUrl = "https://www.onlyworlds.com/api/v2";
 
@@ -524,7 +531,15 @@ namespace OnlyWorlds.Sdk
             else
             {
                 headers["API-Key"] = _apiKey;
-                if (_apiPin != null) headers["API-Pin"] = _apiPin;
+
+                // The PIN only where keel checks it (Skeld's ruling, OW Keel h29 #10663): keel verifies a PIN
+                // wherever it is sent (argon2, 64 MiB each), and scripts reading with it OOM-killed staging on a
+                // cold cache (2026-10-22). Sent on every write (any method but GET), on GET /me, the connection
+                // test (keel #314, D93), and on every request of a 10-digit legacy key, which needs it on reads of a
+                // world with a PIN (v1 parity, keel #421). Derived from the method and path, as the npm SDK does.
+                var read = string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase);
+                var me = path == "/me/" || path == "/me";
+                if (_apiPin != null && (!read || me || KeyKind == OWKeyKind.Legacy)) headers["API-Pin"] = _apiPin;
             }
 
             if (body != null) headers["Content-Type"] = "application/json";
