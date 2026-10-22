@@ -6,6 +6,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-10-23
+
+Private records stay home. `OWWorldArchive.Pack` leaves a producer marked private out of an `.owworld` unless asked
+(folder spec v0.3.15), and the schema pin moves to dist.49, whose conformance set carries the case. A minor release
+because it adds public API (below).
+
 ### Added
 
 - **Private records stay home** (folder spec v0.3.15, §4.5 rule 11; §4.7, OW-8): `OWWorldArchive.Pack` leaves out,
