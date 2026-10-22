@@ -42,6 +42,20 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   element as it is now in `Current`. A link edit moves the element too, so it is checked the same way. Last
   parameter, so existing calls compile as they were. Parity with the TypeScript SDK's `patch` and `editLinks`
   `ifMatch`, their test vectors ported.
+- **The proposed change** (keel #519): a member can propose a change to an element without making it, and the world's
+  owner or a co-builder decides. `ProposeAsync(type, id, fields, evidence, expires, idempotencyKey)` (fields cleaned
+  as a PATCH body is, a known-of stub refused), `ListProposalsAsync` and `WorldProposalsAsync` (pages of
+  `OWProposal`, filtered by `OWProposalQuery`: state, since, element for the world queue, limit, cursor),
+  `AcceptProposalAsync` (the row and the element as written, one ordinary write by the keeper),
+  `DeclineProposalAsync` (with an optional reason) and `WithdrawProposalAsync`. In a world that takes an agent
+  seat's writes as proposals, a seat's `PatchAsync` or `EditLinksAsync` answers 202: it throws the new
+  `OWProposedError` (`IsProposed`, the row under `Proposal`) and the element did not change; a bulk item's 202 stays
+  in its slot (`OWBulkSlot.IsProposed`, `OWBulkSlot.Proposal`). Five new `OWApiError` helpers: `IsFieldNotVisible`,
+  `IsTooManyOpen`, `IsStaleProposal` (with the moved fields in the new `Conflicts` and the element in `Current`),
+  `IsProposedOnly` and `IsOwnProposal`. `OWApiError` is no longer sealed, so `OWProposedError` can derive from it.
+  Propose and accept send the client's name (`X-OW-Client`) and never `X-OW-Agent`, as keel's document lists. A
+  world's `agent_writes_proposed` switch reads through `GetWorldAsync`; this package has no world write to strip it
+  from. Parity with the TypeScript SDK 4.58.0, its test vector ported.
 - **Why a view restarted** (keel #421, while keel's hidden mark is on): `OWChangesPage.EpochReason` says why the epoch
   last moved, `role` (the key's own role or membership moved: keep what a fresh walk no longer names, it is out of
   view, not gone) or `view` (something left the key's view: drop it); `OWApiError.ResyncReason` reads the same word

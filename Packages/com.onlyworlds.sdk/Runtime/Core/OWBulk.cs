@@ -48,6 +48,19 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("error")]
         public OWApiErrorBody Error;
 
+        /// <summary>
+        /// Only on a 202 slot (keel #519): the proposal the write became. A world that takes an agent seat's writes as
+        /// proposals answers its item on an existing element this way, and the element did not change.
+        /// </summary>
+        [JsonProperty("proposal")]
+        public OWProposal Proposal;
+
+        /// <summary>
+        /// The item became a proposal (status 202, <see cref="Proposal"/>): not an error, so it counts as
+        /// <see cref="Succeeded"/>, but nothing was written to the element until a keeper accepts it.
+        /// </summary>
+        public bool IsProposed => Status == 202;
+
         /// <summary>True for any 2xx slot.</summary>
         /// <remarks>
         /// After an <c>atomic: true</c> request whose <see cref="OWBulkResult.Errors"/> is true,

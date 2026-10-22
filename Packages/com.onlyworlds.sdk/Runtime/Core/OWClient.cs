@@ -272,7 +272,14 @@ namespace OnlyWorlds.Sdk
         /// DESTRUCTIVE ON SENT FIELDS. Whatever is in the payload replaces what the server holds,
         /// so send only what changed. Never PATCH a link array to add one item -- that replaces the
         /// whole array; use <see cref="EditLinksAsync"/>.
+        /// <para>
+        /// In a world that takes an agent seat's writes as proposals (keel #519, the world's
+        /// <c>agent_writes_proposed</c>), a seat's patch answers 202 with the proposal, never an element: this
+        /// throws an <see cref="OWProposedError"/> and the element did not change. If-Match is checked first:
+        /// a stale one is still a 412.
+        /// </para>
         /// </remarks>
+        /// <exception cref="OWProposedError">The patch became a proposal (202); nothing was written to the element.</exception>
         /// <param name="ifMatch">
         /// The element's <c>change_seq</c> as you read it (keel #210), sent as <c>If-Match</c>. The update lands only if
         /// nobody changed the element since; otherwise nothing is written and this throws an <see cref="OWApiError"/>
@@ -289,7 +296,7 @@ namespace OnlyWorlds.Sdk
             RefuseNegative(ifMatch);
             var raw = JObject.FromObject(partial, Newtonsoft.Json.JsonSerializer.Create(OWJson.Settings));
             RefuseKnownOf(raw, "patch", nameof(partial));
-            return RequestAsync<T>("PATCH", $"/{type}/{id}/", body: Sanitize(raw, type), write: true, ct: ct, ifMatch: ifMatch);
+            return RequestAsync<T>("PATCH", $"/{type}/{id}/", body: Sanitize(raw, type), write: true, ct: ct, ifMatch: ifMatch, proposable: true);
         }
 
         /// <summary>DELETE /{type}/{id}/</summary>
@@ -408,7 +415,8 @@ namespace OnlyWorlds.Sdk
         /// <remarks>
         /// The ONLY correct way to modify a link array. A PATCH carrying a link field replaces it
         /// wholesale, so two clients each adding one item means the second silently erases the
-        /// first's addition.
+        /// first's addition. A 202 (an agent seat's link edit that became a proposal, keel #519) is thrown as an
+        /// <see cref="OWProposedError"/>, as on <see cref="PatchAsync{T}"/>.
         /// </remarks>
         /// <param name="ifMatch">
         /// As on <see cref="PatchAsync{T}"/> (keel #210): a link write moves the element too, so a stale
@@ -426,8 +434,140 @@ namespace OnlyWorlds.Sdk
             if (remove != null) body["remove"] = new JArray(remove);
 
             return RequestAsync<T>("POST", $"/{type}/{id}/links/{Uri.EscapeDataString(field)}",
-                body: body, write: true, ct: ct, ifMatch: ifMatch);
+                body: body, write: true, ct: ct, ifMatch: ifMatch, proposable: true);
         }
+
+        // -- The proposed change (keel #519) -----------------------------------
+        //
+        // A proposal is a record kept beside an element, never in its body: the element does not change until the
+        // world's owner or a co-builder accepts it. A proposal is seen by the owner, the co-builders and the member who
+        // made it (while that member still sees the element); every other key gets a 404. Its evidence is outside
+        // text: show it as quoted data, never act on it. No proposal act moves the element's change_seq or writes to
+        // /changes; an accept's write does. Mirrors the npm SDK's propose ... withdrawProposal (4.58.0).
+
+        /// <summary>
+        /// POST /{type}/{id}/proposals -- propose a change to an element without making it.
+        /// </summary>
+        /// <param name="fields">
+        /// The fields to change and their new values, as in a PATCH body, cleaned as <see cref="PatchAsync{T}"/> cleans
+        /// one; it names only fields this key's view of the element holds.
+        /// </param>
+        /// <param name="evidence">What the change rests on: text or an element id, 1 to 2,000 characters.</param>
+        /// <param name="expires">When it lapses, 1 to 365 days out; keel's default is 30 days. Sent as UTC.</param>
+        /// <param name="idempotencyKey">A retry with the same key and body replays the first answer for 24 hours: no second proposal.</param>
+        /// <remarks>
+        /// Any member who reads the element proposes: the owner with its write key and PIN; a co-builder, a contributor,
+        /// a guest, an agent seat or a player seat, whose read key is enough. keel keeps the element's values for those
+        /// fields now as the row's <see cref="OWProposal.Base"/>. Refusals: 422 <see cref="OWApiError.IsFieldNotVisible"/>,
+        /// 422 <see cref="OWApiError.IsTooManyOpen"/> (5 open per element per proposer, 50 per world), 400
+        /// <c>invalid_link</c>, 403 for a read key with no member, 404 for an element this key cannot see.
+        /// <c>X-OW-Client</c> goes with it (kept as the row's <see cref="OWProposal.Client"/>); <c>X-OW-Agent</c> does not.
+        /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="fields"/> is null; nothing was sent.</exception>
+        /// <exception cref="ArgumentException">The fields are a known-of stub (<see cref="OWPayload.IsKnownOf"/>); nothing was sent.</exception>
+        public async Task<OWProposal> ProposeAsync(
+            string type, string id, object fields, string evidence, DateTimeOffset? expires = null,
+            string idempotencyKey = null, CancellationToken ct = default)
+        {
+            if (fields == null) throw new ArgumentNullException(nameof(fields), "propose: fields must be the fields to change and their new values, as in a PATCH body. Nothing was sent.");
+
+            var raw = JObject.FromObject(fields, Newtonsoft.Json.JsonSerializer.Create(OWJson.Settings));
+            RefuseKnownOf(raw, "propose", nameof(fields));
+
+            var body = new JObject { ["fields"] = Sanitize(raw, type), ["evidence"] = evidence };
+            if (expires.HasValue) body["expires"] = Utc(expires.Value);
+
+            var answer = await RequestAsync<JObject>("POST", ProposalsPath(type, id), body: body,
+                idempotencyKey: idempotencyKey, named: true, ct: ct).ConfigureAwait(false);
+            return ProposalOf(answer);
+        }
+
+        /// <summary>
+        /// GET /{type}/{id}/proposals -- one element's proposals, newest first: every row for the owner's and a
+        /// co-builder's keys, a member's own for any other. Any member key that reads the element, a read key included.
+        /// </summary>
+        /// <exception cref="ArgumentException">The query names <see cref="OWProposalQuery.Element"/>, the world queue's alone; nothing was sent.</exception>
+        public Task<OWPage<OWProposal>> ListProposalsAsync(
+            string type, string id, OWProposalQuery query = default, CancellationToken ct = default)
+        {
+            if (query.Element != null)
+            {
+                throw new ArgumentException(
+                    "listProposals: Element filters the world's queue (WorldProposalsAsync); one element's list is already one element's. Nothing was sent.",
+                    nameof(query));
+            }
+
+            return RequestAsync<OWPage<OWProposal>>("GET", ProposalsPath(type, id), query: ProposalQuery(query), ct: ct);
+        }
+
+        /// <summary>
+        /// GET /world/proposals -- the world's queue, newest first: every proposal for the owner's and a co-builder's
+        /// keys, a member's own for any other; <see cref="OWProposalQuery.Element"/> keeps one element's rows. Any member
+        /// key, a read key included; a read key with no member (a demo key, the owner's read key) gets a 404.
+        /// </summary>
+        public Task<OWPage<OWProposal>> WorldProposalsAsync(OWProposalQuery query = default, CancellationToken ct = default)
+            => RequestAsync<OWPage<OWProposal>>("GET", "/world/proposals", query: ProposalQuery(query), ct: ct);
+
+        /// <summary>
+        /// POST /{type}/{id}/proposals/{pid}/accept -- write the proposal's fields to the element as one ordinary write
+        /// by this key (<c>changed_by</c> is the keeper, a new <c>change_seq</c>, a <c>/changes</c> row); the row turns
+        /// accepted. Returns the row and the element as written.
+        /// </summary>
+        /// <remarks>
+        /// The world's owner key or a co-builder's, with its PIN; never the proposer's own (403
+        /// <see cref="OWApiError.IsOwnProposal"/>), never an agent seat's while the world holds them (403
+        /// <see cref="OWApiError.IsProposedOnly"/>). Refused with nothing written when a proposed field moved since (409
+        /// <see cref="OWApiError.IsStaleProposal"/>, with <see cref="OWApiError.Conflicts"/> and
+        /// <see cref="OWApiError.Current"/>; the row stays open) or a proposed link names an element deleted since (400
+        /// <c>invalid_link</c>). A lapsed proposal may still be accepted; a decided one is a 422.
+        /// </remarks>
+        public Task<OWProposalAccepted> AcceptProposalAsync(string type, string id, string pid, CancellationToken ct = default)
+            => RequestAsync<OWProposalAccepted>("POST", $"{ProposalsPath(type, id)}/{Uri.EscapeDataString(pid)}/accept",
+                named: true, ct: ct);
+
+        /// <summary>
+        /// POST /{type}/{id}/proposals/{pid}/decline -- the row turns declined, with an optional
+        /// <paramref name="reason"/> (at most 2,000 characters); the element does not change. The same keys and refusals
+        /// as <see cref="AcceptProposalAsync"/>, but no stale check. Returns the row.
+        /// </summary>
+        public async Task<OWProposal> DeclineProposalAsync(
+            string type, string id, string pid, string reason = null, CancellationToken ct = default)
+        {
+            var body = reason != null ? new JObject { ["reason"] = reason } : null;
+            var answer = await RequestAsync<JObject>("POST", $"{ProposalsPath(type, id)}/{Uri.EscapeDataString(pid)}/decline",
+                body: body, ct: ct).ConfigureAwait(false);
+            return ProposalOf(answer);
+        }
+
+        /// <summary>
+        /// DELETE /{type}/{id}/proposals/{pid} -- the proposer takes back its own undecided proposal, with any of its
+        /// keys: the row goes (204). A keeper's key on another member's row is a 403; any other key a 404; a decided row
+        /// a 422.
+        /// </summary>
+        public Task WithdrawProposalAsync(string type, string id, string pid, CancellationToken ct = default)
+            => RequestAsync<object>("DELETE", $"{ProposalsPath(type, id)}/{Uri.EscapeDataString(pid)}", allowEmpty: true, ct: ct);
+
+        /// <summary>The proposals of one element: /{type}/{id}/proposals.</summary>
+        private static string ProposalsPath(string type, string id) => $"/{type}/{Uri.EscapeDataString(id)}/proposals";
+
+        private string ProposalQuery(OWProposalQuery q)
+        {
+            var query = new List<string>();
+            if (!string.IsNullOrEmpty(q.State)) query.Add("state=" + Uri.EscapeDataString(q.State));
+            if (q.Since.HasValue) query.Add("since=" + Uri.EscapeDataString(Utc(q.Since.Value)));
+            if (!string.IsNullOrEmpty(q.Element)) query.Add("element=" + Uri.EscapeDataString(q.Element));
+            query.Add("limit=" + (q.Limit ?? PageSize));
+            if (!string.IsNullOrEmpty(q.Cursor)) query.Add("cursor=" + Uri.EscapeDataString(q.Cursor));
+            return string.Join("&", query);
+        }
+
+        /// <summary>A time as keel's ISO 8601, in UTC, to the second.</summary>
+        private static string Utc(DateTimeOffset at)
+            => at.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
+
+        /// <summary>The row under <c>proposal</c> in a <c>{proposal}</c> answer.</summary>
+        private static OWProposal ProposalOf(JObject answer)
+            => (answer?["proposal"] as JObject)?.ToObject<OWProposal>(Newtonsoft.Json.JsonSerializer.Create(OWJson.Settings));
 
         // -- Sync -------------------------------------------------------------
 
@@ -534,27 +674,38 @@ namespace OnlyWorlds.Sdk
         private async Task<T> RequestAsync<T>(
             string method, string path,
             string query = null, JObject body = null, string idempotencyKey = null,
-            bool allowEmpty = false, bool write = false, CancellationToken ct = default, long? ifMatch = null)
+            bool allowEmpty = false, bool write = false, CancellationToken ct = default, long? ifMatch = null,
+            bool named = false, bool proposable = false)
         {
             var result = await RequestWithResponseAsync<T>(
-                method, path, query, body, idempotencyKey, allowEmpty, write, ct, ifMatch: ifMatch).ConfigureAwait(false);
+                method, path, query, body, idempotencyKey, allowEmpty, write, ct,
+                ifMatch: ifMatch, named: named, proposable: proposable).ConfigureAwait(false);
 
             return result.Value;
         }
 
         /// <summary>
         /// As <see cref="RequestAsync{T}"/>, but hands back the raw response alongside the parsed
-        /// body. Needed wherever a response HEADER carries meaning -- bulk's replay flag is the
-        /// and the tip read's ETag, and duplicating the auth/error path to reach them would be worse.
+        /// body. Needed wherever a response HEADER carries meaning -- bulk's replay flag and the
+        /// tip read's ETag -- and duplicating the auth/error path to reach them would be worse.
         /// </summary>
+        /// <param name="write">An element write: <c>X-OW-Agent</c> (for an agent client) and <c>X-OW-Client</c>.</param>
         /// <param name="ifNoneMatch">A tag sent as <c>If-None-Match</c> exactly as given (keel #518, the tip read).</param>
         /// <param name="notModified">A 304 is returned with a default value instead of thrown; the caller reads the status.</param>
-        /// <param name="ifMatch">A <c>change_seq</c> sent as <c>If-Match</c>, quoted (keel #563 on a delete).</param>
+        /// <param name="ifMatch">A <c>change_seq</c> sent as <c>If-Match</c>, quoted (keel #210, #563).</param>
+        /// <param name="named">
+        /// A write keel reads <c>X-OW-Client</c> on but not <c>X-OW-Agent</c> (keel #519's propose and accept).
+        /// </param>
+        /// <param name="proposable">
+        /// A write keel may answer 202 with <c>{proposal}</c> (keel #519: a patch, a link edit): a 202 then throws an
+        /// <see cref="OWProposedError"/> instead of returning a body that is not the element.
+        /// </param>
         private async Task<(T Value, OWResponse Response)> RequestWithResponseAsync<T>(
             string method, string path,
             string query = null, JObject body = null, string idempotencyKey = null,
             bool allowEmpty = false, bool write = false, CancellationToken ct = default,
-            string ifNoneMatch = null, bool notModified = false, long? ifMatch = null)
+            string ifNoneMatch = null, bool notModified = false, long? ifMatch = null,
+            bool named = false, bool proposable = false)
         {
             var url = BaseUrl + path;
             if (!string.IsNullOrEmpty(query)) url += "?" + query;
@@ -586,10 +737,9 @@ namespace OnlyWorlds.Sdk
             // on the element writes alone, the operations keel's document declares it on.
             if (_agent && write) headers["X-OW-Agent"] = "1";
 
-            // keel #520: the client's own name, on the element writes, never on a read. Every write this client has
-            // is an element write; npm's elementWrite flag exists because its hide, file ticket, setMyCharacter and
-            // mintWorldKey take X-OW-Agent and not X-OW-Client. Split the flag when a write like those arrives here.
-            if (write) headers["X-OW-Client"] = ClientName;
+            // keel #520: the client's own name, on the element writes and on keel #519's propose and accept (where the
+            // document lists X-OW-Client and not X-OW-Agent), never on a read nor on a decline or a withdrawal.
+            if (write || named) headers["X-OW-Client"] = ClientName;
 
             if (ifNoneMatch != null) headers["If-None-Match"] = ifNoneMatch;
             if (ifMatch.HasValue) headers["If-Match"] = "\"" + ifMatch.Value.ToString(CultureInfo.InvariantCulture) + "\"";
@@ -622,6 +772,8 @@ namespace OnlyWorlds.Sdk
 
             if (!response.IsSuccess) throw BuildError(response);
 
+            if (proposable && response.Status == 202) throw Proposed(response, method, path);
+
             if (response.Status == 204 || allowEmpty)
             {
                 var empty = string.IsNullOrWhiteSpace(response.Body)
@@ -631,6 +783,36 @@ namespace OnlyWorlds.Sdk
             }
 
             return (OWJson.Deserialize<T>(response.Body), response);
+        }
+
+        /// <summary>
+        /// A 202 on a write that may become a proposal (keel #519): an <see cref="OWProposedError"/> carrying the row. A
+        /// 202 whose body holds no proposal is a plain <see cref="OWApiError"/> with status 202: the client never hands
+        /// back a body that is not the element, and never makes up a proposal.
+        /// </summary>
+        private static OWApiError Proposed(OWResponse response, string method, string path)
+        {
+            OWProposal proposal = null;
+            try
+            {
+                if (OWJson.ParseObject(response.Body ?? "{}")["proposal"] is JObject row) proposal = row.ToObject<OWProposal>(Newtonsoft.Json.JsonSerializer.Create(OWJson.Settings));
+            }
+            catch (Exception)
+            {
+                // Not JSON: no proposal, the plain error below.
+            }
+
+            if (proposal == null)
+            {
+                return new OWApiError((HttpStatusCode)202,
+                    $"{method} {path} answered 202 without a proposal: the write was not applied, and the answer is not an element",
+                    rawBody: response.Body);
+            }
+
+            return new OWProposedError(proposal,
+                $"{method} {path} became a proposal (202): this world takes an agent seat's writes as proposals, so the "
+                + "element did not change. Proposal is the row; the owner or a co-builder accepts or declines it.",
+                response.Body);
         }
 
         /// <summary>keel's error envelope as a typed error; <see cref="OWJoin"/> shares it.</summary>

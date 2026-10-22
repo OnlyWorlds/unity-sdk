@@ -138,6 +138,16 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             await c.ChangesAsync(headOnly: true); // sends If-None-Match
             t.ResponseHeaders = new Dictionary<string, string>();
 
+            // The proposed change (keel #519), every option given, so each query key, body key and header is checked.
+            t.ResponseBody = "{}";
+            var at = new DateTimeOffset(2026, 11, 1, 0, 0, 0, TimeSpan.Zero);
+            await c.ProposeAsync("character", "c1", new JObject { ["name"] = "P" }, "seen", expires: at, idempotencyKey: "k");
+            await c.ListProposalsAsync("character", "c1", new OWProposalQuery { State = "all", Since = at, Limit = 5, Cursor = "c" });
+            await c.WorldProposalsAsync(new OWProposalQuery { State = "open", Since = at, Element = "c1", Limit = 5, Cursor = "c" });
+            await c.AcceptProposalAsync("character", "c1", "p1");
+            await c.DeclineProposalAsync("character", "c1", "p1", "not canon");
+            await c.WithdrawProposalAsync("character", "c1", "p1");
+
             // Joining is keyless, so it is not on the client; the same transport records it. The redeem passes every
             // option at once (no real code takes all three) so each key it can put in the body is on the wire here.
             t.ResponseBody = @"{""reader"":""player"",""world"":{""name"":""W"",""description"":""""}}";
@@ -341,7 +351,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [TestCase(typeof(OWJoinPreview), "/api/v2/join/preview", "POST")]
         [TestCase(typeof(OWJoined), "/api/v2/join", "POST")]
         [TestCase(typeof(OWChangesPage), "/api/v2/changes", "GET")]
-        public void EveryKeyAJoinModelReads_IsOneKeelServes(Type model, string path, string method)
+        [TestCase(typeof(OWPage<OWProposal>), "/api/v2/world/proposals", "GET")]
+        [TestCase(typeof(OWPage<OWProposal>), "/api/v2/character/{id}/proposals", "GET")]
+        [TestCase(typeof(OWProposalAccepted), "/api/v2/character/{id}/proposals/{pid}/accept", "POST")]
+        public void EveryKeyAModelReads_IsOneKeelServes(Type model, string path, string method)
         {
             var op = Wire["paths"]?[path]?[method] as JObject;
             Assert.IsNotNull(op, $"{method} {path} is not in the fixture");
@@ -415,7 +428,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             // An empty recording would pass the checks above with nothing checked.
             var calls = await RecordEveryCall();
-            Assert.AreEqual(17, calls.Count);
+            Assert.AreEqual(23, calls.Count);
 
             // The conditional headers are on the wire here, so the header check above saw them.
             Assert.That(calls.Any(c => c.Headers.ContainsKey("If-Match")), "a delete with ifMatch is recorded");
