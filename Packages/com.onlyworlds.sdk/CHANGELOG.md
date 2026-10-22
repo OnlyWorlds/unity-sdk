@@ -29,6 +29,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Fixed
 
+- **An `.owworld` entry whose bytes fail its CRC-32 refuses the archive** (`OWWorldArchive.Read`, cause
+  `not_openable`; folder spec §4.7's size bullet, the conformance set's `fail-OW-14-crc`). Mono's `ZipArchive` never
+  compares the CRC it is given, so a flipped bit in an element's deflate stream was read as other text, an element
+  with a broken id, without an error. The CRC is taken in the pass that copies the bytes and compared with the
+  central directory's. In the same pass, an entry that inflates to fewer bytes than it declares, or whose deflate
+  stream is broken, refuses the archive as `not_openable` (it was skipped like an unreadable file in a folder), and a
+  `mimetype` marker that is a broken entry refuses as `not_openable`, not `marker`: the TypeScript reader's and the
+  reference checker's causes.
 - A folder read (`OWFolderReader.Read`, `ReadEntries`, and so an `.owworld` read and `LoadInto`) no longer takes a
   tool's litter for an element (folder spec §4): a dot-prefixed folder under `elements/` (`.atlas/`) is not read, and
   a dot-prefixed file in a type directory (an editor's swap file, a sync client's `._` twin) is skipped and listed in

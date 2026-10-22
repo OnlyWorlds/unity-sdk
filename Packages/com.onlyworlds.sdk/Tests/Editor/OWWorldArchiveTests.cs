@@ -910,6 +910,66 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(OWWorldArchiveReason.NotOpenable, Refused(fewer).Reason, "Holding less is a broken entry.");
         }
 
+        // -- Bytes the zip was made with (folder spec §4.7, OW-14's CRC) ------------------------------
+
+        [Test]
+        public void Read_RefusesAnElementWhoseBytesFailItsCrc_NeverReadsItAsOtherText()
+        {
+            // The conformance set's fail-OW-14-crc: one bit off in the CRC its headers declare. Mono's ZipArchive does
+            // not compare it, so before the check the element was read as written.
+            var archive = WorldZip("crc.owworld");
+            Assert.AreEqual(1, OWWorldArchive.Read(archive).Elements.Count, "Untouched, the world reads.");
+
+            FlipCrc(archive, "w/elements/character/one.json");
+            var e = Refused(archive);
+            Assert.AreEqual(OWWorldArchiveReason.NotOpenable, e.Reason);
+            StringAssert.Contains("'w/elements/character/one.json' fails its CRC-32", e.Message);
+        }
+
+        [Test]
+        public void Read_RefusesAWorldJsonOrAMarkerWhoseBytesFailTheirCrc_ForThatCause()
+        {
+            var world = WorldZip("crc-world.owworld");
+            FlipCrc(world, "w/world.json");
+            Assert.AreEqual(OWWorldArchiveReason.NotOpenable, Refused(world).Reason, "Not not_a_world: the file is broken, not unworldly.");
+
+            // A marker of the right bytes and a wrong CRC is a broken entry, not a marker that says something else.
+            var marker = WorldZip("crc-marker.owworld", ("mimetype", OWWorldArchive.MediaType));
+            Assert.AreEqual(1, OWWorldArchive.Read(marker).Elements.Count);
+            FlipCrc(marker, "mimetype");
+            Assert.AreEqual(OWWorldArchiveReason.NotOpenable, Refused(marker).Reason);
+        }
+
+        [Test]
+        public void Read_RefusesABrokenDeflateStream_AndAnEntryHoldingLessThanItDeclares()
+        {
+            // A broken stream was an unreadable text, skipped as a folder skips a file it cannot read; in an archive it
+            // is a broken archive (the TypeScript reader and the reference checker: not_openable).
+            var broken = WorldZip("broken.owworld");
+            PatchData(broken, "w/elements/character/one.json", (bytes, at) => bytes[at] = 0x07); // a final block of reserved type 3
+            var e = Refused(broken);
+            Assert.AreEqual(OWWorldArchiveReason.NotOpenable, e.Reason);
+            StringAssert.Contains("cannot be inflated", e.Message);
+
+            var shorter = WorldZip("short.owworld");
+            DeclareSize(shorter, "w/elements/character/one.json", (uint)Encoding.UTF8.GetByteCount(ElementBody) + 10);
+            var s = Refused(shorter);
+            Assert.AreEqual(OWWorldArchiveReason.NotOpenable, s.Reason);
+            StringAssert.Contains($"holds {Encoding.UTF8.GetByteCount(ElementBody)} bytes and declares", s.Message);
+        }
+
+        /// <summary>Flips the lowest bit of the CRC-32 an entry declares, in its local header (14) and its central record (16).</summary>
+        private static void FlipCrc(string archive, string name)
+            => PatchEntry(archive, name, (bytes, at, central) => bytes[at + (central ? 16 : 14)] ^= 1);
+
+        /// <summary>Rewrites an entry's stored data in place: <paramref name="patch"/> gets the bytes and where its data starts.</summary>
+        private static void PatchData(string archive, string name, Action<byte[], int> patch)
+            => PatchEntry(archive, name, (bytes, at, central) =>
+            {
+                if (central) return;
+                patch(bytes, at + 30 + BitConverter.ToUInt16(bytes, at + 26) + BitConverter.ToUInt16(bytes, at + 28));
+            });
+
         [Test]
         public void Read_RefusesAUtf8FlaggedNameWhoseBytesAreNotUtf8()
         {
