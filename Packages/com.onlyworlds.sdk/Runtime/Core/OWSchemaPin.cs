@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.33.00";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 43;
+        public const int DistSerial = 44;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.33.0-dist.43";
+        public const string Tag = "v0.33.0-dist.44";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -134,9 +134,14 @@ namespace OnlyWorlds.Sdk
         /// Captain's word, h58 #10069). <c>OWZone.Shape</c> is generated from it. The example export moved only its
         /// <c>schema_version</c>; the conformance set did not move. <c>presentation.json</c> is byte-identical.
         /// </para>
+        /// <para>
+        /// <b>43 -> 44 (2026-10-22)</b>: canonical unchanged, no decoded file moved. The dist gained the room profile
+        /// (<c>profiles/room.md</c>, <c>room.fixture.json</c>: which elements are a room's lines and work items), which
+        /// this SDK does not read yet. The generated models changed only in their serial stamp.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "a9bbe8171e2e815cdec05a7ddd2a3d07beb4212fcbd6dc80e9cae81935e4cf7f";
+            "787ee6eaf5dc57075c6795966cb686ecabe79545f7fd1319c0775b4feb86f070";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.

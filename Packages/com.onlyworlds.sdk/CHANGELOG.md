@@ -16,6 +16,8 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 - The schema pin moves to dist.43 (`v0.33.0-dist.43`; canonical `00.33.00`, a minor step: Zone gains `shape`). The
   example export the envelope tests read moved only its `schema_version`; the `.owworld` conformance set did not move.
+  Then to dist.44 (`v0.33.0-dist.44`, canonical unchanged): the dist gained the room profile, which this SDK does not
+  read yet.
 
 ## [0.12.1] - 2026-10-22
 
