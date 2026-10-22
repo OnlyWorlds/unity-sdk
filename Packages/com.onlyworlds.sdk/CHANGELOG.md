@@ -8,27 +8,45 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Added
 
-- **The `.owworld` conformance set runs as the package's own test** (schema-dist `fixtures/owworld/`, dist.39;
-  folder spec §4.7): `OWWorldArchiveConformanceTests` reads all 78 zips with `OWWorldArchive.Read` and checks each
+- **The `.owworld` conformance set runs as the package's own test** (schema-dist `fixtures/owworld/`, dist.40;
+  folder spec §4.7): `OWWorldArchiveConformanceTests` reads all 79 zips with `OWWorldArchive.Read` and checks each
   verdict and each refusal's cause against the set's `verdicts.json`, which is pinned to the dist's manifest, every
   zip to its sha256. The set is vendored in a folder Unity does not import (`Tests/Editor/Fixtures/owworld~/`), so
   the package's own importer never opens a hostile file in it. `OW_OWWORLD_FIXTURES` runs another copy of the set.
+- **The producer line** (folder spec §4.2, v0.3.14): a folder `OWFolderExport.ExportAsync` makes says which tool made
+  it and from what, `"producer": {"tool": "com.onlyworlds.sdk", "version": "<this package's>", "input": "server"}`,
+  after `source` and `exported_as`, where the Python package's `export_world` (0.16.0) writes its own. An export is a
+  folder's birth, so the line is always the export's own, also when the server's world carries another folder's.
+  `ExportFileAsync` carries the line keel's file holds verbatim, and writes none when it holds none: the file's maker
+  made the folder. `OWWorldArchive.Pack` keeps it as written, and a reader takes any `input` word, one it does not
+  know included. New public members: `OWFolderExport.ExportProducer`, `ProducerTool`, `ProducerVersion` (kept equal
+  to `package.json`'s `version` by a test).
 
 ### Changed
 
-- The schema pin moves to dist.39 (`v0.32.2-dist.39`; canonical `00.32.02` unchanged, and no decoded file moved:
+- The schema pin moves to dist.40 (`v0.32.2-dist.40`; canonical `00.32.02` unchanged, and no decoded file moved:
   the schema, the walk, its rulings, `presentation.json` and the examples are byte for byte dist.35's). The dist
   gained the packet and review extension profiles, a folder lint rule, and the `.owworld` conformance set (folder
-  spec §4.7). The generated models changed only in their serial.
-- An export declares folder format `0.3.13` (`OWFolderExport.FormatVersion`), as the Python package's 0.15.0 does.
-  0.3.13 rules the `.owworld` archive (§4.7), which this SDK's reader already follows on the whole conformance set;
-  it asks nothing more of a folder. A `format_version` a world already carries is still kept as it is.
+  spec §4.7; serial 40 adds its CRC case). The generated models changed only in their serial.
+- An export declares folder format `0.3.14` (`OWFolderExport.FormatVersion`), as the Python package's 0.16.0 does.
+  0.3.13 rules the `.owworld` archive (§4.7), which this SDK's reader follows on the whole conformance set; 0.3.14
+  adds the producer line (above). A `format_version` a world already carries is still kept as it is.
 - The wire check's snapshot of keel's API document is refreshed (2026-10-22): every route, query parameter, header,
   body key and error code the client uses is still one keel declares, and every key the join models read is one it
   serves.
 
 ### Fixed
 
+- **An `.owworld` entry whose bytes fail its CRC-32 refuses the archive** (`OWWorldArchive.Read`, cause
+  `not_openable`; folder spec §4.7's size bullet, the conformance set's `fail-OW-14-crc`). Mono's `ZipArchive` never
+  compares the CRC it is given, so a flipped bit in an element's deflate stream was read as other text, an element
+  with a broken id, without an error. The CRC is taken in the pass that copies the bytes and compared with the
+  central directory's. In the same pass, an entry that inflates to fewer bytes than it declares, or whose deflate
+  stream is broken, refuses the archive as `not_openable` (it was skipped like an unreadable file in a folder), and a
+  `mimetype` marker that is a broken entry refuses as `not_openable`, not `marker`: the TypeScript reader's and the
+  reference checker's causes. Every file in the archive is checked this way, not only the ones the read returns: a
+  corrupt image under `media/`, a broken file under `records/` or beside the world refuses the archive too, as in the
+  TypeScript reader. Those files are inflated through one buffer and never held, so the read's memory is unchanged.
 - A folder read (`OWFolderReader.Read`, `ReadEntries`, and so an `.owworld` read and `LoadInto`) no longer takes a
   tool's litter for an element (folder spec §4): a dot-prefixed folder under `elements/` (`.atlas/`) is not read, and
   a dot-prefixed file in a type directory (an editor's swap file, a sync client's `._` twin) is skipped and listed in

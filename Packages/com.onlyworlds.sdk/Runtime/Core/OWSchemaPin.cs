@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.32.02";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 39;
+        public const int DistSerial = 40;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.32.2-dist.39";
+        public const string Tag = "v0.32.2-dist.40";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -115,9 +115,15 @@ namespace OnlyWorlds.Sdk
         /// the <c>.owworld</c> conformance set of folder spec 4.7 (39), vendored for
         /// <c>OWWorldArchiveConformanceTests</c>. The generated models changed only in their serial and date stamps.
         /// </para>
+        /// <para>
+        /// <b>39 -> 40 (2026-10-22)</b>: canonical unchanged, no decoded file moved. The conformance set gained
+        /// <c>fail-OW-14-crc</c> (an entry whose bytes fail its CRC refuses the archive, cause <c>not_openable</c>; folder
+        /// spec 4.7's size bullet), with its <c>verdicts.json</c> entry and generator lines: 79 zips. The generated models
+        /// changed only in their serial stamp.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "efc94e3318d5b4bff11ef535f932be6a49db6c9b774dfdcbabddaebb4a9a4426";
+            "b73fe08d76c57f3dcef2013919cd21723ff0f90dcfc03200455de5e379dc1a44";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.

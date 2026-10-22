@@ -463,6 +463,47 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsNull(OWWorldArchive.Read(kept).World["api"]);
         }
 
+        // -- The producer line (folder spec §4.2, v0.3.14) travels as its maker wrote it ----------------
+
+        private const string ProducerLine =
+            "  \"producer\": {\n    \"tool\": \"azgaar-converter\",\n    \"version\": \"0.4.0\",\n    \"input\": \"azgaar-map\"\n  },\n";
+
+        [Test]
+        public void Pack_KeepsTheProducerLine_ByteForByte_AndWhenItStripsTheApiBlock()
+        {
+            // An archive is a copy, not a birth: the line says who made the folder, so it goes in as written.
+            var plain = Path.Combine(_temp, "made");
+            Write(plain, "world.json", "{\n  \"id\": \"" + WId + "\",\n  \"name\": \"Made\",\n" + ProducerLine + "  \"x_tool\": true\n}\n");
+            Write(plain, "elements/character/one.json", ElementBody);
+            var archive = PackTo(plain, "made.owworld");
+            CollectionAssert.AreEqual(File.ReadAllBytes(Path.Combine(plain, "world.json")), EntryBytes(archive, "made/world.json"));
+
+            // Re-emitted without its api block, the rest of world.json, the producer line among it, is as it was.
+            var linked = Path.Combine(_temp, "linked-made");
+            Write(linked, "world.json", "{\n  \"id\": \"" + WId + "\",\n  \"name\": \"Made\",\n" + ProducerLine
+                                        + "  \"api\": {\n    \"world_id\": \"" + WId + "\",\n    \"api_key\": \"ow_k_secret\"\n  },\n"
+                                        + "  \"x_tool\": true\n}\n");
+            var stripped = Encoding.UTF8.GetString(EntryBytes(PackTo(linked, "linked-made.owworld"), "linked-made/world.json"));
+            Assert.AreEqual("{\n  \"id\": \"" + WId + "\",\n  \"name\": \"Made\",\n" + ProducerLine + "  \"x_tool\": true\n}\n", stripped);
+        }
+
+        [Test]
+        public void Read_AnInputWordNoReaderKnows_IsData_TheFolderAndTheArchiveReadIt()
+        {
+            // §4.2: "a reader never refuses a folder on a word it does not know". The package's vector.
+            var root = Path.Combine(_temp, "papyrus");
+            Write(root, "world.json", "{\n  \"id\": \"" + WId + "\",\n  \"name\": \"Papyrus\",\n"
+                                      + "  \"producer\": {\n    \"tool\": \"papyrus\",\n    \"version\": \"9\",\n    \"input\": \"papyrus-scroll\"\n  }\n}\n");
+            Write(root, "elements/character/one.json", ElementBody);
+
+            foreach (var read in new[] { OWFolderReader.Read(root), OWWorldArchive.Read(PackTo(root, "papyrus.owworld")) })
+            {
+                Assert.AreEqual("papyrus-scroll", (string)read.World["producer"]["input"]);
+                Assert.AreEqual(1, read.Elements.Count);
+                Assert.IsEmpty(read.Skipped);
+            }
+        }
+
         private string PackTo(string root, string fileName)
         {
             var path = Path.Combine(_temp, fileName);
@@ -830,23 +871,34 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [Test]
         public void Read_AcceptsUpToTheFloorsBytes_ByDefault_AndRefusesOneByteMore()
         {
-            // A media file is never inflated, so declaring its size is enough to put the archive at the floor.
+            // The budget is held from declared sizes alone, so declaring a media file's size puts the archive at the
+            // floor without a 2 GiB file. That file then lies (it holds 1 byte), which the later check of every entry
+            // refuses as a broken entry: inside the budget means refused for that, never for MaxBytes.
             var world = WorldJson(WId, "W");
             var archive = MakeZip("floor.owworld",
                 ("w/world.json", world), ("w/elements/character/one.json", ElementBody), ("w/media/big.bin", "x"));
             long others = Encoding.UTF8.GetByteCount(world) + Encoding.UTF8.GetByteCount(ElementBody);
 
+            void InsideTheBudget(string why, OWWorldArchiveReadOptions options = null)
+            {
+                var past = Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Read(archive, options: options));
+                Assert.AreEqual(OWWorldArchiveReason.NotOpenable, past.Reason, why);
+                StringAssert.Contains("holds 1 bytes and declares", past.Message, why);
+            }
+
             DeclareSize(archive, "w/media/big.bin", (uint)(OWWorldArchive.DefaultMaxBytes - others));
-            Assert.AreEqual(1, OWWorldArchive.Read(archive).Elements.Count, "Exactly 2 GiB declared: inside the floor.");
+            InsideTheBudget("Exactly 2 GiB declared: inside the floor.");
 
             DeclareSize(archive, "w/media/big.bin", (uint)(OWWorldArchive.DefaultMaxBytes - others + 1));
-            StringAssert.Contains("MaxBytes", Refused(archive).Message);
+            var over = Refused(archive);
+            Assert.AreEqual(OWWorldArchiveReason.TooBig, over.Reason);
+            StringAssert.Contains("MaxBytes", over.Message);
 
             // A caller's lower budget still holds.
             DeclareSize(archive, "w/media/big.bin", 1u << 30);
             var lower = new OWWorldArchiveReadOptions { MaxBytes = 1L << 30 };
-            Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Read(archive, options: lower));
-            Assert.AreEqual(1, OWWorldArchive.Read(archive).Elements.Count, "1 GiB and more is inside the floor.");
+            StringAssert.Contains("MaxBytes", Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Read(archive, options: lower)).Message);
+            InsideTheBudget("1 GiB and more is inside the floor.");
         }
 
         [Test]
@@ -909,6 +961,93 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             SetMethod(fewer, "w/media/a.png", 0);
             Assert.AreEqual(OWWorldArchiveReason.NotOpenable, Refused(fewer).Reason, "Holding less is a broken entry.");
         }
+
+        // -- Bytes the zip was made with (folder spec §4.7, OW-14's CRC) ------------------------------
+
+        [Test]
+        public void Read_RefusesAnElementWhoseBytesFailItsCrc_NeverReadsItAsOtherText()
+        {
+            // The conformance set's fail-OW-14-crc: one bit off in the CRC its headers declare. Mono's ZipArchive does
+            // not compare it, so before the check the element was read as written.
+            var archive = WorldZip("crc.owworld");
+            Assert.AreEqual(1, OWWorldArchive.Read(archive).Elements.Count, "Untouched, the world reads.");
+
+            FlipCrc(archive, "w/elements/character/one.json");
+            var e = Refused(archive);
+            Assert.AreEqual(OWWorldArchiveReason.NotOpenable, e.Reason);
+            StringAssert.Contains("'w/elements/character/one.json' fails its CRC-32", e.Message);
+        }
+
+        [Test]
+        public void Read_RefusesAWorldJsonOrAMarkerWhoseBytesFailTheirCrc_ForThatCause()
+        {
+            var world = WorldZip("crc-world.owworld");
+            FlipCrc(world, "w/world.json");
+            Assert.AreEqual(OWWorldArchiveReason.NotOpenable, Refused(world).Reason, "Not not_a_world: the file is broken, not unworldly.");
+
+            // A marker of the right bytes and a wrong CRC is a broken entry, not a marker that says something else.
+            var marker = WorldZip("crc-marker.owworld", ("mimetype", OWWorldArchive.MediaType));
+            Assert.AreEqual(1, OWWorldArchive.Read(marker).Elements.Count);
+            FlipCrc(marker, "mimetype");
+            Assert.AreEqual(OWWorldArchiveReason.NotOpenable, Refused(marker).Reason);
+        }
+
+        [Test]
+        public void Read_RefusesABrokenDeflateStream_AndAnEntryHoldingLessThanItDeclares()
+        {
+            // A broken stream was an unreadable text, skipped as a folder skips a file it cannot read; in an archive it
+            // is a broken archive (the TypeScript reader and the reference checker: not_openable).
+            var broken = WorldZip("broken.owworld");
+            PatchData(broken, "w/elements/character/one.json", (bytes, at) => bytes[at] = 0x07); // a final block of reserved type 3
+            var e = Refused(broken);
+            Assert.AreEqual(OWWorldArchiveReason.NotOpenable, e.Reason);
+            StringAssert.Contains("cannot be inflated", e.Message);
+
+            var shorter = WorldZip("short.owworld");
+            DeclareSize(shorter, "w/elements/character/one.json", (uint)Encoding.UTF8.GetByteCount(ElementBody) + 10);
+            var s = Refused(shorter);
+            Assert.AreEqual(OWWorldArchiveReason.NotOpenable, s.Reason);
+            StringAssert.Contains($"holds {Encoding.UTF8.GetByteCount(ElementBody)} bytes and declares", s.Message);
+        }
+
+        [TestCase("w/media/a.png")]
+        [TestCase("w/records/lab/ledger.bin")]
+        [TestCase("README.txt")] // beside the world, outside it
+        public void Read_RefusesAnyFileWhoseBytesFailItsCrc_NotOnlyTheOnesItReads(string name)
+        {
+            // §4.7: "an entry whose bytes fail its CRC refuses the archive". The read returns none of these, but the
+            // TypeScript reader and the reference checker check every file, so a corrupt image refuses here too.
+            var archive = WorldZip("crc-any.owworld", (name, "bytes the world never reads"));
+            Assert.AreEqual(1, OWWorldArchive.Read(archive).Elements.Count, "Untouched, the world reads.");
+
+            FlipCrc(archive, name);
+            var e = Refused(archive);
+            Assert.AreEqual(OWWorldArchiveReason.NotOpenable, e.Reason);
+            StringAssert.Contains($"'{name}' fails its CRC-32", e.Message);
+        }
+
+        [Test]
+        public void Read_RefusesAMediaFileThatInflatesPastItsDeclaredSize()
+        {
+            // The lying size (OW-14) in a deflated image: refused when it is checked, as in an element.
+            var archive = WorldZip("media-lying.owworld", ("w/media/a.png", new string('x', 4096)));
+            DeclareSize(archive, "w/media/a.png", 64);
+            var e = Refused(archive);
+            Assert.AreEqual(OWWorldArchiveReason.TooBig, e.Reason);
+            StringAssert.Contains("inflates past the 64 bytes it declares", e.Message);
+        }
+
+        /// <summary>Flips the lowest bit of the CRC-32 an entry declares, in its local header (14) and its central record (16).</summary>
+        private static void FlipCrc(string archive, string name)
+            => PatchEntry(archive, name, (bytes, at, central) => bytes[at + (central ? 16 : 14)] ^= 1);
+
+        /// <summary>Rewrites an entry's stored data in place: <paramref name="patch"/> gets the bytes and where its data starts.</summary>
+        private static void PatchData(string archive, string name, Action<byte[], int> patch)
+            => PatchEntry(archive, name, (bytes, at, central) =>
+            {
+                if (central) return;
+                patch(bytes, at + 30 + BitConverter.ToUInt16(bytes, at + 26) + BitConverter.ToUInt16(bytes, at + 28));
+            });
 
         [Test]
         public void Read_RefusesAUtf8FlaggedNameWhoseBytesAreNotUtf8()

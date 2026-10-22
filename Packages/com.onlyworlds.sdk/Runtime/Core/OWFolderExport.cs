@@ -108,7 +108,32 @@ namespace OnlyWorlds.Sdk
     public static class OWFolderExport
     {
         /// <summary>The OW Folder Format version an export declares in <c>world.json</c>.</summary>
-        public const string FormatVersion = "0.3.13";
+        public const string FormatVersion = "0.3.14";
+
+        /// <summary>The name this package publishes under: the <c>tool</c> of the <c>producer</c> line it writes.</summary>
+        public const string ProducerTool = "com.onlyworlds.sdk";
+
+        /// <summary>
+        /// This package's version, as its <c>package.json</c> says: the <c>version</c> of the <c>producer</c> line it writes.
+        /// </summary>
+        /// <remarks>
+        /// A constant, not read at run time: a player build carries no <c>package.json</c>, and the package manager that
+        /// could read it is Editor-only. A test holds it equal to <c>package.json</c>'s <c>version</c>, so a release that
+        /// moves one without the other fails.
+        /// </remarks>
+        public const string ProducerVersion = "0.11.0";
+
+        /// <summary>
+        /// The <c>producer</c> line (folder spec §4.2, v0.3.14) every folder <see cref="ExportAsync"/> makes carries:
+        /// <c>{"tool": "com.onlyworlds.sdk", "version": "&lt;this package's&gt;", "input": "server"}</c>, the spec's key
+        /// order, <c>server</c> its word for an export from onlyworlds.com. A new object on every read.
+        /// </summary>
+        public static JObject ExportProducer => new JObject
+        {
+            ["tool"] = ProducerTool,
+            ["version"] = ProducerVersion,
+            ["input"] = "server",
+        };
 
         /// <summary>
         /// Wire key to disk key for <c>world.json</c> (spec §5, v0.3.5): the file follows the canonical
@@ -301,7 +326,10 @@ namespace OnlyWorlds.Sdk
             var slice = await ExportedAsAsync(client, ct).ConfigureAwait(false);
             progress?.Report(new OWFolderExportProgress { Stage = "world", Done = 1, Total = 1 });
 
-            // The provenance lines (§4.2, v0.3.9) after the wire's keys, as the package's export_world adds them.
+            // The provenance lines (§4.2, v0.3.9 and v0.3.14) after the wire's keys, as the package's export_world adds
+            // them. An export is a folder's birth, so source and producer are always this export's own: a body that
+            // already carries either (keel keeps them from a folder upload) names the maker of another folder, and its
+            // line is replaced where it stands.
             wireWorld = (JObject)wireWorld.DeepClone();
             wireWorld["source"] = new JObject
             {
@@ -310,6 +338,7 @@ namespace OnlyWorlds.Sdk
                 ["at"] = at.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture),
             };
             if (slice != null) wireWorld["exported_as"] = slice;
+            wireWorld["producer"] = ExportProducer;
 
             var types = OWElementTypes.Slugs;
             var byType = new Dictionary<string, List<JObject>>();
@@ -345,9 +374,16 @@ namespace OnlyWorlds.Sdk
         /// </exception>
         /// <exception cref="IOException">As <see cref="ExportAsync"/>: an occupied folder, or one too deep on Windows.</exception>
         /// <remarks>
+        /// <para>
         /// The bodies are written as the file holds them and <c>world.json</c> as <see cref="WorldForDisk"/> makes it, so
         /// every key the file's world carries rides along (§4.1: never dropped). An element the reader would skip is a
         /// refusal here, not a skip: a folder is born whole or not at all.
+        /// </para>
+        /// <para>
+        /// The file's maker is the folder's maker: the <c>producer</c> line its world carries (keel's) is written verbatim,
+        /// as its <c>source</c> is, and a file whose world carries none gives a folder with none (§4.2, v0.3.14: absent is
+        /// the honest value, and a later writer never invents one).
+        /// </para>
         /// </remarks>
         public static async Task<OWFolderExportReport> ExportFileAsync(
             string path, string folder, OWFolderExportOptions options = null,
