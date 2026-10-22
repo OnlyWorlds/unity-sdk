@@ -371,6 +371,42 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             }, entries);
         }
 
+        [Test]
+        public void Pack_WritesEntriesInUtf8ByteOrder_NotUtf16Order()
+        {
+            // Folder spec §4.7 (OW-13): the order is the UTF-8 bytes of the name, code point order. UTF-16 order
+            // (string.CompareOrdinal, JS <) puts an emoji's surrogates (D83D...) before U+E000 to U+FFFF.
+            var root = Path.Combine(_temp, "w");
+            Write(root, "world.json", WorldJson("0695db52-0000-7000-8000-0000000000aa", "W"));
+            foreach (var name in new[] { "\U0001F600.png", "Ａ.png", ".png", "z.png", "é.png", "\U00010400.png" })
+                Write(root, "media/" + name, "png");
+
+            var archive = Path.Combine(_temp, "w.owworld");
+            var entries = OWWorldArchive.Pack(root, archive);
+
+            CollectionAssert.AreEqual(new[]
+            {
+                "w/media/z.png", "w/media/é.png", "w/media/.png", "w/media/Ａ.png",
+                "w/media/\U00010400.png", "w/media/\U0001F600.png", "w/world.json",
+            }, entries);
+
+            var bytes = entries.Select(e => Encoding.UTF8.GetBytes(e)).ToList();
+            for (var i = 1; i < bytes.Count; i++)
+                Assert.Less(CompareBytes(bytes[i - 1], bytes[i]), 0, $"{entries[i - 1]} before {entries[i]}");
+            Assert.AreNotEqual(entries.OrderBy(e => e, StringComparer.Ordinal).ToList(), entries,
+                "UTF-16 order would give another order here, so this test tells the two apart.");
+
+            CollectionAssert.AreEqual(entries, EntryNames(archive), "The file holds what Pack said, in that order.");
+            Assert.AreEqual(0, OWWorldArchive.Read(archive).Elements.Count, "The names read back (the UTF-8 flag is set).");
+        }
+
+        private static int CompareBytes(byte[] a, byte[] b)
+        {
+            for (var i = 0; i < Math.Min(a.Length, b.Length); i++)
+                if (a[i] != b[i]) return a[i] - b[i];
+            return a.Length - b.Length;
+        }
+
         // -- The api block ----------------------------------------------------------
 
         [Test]

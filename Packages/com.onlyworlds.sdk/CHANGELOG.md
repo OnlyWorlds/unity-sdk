@@ -63,6 +63,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   And a second `world.json` inside the world (`w/inner/world.json`) is refused as a second world; one under
   `records/` stays a producer's own data. The TypeScript reader also refuses a file-and-folder path and a nested
   `world.json`; it has none of the other checks yet. Each refusal names the entry and why.
+- `OWWorldArchive.Pack` writes entries in the order of their names' UTF-8 bytes (code point order), as folder spec
+  §4.7 rules (OW-13). It sorted UTF-16 code units, which put a name past U+FFFF (an emoji) before one from U+E000
+  to U+FFFF (a fullwidth letter), so two writers given one world wrote different bytes.
 
 ## [0.10.0] - 2026-10-21
 

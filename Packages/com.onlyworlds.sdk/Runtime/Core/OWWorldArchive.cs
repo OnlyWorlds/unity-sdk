@@ -154,9 +154,10 @@ namespace OnlyWorlds.Sdk
         /// (see the class's first rule).
         /// </para>
         /// <para>
-        /// Deterministic: entries in ordinal path order, each stamped <see cref="EntryTime"/>, so the same folder
-        /// packs to the same bytes whatever the file system's listing order or the files' mtimes. Same bytes across
-        /// runtimes is not claimed: the deflate stream is the runtime's zlib.
+        /// Deterministic: entries in the order of their names' UTF-8 bytes (code point order, folder spec §4.7,
+        /// OW-13), each stamped <see cref="EntryTime"/>, so the same folder packs to the same bytes whatever the file
+        /// system's listing order or the files' mtimes. Same bytes across runtimes is not claimed: the deflate stream
+        /// is the runtime's zlib.
         /// </para>
         /// </remarks>
         /// <exception cref="DirectoryNotFoundException">The folder does not exist.</exception>
@@ -209,7 +210,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// What <see cref="Pack"/> would write: each file's path inside the world (forward slashes) and on disk, in
-        /// ordinal path order. Reads directory listings only.
+        /// code point order. Reads directory listings only.
         /// </summary>
         internal static List<(string relative, string source)> PackPlan(string worldFolder)
         {
@@ -225,11 +226,35 @@ namespace OnlyWorlds.Sdk
             var records = Path.Combine(root, RecordsFolder);
             if (Directory.Exists(records)) CollectRecords(records, RecordsFolder, plan);
 
-            // Ordinal, never the file system's order: NTFS lists case-insensitively, ext4 in hash order, and the
-            // archive's bytes must not depend on which one packed it.
-            plan.Sort((a, b) => string.CompareOrdinal(a.relative, b.relative));
+            // By code point, never the file system's order: NTFS lists case-insensitively, ext4 in hash order, and
+            // the archive's bytes must not depend on which one packed it.
+            plan.Sort((a, b) => CompareByCodePoint(a.relative, b.relative));
             return plan;
         }
+
+        /// <summary>
+        /// Orders two names by code point, which is the order of their UTF-8 bytes (folder spec §4.7, OW-13), where
+        /// <see cref="string.CompareOrdinal(string, string)"/> orders UTF-16 code units.
+        /// </summary>
+        /// <remarks>
+        /// The two differ only where a surrogate (a code point past U+FFFF, such as an emoji) meets a unit from
+        /// U+E000 to U+FFFF (a fullwidth letter, a private-use character): UTF-16 puts the surrogate first, code point
+        /// order puts it last. Shifting the surrogates above that range and that range down below them gives code
+        /// point order unit by unit, with no decoding.
+        /// </remarks>
+        private static int CompareByCodePoint(string a, string b)
+        {
+            var shared = Math.Min(a.Length, b.Length);
+            for (var i = 0; i < shared; i++)
+            {
+                if (a[i] != b[i]) return InCodePointOrder(a[i]) - InCodePointOrder(b[i]);
+            }
+
+            return a.Length - b.Length;
+        }
+
+        private static int InCodePointOrder(char unit)
+            => unit < 0xD800 ? unit : unit >= 0xE000 ? unit - 0x800 : unit + 0x2000;
 
         private static void Collect(string dir, string relative, List<(string relative, string source)> into)
         {
