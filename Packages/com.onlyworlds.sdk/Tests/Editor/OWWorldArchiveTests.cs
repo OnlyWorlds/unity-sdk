@@ -779,15 +779,38 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         // -- The budget (a zip bomb is refused before it is inflated) ---------------------------
 
         [Test]
-        public void Read_HoldsTheTypeScriptReadersBudget_ByDefault()
+        public void Read_HoldsTheSpecsFloor_ByDefault()
         {
-            // sdk/src/world-file.ts: WORLD_FILE_MAX_BYTES = 1024 ** 3, WORLD_FILE_MAX_ENTRIES = 200_000.
-            Assert.AreEqual(1073741824L, OWWorldArchive.DefaultMaxBytes);
-            Assert.AreEqual(200000, OWWorldArchive.DefaultMaxEntries);
+            // Folder spec §4.7 (OW-15): every reader accepts 500,000 entries and 2 GiB. The defaults were the
+            // TypeScript reader's (1 GiB, 200,000), below the floor.
+            Assert.AreEqual(2147483648L, OWWorldArchive.DefaultMaxBytes);
+            Assert.AreEqual(500000, OWWorldArchive.DefaultMaxEntries);
 
             var options = new OWWorldArchiveReadOptions();
             Assert.AreEqual(OWWorldArchive.DefaultMaxBytes, options.MaxBytes);
             Assert.AreEqual(OWWorldArchive.DefaultMaxEntries, options.MaxEntries);
+        }
+
+        [Test]
+        public void Read_AcceptsUpToTheFloorsBytes_ByDefault_AndRefusesOneByteMore()
+        {
+            // A media file is never inflated, so declaring its size is enough to put the archive at the floor.
+            var world = WorldJson(WId, "W");
+            var archive = MakeZip("floor.owworld",
+                ("w/world.json", world), ("w/elements/character/one.json", ElementBody), ("w/media/big.bin", "x"));
+            long others = Encoding.UTF8.GetByteCount(world) + Encoding.UTF8.GetByteCount(ElementBody);
+
+            DeclareSize(archive, "w/media/big.bin", (uint)(OWWorldArchive.DefaultMaxBytes - others));
+            Assert.AreEqual(1, OWWorldArchive.Read(archive).Elements.Count, "Exactly 2 GiB declared: inside the floor.");
+
+            DeclareSize(archive, "w/media/big.bin", (uint)(OWWorldArchive.DefaultMaxBytes - others + 1));
+            StringAssert.Contains("MaxBytes", Refused(archive).Message);
+
+            // A caller's lower budget still holds.
+            DeclareSize(archive, "w/media/big.bin", 1u << 30);
+            var lower = new OWWorldArchiveReadOptions { MaxBytes = 1L << 30 };
+            Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Read(archive, options: lower));
+            Assert.AreEqual(1, OWWorldArchive.Read(archive).Elements.Count, "1 GiB and more is inside the floor.");
         }
 
         [Test]

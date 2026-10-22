@@ -16,12 +16,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 ### Changed
 
 - **An `.owworld` is read within a budget**: `OWWorldArchive.Read` and `LoadInto` (and so the importer) refuse an
-  archive that holds more than 200,000 files or declares more than 1 GiB uncompressed, before inflating anything, and
+  archive that holds more than 500,000 files or declares more than 2 GiB uncompressed, before inflating anything, and
   refuse one with an entry that inflates past the size it declares (a zip bomb's lie), so a hostile file cannot fill
-  memory. The numbers are the TypeScript SDK's reader budget, as `OWWorldArchive.DefaultMaxBytes` and
-  `DefaultMaxEntries`; the new `OWWorldArchiveReadOptions` (`MaxBytes`, `MaxEntries`), passed to `Read` or
-  `LoadInto`, raises them for one read. The size every reader must accept is not yet ruled, so the defaults may
-  move. Parity with the TypeScript SDK, its test vectors ported.
+  memory. The numbers are folder spec §4.7's floor (OW-15), the size every reader accepts, as
+  `OWWorldArchive.DefaultMaxBytes` and `DefaultMaxEntries`; the new `OWWorldArchiveReadOptions` (`MaxBytes`,
+  `MaxEntries`), passed to `Read` or `LoadInto`, lowers or raises them for one read. The TypeScript SDK's reader
+  holds 1 GiB and 200,000 files today, below the floor. Its budget rule and test vectors are ported.
 - **An `.owworld` entry name must be a plain relative path** (folder spec §4.7, OW-16, ruled strict):
   `OWWorldArchive.Read` (and so `LoadInto` and the importer) refuses an archive with an entry name that holds a
   backslash, or has an empty, `.` or `..` segment, whatever it would resolve to. Before, `w\x.json`,

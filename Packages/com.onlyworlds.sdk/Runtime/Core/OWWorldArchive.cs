@@ -12,19 +12,20 @@ namespace OnlyWorlds.Sdk
     /// <summary>The budget <see cref="OWWorldArchive.Read"/> holds an archive to, as the TypeScript reader's are.</summary>
     /// <remarks>
     /// An archive someone sent is untrusted input, and an importer opens it unasked: past either limit it is refused
-    /// before anything is inflated. Raise them for one read of a world known to be larger.
+    /// before anything is inflated. The defaults are folder spec §4.7's floor, the size every reader accepts; lower
+    /// them to hold less, or raise them for one read of a world known to be larger.
     /// </remarks>
     public sealed class OWWorldArchiveReadOptions
     {
         /// <summary>
         /// The most bytes the archive's files may hold uncompressed, all files counted, by their declared sizes.
-        /// <see cref="OWWorldArchive.DefaultMaxBytes"/> (1 GiB) by default.
+        /// <see cref="OWWorldArchive.DefaultMaxBytes"/> (2 GiB) by default.
         /// </summary>
         public long MaxBytes = OWWorldArchive.DefaultMaxBytes;
 
         /// <summary>
         /// The most files the archive may hold, directories not counted. <see cref="OWWorldArchive.DefaultMaxEntries"/>
-        /// (200,000) by default.
+        /// (500,000) by default.
         /// </summary>
         public int MaxEntries = OWWorldArchive.DefaultMaxEntries;
     }
@@ -106,27 +107,28 @@ namespace OnlyWorlds.Sdk
         internal const string RecordsFolder = "records";
 
         /// <summary>
-        /// The most an archive's files may hold uncompressed, by default: 1 GiB. <see cref="Read"/> refuses past it.
+        /// The most an archive's files may hold uncompressed, by default: 2 GiB, the spec's floor.
+        /// <see cref="Read"/> refuses past it.
         /// </summary>
         /// <remarks>
         /// <para>
-        /// The TypeScript SDK's reader budget (<c>WORLD_FILE_MAX_BYTES</c> in <c>world-file.ts</c>, Atlas's), so one
-        /// file opens or is refused the same in both. Sikelia today is 25 MB in 20,570 files.
+        /// Folder spec §4.7 (OW-15): "the floor every reader accepts is 500,000 entries and 2 GiB", which means zip64
+        /// on read (a classic zip holds at most 65,535 entries; <see cref="Read"/> reads zip64). A smaller default
+        /// would refuse a file every other reader opens. Sikelia today is 25 MB in 20,570 files.
         /// </para>
         /// <para>
-        /// Not decided: what the spec's floor is, the size every reader must accept. Boss proposes 500,000 elements
-        /// and 2 GiB, which needs zip64 (a classic zip holds at most 65,535 entries; zip64 in Unity's .NET Standard
-        /// 2.1 profile is unmeasured). The floor is the Captain's to rule; these defaults follow the TypeScript
-        /// reader's until then, and <see cref="OWWorldArchiveReadOptions"/> raises them for one read.
+        /// <see cref="OWWorldArchiveReadOptions"/> sets another budget for one read: lower, for a caller that wants
+        /// less held in memory, or higher, for a world known to be larger. A media file is never inflated, so only an
+        /// archive whose elements reach the budget costs that much memory.
         /// </para>
         /// </remarks>
-        public const long DefaultMaxBytes = 1L << 30;
+        public const long DefaultMaxBytes = 2L << 30;
 
         /// <summary>
-        /// The most files an archive may hold, by default: 200,000, the TypeScript SDK's <c>WORLD_FILE_MAX_ENTRIES</c>
-        /// (an open question, as <see cref="DefaultMaxBytes"/> says).
+        /// The most files an archive may hold, by default: 500,000, the spec's floor (folder spec §4.7, OW-15; see
+        /// <see cref="DefaultMaxBytes"/>).
         /// </summary>
-        public const int DefaultMaxEntries = 200_000;
+        public const int DefaultMaxEntries = 500_000;
 
         // -- Pack ---------------------------------------------------------------
 
@@ -439,7 +441,7 @@ namespace OnlyWorlds.Sdk
         /// <see cref="OWWorldArchiveReadOptions.MaxBytes"/>, refuses the archive from its directory alone. A declared
         /// size can lie (a zip bomb is a small file that inflates to gigabytes), so each entry is inflated at most to
         /// the size it declares, and one that holds more refuses the archive there: what is held in memory never
-        /// passes the budget. The TypeScript reader's rule, by its numbers.
+        /// passes the budget. The TypeScript reader's rule; the default numbers are the spec's floor.
         /// </para>
         /// <para>
         /// And every entry must be one that lands safely on any disk, anywhere in the archive, not only in the world:
