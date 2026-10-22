@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.33.00";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 48;
+        public const int DistSerial = 49;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.33.0-dist.48";
+        public const string Tag = "v0.33.0-dist.49";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -150,9 +150,16 @@ namespace OnlyWorlds.Sdk
         /// vendored for <c>OWNamesTests</c>. <c>presentation.json</c>, <c>schema_walk.py</c> and
         /// <c>rulings.yaml</c> are byte-identical; the generated models changed only in their serial stamp.
         /// </para>
+        /// <para>
+        /// <b>48 -> 49 (2026-10-22)</b>: canonical unchanged, no schema file moved. The conformance set gains the private
+        /// case under OW-8 (folder spec v0.3.15, §4.5 rule 11): four writer fixtures on a second source, the base world
+        /// plus a producer marked private, and <c>verdicts.json</c>'s <c>sources</c>; none of the 81 zips moved (85 now).
+        /// The set is re-vendored for <c>OWWorldArchiveConformanceTests</c>, whose <c>Pack</c> case now runs. The
+        /// generated models changed only in their serial stamp.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "62c33f211b472075b27c053a400871b98e44129d56bcaa4de66e33f282bc5acd";
+            "d926f4dcb42d21ccc7249b6d474601c0dd6e7a42307ea46c19889e21038282f7";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.
