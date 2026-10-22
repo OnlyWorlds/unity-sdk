@@ -19,8 +19,10 @@ computed here from CaseFolding.txt: `OWCaseFoldTests` folds all 1,112,064 scalar
 reach the same digest, so the test covers the code and the table over every code point, not a sample.
 
 Usage:
-    python tools/gen_casefold.py --file CaseFolding-15.1.0.txt          # rewrite the table
-    python tools/gen_casefold.py --file CaseFolding-15.1.0.txt --check  # exit 1 if the committed table differs
+    python tools/gen_casefold.py --file codegen/schema-dist/fixtures/owworld/CaseFolding-15.1.0.txt          # rewrite
+    python tools/gen_casefold.py --file codegen/schema-dist/fixtures/owworld/CaseFolding-15.1.0.txt --check  # diff only
+
+The copy under `codegen/schema-dist/` is the pinned dist's (since dist.39), so the source is in this repository.
 
 When folder spec 4.7 moves the version, change VERSION and SOURCE_SHA256 together, with the fixture set's copy.
 """

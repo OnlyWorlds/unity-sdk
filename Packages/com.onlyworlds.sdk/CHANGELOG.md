@@ -6,6 +6,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **The `.owworld` conformance set runs as the package's own test** (schema-dist `fixtures/owworld/`, dist.39;
+  folder spec §4.7): `OWWorldArchiveConformanceTests` reads all 78 zips with `OWWorldArchive.Read` and checks each
+  verdict and each refusal's cause against the set's `verdicts.json`, which is pinned to the dist's manifest, every
+  zip to its sha256. The set is vendored in a folder Unity does not import (`Tests/Editor/Fixtures/owworld~/`), so
+  the package's own importer never opens a hostile file in it. `OW_OWWORLD_FIXTURES` runs another copy of the set.
+
 ### Changed
 
 - The schema pin moves to dist.39 (`v0.32.2-dist.39`; canonical `00.32.02` unchanged, and no decoded file moved:
