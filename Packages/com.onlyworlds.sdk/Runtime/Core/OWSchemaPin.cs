@@ -29,13 +29,13 @@ namespace OnlyWorlds.Sdk
         public const string Repository = "https://github.com/OnlyWorlds/schema-dist";
 
         /// <summary>Canonical schema version, as the dist's own VERSION file reports it.</summary>
-        public const string CanonicalVersion = "00.32.02";
+        public const string CanonicalVersion = "00.33.00";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 42;
+        public const int DistSerial = 43;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.32.2-dist.42";
+        public const string Tag = "v0.33.0-dist.43";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -128,9 +128,15 @@ namespace OnlyWorlds.Sdk
         /// <c>marker</c>; serial 42), with their <c>verdicts.json</c> entries and generator lines: 81 zips. The reader
         /// already refused both for the cause the set names. The generated models changed only in their serial stamp.
         /// </para>
+        /// <para>
+        /// <b>42 -> 43 (2026-10-22)</b>: canonical <c>00.33.00</c>, a MINOR step. Zone gains <c>shape</c>, a string in
+        /// Scope (polygon or line, lowercase; empty, absent or any other value means not stated; OW Council #362, the
+        /// Captain's word, h58 #10069). <c>OWZone.Shape</c> is generated from it. The example export moved only its
+        /// <c>schema_version</c>; the conformance set did not move. <c>presentation.json</c> is byte-identical.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "a0fff6799f44d04dbece127229576ac6e4e137b488727ebecc0a5f87f83481e0";
+            "a9bbe8171e2e815cdec05a7ddd2a3d07beb4212fcbd6dc80e9cae81935e4cf7f";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.

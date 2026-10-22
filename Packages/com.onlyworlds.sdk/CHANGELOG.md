@@ -6,6 +6,17 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **`OWZone.Shape`** (schema `00.33.00`): how a zone's markers join, `polygon` or `line`, lowercase; empty, absent or
+  any other value means the shape is not stated, and a reader draws a polygon. Generated from the schema like every
+  field.
+
+### Changed
+
+- The schema pin moves to dist.43 (`v0.33.0-dist.43`; canonical `00.33.00`, a minor step: Zone gains `shape`). The
+  example export the envelope tests read moved only its `schema_version`; the `.owworld` conformance set did not move.
+
 ## [0.12.1] - 2026-10-22
 
 The world file Unity writes now carries its marker. `OWWorldArchive.Pack` places the `mimetype` entry first and

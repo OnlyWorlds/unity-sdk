@@ -1,8 +1,8 @@
 // GENERATED from the OnlyWorlds schema distribution -- DO NOT EDIT.
 // Regenerate: python codegen/generate_models.py   (drift guard: codegen/check_drift.py)
 //
-// canonical: 00.32.02
-// serial: 42
+// canonical: 00.33.00
+// serial: 43
 // published: 2026-10-22
 
 using System;
@@ -135,7 +135,7 @@ namespace OnlyWorlds.Sdk
             { "species", new[] { "appearance", "life_span", "weight", "nourishment", "reproduction", "adaptations", "instincts", "sociality", "temperament", "communication", "aggression", "traits", "role", "parent_species", "locations", "zones", "affinities" } },
             { "title", new[] { "authority", "eligibility", "grant_date", "revoke_date", "issuer", "body", "superior_title", "holders", "symbols", "status", "history", "characters", "institutions", "families", "zones", "locations", "objects", "constructs", "laws", "collectives", "creatures", "phenomena", "species", "languages" } },
             { "trait", new[] { "social_effects", "physical_effects", "functional_effects", "personality_effects", "behaviour_effects", "charisma", "coercion", "competence", "compassion", "creativity", "courage", "significance", "anti_trait", "empowered_abilities" } },
-            { "zone", new[] { "role", "start_date", "end_date", "phenomena", "linked_zones", "context", "populations", "titles", "principles" } },
+            { "zone", new[] { "role", "shape", "start_date", "end_date", "phenomena", "linked_zones", "context", "populations", "titles", "principles" } },
         };
 
         /// <summary>Field names on <see cref="OWElement"/>, shared by every type.</summary>
@@ -188,7 +188,7 @@ namespace OnlyWorlds.Sdk
             { "species", new string[] { "appearance", "instincts", "sociality", "temperament", "communication", "role" } },
             { "title", new string[] { "authority", "eligibility", "status", "history" } },
             { "trait", new string[] { "social_effects", "physical_effects", "functional_effects", "personality_effects", "behaviour_effects", "significance" } },
-            { "zone", new string[] { "role", "context" } },
+            { "zone", new string[] { "role", "shape", "context" } },
         };
 
         /// <summary>Scalar string fields on <see cref="OWElement"/>, shared by every type.</summary>

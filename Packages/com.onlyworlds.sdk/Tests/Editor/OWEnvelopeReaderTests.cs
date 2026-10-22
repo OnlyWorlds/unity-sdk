@@ -10,14 +10,14 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// <summary>
     /// The portal's one-file export (keel's <c>world_export</c>, spec §8c). The fixture is keel's own: the emitter's
     /// output for one fixed world, pinned by keel's <c>tests/test_export_fixture.py</c> and published in schema-dist as
-    /// <c>example/world-export.json</c> (serial 35, tag <c>v0.32.2-dist.35</c>), vendored byte for byte. When keel's
+    /// <c>example/world-export.json</c> (serial 43, tag <c>v0.33.0-dist.43</c>), vendored byte for byte. When keel's
     /// emitter moves on purpose, the dist moves with it: re-vendor from the dist and update the hash below. The edge
     /// cases are inline.
     /// </summary>
     public class OWEnvelopeReaderTests
     {
-        /// <summary>The fixture's sha256 as dist.35's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "54acc3d02fe9d29d5dee175352fc08c4da2809be989e73ae0d3d1e0f03406fb8";
+        /// <summary>The fixture's sha256 as dist.43's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "50dc6c2ab8e2caeff77a26ae8ca10f4dbe5e11df3a6ae27a33fdc067e85314d2";
 
         private const string WorldId = "01999999-0000-7000-8000-000000000420";
         private const string Keep = "01999999-0000-7000-8000-000000000001";
@@ -49,7 +49,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = System.BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(FixturePath))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored export is not dist.25's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored export is not dist.43's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
@@ -60,7 +60,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(WorldId, read.WorldId);
             Assert.AreEqual("Fixture World", read.WorldName);
             Assert.AreEqual("onlyworlds-world-export", read.Format);
-            Assert.AreEqual("00.32.02", read.SchemaVersion);
+            Assert.AreEqual("00.33.00", read.SchemaVersion);
             Assert.AreEqual("2026-10-19T12:30:00+00:00", read.ExportedAt);
             Assert.AreEqual(5, read.Elements.Count);
             Assert.IsEmpty(read.Skipped);

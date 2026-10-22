@@ -1,8 +1,8 @@
 // GENERATED from the OnlyWorlds schema distribution -- DO NOT EDIT.
 // Regenerate: python codegen/generate_models.py   (drift guard: codegen/check_drift.py)
 //
-// canonical: 00.32.02
-// serial: 42
+// canonical: 00.33.00
+// serial: 43
 // published: 2026-10-22
 
 using System;
@@ -38,6 +38,10 @@ namespace OnlyWorlds.Sdk
         /// <summary>The operational function or intent of the zone</summary>
         [JsonProperty("role")]
         [SerializeField] private string _role = "";
+
+        /// <summary>How the zone's markers are joined: polygon (a closed area: the last marker joins the first) or line (an open path, drawn in marker order). Lowercase. Empty, absent, or any other value means the shape is not stated, and a reader draws a polygon</summary>
+        [JsonProperty("shape")]
+        [SerializeField] private string _shape = "";
 
         /// <summary>Date when the zone becomes extant or relevant, defined in world TIME units</summary>
         [JsonProperty("start_date")]
@@ -81,6 +85,7 @@ namespace OnlyWorlds.Sdk
         // -- Accessors --------------------------------------------------------
 
         public string Role { get => _role; set => _role = value; }
+        public string Shape { get => _shape; set => _shape = value; }
         public SerializableNullable<int> StartDate { get => _startDate; set => _startDate = value; }
         public SerializableNullable<int> EndDate { get => _endDate; set => _endDate = value; }
         public List<string> Phenomena => _phenomena;
