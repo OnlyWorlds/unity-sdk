@@ -1004,6 +1004,45 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             StringAssert.Contains("refusing the archive", e.Message);
         }
 
+        // -- Every refusal names its cause (folder spec §4.7) --------------------------------
+
+        [Test]
+        public void Read_NamesTheCauseOfEveryRefusal_FromTheSpecsList()
+        {
+            string Why(string archive, OWWorldArchiveReadOptions options = null)
+                => Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Read(archive, options: options)).Reason;
+
+            var notZip = Path.Combine(_temp, "not-zip.owworld");
+            File.WriteAllText(notZip, "{}");
+            Assert.AreEqual(OWWorldArchiveReason.NotOpenable, Why(notZip));
+            Assert.AreEqual(OWWorldArchiveReason.NotAWorld, Why(MakeZip("none.owworld", ("a/b.json", "{}"))));
+            Assert.AreEqual(OWWorldArchiveReason.NotAWorld, Why(MakeZip("no-id.owworld", ("w/world.json", "{}"))));
+            Assert.AreEqual(OWWorldArchiveReason.MoreThanOne, Why(MakeZip("two.owworld",
+                ("a/world.json", WorldJson(WId, "A")), ("b/world.json", WorldJson(WId, "B")))));
+            Assert.AreEqual(OWWorldArchiveReason.MoreThanOne, Why(WorldZip("nested.owworld", ("w/x/world.json", WorldJson(WId, "X")))));
+            Assert.AreEqual(OWWorldArchiveReason.UnsafePath, Why(WorldZip("climb.owworld", ("w/../x.json", "{}"))));
+            Assert.AreEqual(OWWorldArchiveReason.UnsafePath, Why(WorldZip("file-folder.owworld", ("w/media", "a"), ("w/media/a.png", "b"))));
+            Assert.AreEqual(OWWorldArchiveReason.TooBig, Why(WorldZip("big.owworld"), new OWWorldArchiveReadOptions { MaxBytes = 8 }));
+            Assert.AreEqual(OWWorldArchiveReason.TooMany, Why(WorldZip("many.owworld"), new OWWorldArchiveReadOptions { MaxEntries = 1 }));
+            Assert.AreEqual(OWWorldArchiveReason.Duplicate, Why(WorldZip("twice.owworld", ("README.txt", "1"), ("README.txt", "2"))));
+            Assert.AreEqual(OWWorldArchiveReason.Collision, Why(WorldZip("case.owworld", ("w/media/A.png", "1"), ("w/media/a.png", "2"))));
+            Assert.AreEqual(OWWorldArchiveReason.Name, Why(WorldZip("con.owworld", ("w/media/CON.png", "1"))));
+            Assert.AreEqual(OWWorldArchiveReason.Marker, Why(WorldZip("marker.owworld", ("mimetype", "application/zip"))));
+
+            var link = WorldZip("link.owworld", ("w/media/l", "x"));
+            SetUnixMode(link, "w/media/l", 0xA1FF);
+            Assert.AreEqual(OWWorldArchiveReason.Link, Why(link));
+
+            var method = WorldZip("method.owworld");
+            SetMethod(method, "w/elements/character/one.json", 14);
+            Assert.AreEqual(OWWorldArchiveReason.Method, Why(method));
+
+            // A folder's refusal has no archive cause.
+            var folder = Path.Combine(_temp, "empty-folder");
+            Directory.CreateDirectory(folder);
+            Assert.IsNull(Assert.Throws<OWFolderFormatException>(() => OWFolderReader.Read(folder)).Reason);
+        }
+
         // -- The marker (folder spec §4.7, OW-6) --------------------------------------------
 
         [Test]

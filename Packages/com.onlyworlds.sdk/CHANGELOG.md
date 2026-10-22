@@ -12,6 +12,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   `application/vnd.onlyworlds.world+zip`. `OWWorldArchive.Read` (and so `LoadInto` and the importer) accepts an
   archive whose root holds a `mimetype` entry with exactly those bytes, never requires one, and refuses one that
   holds anything else (another type, a trailing newline, a BOM).
+- **An `.owworld` refusal names its cause**: `OWFolderFormatException.Reason` is set on every refusal from
+  `OWWorldArchive.Read` (and so `LoadInto` and the importer) to one cause from folder spec §4.7's shared list,
+  the constants of the new `OWWorldArchiveReason` (`not_openable`, `not_a_world`, `more_than_one`, `unsafe_path`,
+  `too_big`, `too_many`, `duplicate`, `collision`, `link`, `method`, `name`, `marker`), the names the TypeScript
+  reader and the conformance fixture set use. A folder's refusal leaves it null. The exception type is unchanged.
 
 ### Changed
 

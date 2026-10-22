@@ -593,5 +593,18 @@ namespace OnlyWorlds.Sdk
     {
         public OWFolderFormatException(string message) : base(message) { }
         public OWFolderFormatException(string message, Exception inner) : base(message, inner) { }
+
+        /// <summary>An archive's refusal, with its cause (one of <see cref="OWWorldArchiveReason"/>).</summary>
+        internal OWFolderFormatException(string reason, string message, Exception inner = null) : base(message, inner)
+        {
+            Reason = reason;
+        }
+
+        /// <summary>
+        /// Why an <c>.owworld</c> was refused, by the cause's name in folder spec §4.7's shared list (the values of
+        /// <see cref="OWWorldArchiveReason"/>, such as <c>"unsafe_path"</c> or <c>"collision"</c>); null for a
+        /// folder's refusal. <see cref="OWWorldArchive.Read"/> and <c>LoadInto</c> always set it.
+        /// </summary>
+        public string Reason { get; }
     }
 }
