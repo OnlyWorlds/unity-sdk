@@ -2,7 +2,7 @@
 // Regenerate: python codegen/generate_models.py   (drift guard: codegen/check_drift.py)
 //
 // canonical: 00.33.00
-// serial: 44
+// serial: 48
 // published: 2026-10-22
 
 using System;
@@ -151,7 +151,7 @@ namespace OnlyWorlds.Sdk
         {
             "id", "name", "description", "supertype", "subtype", "image_url",
             "world", "type", "created_at", "updated_at", "change_seq", "created_by",
-            "changed_by", "changed_via",
+            "changed_by", "changed_via", "changed_client",
         };
 
         /// <summary>

@@ -333,9 +333,12 @@ def _chunk(items: list[str], size: int):
 # of the standard, and the live world has carried it since b9e68b080.
 # `changed_by` and `changed_via` joined on 2026-10-16: keel #299 (D104) stamps
 # the membership and the door of every write, and schema-dist serial 24 names
-# both as server-set body keys.
+# both as server-set body keys. `changed_client` joined on 2026-10-22: keel #520
+# stamps the name a client gave in X-OW-Client, and schema-dist serial 46 names
+# it beside the other two.
 SERVER_MANAGED_FIELDS = [
     "type", "created_at", "updated_at", "change_seq", "created_by", "changed_by", "changed_via",
+    "changed_client",
 ]
 
 

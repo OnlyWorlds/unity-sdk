@@ -5,7 +5,7 @@
     "X-Session-Token",
     "Authorization"
   ],
-  "document_sha256": "bd5e466a52e704fcd17a0adf9517c746af860155f89cfa64758e01a0d5e8387a",
+  "document_sha256": "bff963e44d98c5930cc0fd31d4598561a385ffaff42cf8c5796bf104dc4c761e",
   "error_codes": {
     "already_member": 409,
     "already_reported": 409,
@@ -19,6 +19,7 @@
     "content_length_required": 411,
     "empty_body": 400,
     "exists": 409,
+    "field_not_visible": 422,
     "file_too_large": 413,
     "files_full": 403,
     "gone": 410,
@@ -37,18 +38,21 @@
     "not_author": 403,
     "not_found": 404,
     "not_removable": 403,
+    "own_proposal": 403,
     "owner_only": 403,
     "payload_too_large": 413,
     "permission_error": 403,
     "pin_required": 409,
     "player_role_fixed": 422,
     "precondition_failed": 412,
+    "proposed_only": 403,
     "quota_exceeded": 429,
     "rate_limited": 429,
     "removal_in_flight": 409,
     "remove_failed": 502,
     "resync_required": 409,
     "server_busy": 503,
+    "stale_proposal": 409,
     "storage_full": 403,
     "ticket_expired": 401,
     "ticket_invalid": 401,
@@ -56,6 +60,7 @@
     "ticket_required": 401,
     "ticket_used": 401,
     "too_large": 413,
+    "too_many_open": 422,
     "too_many_requests": 429,
     "unsupported_type": 415,
     "upload_pending": 409,
@@ -63,7 +68,7 @@
     "world_full": 422,
     "write_failed": 502
   },
-  "fetched": "2026-10-22T05:03+02:00",
+  "fetched": "2026-10-22T22:18+02:00",
   "openapi_version": "2.0",
   "paths": {
     "/api/v2/ability": {
@@ -88,6 +93,7 @@
           "data[].challenges",
           "data[].change_seq",
           "data[].changed_by",
+          "data[].changed_client",
           "data[].changed_via",
           "data[].created_at",
           "data[].created_by",
@@ -122,6 +128,7 @@
           "activation",
           "challenges",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_by",
           "description",
@@ -147,7 +154,8 @@
         ],
         "header": [
           "Idempotency-Key",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -155,6 +163,7 @@
           "challenges",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -186,7 +195,9 @@
     "/api/v2/ability/{id}": {
       "DELETE": {
         "header": [
-          "X-OW-Agent"
+          "If-Match",
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": []
       },
@@ -202,6 +213,7 @@
           "challenges",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -234,6 +246,7 @@
           "activation",
           "challenges",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_by",
           "description",
@@ -259,7 +272,8 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -267,6 +281,7 @@
           "challenges",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -299,6 +314,7 @@
           "activation",
           "challenges",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_by",
           "description",
@@ -323,7 +339,8 @@
           "world"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -331,6 +348,7 @@
           "challenges",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -365,7 +383,8 @@
           "member"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -373,6 +392,7 @@
           "challenges",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -483,7 +503,8 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -491,6 +512,7 @@
           "challenges",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -516,6 +538,137 @@
           "tradition",
           "type",
           "updated_at"
+        ]
+      }
+    },
+    "/api/v2/ability/{id}/proposals": {
+      "GET": {
+        "header": [
+          "If-None-Match"
+        ],
+        "query": [
+          "cursor",
+          "limit",
+          "since",
+          "state"
+        ],
+        "response": [
+          "data",
+          "data[].base",
+          "data[].base_seq",
+          "data[].by",
+          "data[].client",
+          "data[].created_at",
+          "data[].decided_at",
+          "data[].decided_by",
+          "data[].decline_reason",
+          "data[].element_id",
+          "data[].element_type",
+          "data[].evidence",
+          "data[].expires",
+          "data[].fields",
+          "data[].id",
+          "data[].state",
+          "data[].updated_at",
+          "data[].via",
+          "has_more",
+          "next_cursor"
+        ]
+      },
+      "POST": {
+        "body": [
+          "evidence",
+          "expires",
+          "fields"
+        ],
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/ability/{id}/proposals/{pid}": {
+      "DELETE": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/ability/{id}/proposals/{pid}/accept": {
+      "POST": {
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "element",
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/ability/{id}/proposals/{pid}/decline": {
+      "POST": {
+        "body": [
+          "reason"
+        ],
+        "header": [],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
         ]
       }
     },
@@ -982,7 +1135,8 @@
         ],
         "header": [
           "Idempotency-Key",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -991,6 +1145,7 @@
           "items[].created_at",
           "items[].error",
           "items[].id",
+          "items[].proposal",
           "items[].status",
           "items[].updated_at"
         ]
@@ -998,7 +1153,9 @@
     },
     "/api/v2/changes": {
       "GET": {
-        "header": [],
+        "header": [
+          "If-None-Match"
+        ],
         "query": [
           "after",
           "head",
@@ -1010,6 +1167,7 @@
           "changes[].change_seq",
           "changes[].deleted_at",
           "changes[].deleted_by",
+          "changes[].deleted_client",
           "changes[].deleted_via",
           "changes[].element",
           "changes[].id",
@@ -1055,6 +1213,7 @@
           "data[].birthplace",
           "data[].change_seq",
           "data[].changed_by",
+          "data[].changed_client",
           "data[].changed_via",
           "data[].charisma",
           "data[].coercion",
@@ -1108,6 +1267,7 @@
           "birth_date",
           "birthplace",
           "changed_by",
+          "changed_client",
           "changed_via",
           "charisma",
           "coercion",
@@ -1144,7 +1304,8 @@
         ],
         "header": [
           "Idempotency-Key",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -1160,6 +1321,7 @@
           "birthplace",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "charisma",
           "coercion",
@@ -1202,7 +1364,9 @@
     "/api/v2/character/{id}": {
       "DELETE": {
         "header": [
-          "X-OW-Agent"
+          "If-Match",
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": []
       },
@@ -1226,6 +1390,7 @@
           "birthplace",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "charisma",
           "coercion",
@@ -1277,6 +1442,7 @@
           "birth_date",
           "birthplace",
           "changed_by",
+          "changed_client",
           "changed_via",
           "charisma",
           "coercion",
@@ -1313,7 +1479,8 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -1329,6 +1496,7 @@
           "birthplace",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "charisma",
           "coercion",
@@ -1380,6 +1548,7 @@
           "birth_date",
           "birthplace",
           "changed_by",
+          "changed_client",
           "changed_via",
           "charisma",
           "coercion",
@@ -1415,7 +1584,8 @@
           "world"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -1431,6 +1601,7 @@
           "birthplace",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "charisma",
           "coercion",
@@ -1476,7 +1647,8 @@
           "member"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -1492,6 +1664,7 @@
           "birthplace",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "charisma",
           "coercion",
@@ -1588,6 +1761,11 @@
           "role[].grade",
           "role[].her_links",
           "role[].via",
+          "room",
+          "room[].element",
+          "room[].grade",
+          "room[].her_links",
+          "room[].via",
           "roster",
           "roster[].character",
           "roster[].id",
@@ -1700,7 +1878,8 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -1716,6 +1895,7 @@
           "birthplace",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "charisma",
           "coercion",
@@ -1755,6 +1935,137 @@
         ]
       }
     },
+    "/api/v2/character/{id}/proposals": {
+      "GET": {
+        "header": [
+          "If-None-Match"
+        ],
+        "query": [
+          "cursor",
+          "limit",
+          "since",
+          "state"
+        ],
+        "response": [
+          "data",
+          "data[].base",
+          "data[].base_seq",
+          "data[].by",
+          "data[].client",
+          "data[].created_at",
+          "data[].decided_at",
+          "data[].decided_by",
+          "data[].decline_reason",
+          "data[].element_id",
+          "data[].element_type",
+          "data[].evidence",
+          "data[].expires",
+          "data[].fields",
+          "data[].id",
+          "data[].state",
+          "data[].updated_at",
+          "data[].via",
+          "has_more",
+          "next_cursor"
+        ]
+      },
+      "POST": {
+        "body": [
+          "evidence",
+          "expires",
+          "fields"
+        ],
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/character/{id}/proposals/{pid}": {
+      "DELETE": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/character/{id}/proposals/{pid}/accept": {
+      "POST": {
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "element",
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/character/{id}/proposals/{pid}/decline": {
+      "POST": {
+        "body": [
+          "reason"
+        ],
+        "header": [],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
     "/api/v2/collective": {
       "GET": {
         "header": [],
@@ -1778,6 +2089,7 @@
           "data[].activity",
           "data[].change_seq",
           "data[].changed_by",
+          "data[].changed_client",
           "data[].changed_via",
           "data[].characters",
           "data[].composition",
@@ -1812,6 +2124,7 @@
           "abilities",
           "activity",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "composition",
@@ -1837,7 +2150,8 @@
         ],
         "header": [
           "Idempotency-Key",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -1845,6 +2159,7 @@
           "activity",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "composition",
@@ -1876,7 +2191,9 @@
     "/api/v2/collective/{id}": {
       "DELETE": {
         "header": [
-          "X-OW-Agent"
+          "If-Match",
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": []
       },
@@ -1892,6 +2209,7 @@
           "activity",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "composition",
@@ -1924,6 +2242,7 @@
           "abilities",
           "activity",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "composition",
@@ -1949,7 +2268,8 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -1957,6 +2277,7 @@
           "activity",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "composition",
@@ -1989,6 +2310,7 @@
           "abilities",
           "activity",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "composition",
@@ -2013,7 +2335,8 @@
           "world"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -2021,6 +2344,7 @@
           "activity",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "composition",
@@ -2055,7 +2379,8 @@
           "member"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -2063,6 +2388,7 @@
           "activity",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "composition",
@@ -2173,7 +2499,8 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -2181,6 +2508,7 @@
           "activity",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "composition",
@@ -2209,6 +2537,137 @@
         ]
       }
     },
+    "/api/v2/collective/{id}/proposals": {
+      "GET": {
+        "header": [
+          "If-None-Match"
+        ],
+        "query": [
+          "cursor",
+          "limit",
+          "since",
+          "state"
+        ],
+        "response": [
+          "data",
+          "data[].base",
+          "data[].base_seq",
+          "data[].by",
+          "data[].client",
+          "data[].created_at",
+          "data[].decided_at",
+          "data[].decided_by",
+          "data[].decline_reason",
+          "data[].element_id",
+          "data[].element_type",
+          "data[].evidence",
+          "data[].expires",
+          "data[].fields",
+          "data[].id",
+          "data[].state",
+          "data[].updated_at",
+          "data[].via",
+          "has_more",
+          "next_cursor"
+        ]
+      },
+      "POST": {
+        "body": [
+          "evidence",
+          "expires",
+          "fields"
+        ],
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/collective/{id}/proposals/{pid}": {
+      "DELETE": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/collective/{id}/proposals/{pid}/accept": {
+      "POST": {
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "element",
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/collective/{id}/proposals/{pid}/decline": {
+      "POST": {
+        "body": [
+          "reason"
+        ],
+        "header": [],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
     "/api/v2/construct": {
       "GET": {
         "header": [],
@@ -2231,6 +2690,7 @@
           "data[].abilities",
           "data[].change_seq",
           "data[].changed_by",
+          "data[].changed_client",
           "data[].changed_via",
           "data[].characters",
           "data[].collectives",
@@ -2277,6 +2737,7 @@
         "body": [
           "abilities",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -2315,13 +2776,15 @@
         ],
         "header": [
           "Idempotency-Key",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
           "abilities",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -2366,7 +2829,9 @@
     "/api/v2/construct/{id}": {
       "DELETE": {
         "header": [
-          "X-OW-Agent"
+          "If-Match",
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": []
       },
@@ -2381,6 +2846,7 @@
           "abilities",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -2425,6 +2891,7 @@
         "body": [
           "abilities",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -2463,13 +2930,15 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
           "abilities",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -2514,6 +2983,7 @@
         "body": [
           "abilities",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -2551,13 +3021,15 @@
           "zones"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
           "abilities",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -2605,13 +3077,15 @@
           "member"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
           "abilities",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -2735,13 +3209,15 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
           "abilities",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -2783,6 +3259,137 @@
         ]
       }
     },
+    "/api/v2/construct/{id}/proposals": {
+      "GET": {
+        "header": [
+          "If-None-Match"
+        ],
+        "query": [
+          "cursor",
+          "limit",
+          "since",
+          "state"
+        ],
+        "response": [
+          "data",
+          "data[].base",
+          "data[].base_seq",
+          "data[].by",
+          "data[].client",
+          "data[].created_at",
+          "data[].decided_at",
+          "data[].decided_by",
+          "data[].decline_reason",
+          "data[].element_id",
+          "data[].element_type",
+          "data[].evidence",
+          "data[].expires",
+          "data[].fields",
+          "data[].id",
+          "data[].state",
+          "data[].updated_at",
+          "data[].via",
+          "has_more",
+          "next_cursor"
+        ]
+      },
+      "POST": {
+        "body": [
+          "evidence",
+          "expires",
+          "fields"
+        ],
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/construct/{id}/proposals/{pid}": {
+      "DELETE": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/construct/{id}/proposals/{pid}/accept": {
+      "POST": {
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "element",
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/construct/{id}/proposals/{pid}/decline": {
+      "POST": {
+        "body": [
+          "reason"
+        ],
+        "header": [],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
     "/api/v2/creature": {
       "GET": {
         "header": [],
@@ -2809,6 +3416,7 @@
           "data[].challenge_rating",
           "data[].change_seq",
           "data[].changed_by",
+          "data[].changed_client",
           "data[].changed_via",
           "data[].created_at",
           "data[].created_by",
@@ -2847,6 +3455,7 @@
           "birth_date",
           "challenge_rating",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_by",
           "demeanor",
@@ -2872,7 +3481,8 @@
         ],
         "header": [
           "Idempotency-Key",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -2884,6 +3494,7 @@
           "challenge_rating",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -2915,7 +3526,9 @@
     "/api/v2/creature/{id}": {
       "DELETE": {
         "header": [
-          "X-OW-Agent"
+          "If-Match",
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": []
       },
@@ -2935,6 +3548,7 @@
           "challenge_rating",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -2971,6 +3585,7 @@
           "birth_date",
           "challenge_rating",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_by",
           "demeanor",
@@ -2996,7 +3611,8 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -3008,6 +3624,7 @@
           "challenge_rating",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -3044,6 +3661,7 @@
           "birth_date",
           "challenge_rating",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_by",
           "demeanor",
@@ -3068,7 +3686,8 @@
           "zone"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -3080,6 +3699,7 @@
           "challenge_rating",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -3114,7 +3734,8 @@
           "member"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -3126,6 +3747,7 @@
           "challenge_rating",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -3236,7 +3858,8 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -3248,6 +3871,7 @@
           "challenge_rating",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -3276,6 +3900,137 @@
         ]
       }
     },
+    "/api/v2/creature/{id}/proposals": {
+      "GET": {
+        "header": [
+          "If-None-Match"
+        ],
+        "query": [
+          "cursor",
+          "limit",
+          "since",
+          "state"
+        ],
+        "response": [
+          "data",
+          "data[].base",
+          "data[].base_seq",
+          "data[].by",
+          "data[].client",
+          "data[].created_at",
+          "data[].decided_at",
+          "data[].decided_by",
+          "data[].decline_reason",
+          "data[].element_id",
+          "data[].element_type",
+          "data[].evidence",
+          "data[].expires",
+          "data[].fields",
+          "data[].id",
+          "data[].state",
+          "data[].updated_at",
+          "data[].via",
+          "has_more",
+          "next_cursor"
+        ]
+      },
+      "POST": {
+        "body": [
+          "evidence",
+          "expires",
+          "fields"
+        ],
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/creature/{id}/proposals/{pid}": {
+      "DELETE": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/creature/{id}/proposals/{pid}/accept": {
+      "POST": {
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "element",
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/creature/{id}/proposals/{pid}/decline": {
+      "POST": {
+        "body": [
+          "reason"
+        ],
+        "header": [],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
     "/api/v2/event": {
       "GET": {
         "header": [],
@@ -3299,6 +4054,7 @@
           "data[].challenges",
           "data[].change_seq",
           "data[].changed_by",
+          "data[].changed_client",
           "data[].changed_via",
           "data[].characters",
           "data[].collectives",
@@ -3341,6 +4097,7 @@
           "abilities",
           "challenges",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -3374,7 +4131,8 @@
         ],
         "header": [
           "Idempotency-Key",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -3382,6 +4140,7 @@
           "challenges",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -3421,7 +4180,9 @@
     "/api/v2/event/{id}": {
       "DELETE": {
         "header": [
-          "X-OW-Agent"
+          "If-Match",
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": []
       },
@@ -3437,6 +4198,7 @@
           "challenges",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -3477,6 +4239,7 @@
           "abilities",
           "challenges",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -3510,7 +4273,8 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -3518,6 +4282,7 @@
           "challenges",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -3558,6 +4323,7 @@
           "abilities",
           "challenges",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -3590,7 +4356,8 @@
           "zones"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -3598,6 +4365,7 @@
           "challenges",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -3640,7 +4408,8 @@
           "member"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -3648,6 +4417,7 @@
           "challenges",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -3766,7 +4536,8 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -3774,6 +4545,7 @@
           "challenges",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -3810,6 +4582,137 @@
         ]
       }
     },
+    "/api/v2/event/{id}/proposals": {
+      "GET": {
+        "header": [
+          "If-None-Match"
+        ],
+        "query": [
+          "cursor",
+          "limit",
+          "since",
+          "state"
+        ],
+        "response": [
+          "data",
+          "data[].base",
+          "data[].base_seq",
+          "data[].by",
+          "data[].client",
+          "data[].created_at",
+          "data[].decided_at",
+          "data[].decided_by",
+          "data[].decline_reason",
+          "data[].element_id",
+          "data[].element_type",
+          "data[].evidence",
+          "data[].expires",
+          "data[].fields",
+          "data[].id",
+          "data[].state",
+          "data[].updated_at",
+          "data[].via",
+          "has_more",
+          "next_cursor"
+        ]
+      },
+      "POST": {
+        "body": [
+          "evidence",
+          "expires",
+          "fields"
+        ],
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/event/{id}/proposals/{pid}": {
+      "DELETE": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/event/{id}/proposals/{pid}/accept": {
+      "POST": {
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "element",
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/event/{id}/proposals/{pid}/decline": {
+      "POST": {
+        "body": [
+          "reason"
+        ],
+        "header": [],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
     "/api/v2/family": {
       "GET": {
         "header": [],
@@ -3832,6 +4735,7 @@
           "data[].ancestors",
           "data[].change_seq",
           "data[].changed_by",
+          "data[].changed_client",
           "data[].changed_via",
           "data[].created_at",
           "data[].created_by",
@@ -3864,6 +4768,7 @@
           "abilities",
           "ancestors",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_by",
           "creatures",
@@ -3887,7 +4792,8 @@
         ],
         "header": [
           "Idempotency-Key",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -3895,6 +4801,7 @@
           "ancestors",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -3924,7 +4831,9 @@
     "/api/v2/family/{id}": {
       "DELETE": {
         "header": [
-          "X-OW-Agent"
+          "If-Match",
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": []
       },
@@ -3940,6 +4849,7 @@
           "ancestors",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -3970,6 +4880,7 @@
           "abilities",
           "ancestors",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_by",
           "creatures",
@@ -3993,7 +4904,8 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -4001,6 +4913,7 @@
           "ancestors",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -4031,6 +4944,7 @@
           "abilities",
           "ancestors",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_by",
           "creatures",
@@ -4053,7 +4967,8 @@
           "world"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -4061,6 +4976,7 @@
           "ancestors",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -4093,7 +5009,8 @@
           "member"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -4101,6 +5018,7 @@
           "ancestors",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -4209,7 +5127,8 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -4217,6 +5136,7 @@
           "ancestors",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -4240,6 +5160,137 @@
           "traits",
           "type",
           "updated_at"
+        ]
+      }
+    },
+    "/api/v2/family/{id}/proposals": {
+      "GET": {
+        "header": [
+          "If-None-Match"
+        ],
+        "query": [
+          "cursor",
+          "limit",
+          "since",
+          "state"
+        ],
+        "response": [
+          "data",
+          "data[].base",
+          "data[].base_seq",
+          "data[].by",
+          "data[].client",
+          "data[].created_at",
+          "data[].decided_at",
+          "data[].decided_by",
+          "data[].decline_reason",
+          "data[].element_id",
+          "data[].element_type",
+          "data[].evidence",
+          "data[].expires",
+          "data[].fields",
+          "data[].id",
+          "data[].state",
+          "data[].updated_at",
+          "data[].via",
+          "has_more",
+          "next_cursor"
+        ]
+      },
+      "POST": {
+        "body": [
+          "evidence",
+          "expires",
+          "fields"
+        ],
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/family/{id}/proposals/{pid}": {
+      "DELETE": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/family/{id}/proposals/{pid}/accept": {
+      "POST": {
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "element",
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/family/{id}/proposals/{pid}/decline": {
+      "POST": {
+        "body": [
+          "reason"
+        ],
+        "header": [],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
         ]
       }
     },
@@ -4299,6 +5350,7 @@
           "data[].allies",
           "data[].change_seq",
           "data[].changed_by",
+          "data[].changed_client",
           "data[].changed_via",
           "data[].constructs",
           "data[].created_at",
@@ -4329,6 +5381,7 @@
           "adversaries",
           "allies",
           "changed_by",
+          "changed_client",
           "changed_via",
           "constructs",
           "created_by",
@@ -4350,7 +5403,8 @@
         ],
         "header": [
           "Idempotency-Key",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -4358,6 +5412,7 @@
           "allies",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "constructs",
           "created_at",
@@ -4385,7 +5440,9 @@
     "/api/v2/institution/{id}": {
       "DELETE": {
         "header": [
-          "X-OW-Agent"
+          "If-Match",
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": []
       },
@@ -4401,6 +5458,7 @@
           "allies",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "constructs",
           "created_at",
@@ -4429,6 +5487,7 @@
           "adversaries",
           "allies",
           "changed_by",
+          "changed_client",
           "changed_via",
           "constructs",
           "created_by",
@@ -4450,7 +5509,8 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -4458,6 +5518,7 @@
           "allies",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "constructs",
           "created_at",
@@ -4486,6 +5547,7 @@
           "adversaries",
           "allies",
           "changed_by",
+          "changed_client",
           "changed_via",
           "constructs",
           "created_by",
@@ -4506,7 +5568,8 @@
           "zones"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -4514,6 +5577,7 @@
           "allies",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "constructs",
           "created_at",
@@ -4544,7 +5608,8 @@
           "member"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -4552,6 +5617,7 @@
           "allies",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "constructs",
           "created_at",
@@ -4658,7 +5724,8 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -4666,6 +5733,7 @@
           "allies",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "constructs",
           "created_at",
@@ -4690,6 +5758,137 @@
         ]
       }
     },
+    "/api/v2/institution/{id}/proposals": {
+      "GET": {
+        "header": [
+          "If-None-Match"
+        ],
+        "query": [
+          "cursor",
+          "limit",
+          "since",
+          "state"
+        ],
+        "response": [
+          "data",
+          "data[].base",
+          "data[].base_seq",
+          "data[].by",
+          "data[].client",
+          "data[].created_at",
+          "data[].decided_at",
+          "data[].decided_by",
+          "data[].decline_reason",
+          "data[].element_id",
+          "data[].element_type",
+          "data[].evidence",
+          "data[].expires",
+          "data[].fields",
+          "data[].id",
+          "data[].state",
+          "data[].updated_at",
+          "data[].via",
+          "has_more",
+          "next_cursor"
+        ]
+      },
+      "POST": {
+        "body": [
+          "evidence",
+          "expires",
+          "fields"
+        ],
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/institution/{id}/proposals/{pid}": {
+      "DELETE": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/institution/{id}/proposals/{pid}/accept": {
+      "POST": {
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "element",
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/institution/{id}/proposals/{pid}/decline": {
+      "POST": {
+        "body": [
+          "reason"
+        ],
+        "header": [],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
     "/api/v2/join": {
       "POST": {
         "body": [
@@ -4706,6 +5905,12 @@
           "character.id",
           "character.name",
           "env",
+          "front_door",
+          "front_door.charter",
+          "front_door.charter_skill",
+          "front_door.my_character",
+          "front_door.sponsor",
+          "front_door.sponsor_character",
           "key",
           "kind",
           "members",
@@ -4778,6 +5983,7 @@
           "data",
           "data[].change_seq",
           "data[].changed_by",
+          "data[].changed_client",
           "data[].changed_via",
           "data[].classification",
           "data[].created_at",
@@ -4806,6 +6012,7 @@
       "POST": {
         "body": [
           "changed_by",
+          "changed_client",
           "changed_via",
           "classification",
           "created_by",
@@ -4827,12 +6034,14 @@
         ],
         "header": [
           "Idempotency-Key",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "classification",
           "created_at",
@@ -4860,7 +6069,9 @@
     "/api/v2/language/{id}": {
       "DELETE": {
         "header": [
-          "X-OW-Agent"
+          "If-Match",
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": []
       },
@@ -4874,6 +6085,7 @@
         "response": [
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "classification",
           "created_at",
@@ -4900,6 +6112,7 @@
       "PATCH": {
         "body": [
           "changed_by",
+          "changed_client",
           "changed_via",
           "classification",
           "created_by",
@@ -4921,12 +6134,14 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "classification",
           "created_at",
@@ -4953,6 +6168,7 @@
       "PUT": {
         "body": [
           "changed_by",
+          "changed_client",
           "changed_via",
           "classification",
           "created_by",
@@ -4973,12 +6189,14 @@
           "writing"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "classification",
           "created_at",
@@ -5009,12 +6227,14 @@
           "member"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "classification",
           "created_at",
@@ -5121,12 +6341,14 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "classification",
           "created_at",
@@ -5148,6 +6370,137 @@
           "type",
           "updated_at",
           "writing"
+        ]
+      }
+    },
+    "/api/v2/language/{id}/proposals": {
+      "GET": {
+        "header": [
+          "If-None-Match"
+        ],
+        "query": [
+          "cursor",
+          "limit",
+          "since",
+          "state"
+        ],
+        "response": [
+          "data",
+          "data[].base",
+          "data[].base_seq",
+          "data[].by",
+          "data[].client",
+          "data[].created_at",
+          "data[].decided_at",
+          "data[].decided_by",
+          "data[].decline_reason",
+          "data[].element_id",
+          "data[].element_type",
+          "data[].evidence",
+          "data[].expires",
+          "data[].fields",
+          "data[].id",
+          "data[].state",
+          "data[].updated_at",
+          "data[].via",
+          "has_more",
+          "next_cursor"
+        ]
+      },
+      "POST": {
+        "body": [
+          "evidence",
+          "expires",
+          "fields"
+        ],
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/language/{id}/proposals/{pid}": {
+      "DELETE": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/language/{id}/proposals/{pid}/accept": {
+      "POST": {
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "element",
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/language/{id}/proposals/{pid}/decline": {
+      "POST": {
+        "body": [
+          "reason"
+        ],
+        "header": [],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
         ]
       }
     },
@@ -5173,6 +6526,7 @@
           "data[].author",
           "data[].change_seq",
           "data[].changed_by",
+          "data[].changed_client",
           "data[].changed_via",
           "data[].created_at",
           "data[].created_by",
@@ -5204,6 +6558,7 @@
           "adjudicators",
           "author",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_by",
           "date",
@@ -5226,7 +6581,8 @@
         ],
         "header": [
           "Idempotency-Key",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -5234,6 +6590,7 @@
           "author",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -5262,7 +6619,9 @@
     "/api/v2/law/{id}": {
       "DELETE": {
         "header": [
-          "X-OW-Agent"
+          "If-Match",
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": []
       },
@@ -5278,6 +6637,7 @@
           "author",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -5307,6 +6667,7 @@
           "adjudicators",
           "author",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_by",
           "date",
@@ -5329,7 +6690,8 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -5337,6 +6699,7 @@
           "author",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -5366,6 +6729,7 @@
           "adjudicators",
           "author",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_by",
           "date",
@@ -5387,7 +6751,8 @@
           "zones"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -5395,6 +6760,7 @@
           "author",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -5426,7 +6792,8 @@
           "member"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -5434,6 +6801,7 @@
           "author",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -5541,7 +6909,8 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -5549,6 +6918,7 @@
           "author",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -5571,6 +6941,137 @@
           "type",
           "updated_at",
           "zones"
+        ]
+      }
+    },
+    "/api/v2/law/{id}/proposals": {
+      "GET": {
+        "header": [
+          "If-None-Match"
+        ],
+        "query": [
+          "cursor",
+          "limit",
+          "since",
+          "state"
+        ],
+        "response": [
+          "data",
+          "data[].base",
+          "data[].base_seq",
+          "data[].by",
+          "data[].client",
+          "data[].created_at",
+          "data[].decided_at",
+          "data[].decided_by",
+          "data[].decline_reason",
+          "data[].element_id",
+          "data[].element_type",
+          "data[].evidence",
+          "data[].expires",
+          "data[].fields",
+          "data[].id",
+          "data[].state",
+          "data[].updated_at",
+          "data[].via",
+          "has_more",
+          "next_cursor"
+        ]
+      },
+      "POST": {
+        "body": [
+          "evidence",
+          "expires",
+          "fields"
+        ],
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/law/{id}/proposals/{pid}": {
+      "DELETE": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/law/{id}/proposals/{pid}/accept": {
+      "POST": {
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "element",
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/law/{id}/proposals/{pid}/decline": {
+      "POST": {
+        "body": [
+          "reason"
+        ],
+        "header": [],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
         ]
       }
     },
@@ -5597,6 +7098,7 @@
           "data[].buildings",
           "data[].change_seq",
           "data[].changed_by",
+          "data[].changed_client",
           "data[].changed_via",
           "data[].created_at",
           "data[].created_by",
@@ -5648,6 +7150,7 @@
           "building_methods",
           "buildings",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_by",
           "cults",
@@ -5689,7 +7192,8 @@
         ],
         "header": [
           "Idempotency-Key",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -5698,6 +7202,7 @@
           "buildings",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -5745,7 +7250,9 @@
     "/api/v2/location/{id}": {
       "DELETE": {
         "header": [
-          "X-OW-Agent"
+          "If-Match",
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": []
       },
@@ -5762,6 +7269,7 @@
           "buildings",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -5811,6 +7319,7 @@
           "building_methods",
           "buildings",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_by",
           "cults",
@@ -5852,7 +7361,8 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -5861,6 +7371,7 @@
           "buildings",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -5910,6 +7421,7 @@
           "building_methods",
           "buildings",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_by",
           "cults",
@@ -5950,7 +7462,8 @@
           "zone"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -5959,6 +7472,7 @@
           "buildings",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -6009,7 +7523,8 @@
           "member"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -6018,6 +7533,7 @@
           "buildings",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -6144,7 +7660,8 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -6153,6 +7670,7 @@
           "buildings",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -6197,6 +7715,137 @@
         ]
       }
     },
+    "/api/v2/location/{id}/proposals": {
+      "GET": {
+        "header": [
+          "If-None-Match"
+        ],
+        "query": [
+          "cursor",
+          "limit",
+          "since",
+          "state"
+        ],
+        "response": [
+          "data",
+          "data[].base",
+          "data[].base_seq",
+          "data[].by",
+          "data[].client",
+          "data[].created_at",
+          "data[].decided_at",
+          "data[].decided_by",
+          "data[].decline_reason",
+          "data[].element_id",
+          "data[].element_type",
+          "data[].evidence",
+          "data[].expires",
+          "data[].fields",
+          "data[].id",
+          "data[].state",
+          "data[].updated_at",
+          "data[].via",
+          "has_more",
+          "next_cursor"
+        ]
+      },
+      "POST": {
+        "body": [
+          "evidence",
+          "expires",
+          "fields"
+        ],
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/location/{id}/proposals/{pid}": {
+      "DELETE": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/location/{id}/proposals/{pid}/accept": {
+      "POST": {
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "element",
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/location/{id}/proposals/{pid}/decline": {
+      "POST": {
+        "body": [
+          "reason"
+        ],
+        "header": [],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
     "/api/v2/map": {
       "GET": {
         "header": [],
@@ -6218,6 +7867,7 @@
           "data[].background_color",
           "data[].change_seq",
           "data[].changed_by",
+          "data[].changed_client",
           "data[].changed_via",
           "data[].created_at",
           "data[].created_by",
@@ -6245,6 +7895,7 @@
         "body": [
           "background_color",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_by",
           "depth",
@@ -6264,13 +7915,15 @@
         ],
         "header": [
           "Idempotency-Key",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
           "background_color",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -6296,7 +7949,9 @@
     "/api/v2/map/{id}": {
       "DELETE": {
         "header": [
-          "X-OW-Agent"
+          "If-Match",
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": []
       },
@@ -6311,6 +7966,7 @@
           "background_color",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -6336,6 +7992,7 @@
         "body": [
           "background_color",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_by",
           "depth",
@@ -6355,13 +8012,15 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
           "background_color",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -6387,6 +8046,7 @@
         "body": [
           "background_color",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_by",
           "depth",
@@ -6405,13 +8065,15 @@
           "world"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
           "background_color",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -6440,13 +8102,15 @@
           "member"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
           "background_color",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -6551,13 +8215,15 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
           "background_color",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -6577,6 +8243,137 @@
           "type",
           "updated_at",
           "width"
+        ]
+      }
+    },
+    "/api/v2/map/{id}/proposals": {
+      "GET": {
+        "header": [
+          "If-None-Match"
+        ],
+        "query": [
+          "cursor",
+          "limit",
+          "since",
+          "state"
+        ],
+        "response": [
+          "data",
+          "data[].base",
+          "data[].base_seq",
+          "data[].by",
+          "data[].client",
+          "data[].created_at",
+          "data[].decided_at",
+          "data[].decided_by",
+          "data[].decline_reason",
+          "data[].element_id",
+          "data[].element_type",
+          "data[].evidence",
+          "data[].expires",
+          "data[].fields",
+          "data[].id",
+          "data[].state",
+          "data[].updated_at",
+          "data[].via",
+          "has_more",
+          "next_cursor"
+        ]
+      },
+      "POST": {
+        "body": [
+          "evidence",
+          "expires",
+          "fields"
+        ],
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/map/{id}/proposals/{pid}": {
+      "DELETE": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/map/{id}/proposals/{pid}/accept": {
+      "POST": {
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "element",
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/map/{id}/proposals/{pid}/decline": {
+      "POST": {
+        "body": [
+          "reason"
+        ],
+        "header": [],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
         ]
       }
     },
@@ -6600,6 +8397,7 @@
           "data",
           "data[].change_seq",
           "data[].changed_by",
+          "data[].changed_client",
           "data[].changed_via",
           "data[].created_at",
           "data[].created_by",
@@ -6626,6 +8424,7 @@
       "POST": {
         "body": [
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_by",
           "description",
@@ -6645,12 +8444,14 @@
         ],
         "header": [
           "Idempotency-Key",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -6676,7 +8477,9 @@
     "/api/v2/marker/{id}": {
       "DELETE": {
         "header": [
-          "X-OW-Agent"
+          "If-Match",
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": []
       },
@@ -6690,6 +8493,7 @@
         "response": [
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -6714,6 +8518,7 @@
       "PATCH": {
         "body": [
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_by",
           "description",
@@ -6733,12 +8538,14 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -6763,6 +8570,7 @@
       "PUT": {
         "body": [
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_by",
           "description",
@@ -6781,12 +8589,14 @@
           "zone"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -6815,12 +8625,14 @@
           "member"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -6925,12 +8737,14 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -6953,12 +8767,149 @@
         ]
       }
     },
+    "/api/v2/marker/{id}/proposals": {
+      "GET": {
+        "header": [
+          "If-None-Match"
+        ],
+        "query": [
+          "cursor",
+          "limit",
+          "since",
+          "state"
+        ],
+        "response": [
+          "data",
+          "data[].base",
+          "data[].base_seq",
+          "data[].by",
+          "data[].client",
+          "data[].created_at",
+          "data[].decided_at",
+          "data[].decided_by",
+          "data[].decline_reason",
+          "data[].element_id",
+          "data[].element_type",
+          "data[].evidence",
+          "data[].expires",
+          "data[].fields",
+          "data[].id",
+          "data[].state",
+          "data[].updated_at",
+          "data[].via",
+          "has_more",
+          "next_cursor"
+        ]
+      },
+      "POST": {
+        "body": [
+          "evidence",
+          "expires",
+          "fields"
+        ],
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/marker/{id}/proposals/{pid}": {
+      "DELETE": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/marker/{id}/proposals/{pid}/accept": {
+      "POST": {
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "element",
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/marker/{id}/proposals/{pid}/decline": {
+      "POST": {
+        "body": [
+          "reason"
+        ],
+        "header": [],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
     "/api/v2/me": {
       "GET": {
         "header": [],
         "query": [],
         "response": [
           "character",
+          "front_door",
+          "front_door.charter",
+          "front_door.charter_skill",
+          "front_door.my_character",
+          "front_door.sponsor",
+          "front_door.sponsor_character",
           "kind",
           "membership",
           "name",
@@ -6979,6 +8930,12 @@
         "query": [],
         "response": [
           "character",
+          "front_door",
+          "front_door.charter",
+          "front_door.charter_skill",
+          "front_door.my_character",
+          "front_door.sponsor",
+          "front_door.sponsor_character",
           "kind",
           "membership",
           "name",
@@ -7061,6 +9018,7 @@
           "data[].antagonist",
           "data[].change_seq",
           "data[].changed_by",
+          "data[].changed_client",
           "data[].changed_via",
           "data[].characters",
           "data[].collectives",
@@ -7109,6 +9067,7 @@
           "abilities",
           "antagonist",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -7148,7 +9107,8 @@
         ],
         "header": [
           "Idempotency-Key",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -7156,6 +9116,7 @@
           "antagonist",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -7201,7 +9162,9 @@
     "/api/v2/narrative/{id}": {
       "DELETE": {
         "header": [
-          "X-OW-Agent"
+          "If-Match",
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": []
       },
@@ -7217,6 +9180,7 @@
           "antagonist",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -7263,6 +9227,7 @@
           "abilities",
           "antagonist",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -7302,7 +9267,8 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -7310,6 +9276,7 @@
           "antagonist",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -7356,6 +9323,7 @@
           "abilities",
           "antagonist",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -7394,7 +9362,8 @@
           "zones"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -7402,6 +9371,7 @@
           "antagonist",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -7450,7 +9420,8 @@
           "member"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -7458,6 +9429,7 @@
           "antagonist",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -7582,7 +9554,8 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -7590,6 +9563,7 @@
           "antagonist",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -7632,6 +9606,137 @@
         ]
       }
     },
+    "/api/v2/narrative/{id}/proposals": {
+      "GET": {
+        "header": [
+          "If-None-Match"
+        ],
+        "query": [
+          "cursor",
+          "limit",
+          "since",
+          "state"
+        ],
+        "response": [
+          "data",
+          "data[].base",
+          "data[].base_seq",
+          "data[].by",
+          "data[].client",
+          "data[].created_at",
+          "data[].decided_at",
+          "data[].decided_by",
+          "data[].decline_reason",
+          "data[].element_id",
+          "data[].element_type",
+          "data[].evidence",
+          "data[].expires",
+          "data[].fields",
+          "data[].id",
+          "data[].state",
+          "data[].updated_at",
+          "data[].via",
+          "has_more",
+          "next_cursor"
+        ]
+      },
+      "POST": {
+        "body": [
+          "evidence",
+          "expires",
+          "fields"
+        ],
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/narrative/{id}/proposals/{pid}": {
+      "DELETE": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/narrative/{id}/proposals/{pid}/accept": {
+      "POST": {
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "element",
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/narrative/{id}/proposals/{pid}/decline": {
+      "POST": {
+        "body": [
+          "reason"
+        ],
+        "header": [],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
     "/api/v2/object": {
       "GET": {
         "header": [],
@@ -7656,6 +9761,7 @@
           "data[].amount",
           "data[].change_seq",
           "data[].changed_by",
+          "data[].changed_client",
           "data[].changed_via",
           "data[].consumes",
           "data[].created_at",
@@ -7690,6 +9796,7 @@
           "affinities",
           "amount",
           "changed_by",
+          "changed_client",
           "changed_via",
           "consumes",
           "created_by",
@@ -7713,7 +9820,8 @@
         ],
         "header": [
           "Idempotency-Key",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -7723,6 +9831,7 @@
           "amount",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "consumes",
           "created_at",
@@ -7752,7 +9861,9 @@
     "/api/v2/object/{id}": {
       "DELETE": {
         "header": [
-          "X-OW-Agent"
+          "If-Match",
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": []
       },
@@ -7770,6 +9881,7 @@
           "amount",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "consumes",
           "created_at",
@@ -7802,6 +9914,7 @@
           "affinities",
           "amount",
           "changed_by",
+          "changed_client",
           "changed_via",
           "consumes",
           "created_by",
@@ -7825,7 +9938,8 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -7835,6 +9949,7 @@
           "amount",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "consumes",
           "created_at",
@@ -7867,6 +9982,7 @@
           "affinities",
           "amount",
           "changed_by",
+          "changed_client",
           "changed_via",
           "consumes",
           "created_by",
@@ -7889,7 +10005,8 @@
           "world"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -7899,6 +10016,7 @@
           "amount",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "consumes",
           "created_at",
@@ -7931,7 +10049,8 @@
           "member"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -7941,6 +10060,7 @@
           "amount",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "consumes",
           "created_at",
@@ -8049,7 +10169,8 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -8059,6 +10180,7 @@
           "amount",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "consumes",
           "created_at",
@@ -8085,6 +10207,137 @@
         ]
       }
     },
+    "/api/v2/object/{id}/proposals": {
+      "GET": {
+        "header": [
+          "If-None-Match"
+        ],
+        "query": [
+          "cursor",
+          "limit",
+          "since",
+          "state"
+        ],
+        "response": [
+          "data",
+          "data[].base",
+          "data[].base_seq",
+          "data[].by",
+          "data[].client",
+          "data[].created_at",
+          "data[].decided_at",
+          "data[].decided_by",
+          "data[].decline_reason",
+          "data[].element_id",
+          "data[].element_type",
+          "data[].evidence",
+          "data[].expires",
+          "data[].fields",
+          "data[].id",
+          "data[].state",
+          "data[].updated_at",
+          "data[].via",
+          "has_more",
+          "next_cursor"
+        ]
+      },
+      "POST": {
+        "body": [
+          "evidence",
+          "expires",
+          "fields"
+        ],
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/object/{id}/proposals/{pid}": {
+      "DELETE": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/object/{id}/proposals/{pid}/accept": {
+      "POST": {
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "element",
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/object/{id}/proposals/{pid}/decline": {
+      "POST": {
+        "body": [
+          "reason"
+        ],
+        "header": [],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
     "/api/v2/phenomenon": {
       "GET": {
         "header": [],
@@ -8106,6 +10359,7 @@
           "data[].catalysts",
           "data[].change_seq",
           "data[].changed_by",
+          "data[].changed_client",
           "data[].changed_via",
           "data[].created_at",
           "data[].created_by",
@@ -8136,6 +10390,7 @@
         "body": [
           "catalysts",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_by",
           "description",
@@ -8158,13 +10413,15 @@
         ],
         "header": [
           "Idempotency-Key",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
           "catalysts",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -8193,7 +10450,9 @@
     "/api/v2/phenomenon/{id}": {
       "DELETE": {
         "header": [
-          "X-OW-Agent"
+          "If-Match",
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": []
       },
@@ -8208,6 +10467,7 @@
           "catalysts",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -8236,6 +10496,7 @@
         "body": [
           "catalysts",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_by",
           "description",
@@ -8258,13 +10519,15 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
           "catalysts",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -8293,6 +10556,7 @@
         "body": [
           "catalysts",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_by",
           "description",
@@ -8314,13 +10578,15 @@
           "world"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
           "catalysts",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -8352,13 +10618,15 @@
           "member"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
           "catalysts",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -8466,13 +10734,15 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
           "catalysts",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -8498,6 +10768,137 @@
         ]
       }
     },
+    "/api/v2/phenomenon/{id}/proposals": {
+      "GET": {
+        "header": [
+          "If-None-Match"
+        ],
+        "query": [
+          "cursor",
+          "limit",
+          "since",
+          "state"
+        ],
+        "response": [
+          "data",
+          "data[].base",
+          "data[].base_seq",
+          "data[].by",
+          "data[].client",
+          "data[].created_at",
+          "data[].decided_at",
+          "data[].decided_by",
+          "data[].decline_reason",
+          "data[].element_id",
+          "data[].element_type",
+          "data[].evidence",
+          "data[].expires",
+          "data[].fields",
+          "data[].id",
+          "data[].state",
+          "data[].updated_at",
+          "data[].via",
+          "has_more",
+          "next_cursor"
+        ]
+      },
+      "POST": {
+        "body": [
+          "evidence",
+          "expires",
+          "fields"
+        ],
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/phenomenon/{id}/proposals/{pid}": {
+      "DELETE": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/phenomenon/{id}/proposals/{pid}/accept": {
+      "POST": {
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "element",
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/phenomenon/{id}/proposals/{pid}/decline": {
+      "POST": {
+        "body": [
+          "reason"
+        ],
+        "header": [],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
     "/api/v2/pin": {
       "GET": {
         "header": [],
@@ -8518,6 +10919,7 @@
           "data",
           "data[].change_seq",
           "data[].changed_by",
+          "data[].changed_client",
           "data[].changed_via",
           "data[].created_at",
           "data[].created_by",
@@ -8544,6 +10946,7 @@
       "POST": {
         "body": [
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_by",
           "description",
@@ -8563,12 +10966,14 @@
         ],
         "header": [
           "Idempotency-Key",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -8594,7 +10999,9 @@
     "/api/v2/pin/{id}": {
       "DELETE": {
         "header": [
-          "X-OW-Agent"
+          "If-Match",
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": []
       },
@@ -8608,6 +11015,7 @@
         "response": [
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -8632,6 +11040,7 @@
       "PATCH": {
         "body": [
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_by",
           "description",
@@ -8651,12 +11060,14 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -8681,6 +11092,7 @@
       "PUT": {
         "body": [
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_by",
           "description",
@@ -8699,12 +11111,14 @@
           "z"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -8733,12 +11147,14 @@
           "member"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -8843,12 +11259,14 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "created_at",
           "created_by",
@@ -8868,6 +11286,137 @@
           "x",
           "y",
           "z"
+        ]
+      }
+    },
+    "/api/v2/pin/{id}/proposals": {
+      "GET": {
+        "header": [
+          "If-None-Match"
+        ],
+        "query": [
+          "cursor",
+          "limit",
+          "since",
+          "state"
+        ],
+        "response": [
+          "data",
+          "data[].base",
+          "data[].base_seq",
+          "data[].by",
+          "data[].client",
+          "data[].created_at",
+          "data[].decided_at",
+          "data[].decided_by",
+          "data[].decline_reason",
+          "data[].element_id",
+          "data[].element_type",
+          "data[].evidence",
+          "data[].expires",
+          "data[].fields",
+          "data[].id",
+          "data[].state",
+          "data[].updated_at",
+          "data[].via",
+          "has_more",
+          "next_cursor"
+        ]
+      },
+      "POST": {
+        "body": [
+          "evidence",
+          "expires",
+          "fields"
+        ],
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/pin/{id}/proposals/{pid}": {
+      "DELETE": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/pin/{id}/proposals/{pid}/accept": {
+      "POST": {
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "element",
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/pin/{id}/proposals/{pid}/decline": {
+      "POST": {
+        "body": [
+          "reason"
+        ],
+        "header": [],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
         ]
       }
     },
@@ -8895,6 +11444,7 @@
           "data[].background",
           "data[].change_seq",
           "data[].changed_by",
+          "data[].changed_client",
           "data[].changed_via",
           "data[].characters",
           "data[].collectives",
@@ -8937,6 +11487,7 @@
           "actor",
           "background",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -8969,7 +11520,8 @@
         ],
         "header": [
           "Idempotency-Key",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -8978,6 +11530,7 @@
           "background",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -9016,7 +11569,9 @@
     "/api/v2/relation/{id}": {
       "DELETE": {
         "header": [
-          "X-OW-Agent"
+          "If-Match",
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": []
       },
@@ -9033,6 +11588,7 @@
           "background",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -9073,6 +11629,7 @@
           "actor",
           "background",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -9105,7 +11662,8 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -9114,6 +11672,7 @@
           "background",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -9154,6 +11713,7 @@
           "actor",
           "background",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -9185,7 +11745,8 @@
           "zones"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -9194,6 +11755,7 @@
           "background",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -9235,7 +11797,8 @@
           "member"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -9244,6 +11807,7 @@
           "background",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -9361,7 +11925,8 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -9370,6 +11935,7 @@
           "background",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -9402,6 +11968,137 @@
           "type",
           "updated_at",
           "zones"
+        ]
+      }
+    },
+    "/api/v2/relation/{id}/proposals": {
+      "GET": {
+        "header": [
+          "If-None-Match"
+        ],
+        "query": [
+          "cursor",
+          "limit",
+          "since",
+          "state"
+        ],
+        "response": [
+          "data",
+          "data[].base",
+          "data[].base_seq",
+          "data[].by",
+          "data[].client",
+          "data[].created_at",
+          "data[].decided_at",
+          "data[].decided_by",
+          "data[].decline_reason",
+          "data[].element_id",
+          "data[].element_type",
+          "data[].evidence",
+          "data[].expires",
+          "data[].fields",
+          "data[].id",
+          "data[].state",
+          "data[].updated_at",
+          "data[].via",
+          "has_more",
+          "next_cursor"
+        ]
+      },
+      "POST": {
+        "body": [
+          "evidence",
+          "expires",
+          "fields"
+        ],
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/relation/{id}/proposals/{pid}": {
+      "DELETE": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/relation/{id}/proposals/{pid}/accept": {
+      "POST": {
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "element",
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/relation/{id}/proposals/{pid}/decline": {
+      "POST": {
+        "body": [
+          "reason"
+        ],
+        "header": [],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
         ]
       }
     },
@@ -9454,6 +12151,7 @@
           "data[].appearance",
           "data[].change_seq",
           "data[].changed_by",
+          "data[].changed_client",
           "data[].changed_via",
           "data[].communication",
           "data[].created_at",
@@ -9491,6 +12189,7 @@
           "aggression",
           "appearance",
           "changed_by",
+          "changed_client",
           "changed_via",
           "communication",
           "created_by",
@@ -9517,7 +12216,8 @@
         ],
         "header": [
           "Idempotency-Key",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -9527,6 +12227,7 @@
           "appearance",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "communication",
           "created_at",
@@ -9559,7 +12260,9 @@
     "/api/v2/species/{id}": {
       "DELETE": {
         "header": [
-          "X-OW-Agent"
+          "If-Match",
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": []
       },
@@ -9577,6 +12280,7 @@
           "appearance",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "communication",
           "created_at",
@@ -9612,6 +12316,7 @@
           "aggression",
           "appearance",
           "changed_by",
+          "changed_client",
           "changed_via",
           "communication",
           "created_by",
@@ -9638,7 +12343,8 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -9648,6 +12354,7 @@
           "appearance",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "communication",
           "created_at",
@@ -9683,6 +12390,7 @@
           "aggression",
           "appearance",
           "changed_by",
+          "changed_client",
           "changed_via",
           "communication",
           "created_by",
@@ -9708,7 +12416,8 @@
           "zones"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -9718,6 +12427,7 @@
           "appearance",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "communication",
           "created_at",
@@ -9753,7 +12463,8 @@
           "member"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -9763,6 +12474,7 @@
           "appearance",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "communication",
           "created_at",
@@ -9874,7 +12586,8 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -9884,6 +12597,7 @@
           "appearance",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "communication",
           "created_at",
@@ -9913,6 +12627,137 @@
         ]
       }
     },
+    "/api/v2/species/{id}/proposals": {
+      "GET": {
+        "header": [
+          "If-None-Match"
+        ],
+        "query": [
+          "cursor",
+          "limit",
+          "since",
+          "state"
+        ],
+        "response": [
+          "data",
+          "data[].base",
+          "data[].base_seq",
+          "data[].by",
+          "data[].client",
+          "data[].created_at",
+          "data[].decided_at",
+          "data[].decided_by",
+          "data[].decline_reason",
+          "data[].element_id",
+          "data[].element_type",
+          "data[].evidence",
+          "data[].expires",
+          "data[].fields",
+          "data[].id",
+          "data[].state",
+          "data[].updated_at",
+          "data[].via",
+          "has_more",
+          "next_cursor"
+        ]
+      },
+      "POST": {
+        "body": [
+          "evidence",
+          "expires",
+          "fields"
+        ],
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/species/{id}/proposals/{pid}": {
+      "DELETE": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/species/{id}/proposals/{pid}/accept": {
+      "POST": {
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "element",
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/species/{id}/proposals/{pid}/decline": {
+      "POST": {
+        "body": [
+          "reason"
+        ],
+        "header": [],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
     "/api/v2/title": {
       "GET": {
         "header": [],
@@ -9936,6 +12781,7 @@
           "data[].body",
           "data[].change_seq",
           "data[].changed_by",
+          "data[].changed_client",
           "data[].changed_via",
           "data[].characters",
           "data[].collectives",
@@ -9980,6 +12826,7 @@
           "authority",
           "body",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -10015,7 +12862,8 @@
         ],
         "header": [
           "Idempotency-Key",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -10023,6 +12871,7 @@
           "body",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -10064,7 +12913,9 @@
     "/api/v2/title/{id}": {
       "DELETE": {
         "header": [
-          "X-OW-Agent"
+          "If-Match",
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": []
       },
@@ -10080,6 +12931,7 @@
           "body",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -10122,6 +12974,7 @@
           "authority",
           "body",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -10157,7 +13010,8 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -10165,6 +13019,7 @@
           "body",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -10207,6 +13062,7 @@
           "authority",
           "body",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -10241,7 +13097,8 @@
           "zones"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -10249,6 +13106,7 @@
           "body",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -10293,7 +13151,8 @@
           "member"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -10301,6 +13160,7 @@
           "body",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -10421,7 +13281,8 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -10429,6 +13290,7 @@
           "body",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "characters",
           "collectives",
@@ -10467,6 +13329,137 @@
         ]
       }
     },
+    "/api/v2/title/{id}/proposals": {
+      "GET": {
+        "header": [
+          "If-None-Match"
+        ],
+        "query": [
+          "cursor",
+          "limit",
+          "since",
+          "state"
+        ],
+        "response": [
+          "data",
+          "data[].base",
+          "data[].base_seq",
+          "data[].by",
+          "data[].client",
+          "data[].created_at",
+          "data[].decided_at",
+          "data[].decided_by",
+          "data[].decline_reason",
+          "data[].element_id",
+          "data[].element_type",
+          "data[].evidence",
+          "data[].expires",
+          "data[].fields",
+          "data[].id",
+          "data[].state",
+          "data[].updated_at",
+          "data[].via",
+          "has_more",
+          "next_cursor"
+        ]
+      },
+      "POST": {
+        "body": [
+          "evidence",
+          "expires",
+          "fields"
+        ],
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/title/{id}/proposals/{pid}": {
+      "DELETE": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/title/{id}/proposals/{pid}/accept": {
+      "POST": {
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "element",
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/title/{id}/proposals/{pid}/decline": {
+      "POST": {
+        "body": [
+          "reason"
+        ],
+        "header": [],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
     "/api/v2/trait": {
       "GET": {
         "header": [],
@@ -10489,6 +13482,7 @@
           "data[].behaviour_effects",
           "data[].change_seq",
           "data[].changed_by",
+          "data[].changed_client",
           "data[].changed_via",
           "data[].charisma",
           "data[].coercion",
@@ -10523,6 +13517,7 @@
           "anti_trait",
           "behaviour_effects",
           "changed_by",
+          "changed_client",
           "changed_via",
           "charisma",
           "coercion",
@@ -10548,7 +13543,8 @@
         ],
         "header": [
           "Idempotency-Key",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -10556,6 +13552,7 @@
           "behaviour_effects",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "charisma",
           "coercion",
@@ -10587,7 +13584,9 @@
     "/api/v2/trait/{id}": {
       "DELETE": {
         "header": [
-          "X-OW-Agent"
+          "If-Match",
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": []
       },
@@ -10603,6 +13602,7 @@
           "behaviour_effects",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "charisma",
           "coercion",
@@ -10635,6 +13635,7 @@
           "anti_trait",
           "behaviour_effects",
           "changed_by",
+          "changed_client",
           "changed_via",
           "charisma",
           "coercion",
@@ -10660,7 +13661,8 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -10668,6 +13670,7 @@
           "behaviour_effects",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "charisma",
           "coercion",
@@ -10700,6 +13703,7 @@
           "anti_trait",
           "behaviour_effects",
           "changed_by",
+          "changed_client",
           "changed_via",
           "charisma",
           "coercion",
@@ -10724,7 +13728,8 @@
           "world"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -10732,6 +13737,7 @@
           "behaviour_effects",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "charisma",
           "coercion",
@@ -10766,7 +13772,8 @@
           "member"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -10774,6 +13781,7 @@
           "behaviour_effects",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "charisma",
           "coercion",
@@ -10884,7 +13892,8 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
@@ -10892,6 +13901,7 @@
           "behaviour_effects",
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "charisma",
           "coercion",
@@ -10920,6 +13930,137 @@
         ]
       }
     },
+    "/api/v2/trait/{id}/proposals": {
+      "GET": {
+        "header": [
+          "If-None-Match"
+        ],
+        "query": [
+          "cursor",
+          "limit",
+          "since",
+          "state"
+        ],
+        "response": [
+          "data",
+          "data[].base",
+          "data[].base_seq",
+          "data[].by",
+          "data[].client",
+          "data[].created_at",
+          "data[].decided_at",
+          "data[].decided_by",
+          "data[].decline_reason",
+          "data[].element_id",
+          "data[].element_type",
+          "data[].evidence",
+          "data[].expires",
+          "data[].fields",
+          "data[].id",
+          "data[].state",
+          "data[].updated_at",
+          "data[].via",
+          "has_more",
+          "next_cursor"
+        ]
+      },
+      "POST": {
+        "body": [
+          "evidence",
+          "expires",
+          "fields"
+        ],
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/trait/{id}/proposals/{pid}": {
+      "DELETE": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/trait/{id}/proposals/{pid}/accept": {
+      "POST": {
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "element",
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/trait/{id}/proposals/{pid}/decline": {
+      "POST": {
+        "body": [
+          "reason"
+        ],
+        "header": [],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
     "/api/v2/world": {
       "GET": {
         "header": [
@@ -10928,6 +14069,7 @@
         "query": [],
         "response": [
           "agent_narrator_rule",
+          "agent_writes_proposed",
           "created_at",
           "description",
           "distance_unit",
@@ -10937,7 +14079,15 @@
           "mass_unit",
           "name",
           "owner_character",
+          "public_page",
+          "public_page.hero",
+          "public_page.index",
+          "public_page.on",
+          "public_page.palette",
+          "public_page.pin",
+          "public_page.sections",
           "public_read",
+          "slug",
           "time_basic_unit",
           "time_format_equivalents",
           "time_format_names",
@@ -10967,6 +14117,7 @@
         "query": [],
         "response": [
           "agent_narrator_rule",
+          "agent_writes_proposed",
           "created_at",
           "description",
           "distance_unit",
@@ -10976,7 +14127,15 @@
           "mass_unit",
           "name",
           "owner_character",
+          "public_page",
+          "public_page.hero",
+          "public_page.index",
+          "public_page.on",
+          "public_page.palette",
+          "public_page.pin",
+          "public_page.sections",
           "public_read",
+          "slug",
           "time_basic_unit",
           "time_format_equivalents",
           "time_format_names",
@@ -11020,6 +14179,42 @@
         ]
       }
     },
+    "/api/v2/world/proposals": {
+      "GET": {
+        "header": [
+          "If-None-Match"
+        ],
+        "query": [
+          "cursor",
+          "element",
+          "limit",
+          "since",
+          "state"
+        ],
+        "response": [
+          "data",
+          "data[].base",
+          "data[].base_seq",
+          "data[].by",
+          "data[].client",
+          "data[].created_at",
+          "data[].decided_at",
+          "data[].decided_by",
+          "data[].decline_reason",
+          "data[].element_id",
+          "data[].element_type",
+          "data[].evidence",
+          "data[].expires",
+          "data[].fields",
+          "data[].id",
+          "data[].state",
+          "data[].updated_at",
+          "data[].via",
+          "has_more",
+          "next_cursor"
+        ]
+      }
+    },
     "/api/v2/zone": {
       "GET": {
         "header": [],
@@ -11040,6 +14235,7 @@
           "data",
           "data[].change_seq",
           "data[].changed_by",
+          "data[].changed_client",
           "data[].changed_via",
           "data[].context",
           "data[].created_at",
@@ -11056,6 +14252,7 @@
           "data[].populations",
           "data[].principles",
           "data[].role",
+          "data[].shape",
           "data[].start_date",
           "data[].subtype",
           "data[].supertype",
@@ -11069,6 +14266,7 @@
       "POST": {
         "body": [
           "changed_by",
+          "changed_client",
           "changed_via",
           "context",
           "created_by",
@@ -11083,6 +14281,7 @@
           "populations",
           "principles",
           "role",
+          "shape",
           "start_date",
           "subtype",
           "supertype",
@@ -11091,12 +14290,14 @@
         ],
         "header": [
           "Idempotency-Key",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "context",
           "created_at",
@@ -11113,6 +14314,7 @@
           "populations",
           "principles",
           "role",
+          "shape",
           "start_date",
           "subtype",
           "supertype",
@@ -11125,7 +14327,9 @@
     "/api/v2/zone/{id}": {
       "DELETE": {
         "header": [
-          "X-OW-Agent"
+          "If-Match",
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": []
       },
@@ -11139,6 +14343,7 @@
         "response": [
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "context",
           "created_at",
@@ -11155,6 +14360,7 @@
           "populations",
           "principles",
           "role",
+          "shape",
           "start_date",
           "subtype",
           "supertype",
@@ -11166,6 +14372,7 @@
       "PATCH": {
         "body": [
           "changed_by",
+          "changed_client",
           "changed_via",
           "context",
           "created_by",
@@ -11180,6 +14387,7 @@
           "populations",
           "principles",
           "role",
+          "shape",
           "start_date",
           "subtype",
           "supertype",
@@ -11188,12 +14396,14 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "context",
           "created_at",
@@ -11210,6 +14420,7 @@
           "populations",
           "principles",
           "role",
+          "shape",
           "start_date",
           "subtype",
           "supertype",
@@ -11221,6 +14432,7 @@
       "PUT": {
         "body": [
           "changed_by",
+          "changed_client",
           "changed_via",
           "context",
           "created_by",
@@ -11235,6 +14447,7 @@
           "populations",
           "principles",
           "role",
+          "shape",
           "start_date",
           "subtype",
           "supertype",
@@ -11242,12 +14455,14 @@
           "world"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "context",
           "created_at",
@@ -11264,6 +14479,7 @@
           "populations",
           "principles",
           "role",
+          "shape",
           "start_date",
           "subtype",
           "supertype",
@@ -11279,12 +14495,14 @@
           "member"
         ],
         "header": [
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "context",
           "created_at",
@@ -11301,6 +14519,7 @@
           "populations",
           "principles",
           "role",
+          "shape",
           "start_date",
           "subtype",
           "supertype",
@@ -11392,12 +14611,14 @@
         ],
         "header": [
           "If-Match",
-          "X-OW-Agent"
+          "X-OW-Agent",
+          "X-OW-Client"
         ],
         "query": [],
         "response": [
           "change_seq",
           "changed_by",
+          "changed_client",
           "changed_via",
           "context",
           "created_at",
@@ -11414,12 +14635,144 @@
           "populations",
           "principles",
           "role",
+          "shape",
           "start_date",
           "subtype",
           "supertype",
           "titles",
           "type",
           "updated_at"
+        ]
+      }
+    },
+    "/api/v2/zone/{id}/proposals": {
+      "GET": {
+        "header": [
+          "If-None-Match"
+        ],
+        "query": [
+          "cursor",
+          "limit",
+          "since",
+          "state"
+        ],
+        "response": [
+          "data",
+          "data[].base",
+          "data[].base_seq",
+          "data[].by",
+          "data[].client",
+          "data[].created_at",
+          "data[].decided_at",
+          "data[].decided_by",
+          "data[].decline_reason",
+          "data[].element_id",
+          "data[].element_type",
+          "data[].evidence",
+          "data[].expires",
+          "data[].fields",
+          "data[].id",
+          "data[].state",
+          "data[].updated_at",
+          "data[].via",
+          "has_more",
+          "next_cursor"
+        ]
+      },
+      "POST": {
+        "body": [
+          "evidence",
+          "expires",
+          "fields"
+        ],
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/zone/{id}/proposals/{pid}": {
+      "DELETE": {
+        "header": [],
+        "query": []
+      }
+    },
+    "/api/v2/zone/{id}/proposals/{pid}/accept": {
+      "POST": {
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "element",
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/zone/{id}/proposals/{pid}/decline": {
+      "POST": {
+        "body": [
+          "reason"
+        ],
+        "header": [],
+        "query": [],
+        "response": [
+          "proposal",
+          "proposal.base",
+          "proposal.base_seq",
+          "proposal.by",
+          "proposal.client",
+          "proposal.created_at",
+          "proposal.decided_at",
+          "proposal.decided_by",
+          "proposal.decline_reason",
+          "proposal.element_id",
+          "proposal.element_type",
+          "proposal.evidence",
+          "proposal.expires",
+          "proposal.fields",
+          "proposal.id",
+          "proposal.state",
+          "proposal.updated_at",
+          "proposal.via"
         ]
       }
     }
