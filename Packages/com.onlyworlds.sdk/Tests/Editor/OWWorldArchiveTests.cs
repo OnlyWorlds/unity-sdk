@@ -463,6 +463,47 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsNull(OWWorldArchive.Read(kept).World["api"]);
         }
 
+        // -- The producer line (folder spec §4.2, v0.3.14) travels as its maker wrote it ----------------
+
+        private const string ProducerLine =
+            "  \"producer\": {\n    \"tool\": \"azgaar-converter\",\n    \"version\": \"0.4.0\",\n    \"input\": \"azgaar-map\"\n  },\n";
+
+        [Test]
+        public void Pack_KeepsTheProducerLine_ByteForByte_AndWhenItStripsTheApiBlock()
+        {
+            // An archive is a copy, not a birth: the line says who made the folder, so it goes in as written.
+            var plain = Path.Combine(_temp, "made");
+            Write(plain, "world.json", "{\n  \"id\": \"" + WId + "\",\n  \"name\": \"Made\",\n" + ProducerLine + "  \"x_tool\": true\n}\n");
+            Write(plain, "elements/character/one.json", ElementBody);
+            var archive = PackTo(plain, "made.owworld");
+            CollectionAssert.AreEqual(File.ReadAllBytes(Path.Combine(plain, "world.json")), EntryBytes(archive, "made/world.json"));
+
+            // Re-emitted without its api block, the rest of world.json, the producer line among it, is as it was.
+            var linked = Path.Combine(_temp, "linked-made");
+            Write(linked, "world.json", "{\n  \"id\": \"" + WId + "\",\n  \"name\": \"Made\",\n" + ProducerLine
+                                        + "  \"api\": {\n    \"world_id\": \"" + WId + "\",\n    \"api_key\": \"ow_k_secret\"\n  },\n"
+                                        + "  \"x_tool\": true\n}\n");
+            var stripped = Encoding.UTF8.GetString(EntryBytes(PackTo(linked, "linked-made.owworld"), "linked-made/world.json"));
+            Assert.AreEqual("{\n  \"id\": \"" + WId + "\",\n  \"name\": \"Made\",\n" + ProducerLine + "  \"x_tool\": true\n}\n", stripped);
+        }
+
+        [Test]
+        public void Read_AnInputWordNoReaderKnows_IsData_TheFolderAndTheArchiveReadIt()
+        {
+            // §4.2: "a reader never refuses a folder on a word it does not know". The package's vector.
+            var root = Path.Combine(_temp, "papyrus");
+            Write(root, "world.json", "{\n  \"id\": \"" + WId + "\",\n  \"name\": \"Papyrus\",\n"
+                                      + "  \"producer\": {\n    \"tool\": \"papyrus\",\n    \"version\": \"9\",\n    \"input\": \"papyrus-scroll\"\n  }\n}\n");
+            Write(root, "elements/character/one.json", ElementBody);
+
+            foreach (var read in new[] { OWFolderReader.Read(root), OWWorldArchive.Read(PackTo(root, "papyrus.owworld")) })
+            {
+                Assert.AreEqual("papyrus-scroll", (string)read.World["producer"]["input"]);
+                Assert.AreEqual(1, read.Elements.Count);
+                Assert.IsEmpty(read.Skipped);
+            }
+        }
+
         private string PackTo(string root, string fileName)
         {
             var path = Path.Combine(_temp, fileName);

@@ -101,6 +101,32 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public async Task TheFilesProducer_IsCarriedVerbatim_ItsMakerIsTheFoldersMaker()
+        {
+            // Folder spec §4.2 (v0.3.14): a tool writing a folder from keel's file keeps keel's line as it found it, key
+            // order and an input word this SDK does not know included; it never writes its own over it.
+            var world = @"{""id"":""w1"",""name"":""W"",
+                ""source"":{""server"":""https://www.onlyworlds.com"",""world"":""w1"",""at"":""2026-10-22T05:00:00+00:00""},
+                ""producer"":{""version"":""2026.10.22"",""tool"":""keel"",""input"":""papyrus-scroll""}}";
+            await OWFolderExport.ExportFileAsync(ExportFile(@"{""character"":[{""id"":""c1"",""name"":""Pip""}]}", world), _folder, NoMedia);
+
+            var text = File.ReadAllText(Path.Combine(_folder, "world.json"));
+            StringAssert.Contains(
+                "\"producer\": {\n    \"version\": \"2026.10.22\",\n    \"tool\": \"keel\",\n    \"input\": \"papyrus-scroll\"\n  }", text);
+            var written = OWFolderReader.Read(_folder).World;
+            CollectionAssert.AreEqual(new[] { "id", "name", "source", "producer", "format_version" }, written.Properties().Select(p => p.Name));
+        }
+
+        [Test]
+        public async Task AFileWithNoProducer_GivesAFolderWithNone()
+        {
+            // Absent is the honest value: this SDK copied the file, it did not make the world.
+            await OWFolderExport.ExportFileAsync(ExportFile(@"{""character"":[{""id"":""c1"",""name"":""Pip""}]}"), _folder, NoMedia);
+
+            Assert.IsFalse(OWFolderReader.Read(_folder).World.ContainsKey("producer"));
+        }
+
+        [Test]
         public async Task AMapsImage_IsFetchedFromItsUrl_AndKept()
         {
             var fetched = 0;

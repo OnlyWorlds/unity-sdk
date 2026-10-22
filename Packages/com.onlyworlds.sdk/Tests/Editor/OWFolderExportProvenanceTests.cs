@@ -8,9 +8,9 @@ using NUnit.Framework;
 namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
-    /// The provenance lines an API export writes into <c>world.json</c> (folder format v0.3.9, §4.2): <c>source</c> always,
-    /// <c>exported_as</c> when <c>GET /me</c> says which slice the key reads. The package's <c>tests/test_export.py</c>,
-    /// case for case, so the two exporters of one format agree.
+    /// The provenance lines an API export writes into <c>world.json</c> (folder format §4.2): <c>source</c> always,
+    /// <c>exported_as</c> when <c>GET /me</c> says which slice the key reads (v0.3.9), <c>producer</c> always (v0.3.14).
+    /// The package's <c>tests/test_export.py</c>, case for case, so the two exporters of one format agree.
     /// </summary>
     public class OWFolderExportProvenanceTests
     {
@@ -64,7 +64,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual("https://www.onlyworlds.com", (string)world["source"]["server"], "the API's origin, not its path");
             Assert.AreEqual("w-1", (string)world["source"]["world"]);
             Assert.AreEqual("2026-10-19T21:30:00.250Z", (string)world["source"]["at"], "toISOString's shape: UTC, milliseconds, Z");
-            CollectionAssert.AreEqual(new[] { "id", "name", "source", "format_version" }, world.Properties().Select(p => p.Name));
+            CollectionAssert.AreEqual(new[] { "id", "name", "source", "producer", "format_version" }, world.Properties().Select(p => p.Name));
         }
 
         [Test]
@@ -90,7 +90,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             Assert.AreEqual("{\"kind\":\"owner\",\"role\":\"owner\",\"character\":null}",
                 world["exported_as"].ToString(Newtonsoft.Json.Formatting.None), "the whole world, even with an owner_character");
-            CollectionAssert.AreEqual(new[] { "id", "name", "source", "exported_as", "format_version" },
+            CollectionAssert.AreEqual(new[] { "id", "name", "source", "exported_as", "producer", "format_version" },
                 world.Properties().Select(p => p.Name));
         }
 
@@ -134,6 +134,77 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var world = await Export(transport);
 
             Assert.IsFalse(world.ContainsKey("exported_as"));
+        }
+
+        // -- producer (v0.3.14): who made the folder, from what ------------------------------------------
+
+        [Test]
+        public async Task AFreshExport_WritesTheProducerLine_InTheSpecsKeyOrder()
+        {
+            var world = await Export(Moor("{\"kind\":\"owner\",\"role\":\"owner\",\"character\":null}"));
+
+            Assert.AreEqual("{\"tool\":\"com.onlyworlds.sdk\",\"version\":\"" + OWFolderExport.ProducerVersion + "\",\"input\":\"server\"}",
+                world["producer"].ToString(Newtonsoft.Json.Formatting.None));
+            Assert.IsTrue(JToken.DeepEquals(OWFolderExport.ExportProducer, world["producer"]));
+        }
+
+        [Test]
+        public async Task NoMe_StillWritesTheProducerLine()
+        {
+            // The slice can be unknown; who made the folder never is.
+            var transport = Moor();
+            transport.Refusals["me"] = (404, "{\"error\":{\"code\":\"not_found\",\"message\":\"no\"}}");
+            var world = await Export(transport);
+
+            Assert.IsTrue(JToken.DeepEquals(OWFolderExport.ExportProducer, world["producer"]));
+        }
+
+        [Test]
+        public async Task AnExportIsABirth_SoItsLinesAreItsOwn_WhereTheBodyHadThem()
+        {
+            // A GET /world body carrying another folder's lines (keel keeps them at a folder upload, #477): they name the
+            // maker of THAT folder, so this folder's own are written, as for source. The package's vector.
+            var transport = new RouteTransport
+            {
+                World = "{\"id\":\"w-1\",\"name\":\"Moor\","
+                        + "\"source\":{\"server\":null,\"world\":\"w0\",\"at\":\"2026-10-01T00:00:00.000Z\"},"
+                        + "\"producer\":{\"tool\":\"azgaar-converter\",\"version\":\"0.4.0\",\"input\":\"azgaar-map\"}}",
+            };
+            var world = await Export(transport);
+
+            Assert.IsTrue(JToken.DeepEquals(OWFolderExport.ExportProducer, world["producer"]));
+            Assert.AreEqual("w-1", (string)world["source"]["world"]);
+            CollectionAssert.AreEqual(new[] { "id", "name", "source", "producer", "format_version" },
+                world.Properties().Select(p => p.Name), "replaced where they stood, as the package's dict assignment does");
+        }
+
+        [Test]
+        public void TheProducersVersion_IsThePackagesVersion()
+        {
+            var package = PackageJson();
+            if (package == null) Assert.Ignore("package.json was not found: the version was not compared.");
+
+            var json = JObject.Parse(File.ReadAllText(package));
+            Assert.AreEqual((string)json["version"], OWFolderExport.ProducerVersion,
+                "OWFolderExport.ProducerVersion must move with package.json's version: a release changes both");
+            Assert.AreEqual((string)json["name"], OWFolderExport.ProducerTool, "the tool is the name the package publishes under");
+        }
+
+        /// <summary>The package's own <c>package.json</c>: through the package manager, else the working directory's package.</summary>
+        private static string PackageJson()
+        {
+            try
+            {
+                var info = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(OWFolderExportProvenanceTests).Assembly);
+                if (info != null) return Path.Combine(info.resolvedPath, "package.json");
+            }
+            catch (Exception)
+            {
+                // No Editor behind the call; try the working directory below.
+            }
+
+            var local = Path.Combine(Directory.GetCurrentDirectory(), "Packages", "com.onlyworlds.sdk", "package.json");
+            return File.Exists(local) ? local : null;
         }
 
         [Test]
