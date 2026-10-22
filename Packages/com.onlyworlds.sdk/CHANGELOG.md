@@ -6,6 +6,16 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **`OWWorldArchive.Pack` writes the `mimetype` marker** (folder spec §4.7, OW-6): the first entry, stored (method 0),
+  no extra field, its bytes exactly `application/vnd.onlyworlds.world+zip`, as the TypeScript SDK's and the Python
+  package's writers place it. `Pack` now writes the zip itself, since Mono's `ZipArchive` cannot store an entry: every
+  other entry is deflated (an empty one stored), each stamped 1980-01-01 00:00, in UTF-8 byte order as before; a
+  non-ASCII name carries the UTF-8 flag; a classic zip below 65,535 entries and zip64 from there. The list `Pack`
+  returns starts with `mimetype`. A Unity-packed world reads the same in the reference checker, the TypeScript SDK's
+  `readWorldFile` and Windows' `tar`, and the reference finds no writer fault in it.
+
 ### Changed
 
 - The schema pin moves to dist.42 (`v0.32.2-dist.42`; canonical `00.32.02` unchanged, and no decoded file moved).

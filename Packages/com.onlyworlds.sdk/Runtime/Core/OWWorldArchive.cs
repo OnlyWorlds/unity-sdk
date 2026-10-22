@@ -209,9 +209,12 @@ namespace OnlyWorlds.Sdk
         /// is the runtime's zlib.
         /// </para>
         /// <para>
-        /// No <c>mimetype</c> marker is written yet. Folder spec §4.7 (OW-6) has a writer SHOULD place one first and
-        /// stored, but Mono's <see cref="ZipArchive"/> writes <see cref="CompressionLevel.NoCompression"/> as deflate
-        /// (method 8), and a deflated marker breaks the shape a reader may check; an absent one breaks nothing.
+        /// The first entry is the <c>mimetype</c> marker (folder spec §4.7, OW-6): <see cref="MediaType"/>'s bytes,
+        /// stored (method 0), with no extra field, the EPUB shape. Every other entry is deflated, an empty one stored. The zip is written
+        /// here rather than by <see cref="ZipArchive"/>, because Mono's writes
+        /// <see cref="CompressionLevel.NoCompression"/> as deflate (method 8) and so cannot store the marker. A
+        /// classic zip, and zip64 from 65,535 entries or past 4 GiB, as §4.7 asks of a writer; a non-ASCII name
+        /// carries the UTF-8 flag (bit 11).
         /// </para>
         /// </remarks>
         /// <exception cref="DirectoryNotFoundException">The folder does not exist.</exception>
@@ -242,24 +245,196 @@ namespace OnlyWorlds.Sdk
             var dir = Path.GetDirectoryName(archive);
             if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
 
-            var written = new List<string>(plan.Count);
+            var written = new List<string>(plan.Count + 1);
             using (var stream = new FileStream(archive, FileMode.Create, FileAccess.Write, FileShare.None))
-            using (var zip = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: false))
             {
+                var zip = new ZipWriter(stream);
+                zip.Add(MarkerEntry, MediaTypeBytes, deflate: false);
+                written.Add(MarkerEntry);
+
                 foreach (var (relative, source) in plan)
                 {
                     var name = top + "/" + relative;
-                    var entry = zip.CreateEntry(name, CompressionLevel.Optimal);
-                    entry.LastWriteTime = EntryTime;
-
-                    var bytes = relative == WorldFile ? worldBytes : File.ReadAllBytes(source);
-                    using (var output = entry.Open()) output.Write(bytes, 0, bytes.Length);
-
+                    zip.Add(name, relative == WorldFile ? worldBytes : File.ReadAllBytes(source), deflate: true);
                     written.Add(name);
                 }
+
+                zip.Finish();
             }
 
             return written;
+        }
+
+        /// <summary>
+        /// A zip writer for <see cref="Pack"/>: each entry's bytes whole, so its sizes and CRC-32 go in its local header
+        /// (no data descriptor), every entry stamped <see cref="EntryTime"/>, no extra field below zip64's limits.
+        /// </summary>
+        /// <remarks>
+        /// The layout is APPNOTE 6.3.10's: local header and data per entry, then the central directory, then the end
+        /// record; the zip64 end record and its locator before it when the entry count reaches 65,535 or the directory
+        /// starts or ends past 4 GiB, and a zip64 extra field on an entry whose size or offset reaches 4 GiB. Version
+        /// made by is MS-DOS (host 0), so no Unix mode is claimed for any entry.
+        /// </remarks>
+        internal sealed class ZipWriter
+        {
+            private const uint Max32 = 0xFFFFFFFFu;
+            private const ushort DosTime = 0;                          // 00:00:00
+            private const ushort DosDate = (0 << 9) | (1 << 5) | 1;    // 1980-01-01
+            private const ushort Utf8Flag = 1 << 11;
+
+            private readonly Stream _out;
+            private readonly List<Entry> _entries = new List<Entry>();
+            private long _offset;
+
+            private sealed class Entry
+            {
+                public byte[] Name;
+                public ushort Flags;
+                public ushort Method;
+                public uint Crc;
+                public long Compressed;
+                public long Size;
+                public long Offset;
+            }
+
+            public ZipWriter(Stream output) => _out = output;
+
+            public void Add(string name, byte[] bytes, bool deflate)
+            {
+                deflate &= bytes.Length > 0; // an empty file is stored: no deflate stream to depend on
+                var entry = new Entry
+                {
+                    Name = Encoding.UTF8.GetBytes(name),
+                    Method = (ushort)(deflate ? 8 : 0),
+                    Crc = ~Crc32Update(Crc32Start, bytes, bytes.Length),
+                    Size = bytes.Length,
+                    Offset = _offset,
+                };
+                if (entry.Name.Length != name.Length) entry.Flags = Utf8Flag; // more bytes than units: not ASCII
+
+                var data = bytes;
+                if (deflate)
+                {
+                    using (var packed = new MemoryStream())
+                    {
+                        using (var deflater = new DeflateStream(packed, CompressionLevel.Optimal, leaveOpen: true))
+                            deflater.Write(bytes, 0, bytes.Length);
+                        data = packed.ToArray();
+                    }
+                }
+
+                entry.Compressed = data.Length;
+
+                var big = entry.Size >= Max32 || entry.Compressed >= Max32;
+                var header = new BinaryWriter(new MemoryStream(), Encoding.UTF8);
+                header.Write(0x04034b50u);
+                header.Write((ushort)(big ? 45 : 20));
+                header.Write(entry.Flags);
+                header.Write(entry.Method);
+                header.Write(DosTime);
+                header.Write(DosDate);
+                header.Write(entry.Crc);
+                header.Write(big ? Max32 : (uint)entry.Compressed);
+                header.Write(big ? Max32 : (uint)entry.Size);
+                header.Write((ushort)entry.Name.Length);
+                header.Write((ushort)(big ? 20 : 0));
+                header.Write(entry.Name);
+                if (big)
+                {
+                    header.Write((ushort)0x0001);
+                    header.Write((ushort)16);
+                    header.Write(entry.Size);
+                    header.Write(entry.Compressed);
+                }
+
+                Emit(header);
+                _out.Write(data, 0, data.Length);
+                _offset += data.Length;
+                _entries.Add(entry);
+            }
+
+            public void Finish()
+            {
+                var start = _offset;
+                foreach (var entry in _entries)
+                {
+                    var extra = new List<long>();
+                    if (entry.Size >= Max32) extra.Add(entry.Size);
+                    if (entry.Compressed >= Max32) extra.Add(entry.Compressed);
+                    if (entry.Offset >= Max32) extra.Add(entry.Offset);
+
+                    var record = new BinaryWriter(new MemoryStream(), Encoding.UTF8);
+                    record.Write(0x02014b50u);
+                    record.Write((ushort)(extra.Count > 0 ? 45 : 20)); // made by: MS-DOS host, this version
+                    record.Write((ushort)(extra.Count > 0 ? 45 : 20));
+                    record.Write(entry.Flags);
+                    record.Write(entry.Method);
+                    record.Write(DosTime);
+                    record.Write(DosDate);
+                    record.Write(entry.Crc);
+                    record.Write(entry.Compressed >= Max32 ? Max32 : (uint)entry.Compressed);
+                    record.Write(entry.Size >= Max32 ? Max32 : (uint)entry.Size);
+                    record.Write((ushort)entry.Name.Length);
+                    record.Write((ushort)(extra.Count == 0 ? 0 : 4 + 8 * extra.Count));
+                    record.Write((ushort)0); // comment
+                    record.Write((ushort)0); // disk
+                    record.Write((ushort)0); // internal attributes
+                    record.Write(0u);        // external attributes
+                    record.Write(entry.Offset >= Max32 ? Max32 : (uint)entry.Offset);
+                    record.Write(entry.Name);
+                    if (extra.Count > 0)
+                    {
+                        record.Write((ushort)0x0001);
+                        record.Write((ushort)(8 * extra.Count));
+                        foreach (var value in extra) record.Write(value);
+                    }
+
+                    Emit(record);
+                }
+
+                var size = _offset - start;
+                var count = _entries.Count;
+                var zip64 = count >= 0xFFFF || start >= Max32 || size >= Max32 || _offset >= Max32;
+                var end = new BinaryWriter(new MemoryStream(), Encoding.UTF8);
+                if (zip64)
+                {
+                    var record = _offset;
+                    end.Write(0x06064b50u);
+                    end.Write(44L);           // the record's size after this field
+                    end.Write((ushort)45);
+                    end.Write((ushort)45);
+                    end.Write(0u);            // this disk
+                    end.Write(0u);            // the directory's disk
+                    end.Write((long)count);
+                    end.Write((long)count);
+                    end.Write(size);
+                    end.Write(start);
+
+                    end.Write(0x07064b50u);
+                    end.Write(0u);            // the zip64 end record's disk
+                    end.Write(record);
+                    end.Write(1u);            // disks
+                }
+
+                end.Write(0x06054b50u);
+                end.Write((ushort)0);
+                end.Write((ushort)0);
+                end.Write((ushort)Math.Min(count, 0xFFFF));
+                end.Write((ushort)Math.Min(count, 0xFFFF));
+                end.Write(size >= Max32 ? Max32 : (uint)size);
+                end.Write(start >= Max32 ? Max32 : (uint)start);
+                end.Write((ushort)0); // comment
+                Emit(end);
+                _out.Flush();
+            }
+
+            private void Emit(BinaryWriter writer)
+            {
+                writer.Flush();
+                var buffer = (MemoryStream)writer.BaseStream;
+                _out.Write(buffer.GetBuffer(), 0, (int)buffer.Length);
+                _offset += buffer.Length;
+            }
         }
 
         /// <summary>

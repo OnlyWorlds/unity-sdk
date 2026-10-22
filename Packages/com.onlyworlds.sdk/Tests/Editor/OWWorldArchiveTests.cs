@@ -307,6 +307,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             // included; only Unity's .meta beside a file is left out.
             var expected = new List<string>
             {
+                "mimetype",
                 "w/elements/character/one--000000e1.json",
                 "w/media/0000e1/base-image/0000e1.meta.json",
                 "w/media/0000e1/base-image/0000e1.png",
@@ -363,11 +364,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             var entries = OWWorldArchive.Pack(root, Path.Combine(_temp, "w.owworld"));
 
-            var sorted = entries.OrderBy(e => e, StringComparer.Ordinal).ToList();
-            CollectionAssert.AreEqual(sorted, entries);
+            var sorted = entries.Skip(1).OrderBy(e => e, StringComparer.Ordinal).ToList();
+            CollectionAssert.AreEqual(sorted, entries.Skip(1).ToList(), "After the marker, the entries go in ordinal order.");
             CollectionAssert.AreEqual(new[]
             {
-                "w/elements/character/B.json", "w/elements/character/_c.json", "w/elements/character/a.json", "w/world.json",
+                "mimetype", "w/elements/character/B.json", "w/elements/character/_c.json", "w/elements/character/a.json", "w/world.json",
             }, entries);
         }
 
@@ -386,14 +387,14 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             CollectionAssert.AreEqual(new[]
             {
-                "w/media/z.png", "w/media/é.png", "w/media/.png", "w/media/Ａ.png",
+                "mimetype", "w/media/z.png", "w/media/é.png", "w/media/.png", "w/media/Ａ.png",
                 "w/media/\U00010400.png", "w/media/\U0001F600.png", "w/world.json",
             }, entries);
 
-            var bytes = entries.Select(e => Encoding.UTF8.GetBytes(e)).ToList();
+            var bytes = entries.Skip(1).Select(e => Encoding.UTF8.GetBytes(e)).ToList();
             for (var i = 1; i < bytes.Count; i++)
-                Assert.Less(CompareBytes(bytes[i - 1], bytes[i]), 0, $"{entries[i - 1]} before {entries[i]}");
-            Assert.AreNotEqual(entries.OrderBy(e => e, StringComparer.Ordinal).ToList(), entries,
+                Assert.Less(CompareBytes(bytes[i - 1], bytes[i]), 0, $"{entries[i]} before {entries[i + 1]}");
+            Assert.AreNotEqual(entries.Skip(1).OrderBy(e => e, StringComparer.Ordinal).ToList(), entries.Skip(1).ToList(),
                 "UTF-16 order would give another order here, so this test tells the two apart.");
 
             CollectionAssert.AreEqual(entries, EntryNames(archive), "The file holds what Pack said, in that order.");
@@ -405,6 +406,115 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             for (var i = 0; i < Math.Min(a.Length, b.Length); i++)
                 if (a[i] != b[i]) return a[i] - b[i];
             return a.Length - b.Length;
+        }
+
+        // -- The marker, and the zip Pack writes -------------------------------------
+
+        [Test]
+        public void Pack_WritesTheMarkerFirst_StoredBare_AndTheReaderOpensIt()
+        {
+            // Folder spec §4.7 (OW-6): a writer SHOULD place a first entry named mimetype, stored (method 0), no extra
+            // field, its bytes exactly the media type (ASCII, no newline): the EPUB shape.
+            var archive = PackTo(MakeAbbey(), "abbey.owworld");
+            var raw = File.ReadAllBytes(archive);
+            var marker = Encoding.ASCII.GetBytes(OWWorldArchive.MediaType);
+
+            Assert.AreEqual(0x04034b50u, BitConverter.ToUInt32(raw, 0), "The file opens on a local header.");
+            Assert.AreEqual(0, BitConverter.ToUInt16(raw, 8), "The marker is stored (method 0).");
+            Assert.AreEqual(marker.Length, BitConverter.ToUInt32(raw, 18), "Its compressed size is its size.");
+            Assert.AreEqual(marker.Length, BitConverter.ToUInt32(raw, 22));
+            Assert.AreEqual(0, BitConverter.ToUInt16(raw, 28), "No extra field in its local header.");
+            Assert.AreEqual("mimetype", Encoding.ASCII.GetString(raw, 30, BitConverter.ToUInt16(raw, 26)));
+            CollectionAssert.AreEqual(marker, raw.Skip(30 + 8).Take(marker.Length).ToArray(),
+                "The media type's bytes follow the name, as they are.");
+
+            var first = CentralRecords(raw)[0];
+            Assert.AreEqual(("mimetype", 0, 0, 0L), (first.name, first.method, first.extra, first.offset),
+                "The central directory's first record is the marker: stored, no extra field, at offset 0.");
+
+            Assert.AreEqual(1, OWWorldArchive.Read(archive).Elements.Count, "The reader opens the file it wrote.");
+        }
+
+        [Test]
+        public void Pack_DeflatesEveryOtherEntry_StoresAnEmptyOne_AndFlagsOnlyANonAsciiName()
+        {
+            var root = Path.Combine(_temp, "w");
+            Write(root, "world.json", WorldJson("0695db52-0000-7000-8000-0000000000aa", "W"));
+            Write(root, "elements/character/one--000000e1.json", ElementBody);
+            Write(root, "media/é.png", "png");
+            Write(root, "records/empty", "");
+
+            var archive = PackTo(root, "w.owworld");
+            var raw = File.ReadAllBytes(archive);
+            var records = CentralRecords(raw).ToDictionary(r => r.name);
+            Assert.AreNotEqual(0x07064b50u, BitConverter.ToUInt32(raw, raw.Length - 22 - 20), "A small world is a classic zip: no zip64 locator.");
+
+            Assert.AreEqual(8, records["w/elements/character/one--000000e1.json"].method, "A file is deflated.");
+            Assert.AreEqual(8, records["w/world.json"].method);
+            Assert.AreEqual(0, records["w/records/empty"].method, "An empty file is stored.");
+            Assert.AreEqual(1 << 11, records["w/media/é.png"].flags, "A non-ASCII name carries the UTF-8 flag.");
+            Assert.AreEqual(0, records["w/world.json"].flags, "An ASCII name carries no flag.");
+            Assert.IsTrue(records.Values.All(r => r.extra == 0), "No extra field below zip64's limits.");
+
+            using (var zip = ZipFile.OpenRead(archive))
+            {
+                Assert.AreEqual(ElementBody, new StreamReader(zip.GetEntry("w/elements/character/one--000000e1.json").Open()).ReadToEnd(),
+                    "Another zip reader inflates what Pack deflated.");
+                Assert.AreEqual(0, zip.GetEntry("w/records/empty").Length);
+            }
+
+            Assert.AreEqual(1, OWWorldArchive.Read(archive).Elements.Count, "The reader checks every CRC-32 and size, and opens it.");
+        }
+
+        [Test]
+        public void PacksWriter_WritesZip64_From65535Entries()
+        {
+            // Folder spec §4.7 (OW-15): a writer SHOULD write a classic zip under 65,535 entries and zip64 above. At
+            // 65,535 the classic end record's count is full, so the zip64 end record carries it. Pack's own writer,
+            // fed in memory: the same entries packed from disk cost 80 s on NTFS, nearly all of it making the files.
+            const int entries = 0xFFFF;
+            var archive = Path.Combine(_temp, "w.owworld");
+            using (var stream = new FileStream(archive, FileMode.Create))
+            {
+                var writer = new OWWorldArchive.ZipWriter(stream);
+                writer.Add("mimetype", Encoding.ASCII.GetBytes(OWWorldArchive.MediaType), deflate: false);
+                writer.Add("w/world.json", Encoding.UTF8.GetBytes(WorldJson("0695db52-0000-7000-8000-0000000000aa", "W")), deflate: true);
+                for (var i = 0; i < entries - 2; i++) writer.Add("w/records/" + i.ToString("x5"), Array.Empty<byte>(), deflate: true);
+                writer.Finish();
+            }
+
+            var raw = File.ReadAllBytes(archive);
+
+            var end = raw.Length - 22;
+            Assert.AreEqual(0x06054b50u, BitConverter.ToUInt32(raw, end));
+            Assert.AreEqual(0xFFFF, BitConverter.ToUInt16(raw, end + 10), "The classic count says: read zip64's.");
+            var locator = end - 20;
+            Assert.AreEqual(0x07064b50u, BitConverter.ToUInt32(raw, locator), "The zip64 locator sits before the end record.");
+            var zip64 = (int)BitConverter.ToInt64(raw, locator + 8);
+            Assert.AreEqual(0x06064b50u, BitConverter.ToUInt32(raw, zip64), "The locator points at the zip64 end record.");
+            Assert.AreEqual(entries, BitConverter.ToInt64(raw, zip64 + 32), "The zip64 end record holds the count.");
+
+            using (var zip = ZipFile.OpenRead(archive)) Assert.AreEqual(entries, zip.Entries.Count, "Another zip reader counts them all.");
+            // The SDK's reader on zip64 is the conformance set's (pass-OW-15-zip64), on ten files, not 65,535.
+        }
+
+        /// <summary>The central directory's records, in order, read from a zip with no comment and below zip64.</summary>
+        private static List<(string name, int method, int flags, int extra, long offset)> CentralRecords(byte[] raw)
+        {
+            var end = raw.Length - 22;
+            Assert.AreEqual(0x06054b50u, BitConverter.ToUInt32(raw, end), "An end record with no comment.");
+            var at = (int)BitConverter.ToUInt32(raw, end + 16);
+            var list = new List<(string, int, int, int, long)>();
+            for (var i = 0; i < BitConverter.ToUInt16(raw, end + 10); i++)
+            {
+                Assert.AreEqual(0x02014b50u, BitConverter.ToUInt32(raw, at));
+                int nameLength = BitConverter.ToUInt16(raw, at + 28), extra = BitConverter.ToUInt16(raw, at + 30);
+                list.Add((Encoding.UTF8.GetString(raw, at + 46, nameLength), BitConverter.ToUInt16(raw, at + 10),
+                    BitConverter.ToUInt16(raw, at + 8), extra, BitConverter.ToUInt32(raw, at + 42)));
+                at += 46 + nameLength + extra + BitConverter.ToUInt16(raw, at + 32);
+            }
+
+            return list;
         }
 
         // -- The api block ----------------------------------------------------------
@@ -786,6 +896,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             CollectionAssert.AreEqual(new[]
             {
+                "mimetype",
                 "w/records/lab/days/1.json",
                 "w/records/lab/ledger",
                 "w/records/lab/ledger.meta",
