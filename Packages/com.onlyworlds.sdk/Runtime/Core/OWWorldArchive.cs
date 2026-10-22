@@ -802,8 +802,9 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
-        /// One fold for a name: Unicode NFC, then a simple case fold (upper, then lower, so <c>ſ</c> meets <c>s</c>
-        /// and the Kelvin sign meets <c>k</c>).
+        /// One fold for a name, the one every reader uses (folder spec §4.7, OW-18): Unicode NFC, then simple case
+        /// folding from Unicode's own table (<see cref="OWCaseFold"/>), so <c>ς</c> meets <c>σ</c>, <c>ſ</c> meets
+        /// <c>s</c>, and <c>ß</c> stays apart from <c>ss</c>, on every runtime.
         /// </summary>
         private static string Fold(string name)
         {
@@ -816,7 +817,7 @@ namespace OnlyWorlds.Sdk
                 // Not valid UTF-16 (a lone surrogate): folded by case alone.
             }
 
-            return name.ToUpperInvariant().ToLowerInvariant();
+            return OWCaseFold.Fold(name);
         }
 
         /// <summary>Adds every folder above <paramref name="path"/>, and the path itself when it is a folder.</summary>

@@ -1037,11 +1037,28 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [TestCase("w/media/café.png", "w/media/café.png")] // NFC beside NFD
         [TestCase("w/Elements/character/two.json", "w/elements/character/three.json")] // a folder, by case
         [TestCase("README.txt", "readme.TXT")] // outside the world too
+        [TestCase("w/media/ς.png", "w/media/σ.png")] // final sigma: lowercasing keeps them apart, folding does not
+        [TestCase("w/media/ſ.png", "w/media/s.png")] // long s
+        [TestCase("w/media/K.png", "w/media/k.png")] // the Kelvin sign
+        [TestCase("w/media/ꭰ.png", "w/media/Ꭰ.png")] // Cherokee, which folds to its capitals
+        [TestCase("w/media/\U00010400.png", "w/media/\U00010428.png")] // Deseret, past U+FFFF
+        [TestCase("w/media/ẞ.png", "w/media/ß.png")] // capital sharp s
+        [TestCase("w/media/Ǆ.png", "w/media/ǆ.png")]
         public void Read_RefusesNamesThatAreOneOnceCaseAndNormalizationAreIgnored(string first, string second)
         {
-            // OW-18: one file on Windows and macOS (Unicode NFC, then case).
+            // OW-18: one name after NFC then Unicode simple case folding (folder spec §4.7: one fold, every reader).
             var archive = WorldZip("collide.owworld", (first, "{}"), (second, "{}"));
             StringAssert.Contains("once case and Unicode normalization are ignored", Refused(archive).Message);
+        }
+
+        [TestCase("w/media/straße.png", "w/media/strasse.png")] // simple folding keeps ß; full folding would join them
+        [TestCase("w/media/İ.png", "w/media/i.png")] // dotted capital I: Turkic folding only
+        [TestCase("w/media/ı.png", "w/media/I.png")] // dotless i
+        [TestCase("w/media/ﬀ.png", "w/media/ff.png")] // a ligature folds to two letters only in full folding
+        public void Read_AcceptsNamesThatOnlyFullOrTurkicFoldingWouldJoin(string first, string second)
+        {
+            var archive = WorldZip("apart.owworld", (first, "{}"), (second, "{}"));
+            Assert.AreEqual(1, OWWorldArchive.Read(archive).Elements.Count);
         }
 
         [Test]
