@@ -6,6 +6,16 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **`OWRoom.IsRoomElement(element)`**, the room profile's reader (schema-dist `profiles/room.md`, serial 45): true
+  when an element's type and supertype, each trimmed and compared without regard to case, match one of the profile's
+  eight pairs (`OWRoom.Pairs`: a parlor's Message, a workshop's Work item) and it carries the mark `x_room_of` as a
+  non-empty string. A lore view (a list, a count, a search, a map) leaves room elements out unless asked; a pair
+  without the mark is lore, and a mark without a pair is not a room element. The profile's 23-case fixture is its
+  test, as it is the TypeScript SDK's and the Python package's. Parity with the TypeScript SDK 4.55.0 and 4.57.2's
+  trim, its tests ported.
+
 ### Changed
 
 - **A folder export declares folder format 0.3.15** (`OWFolderExport.FormatVersion`), with the onlyworlds Python

@@ -1,8 +1,8 @@
 // The profiles' one comparison: "trimmed and without regard to case" (schema-dist profiles/room.md, dist.47, defined
 // once for every profile that folds like the room profile's pairs).
 //
-// Ported from @onlyworlds/sdk src/room.ts (names-profile, commit 7447831): trimWhiteSpace and fold. The room profile's
-// own matcher (isRoomElement) is not ported; the names profile is the first reader here that needs the fold.
+// Ported from @onlyworlds/sdk src/room.ts (names-profile, commit 7447831): trimWhiteSpace and fold. Read by the names
+// profile (OWNames) and the room profile (OWRoom).
 
 namespace OnlyWorlds.Sdk
 {
