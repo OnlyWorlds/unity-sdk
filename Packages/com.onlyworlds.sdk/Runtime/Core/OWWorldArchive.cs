@@ -222,7 +222,8 @@ namespace OnlyWorlds.Sdk
         /// <exception cref="DirectoryNotFoundException">The folder does not exist.</exception>
         /// <exception cref="OWFolderFormatException">
         /// No readable <c>world.json</c>, or no id (a non-empty string) in it; or a <c>records/RECORDS.json</c> that
-        /// is not a JSON array, so which producers are private cannot be told.
+        /// cannot be read (not UTF-8 JSON, not an array of objects, a private entry whose producer is not one
+        /// directory name), so which producers are private cannot be told.
         /// </exception>
         /// <exception cref="ArgumentException"><paramref name="archivePath"/> is inside the folder.</exception>
         public static List<string> Pack(string worldFolder, string archivePath, bool keepApiBlock = false)
@@ -249,7 +250,7 @@ namespace OnlyWorlds.Sdk
         /// <exception cref="DirectoryNotFoundException">The folder does not exist.</exception>
         /// <exception cref="OWFolderFormatException">
         /// No readable <c>world.json</c>, or no id in it; or, leaving private records out, a <c>records/RECORDS.json</c>
-        /// that is not a JSON array.
+        /// that cannot be read (see the other overload).
         /// </exception>
         /// <exception cref="ArgumentException"><paramref name="archivePath"/> is inside the folder.</exception>
         public static List<string> Pack(string worldFolder, string archivePath, bool keepApiBlock,
@@ -499,7 +500,7 @@ namespace OnlyWorlds.Sdk
                 foreach (var sub in Directory.GetDirectories(records))
                 {
                     var name = Path.GetFileName(sub);
-                    if (leftOut != null && leftOut.Contains(name)) continue;
+                    if (leftOut != null && leftOut.Contains(Fold(name))) continue;
                     CollectRecords(sub, RecordsFolder + "/" + name, plan);
                 }
             }
@@ -569,22 +570,29 @@ namespace OnlyWorlds.Sdk
                 CollectRecords(sub, relative + "/" + Path.GetFileName(sub), into);
         }
 
-        /// <summary>The producers <c>records/RECORDS.json</c> marks <c>"private": true</c> (§4.5 rule 11), ignoring case.</summary>
+        /// <summary>
+        /// The producers <c>records/RECORDS.json</c> marks <c>"private": true</c> (§4.5 rule 11), each by OW-18's
+        /// <see cref="Fold"/>, which is how a directory is matched to its entry (§4.7, OW-8): <c>Fold</c> names
+        /// <c>fold/</c>, and a decomposed <c>é</c> the composed one.
+        /// </summary>
         /// <remarks>
-        /// No manifest means no private producer: a world from before rule 11 packs as it always did. A manifest that
-        /// is not a JSON array refuses the pack, since leaving a producer's notes in by mistake is the harm the rule
-        /// is for; an entry that is not an object, or whose <c>private</c> is anything but <c>true</c>, marks nothing.
+        /// No manifest means no private producer: a world from before rule 11 packs as it always did. A manifest the
+        /// writer cannot read refuses the pack and leaves nothing out by guess, since leaving a producer's notes in by
+        /// mistake is the harm the rule is for: one that is not UTF-8 JSON (a byte order mark is read past), not an
+        /// array of objects, or marks private an entry whose <c>producer</c> is not one directory name. An entry whose
+        /// <c>private</c> is anything but the boolean <c>true</c> marks nothing.
         /// </remarks>
         private static HashSet<string> PrivateProducers(string recordsDir)
         {
-            var producers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var producers = new HashSet<string>(StringComparer.Ordinal);
             var path = Path.Combine(recordsDir, RecordsManifest);
             if (!File.Exists(path)) return producers;
 
             JArray manifest;
             try
             {
-                manifest = JToken.Parse(File.ReadAllText(path)) as JArray;
+                var text = StrictUtf8.GetString(File.ReadAllBytes(path));
+                manifest = JToken.Parse(text.Length > 0 && text[0] == '﻿' ? text.Substring(1) : text) as JArray;
             }
             catch (Exception e)
             {
@@ -600,17 +608,33 @@ namespace OnlyWorlds.Sdk
                     + "so which records are private cannot be told; fix it, or pack with includePrivateRecords.");
             }
 
-            foreach (var entry in manifest.OfType<JObject>())
+            foreach (var token in manifest)
             {
-                if (entry["private"] is JValue mark && mark.Type == JTokenType.Boolean && (bool)mark
-                    && entry["producer"] is JValue name && name.Type == JTokenType.String)
+                if (!(token is JObject entry))
                 {
-                    producers.Add((string)name);
+                    throw new OWFolderFormatException(
+                        $"{RecordsFolder}/{RecordsManifest} in '{recordsDir}' holds an entry that is not an object, so "
+                        + "which records are private cannot be told; fix it, or pack with includePrivateRecords.");
                 }
+
+                if (!(entry["private"] is JValue mark && mark.Type == JTokenType.Boolean && (bool)mark)) continue;
+
+                var name = entry["producer"] is JValue value && value.Type == JTokenType.String ? (string)value : null;
+                if (string.IsNullOrEmpty(name) || name == "." || name == ".." || name.IndexOfAny(PathSeparators) >= 0)
+                {
+                    throw new OWFolderFormatException(
+                        $"{RecordsFolder}/{RecordsManifest} in '{recordsDir}' marks private an entry whose producer "
+                        + $"({entry["producer"]?.ToString(Newtonsoft.Json.Formatting.None) ?? "none"}) is not one directory name, so "
+                        + "which records are private cannot be told; fix it, or pack with includePrivateRecords.");
+                }
+
+                producers.Add(Fold(name));
             }
 
             return producers;
         }
+
+        private static readonly char[] PathSeparators = { '/', '\\' };
 
         /// <summary>The records manifest at the root of <c>records/</c> (folder spec §4.5 rule 3).</summary>
         private const string RecordsManifest = "RECORDS.json";

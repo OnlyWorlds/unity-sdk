@@ -6,6 +6,20 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **A folder export declares folder format 0.3.15** (`OWFolderExport.FormatVersion`), with the onlyworlds Python
+  package's 0.32.0. Nothing else in what an export writes changed: 0.3.15's clause is about sharing records, which an
+  export from the server carries none of.
+- **A private producer is matched to its directory by the archive's one fold** (folder spec §4.7, OW-8; OW-18's
+  NFC, then simple case folding), so a manifest's `Fold` or a decomposed `café` leaves out `records/fold/` or the
+  composed `records/café/`. 0.15.0 ignored case alone, which let a directory written in another Unicode form travel.
+  Parity with the TypeScript SDK's 4.63.0 fix (363adc9), its test vector ported.
+- **`Pack` refuses a records manifest it cannot read**, as the TypeScript SDK and the Python package do, unless
+  private records go too: one that is not UTF-8 (a byte order mark is read past), holds an entry that is not an
+  object, or marks private an entry whose `producer` is not one directory name (missing, empty, `.`, `..`, or with a
+  `/` or `\`). 0.15.0 skipped such entries, so a private producer it could not name travelled.
+
 ## [0.15.0] - 2026-10-23
 
 Private records stay home. `OWWorldArchive.Pack` leaves a producer marked private out of an `.owworld` unless asked

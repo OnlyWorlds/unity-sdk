@@ -930,8 +930,39 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 "The manifest's fold leaves out Fold/: a mistake falls on the side of leaving out.");
         }
 
+        [Test]
+        public void Pack_MatchesAPrivateProducerToItsDirectory_ByTheArchivesFold()
+        {
+            // OW-18's fold (NFC, then simple case folding), as the TypeScript SDK's test (npm 363adc9): a decomposed
+            // é in the manifest names the composed directory, and the Kelvin sign folds to k, where ignoring case alone
+            // matches neither and lets the private records travel.
+            var root = PrivateWorld();
+            Write(root, "records/RECORDS.json",
+                "[{\"producer\": \"cafe\\u0301\", \"private\": true}, {\"producer\": \"\\u212Ailn\", \"private\": true}, "
+                + "{\"producer\": \"lab\"}]\n");
+            Write(root, "records/caf\u00e9/n.txt", "a note\n");
+            Write(root, "records/kiln/fire.json", "{}\n");
+
+            var entries = OWWorldArchive.Pack(root, Path.Combine(_temp, "w.owworld"));
+
+            Assert.IsFalse(entries.Any(e => e.StartsWith("w/records/caf\u00e9/", StringComparison.Ordinal)),
+                "The decomposed name leaves out the composed directory.");
+            Assert.IsFalse(entries.Any(e => e.StartsWith("w/records/kiln/", StringComparison.Ordinal)),
+                "The Kelvin sign folds to k.");
+            CollectionAssert.Contains(entries, "w/records/lab/ledger", "An entry not marked private still travels.");
+        }
+
         [TestCase("{\"producer\": \"fold\", \"private\": true}")]
         [TestCase("[{\"producer\": \"fold\", \"private\": true}")]
+        [TestCase("[{\"producer\": \"fold\", \"private\": true}, 1]")]
+        [TestCase("[{\"producer\": \"fold\", \"private\": true}, null]")]
+        [TestCase("[{\"private\": true}]")]
+        [TestCase("[{\"producer\": \"\", \"private\": true}]")]
+        [TestCase("[{\"producer\": 7, \"private\": true}]")]
+        [TestCase("[{\"producer\": \"../lab\", \"private\": true}]")]
+        [TestCase("[{\"producer\": \"fold/days\", \"private\": true}]")]
+        [TestCase("[{\"producer\": \"fold\\\\days\", \"private\": true}]")]
+        [TestCase("[{\"producer\": \"..\", \"private\": true}]")]
         public void Pack_RefusesAManifestItCannotRead_UnlessPrivateRecordsGoToo(string manifest)
         {
             var root = PrivateWorld();
@@ -941,6 +972,23 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 "Which producers are private cannot be told, so nothing is packed.");
             var entries = OWWorldArchive.Pack(root, Path.Combine(_temp, "b.owworld"), false, includePrivateRecords: true);
             CollectionAssert.Contains(entries, "w/records/fold/spine.jsonl", "Asked, the manifest is not read.");
+        }
+
+        [Test]
+        public void Pack_RefusesAManifestThatIsNotUtf8_AndReadsOneWithABom()
+        {
+            var root = PrivateWorld();
+            var manifest = Path.Combine(root, "records", "RECORDS.json");
+            File.WriteAllBytes(manifest, Encoding.UTF8.GetBytes("[{\"producer\": \"f\u0001old\", \"private\": true}]")
+                .Select(b => b == 0x01 ? (byte)0xFF : b).ToArray());
+            Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Pack(root, Path.Combine(_temp, "a.owworld")),
+                "A byte that is not UTF-8 is not read past as a replacement character.");
+
+            File.WriteAllBytes(manifest, new byte[] { 0xEF, 0xBB, 0xBF }
+                .Concat(Encoding.UTF8.GetBytes("[{\"producer\": \"fold\", \"private\": true}]")).ToArray());
+            var entries = OWWorldArchive.Pack(root, Path.Combine(_temp, "b.owworld"));
+            Assert.IsFalse(entries.Any(e => e.StartsWith("w/records/fold/", StringComparison.Ordinal)),
+                "A manifest with a byte order mark is read.");
         }
 
         [Test]
