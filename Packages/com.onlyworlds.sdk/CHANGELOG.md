@@ -6,6 +6,23 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Private records stay home** (folder spec v0.3.15, §4.5 rule 11; §4.7, OW-8): `OWWorldArchive.Pack` leaves out,
+  whole, every `records/` producer whose `RECORDS.json` entry says `"private": true`, so a tool's own notes do not
+  travel the first time a world is shared. A new overload, `Pack(worldFolder, archivePath, keepApiBlock,
+  includePrivateRecords)`, carries them when asked. `RECORDS.json` goes in byte for byte either way, its private
+  entries kept, so a reader can tell a producer was left out from one that was never there. A manifest that is not a
+  JSON array refuses the pack unless private records go too, because which records are private cannot be told. The
+  old signature is unchanged and leaves them out.
+
+### Changed
+
+- The schema pin moves to dist.49 (`v0.33.0-dist.49`; canonical `00.33.00` unchanged, no schema file moved). The
+  `.owworld` conformance set gains the private case under OW-8: four writer fixtures on a second source world, 85 in
+  all, none of the earlier 81 moved. It is re-vendored for `OWWorldArchiveConformanceTests`, which also packs the
+  case's source and compares with both sides. The generated models changed only in their serial.
+
 ## [0.14.0] - 2026-10-22
 
 A world's own words for the types. `OWNames` reads the names profile (schema-dist serial 48), and `OWElement`
