@@ -154,6 +154,9 @@ namespace OnlyWorlds.Sdk
     /// backfilled types. An empty-string name is a legal name and a different claim from unnamed;
     /// an explicit null means UNSET and is never 0 or "".</item>
     /// <item><b>A missing type directory means no elements of that type</b>, never an error.</item>
+    /// <item><b>A tool's litter is never an element</b> (§4): a dot-prefixed folder under <c>elements/</c> (<c>.atlas/</c>)
+    /// is never read, and a dot-prefixed file in a type directory (an editor's swap file, a sync client's <c>._</c>
+    /// twin) is skipped and reported, whatever it holds.</item>
     /// <item><b>Both spellings are accepted</b>: <c>map</c>/<c>map_id</c>, <c>zone</c>/<c>zone_id</c> (Atlas writes the
     /// <c>_id</c> forms on pins and markers), <c>time_current</c>/<c>time_range_current</c>. The bodies here stay as
     /// written; <see cref="WithSchemaLinkNames"/> is the schema's view, and it is what the cache is given.</item>
@@ -163,6 +166,9 @@ namespace OnlyWorlds.Sdk
     {
         /// <summary>Types the dated <c>spatial/</c> layout ever held.</summary>
         internal static readonly string[] LegacySpatialTypes = { "map", "pin", "zone", "marker" };
+
+        /// <summary>A dot-prefixed name: a tool's private state or litter, never the world (§4).</summary>
+        private static bool IsDotPrefixed(string name) => name.StartsWith(".", StringComparison.Ordinal);
 
         /// <summary>
         /// Reads a world folder. Never writes, never throws for a malformed element.
@@ -198,6 +204,7 @@ namespace OnlyWorlds.Sdk
                 foreach (var typeDir in Directory.GetDirectories(elementsRoot))
                 {
                     var type = Path.GetFileName(typeDir);
+                    if (IsDotPrefixed(type)) continue;
                     foreach (var file in Directory.GetFiles(typeDir, "*.json")) files.Add((file, type, false));
                 }
             }
@@ -281,7 +288,7 @@ namespace OnlyWorlds.Sdk
 
                 if (parts[0] == "elements")
                 {
-                    elements.Add((path, parts[1]));
+                    if (!IsDotPrefixed(parts[1])) elements.Add((path, parts[1]));
                 }
                 else if (includeLegacySpatial && parts[0] == "spatial" && Array.IndexOf(LegacySpatialTypes, parts[1]) >= 0)
                 {
@@ -467,6 +474,13 @@ namespace OnlyWorlds.Sdk
             string file, string text, string typeFromDirectory,
             List<OWFolderElement> into, List<OWSkippedFile> skipped)
         {
+            if (IsDotPrefixed(Path.GetFileName(file)))
+            {
+                // §4: a tool's litter, never an element, even with a valid body and a real element's id.
+                skipped.Add(new OWSkippedFile { Path = file, Reason = "a dot-prefixed file: a tool's litter, not an element" });
+                return;
+            }
+
             JObject body;
             try
             {

@@ -6,7 +6,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// The spec's "accept both spellings" (reading rules): <c>map</c>/<c>map_id</c>, <c>zone</c>/<c>zone_id</c>,
-    /// <c>time_current</c>/<c>time_range_current</c>, and a linked folder's server world from <c>api.world_id</c>.
+    /// <c>time_current</c>/<c>time_range_current</c>, and a linked folder's server world from <c>api.world_id</c>; and
+    /// what a reader never takes for an element, a tool's dot-prefixed file or folder (§4).
     /// </summary>
     /// <remarks>
     /// Atlas writes <c>map_id</c> and <c>zone_id</c> on pins and markers (the Python package's push.py says so), and
@@ -195,6 +196,58 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             Write("world.json", "{\"id\": \"local\", \"name\": \"W\", \"api\": {\"world_id\": \"\"}}");
             Assert.AreEqual("local", OWFolderReader.Read(_root).ServerWorldId);
+        }
+
+        // -- A tool's litter (§4: dot-prefixed files and folders are never elements) ---------------------
+
+        private const string LitterId = "11111111-2222-4333-8444-5555555555c1";
+
+        /// <summary>
+        /// The Python package's vector (<c>tests/test_reader.py</c>, 0.5.1): a dot-prefixed file in a type directory
+        /// is a tool's litter, not an element, even with a valid body and the id of a real file; skipped and listed.
+        /// </summary>
+        [Test]
+        public void A_dot_prefixed_file_in_a_type_directory_is_skipped_and_listed()
+        {
+            Write("world.json", "{\"id\": \"w\", \"name\": \"W\"}");
+            Write("elements/character/.tmp-a.json", $"{{\"id\": \"{LitterId}\", \"name\": \"litter\"}}");
+            Write("elements/character/real--5555c1.json", $"{{\"id\": \"{LitterId}\", \"name\": \"real\"}}");
+
+            var read = OWFolderReader.Read(_root);
+
+            Assert.AreEqual(1, read.Elements.Count, "only the real file is an element");
+            Assert.AreEqual("real", (string)read.Elements[0].Body["name"]);
+            CollectionAssert.AreEqual(new[] { ".tmp-a.json" }, read.Skipped.ConvertAll(s => Path.GetFileName(s.Path)));
+        }
+
+        /// <summary>A dot-prefixed folder under <c>elements/</c> is a tool's (<c>.atlas/</c>): never read, never listed.</summary>
+        [Test]
+        public void A_dot_prefixed_folder_under_elements_is_never_read()
+        {
+            Write("world.json", "{\"id\": \"w\", \"name\": \"W\"}");
+            Write("elements/.atlas/state.json", $"{{\"id\": \"{LitterId}\", \"type\": \"character\", \"name\": \"state\"}}");
+
+            var read = OWFolderReader.Read(_root);
+
+            Assert.AreEqual(0, read.Elements.Count);
+            Assert.AreEqual(0, read.Skipped.Count, "a tool's folder is not the world's, so nothing in it is reported");
+        }
+
+        /// <summary>The in-memory form (an archive's read) by the same rules.</summary>
+        [Test]
+        public void The_in_memory_read_skips_the_same_litter()
+        {
+            var read = OWFolderReader.ReadEntries(new System.Collections.Generic.Dictionary<string, string>
+            {
+                ["world.json"] = "{\"id\": \"w\", \"name\": \"W\"}",
+                ["elements/character/.tmp-a.json"] = $"{{\"id\": \"{LitterId}\", \"name\": \"litter\"}}",
+                ["elements/character/real--5555c1.json"] = $"{{\"id\": \"{LitterId}\", \"name\": \"real\"}}",
+                ["elements/.atlas/state.json"] = $"{{\"id\": \"{LitterId}\", \"type\": \"character\", \"name\": \"state\"}}",
+            });
+
+            Assert.AreEqual(1, read.Elements.Count, "only the real file is an element");
+            Assert.AreEqual("real", (string)read.Elements[0].Body["name"]);
+            CollectionAssert.AreEqual(new[] { "elements/character/.tmp-a.json" }, read.Skipped.ConvertAll(s => s.Path));
         }
     }
 }

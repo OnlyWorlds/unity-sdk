@@ -24,6 +24,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   0.3.13 rules the `.owworld` archive (§4.7), which this SDK's reader already follows on the whole conformance set;
   it asks nothing more of a folder. A `format_version` a world already carries is still kept as it is.
 
+### Fixed
+
+- A folder read (`OWFolderReader.Read`, `ReadEntries`, and so an `.owworld` read and `LoadInto`) no longer takes a
+  tool's litter for an element (folder spec §4): a dot-prefixed folder under `elements/` (`.atlas/`) is not read, and
+  a dot-prefixed file in a type directory (an editor's swap file, a sync client's `._` twin) is skipped and listed in
+  `Skipped`, even when it holds a valid body. Before, `elements/character/.tmp-a.json` was read as an element beside
+  the real file with the same id. The Python package's rule and test vector, ported.
+
 ## [0.11.0] - 2026-10-22
 
 World archives follow the folder spec's `.owworld` section (§4.7): `OWWorldArchive.Read` (and so `LoadInto` and the
