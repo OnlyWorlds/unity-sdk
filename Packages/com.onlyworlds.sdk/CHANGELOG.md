@@ -6,6 +6,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-10-22
+
+The world file Unity writes now carries its marker. `OWWorldArchive.Pack` places the `mimetype` entry first and
+stored, as folder spec §4.7 asks of a writer and as the TypeScript and Python writers do, and writes zip64 from 65,535
+entries. The schema pin moves to dist.42, whose two new conformance cases the reader already refused. A patch release:
+no public API is added, and the list `Pack` returns now starts with `mimetype`.
+
 ### Added
 
 - **`OWWorldArchive.Pack` writes the `mimetype` marker** (folder spec §4.7, OW-6): the first entry, stored (method 0),
