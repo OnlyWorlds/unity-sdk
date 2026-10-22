@@ -6,6 +6,35 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **The `.owworld` conformance set runs as the package's own test** (schema-dist `fixtures/owworld/`, dist.39;
+  folder spec §4.7): `OWWorldArchiveConformanceTests` reads all 78 zips with `OWWorldArchive.Read` and checks each
+  verdict and each refusal's cause against the set's `verdicts.json`, which is pinned to the dist's manifest, every
+  zip to its sha256. The set is vendored in a folder Unity does not import (`Tests/Editor/Fixtures/owworld~/`), so
+  the package's own importer never opens a hostile file in it. `OW_OWWORLD_FIXTURES` runs another copy of the set.
+
+### Changed
+
+- The schema pin moves to dist.39 (`v0.32.2-dist.39`; canonical `00.32.02` unchanged, and no decoded file moved:
+  the schema, the walk, its rulings, `presentation.json` and the examples are byte for byte dist.35's). The dist
+  gained the packet and review extension profiles, a folder lint rule, and the `.owworld` conformance set (folder
+  spec §4.7). The generated models changed only in their serial.
+- An export declares folder format `0.3.13` (`OWFolderExport.FormatVersion`), as the Python package's 0.15.0 does.
+  0.3.13 rules the `.owworld` archive (§4.7), which this SDK's reader already follows on the whole conformance set;
+  it asks nothing more of a folder. A `format_version` a world already carries is still kept as it is.
+- The wire check's snapshot of keel's API document is refreshed (2026-10-22): every route, query parameter, header,
+  body key and error code the client uses is still one keel declares, and every key the join models read is one it
+  serves.
+
+### Fixed
+
+- A folder read (`OWFolderReader.Read`, `ReadEntries`, and so an `.owworld` read and `LoadInto`) no longer takes a
+  tool's litter for an element (folder spec §4): a dot-prefixed folder under `elements/` (`.atlas/`) is not read, and
+  a dot-prefixed file in a type directory (an editor's swap file, a sync client's `._` twin) is skipped and listed in
+  `Skipped`, even when it holds a valid body. Before, `elements/character/.tmp-a.json` was read as an element beside
+  the real file with the same id. The Python package's rule and test vector, ported.
+
 ## [0.11.0] - 2026-10-22
 
 World archives follow the folder spec's `.owworld` section (§4.7): `OWWorldArchive.Read` (and so `LoadInto` and the

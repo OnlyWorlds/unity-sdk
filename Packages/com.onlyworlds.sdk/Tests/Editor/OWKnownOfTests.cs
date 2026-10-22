@@ -151,10 +151,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         // -- The marker ---------------------------------------------------------------------------------
 
         [Test]
-        public void TheKeptKeys_AreKeels_AndTheVersionIs0312()
+        public void TheKeptKeys_AreKeels_AndTheVersionIs0313()
         {
             CollectionAssert.AreEquivalent(Kept, OWFolderExport.KnownOfKeeps);
-            Assert.AreEqual("0.3.12", OWFolderExport.FormatVersion);
+            Assert.AreEqual("0.3.13", OWFolderExport.FormatVersion);
         }
 
         [Test]

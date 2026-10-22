@@ -25,3 +25,5 @@
 *.so        binary
 *.a         binary
 *.unitypackage binary
+*.zip       binary
+*.owworld   binary
