@@ -592,7 +592,7 @@ namespace OnlyWorlds.Sdk
             try
             {
                 var text = StrictUtf8.GetString(File.ReadAllBytes(path));
-                manifest = JToken.Parse(text.Length > 0 && text[0] == '﻿' ? text.Substring(1) : text) as JArray;
+                manifest = JToken.Parse(text.Length > 0 && text[0] == (char)0xFEFF ? text.Substring(1) : text) as JArray;
             }
             catch (Exception e)
             {
