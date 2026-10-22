@@ -19,6 +19,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ""change_seq"": 42,
             ""changed_by"": ""m-7"",
             ""changed_via"": ""declared"",
+            ""changed_client"": ""atlas"",
             ""supertype"": ""Rigger"",
             ""level"": 0,
             ""charisma"": null,
@@ -58,6 +59,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(42, c.ChangeSeq);
             Assert.AreEqual("m-7", c.ChangedBy);
             Assert.AreEqual(OWWriteDoor.Declared, c.ChangedVia);
+            Assert.AreEqual("atlas", c.ChangedClient);
+            Assert.IsFalse(c.Extensions.Any(e => e.Key == "changed_client"), "changed_client is a server field, not an extension.");
         }
 
         [Test]

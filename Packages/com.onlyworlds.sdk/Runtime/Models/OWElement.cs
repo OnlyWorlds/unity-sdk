@@ -101,6 +101,11 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("changed_via")]
         [SerializeField] private string _changedVia;
 
+        // keel #520 (schema-dist serial 46): the name the client gave in its X-OW-Client header on the last
+        // write. Server-managed: keel ignores it in a write body.
+        [JsonProperty("changed_client")]
+        [SerializeField] private string _changedClient;
+
         public string World => _world;
         public string Type => _type;
         public string CreatedAt => _createdAt;
@@ -114,6 +119,13 @@ namespace OnlyWorlds.Sdk
         /// <see cref="OWWriteDoor.IsAgent"/> says whether an agent made it.
         /// </summary>
         public string ChangedVia => _changedVia;
+
+        /// <summary>
+        /// The name the client gave on the last write (lower case letters, digits and hyphens, such as <c>atlas</c>),
+        /// or null: none was sent or recorded. The client's claim about itself, never proof; whether an agent made
+        /// the write is <see cref="ChangedVia"/>'s.
+        /// </summary>
+        public string ChangedClient => _changedClient;
 
         // -- Extensions -------------------------------------------------------
 

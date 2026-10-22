@@ -6,6 +6,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **`OWElement.ChangedClient`** (keel #520, schema-dist serial 46): the name the client gave on an element's last
+  write, such as `atlas`, or null. The client's claim about itself, never proof. Read-only like the other server
+  fields; before, it landed among an element's extensions.
+
 ### Changed
 
 - The schema pin moves to dist.48 (`v0.33.0-dist.48`; canonical `00.33.00` unchanged, and no schema file moved). The
