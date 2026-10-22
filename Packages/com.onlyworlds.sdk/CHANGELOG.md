@@ -6,6 +6,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The schema pin moves to dist.39 (`v0.32.2-dist.39`; canonical `00.32.02` unchanged, and no decoded file moved:
+  the schema, the walk, its rulings, `presentation.json` and the examples are byte for byte dist.35's). The dist
+  gained the packet and review extension profiles, a folder lint rule, and the `.owworld` conformance set (folder
+  spec §4.7). The generated models changed only in their serial.
+
 ## [0.11.0] - 2026-10-22
 
 World archives follow the folder spec's `.owworld` section (§4.7): `OWWorldArchive.Read` (and so `LoadInto` and the

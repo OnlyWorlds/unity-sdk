@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.32.02";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 35;
+        public const int DistSerial = 39;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.32.2-dist.35";
+        public const string Tag = "v0.32.2-dist.39";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -107,9 +107,17 @@ namespace OnlyWorlds.Sdk
         /// <c>records/</c> (34). <c>presentation.json</c>, <c>schema_walk.py</c> and <c>rulings.yaml</c> are
         /// byte-identical; the generated models changed only in their serial.
         /// </para>
+        /// <para>
+        /// <b>35 -> 39 (2026-10-22)</b>: canonical unchanged, and no decoded file moved: the schema YAMLs,
+        /// <c>schema.json</c>, <c>schema_walk.py</c>, <c>rulings.yaml</c>, <c>presentation.json</c> and the examples are
+        /// byte-identical. The dist gained two extension profiles, <c>packet.md</c> (36) and <c>review.md</c> (37); the
+        /// folder lint flags an <c>api</c> block in a git-tracked <c>world.json</c> (38); and <c>fixtures/owworld/</c>,
+        /// the <c>.owworld</c> conformance set of folder spec 4.7 (39), vendored for
+        /// <c>OWWorldArchiveConformanceTests</c>. The generated models changed only in their serial and date stamps.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "407c9b581444d7da770834dd5576e3e3c51392da3b52a8453b6ef2e4bf743fc3";
+            "efc94e3318d5b4bff11ef535f932be6a49db6c9b774dfdcbabddaebb4a9a4426";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.
@@ -123,7 +131,7 @@ namespace OnlyWorlds.Sdk
             "3c20afa9fee3c191c390452f74f415eb999156bbbf966c56beac283fa0ea91a4";
 
         /// <summary>When these constants were last verified against the published dist.</summary>
-        public const string PinnedOn = "2026-10-20";
+        public const string PinnedOn = "2026-10-22";
 
         /// <summary>
         /// ⚑ Rulings that bind THIS SDK and any emitter generating into it. Read the row, not the key.
