@@ -27,6 +27,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   backslash, or has an empty, `.` or `..` segment, whatever it would resolve to. Before, `w\x.json`,
   `w//x.json`, `w/./x.json` and `w/a/../x.json` were resolved and read; one name with two spellings is a file two
   readers can take for different entries. The TypeScript reader's rule.
+- **A read strips an `.owworld`'s `api` block** (folder spec §4.7, OW-10): `OWWorldArchive.Read` (and so `LoadInto`
+  and the importer) no longer returns it in `World`, so a world read from an archive is never `IsSyncable` and its
+  `ServerWorldId` is its own id. The file is still read: refusing it would strand a person's own leaked copy. The
+  TypeScript reader's behaviour. `Pack`'s `keepApiBlock: true` still keeps the block, and its doc now says what the
+  spec does: such a file is a private copy, not a portable `.owworld`.
 
 ### Fixed
 

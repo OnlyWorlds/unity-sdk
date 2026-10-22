@@ -58,9 +58,9 @@ namespace OnlyWorlds.Sdk
     /// </para>
     /// <para>
     /// <b>The rule: no key travels.</b> <c>world.json</c>'s <c>api</c> block is dropped unless the caller asks to keep
-    /// it. That block holds an API key, and an archive is made to be shared: committed with a project, sent, shipped
-    /// in a build. The spec's rule for a copy to share is this one: it "may drop the <c>api</c> block, which holds a
-    /// key, and nothing else". Nothing else in <c>world.json</c> changes.
+    /// it (a private copy, not a portable <c>.owworld</c>). That block holds an API key, and an archive is made to be
+    /// shared: committed with a project, sent, shipped in a build. Nothing else in <c>world.json</c> changes. A read
+    /// strips the block from whatever archive it meets and never returns it (folder spec §4.7, OW-10).
     /// </para>
     /// <para>
     /// <b>Known gap, media.</b> <see cref="Pack"/> carries <c>media/</c> (it is world content), but
@@ -136,10 +136,11 @@ namespace OnlyWorlds.Sdk
         /// <param name="worldFolder">Directory containing <c>world.json</c>.</param>
         /// <param name="archivePath">The archive to write. Replaced if it exists. Must not be inside the folder.</param>
         /// <param name="keepApiBlock">
-        /// Keep <c>world.json</c>'s <c>api</c> block. Off by default: that block holds an API key, and an archive is
-        /// a copy made to be shared -- committed, sent, shipped. The spec's rule for a copy to share is exactly this:
-        /// it "may drop the <c>api</c> block, which holds a key, and nothing else". A <c>world.json</c> with no
-        /// <c>api</c> block goes in byte for byte; one that loses it is re-emitted in the format's own bytes.
+        /// Keep <c>world.json</c>'s <c>api</c> block: a private copy, for the caller's own machine, and <b>not a
+        /// portable <c>.owworld</c></b> (folder spec §4.7, OW-10: a writer never emits the block). Off by default:
+        /// that block holds an API key, and an archive is a copy made to be shared -- committed, sent, shipped. A
+        /// <c>world.json</c> with no <c>api</c> block goes in byte for byte; one that loses it is re-emitted in the
+        /// format's own bytes. <see cref="Read"/> strips the block from any archive, this one included.
         /// </param>
         /// <returns>The entry names written, in order.</returns>
         /// <remarks>
@@ -324,9 +325,9 @@ namespace OnlyWorlds.Sdk
                     $"world.json in '{root}' has no id (a non-empty string), so it cannot be packed as a world.");
             }
 
-            if (keepApiBlock || world.Property("api") == null) return bytes;
+            if (keepApiBlock || world.Property(ApiBlock) == null) return bytes;
 
-            world.Remove("api");
+            world.Remove(ApiBlock);
             return new UTF8Encoding(false).GetBytes(OWFolderWriter.Serialize(world));
         }
 
@@ -414,7 +415,9 @@ namespace OnlyWorlds.Sdk
         /// </param>
         /// <returns>
         /// The folder read's result, with each element's and skipped file's <c>Path</c> its path inside the world
-        /// (<c>elements/character/x.json</c>, forward slashes).
+        /// (<c>elements/character/x.json</c>, forward slashes). Its <c>World</c> never carries an <c>api</c> block:
+        /// one in the archive is stripped (folder spec §4.7, OW-10), so the result is never
+        /// <see cref="OWFolderReadResult.IsSyncable"/>.
         /// </returns>
         /// <remarks>
         /// <para>
@@ -581,9 +584,17 @@ namespace OnlyWorlds.Sdk
                     entries.Add(new KeyValuePair<string, string>(relative, TryReadText(entry)));
                 }
 
-                return OWFolderReader.ReadEntries(entries, includeLegacySpatial, archivePath);
+                var read = OWFolderReader.ReadEntries(entries, includeLegacySpatial, archivePath);
+
+                // OW-10: an archive is a copy made to be shared, so an api block in it is a key in the wrong place.
+                // It is stripped and never returned (so the world reads as unlinked), and the file is still read.
+                read.World?.Remove(ApiBlock);
+                return read;
             }
         }
+
+        /// <summary><c>world.json</c>'s key holding a linked folder's API key: never written to an archive, never read from one.</summary>
+        private const string ApiBlock = "api";
 
         /// <summary>
         /// True when the marker entry holds exactly <see cref="MediaType"/>'s bytes. Its declared size is compared

@@ -399,6 +399,34 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 EntryBytes(plain, Path.GetFileName(fixture) + "/world.json"), "No api block: world.json goes in byte for byte.");
         }
 
+        [Test]
+        public void Read_StripsAnApiBlock_NeverReturnsIt_AndStillReadsTheFile()
+        {
+            // Folder spec §4.7, OW-10: a reader strips the block and does not refuse the file (refusing would strand
+            // a person's own leaked copy). Before, Read returned it, and the world read as linked.
+            var world = "{\n  \"id\": \"" + WId + "\",\n  \"name\": \"Leaked\",\n"
+                        + "  \"api\": {\n    \"world_id\": \"0695db52-0000-7000-8000-0000000000bb\",\n    \"api_key\": \"ow_k_secret\"\n  },\n"
+                        + "  \"time_current\": 5\n}\n";
+            var archive = MakeZip("leaked.owworld", ("w/world.json", world), ("w/elements/character/one.json", ElementBody));
+
+            var read = OWWorldArchive.Read(archive);
+            Assert.IsNull(read.World["api"], "The key came back.");
+            Assert.IsFalse(read.World.ToString().Contains("ow_k_secret"));
+            Assert.IsFalse(read.IsSyncable, "A world read from an archive is never linked.");
+            Assert.AreEqual(WId, read.ServerWorldId, "No api.world_id to prefer once it is stripped.");
+            Assert.AreEqual("Leaked", read.WorldName);
+            Assert.AreEqual(5, read.World["time_current"].Value<int>(), "Only the api block goes.");
+            Assert.AreEqual(1, read.Elements.Count);
+
+            // A private copy Pack kept the block in is stripped on read the same way.
+            var root = Path.Combine(_temp, "linked");
+            Write(root, "world.json", world);
+            var kept = Path.Combine(_temp, "kept.owworld");
+            OWWorldArchive.Pack(root, kept, keepApiBlock: true);
+            StringAssert.Contains("ow_k_secret", ArchiveText(kept), "The private copy holds the key.");
+            Assert.IsNull(OWWorldArchive.Read(kept).World["api"]);
+        }
+
         private string PackTo(string root, string fileName)
         {
             var path = Path.Combine(_temp, fileName);
