@@ -851,6 +851,98 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(1, read.Elements.Count, "records/ is never read as elements (§4.5 rule 4).");
         }
 
+        // -- Private records (folder spec §4.5 rule 11; §4.7, OW-8) ------------------
+
+        private const string PrivateManifest =
+            "[\n  {\"producer\": \"lab\", \"format\": \"rows\", \"version\": \"1\", \"deltas\": false},\n"
+            + "  {\"producer\": \"fold\", \"format\": \"a history spine\", \"version\": \"1\", \"deltas\": false, "
+            + "\"private\": true},\n"
+            + "  {\"producer\": \"notes\", \"format\": \"notes\", \"version\": \"1\", \"deltas\": false, "
+            + "\"private\": \"yes\"}\n]\r\n";
+
+        private string PrivateWorld(string foldDirectory = "fold")
+        {
+            var root = Path.Combine(_temp, "w");
+            Write(root, "world.json", WorldJson("0695db52-0000-7000-8000-0000000000aa", "W"));
+            Write(root, "records/RECORDS.json", PrivateManifest);
+            Write(root, "records/lab/ledger", "1\n");
+            Write(root, "records/" + foldDirectory + "/spine.jsonl", "{\"element\": \"0695db83\"}\n");
+            Write(root, "records/" + foldDirectory + "/.head", "1\n");
+            Write(root, "records/" + foldDirectory + "/days/1.json", "{}\n");
+            Write(root, "records/notes/n.txt", "a note\n");
+            return root;
+        }
+
+        [Test]
+        public void Pack_LeavesAPrivateProducerOutWhole_AndKeepsTheManifestByteForByte()
+        {
+            var root = PrivateWorld();
+            var archive = Path.Combine(_temp, "w.owworld");
+            var entries = OWWorldArchive.Pack(root, archive);
+
+            // fold is private: none of it goes. notes says "yes", not true: it marks nothing, and travels.
+            CollectionAssert.AreEqual(new[]
+            {
+                "mimetype",
+                "w/records/RECORDS.json",
+                "w/records/lab/ledger",
+                "w/records/notes/n.txt",
+                "w/world.json",
+            }, entries);
+
+            using (var zip = ZipFile.OpenRead(archive))
+            using (var stream = zip.GetEntry("w/records/RECORDS.json").Open())
+            using (var copy = new MemoryStream())
+            {
+                stream.CopyTo(copy);
+                CollectionAssert.AreEqual(File.ReadAllBytes(Path.Combine(root, "records", "RECORDS.json")),
+                    copy.ToArray(), "The manifest travels byte for byte, its private entry kept.");
+            }
+        }
+
+        [Test]
+        public void Pack_AskedForPrivateRecords_CarriesThemWhole()
+        {
+            var root = PrivateWorld();
+            var entries = OWWorldArchive.Pack(root, Path.Combine(_temp, "w.owworld"), keepApiBlock: false,
+                includePrivateRecords: true);
+
+            CollectionAssert.AreEqual(new[]
+            {
+                "mimetype",
+                "w/records/RECORDS.json",
+                "w/records/fold/.head",
+                "w/records/fold/days/1.json",
+                "w/records/fold/spine.jsonl",
+                "w/records/lab/ledger",
+                "w/records/notes/n.txt",
+                "w/world.json",
+            }, entries, "Asked, a private producer goes whole, its dot-file included, like any producer.");
+        }
+
+        [Test]
+        public void Pack_MatchesAPrivateProducerToItsDirectory_IgnoringCase()
+        {
+            var root = PrivateWorld(foldDirectory: "Fold");
+            var entries = OWWorldArchive.Pack(root, Path.Combine(_temp, "w.owworld"));
+
+            Assert.IsFalse(entries.Any(e => e.StartsWith("w/records/Fold/", StringComparison.Ordinal)),
+                "The manifest's fold leaves out Fold/: a mistake falls on the side of leaving out.");
+        }
+
+        [TestCase("{\"producer\": \"fold\", \"private\": true}")]
+        [TestCase("[{\"producer\": \"fold\", \"private\": true}")]
+        public void Pack_RefusesAManifestItCannotRead_UnlessPrivateRecordsGoToo(string manifest)
+        {
+            var root = PrivateWorld();
+            Write(root, "records/RECORDS.json", manifest);
+
+            Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Pack(root, Path.Combine(_temp, "a.owworld")),
+                "Which producers are private cannot be told, so nothing is packed.");
+            var entries = OWWorldArchive.Pack(root, Path.Combine(_temp, "b.owworld"), false, includePrivateRecords: true);
+            CollectionAssert.Contains(entries, "w/records/fold/spine.jsonl", "Asked, the manifest is not read.");
+        }
+
         [Test]
         public void Pack_CarriesRecordsByteForByte()
         {

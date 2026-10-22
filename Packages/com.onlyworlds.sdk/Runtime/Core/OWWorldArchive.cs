@@ -103,7 +103,9 @@ namespace OnlyWorlds.Sdk
     /// private state) and every Unity <c>.meta</c> is left out too. <c>records/</c> travels whole and byte for byte
     /// (§4.5 rules 1 and 6: a tool that does not know a producer never drops its files), dot-files included; only
     /// Unity's own <c>.meta</c> beside a file is left out there. The importer reads none of it: records are never
-    /// elements (rule 4).
+    /// elements (rule 4). One exception, rule 11: a producer whose manifest entry says <c>"private": true</c> is left
+    /// out whole unless the caller asks for it, and <c>RECORDS.json</c> still goes in byte for byte (folder spec §4.7,
+    /// OW-8).
     /// </para>
     /// <para>
     /// <b>The rule: no key travels.</b> <c>world.json</c>'s <c>api</c> block is dropped unless the caller asks to keep
@@ -200,7 +202,7 @@ namespace OnlyWorlds.Sdk
         /// extracting it by hand gives back a recognisable folder. Every dot-folder and dot-file is left out (a
         /// tool's private state: <c>.atlas/</c>, <c>.git/</c>, <c>.ow/</c>), and so is every Unity <c>.meta</c>
         /// (present when the folder sits under <c>Assets/</c>, and never the world's); <c>records/</c> goes in whole
-        /// (see the class's first rule).
+        /// but for its private producers (see the class's first rule, and the overload that asks for them).
         /// </para>
         /// <para>
         /// Deterministic: entries in the order of their names' UTF-8 bytes (code point order, folder spec §4.7,
@@ -218,9 +220,40 @@ namespace OnlyWorlds.Sdk
         /// </para>
         /// </remarks>
         /// <exception cref="DirectoryNotFoundException">The folder does not exist.</exception>
-        /// <exception cref="OWFolderFormatException">No readable <c>world.json</c>, or no id (a non-empty string) in it.</exception>
+        /// <exception cref="OWFolderFormatException">
+        /// No readable <c>world.json</c>, or no id (a non-empty string) in it; or a <c>records/RECORDS.json</c> that
+        /// is not a JSON array, so which producers are private cannot be told.
+        /// </exception>
         /// <exception cref="ArgumentException"><paramref name="archivePath"/> is inside the folder.</exception>
         public static List<string> Pack(string worldFolder, string archivePath, bool keepApiBlock = false)
+            => Pack(worldFolder, archivePath, keepApiBlock, includePrivateRecords: false);
+
+        /// <summary>
+        /// Packs a world folder into an <c>.owworld</c>, saying whether private records go too.
+        /// </summary>
+        /// <param name="worldFolder">Directory containing <c>world.json</c>.</param>
+        /// <param name="archivePath">The archive to write. Replaced if it exists. Must not be inside the folder.</param>
+        /// <param name="keepApiBlock">As the other overload: a private copy that keeps <c>world.json</c>'s <c>api</c> block.</param>
+        /// <param name="includePrivateRecords">
+        /// Carry the producers <c>records/RECORDS.json</c> marks <c>"private": true</c> (folder spec §4.5 rule 11).
+        /// Off by default: an export, a share or a snapshot leaves them out, so a tool's own notes do not travel the
+        /// first time a world is shared. Either way a private producer's directory goes whole or not at all, and the
+        /// manifest goes in byte for byte, its private entries kept: a reader learns a producer was left out, not
+        /// that it was never there. On, the manifest is not read.
+        /// </param>
+        /// <returns>The entry names written, in order.</returns>
+        /// <remarks>
+        /// A producer is matched to its directory ignoring case, so a manifest that says <c>fold</c> leaves out
+        /// <c>Fold/</c> on a file system that tells them apart: the side a mistake should fall on.
+        /// </remarks>
+        /// <exception cref="DirectoryNotFoundException">The folder does not exist.</exception>
+        /// <exception cref="OWFolderFormatException">
+        /// No readable <c>world.json</c>, or no id in it; or, leaving private records out, a <c>records/RECORDS.json</c>
+        /// that is not a JSON array.
+        /// </exception>
+        /// <exception cref="ArgumentException"><paramref name="archivePath"/> is inside the folder.</exception>
+        public static List<string> Pack(string worldFolder, string archivePath, bool keepApiBlock,
+            bool includePrivateRecords)
         {
             if (string.IsNullOrEmpty(worldFolder)) throw new ArgumentNullException(nameof(worldFolder));
             if (string.IsNullOrEmpty(archivePath)) throw new ArgumentNullException(nameof(archivePath));
@@ -237,7 +270,7 @@ namespace OnlyWorlds.Sdk
             }
 
             var worldBytes = WorldJsonBytes(root, keepApiBlock);
-            var plan = PackPlan(root);
+            var plan = PackPlan(root, includePrivateRecords);
 
             var top = Path.GetFileName(root);
             if (string.IsNullOrEmpty(top)) top = "world";
@@ -439,9 +472,10 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// What <see cref="Pack"/> would write: each file's path inside the world (forward slashes) and on disk, in
-        /// code point order. Reads directory listings only.
+        /// code point order. Reads directory listings, and <c>records/RECORDS.json</c> unless private records go too.
         /// </summary>
-        internal static List<(string relative, string source)> PackPlan(string worldFolder)
+        internal static List<(string relative, string source)> PackPlan(string worldFolder,
+            bool includePrivateRecords = false)
         {
             var root = FullDirectory(worldFolder);
             var plan = new List<(string relative, string source)> { (WorldFile, Path.Combine(root, WorldFile)) };
@@ -453,7 +487,22 @@ namespace OnlyWorlds.Sdk
             }
 
             var records = Path.Combine(root, RecordsFolder);
-            if (Directory.Exists(records)) CollectRecords(records, RecordsFolder, plan);
+            if (Directory.Exists(records))
+            {
+                var leftOut = includePrivateRecords ? null : PrivateProducers(records);
+                foreach (var file in Directory.GetFiles(records))
+                {
+                    var name = Path.GetFileName(file);
+                    if (!IsUnityMeta(records, name)) plan.Add((RecordsFolder + "/" + name, file));
+                }
+
+                foreach (var sub in Directory.GetDirectories(records))
+                {
+                    var name = Path.GetFileName(sub);
+                    if (leftOut != null && leftOut.Contains(name)) continue;
+                    CollectRecords(sub, RecordsFolder + "/" + name, plan);
+                }
+            }
 
             // By code point, never the file system's order: NTFS lists case-insensitively, ext4 in hash order, and
             // the archive's bytes must not depend on which one packed it.
@@ -519,6 +568,52 @@ namespace OnlyWorlds.Sdk
             foreach (var sub in Directory.GetDirectories(dir))
                 CollectRecords(sub, relative + "/" + Path.GetFileName(sub), into);
         }
+
+        /// <summary>The producers <c>records/RECORDS.json</c> marks <c>"private": true</c> (§4.5 rule 11), ignoring case.</summary>
+        /// <remarks>
+        /// No manifest means no private producer: a world from before rule 11 packs as it always did. A manifest that
+        /// is not a JSON array refuses the pack, since leaving a producer's notes in by mistake is the harm the rule
+        /// is for; an entry that is not an object, or whose <c>private</c> is anything but <c>true</c>, marks nothing.
+        /// </remarks>
+        private static HashSet<string> PrivateProducers(string recordsDir)
+        {
+            var producers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var path = Path.Combine(recordsDir, RecordsManifest);
+            if (!File.Exists(path)) return producers;
+
+            JArray manifest;
+            try
+            {
+                manifest = JToken.Parse(File.ReadAllText(path)) as JArray;
+            }
+            catch (Exception e)
+            {
+                throw new OWFolderFormatException(
+                    $"{RecordsFolder}/{RecordsManifest} in '{recordsDir}' is not valid JSON, so which records are "
+                    + "private cannot be told; fix it, or pack with includePrivateRecords.", e);
+            }
+
+            if (manifest == null)
+            {
+                throw new OWFolderFormatException(
+                    $"{RecordsFolder}/{RecordsManifest} in '{recordsDir}' is not a JSON array (folder spec §4.5 rule 3), "
+                    + "so which records are private cannot be told; fix it, or pack with includePrivateRecords.");
+            }
+
+            foreach (var entry in manifest.OfType<JObject>())
+            {
+                if (entry["private"] is JValue mark && mark.Type == JTokenType.Boolean && (bool)mark
+                    && entry["producer"] is JValue name && name.Type == JTokenType.String)
+                {
+                    producers.Add((string)name);
+                }
+            }
+
+            return producers;
+        }
+
+        /// <summary>The records manifest at the root of <c>records/</c> (folder spec §4.5 rule 3).</summary>
+        private const string RecordsManifest = "RECORDS.json";
 
         /// <summary>
         /// Unity's own <c>.meta</c>: named after a file or folder beside it, and opening as Unity opens every one it

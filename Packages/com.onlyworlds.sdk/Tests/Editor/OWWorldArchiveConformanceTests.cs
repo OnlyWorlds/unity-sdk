@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Security.Cryptography;
 using Newtonsoft.Json.Linq;
@@ -155,6 +156,58 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 Assert.AreEqual((string)fixture["sha256"], Sha256Of(path),
                     $"{fixture["file"]} is not the generated file (regenerate the set, or re-copy it byte for byte)");
             }
+        }
+
+        /// <summary>
+        /// The writer's half of the private case (folder spec §4.5 rule 11, §4.7 OW-8): the asked side's world, packed
+        /// again by <see cref="OWWorldArchive.Pack(string, string, bool, bool)"/>, gives each side's files byte for
+        /// byte, the marker aside.
+        /// </summary>
+        [TestCase(false, "pass-OW-8-private-left-out.owworld")]
+        [TestCase(true, "pass-OW-8-private-asked.owworld")]
+        public void Pack_OnThePrivateCase_GivesEachSideOfTheSet(bool includePrivateRecords, string side)
+        {
+            const string source = "pass-OW-8-private-asked.owworld";
+            if (Verdicts == null || !File.Exists(Path.Combine(FixtureDir, source)))
+            {
+                Assert.Ignore("This set has no private case (it came after dist.42). Nothing ran.");
+            }
+
+            var temp = Path.Combine(Path.GetTempPath(), "ow-conformance-private-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                ZipFile.ExtractToDirectory(Path.Combine(FixtureDir, source), temp);
+                var packed = Path.Combine(temp, "packed.owworld");
+                OWWorldArchive.Pack(Path.Combine(temp, "abbey"), packed, false, includePrivateRecords);
+
+                var want = FilesOf(Path.Combine(FixtureDir, side));
+                var got = FilesOf(packed);
+                CollectionAssert.AreEqual(want.Keys.ToList(), got.Keys.ToList(), $"Pack's entries are not {side}'s");
+                foreach (var name in want.Keys)
+                {
+                    CollectionAssert.AreEqual(want[name], got[name], $"{name} differs from {side}'s bytes");
+                }
+            }
+            finally
+            {
+                if (Directory.Exists(temp)) Directory.Delete(temp, recursive: true);
+            }
+        }
+
+        /// <summary>An archive's files by name, in its order, inflated; the marker left out (Pack always writes it).</summary>
+        private static Dictionary<string, byte[]> FilesOf(string archive)
+        {
+            var files = new Dictionary<string, byte[]>();
+            using var zip = ZipFile.OpenRead(archive);
+            foreach (var entry in zip.Entries.Where(e => e.FullName != "mimetype"))
+            {
+                using var stream = entry.Open();
+                using var copy = new MemoryStream();
+                stream.CopyTo(copy);
+                files[entry.FullName] = copy.ToArray();
+            }
+
+            return files;
         }
 
         [TestCaseSource(nameof(Fixtures))]
