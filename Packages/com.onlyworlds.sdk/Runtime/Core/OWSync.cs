@@ -20,6 +20,18 @@ namespace OnlyWorlds.Sdk
         /// <summary>Why a re-baseline happened, or null.</summary>
         public string RebaselineReason;
 
+        /// <summary>
+        /// On a re-baseline the server asked for (409 <c>resync_required</c>): its reason, <c>role</c> or <c>view</c>
+        /// (<see cref="OWApiError.ResyncReason"/>), or null when it sent none or asked for nothing.
+        /// </summary>
+        public string ResyncReason;
+
+        /// <summary>
+        /// On such a re-baseline for <c>role</c> or no reason: how many elements the cache held that the new walk did
+        /// not name, and kept (out of this key's view now, not gone). Zero on <c>view</c>, which drops them.
+        /// </summary>
+        public int Kept;
+
         public bool ChangedAnything => Fetched > 0 || Removed > 0 || WasRebaselined;
     }
 
@@ -107,10 +119,17 @@ namespace OnlyWorlds.Sdk
         /// cursor is AHEAD of the server's head, or when the feed answers 409
         /// <c>resync_required</c>. A cursor ahead of head means the server was restored from a
         /// backup: our cursor points at changes that no longer exist, so every incremental sync
-        /// from here would silently skip real data. A resync means the key's view changed (a
-        /// guest's, or its role), and a guest is never sent deletes, so only a rebuild drops what
-        /// it can no longer see. A cache that is confidently wrong is worse than one that admits
-        /// it needs rebuilding.
+        /// from here would silently skip real data. A cache that is confidently wrong is worse
+        /// than one that admits it needs rebuilding.
+        /// </para>
+        /// <para>
+        /// A resync means the key's view changed (a guest's or a contributor's, or its role), and
+        /// a guest is never sent deletes, so the world is walked again from the start. What the
+        /// cache held that the new walk does not name follows the 409's reason (keel PR 104, #421):
+        /// <c>view</c> drops it; <c>role</c>, or no reason, keeps it, since sharing is forward-only
+        /// and what a key read is out of its view now, not gone. <see cref="OWSyncResult.ResyncReason"/>
+        /// and <see cref="OWSyncResult.Kept"/> say which happened. A reset whose walk fails puts the
+        /// cache and its cursor back as they were: a reset never empties a copy on its own.
         /// </para>
         /// <para>
         /// World-meta edits do NOT appear in <c>/changes</c> and do not bump <c>change_seq</c>.
@@ -208,11 +227,7 @@ namespace OnlyWorlds.Sdk
             }
             catch (OWApiError e) when (e.IsResyncRequired)
             {
-                var result = await BaselineAsync(client, cache, ct: ct).ConfigureAwait(false);
-                result.RebaselineReason =
-                    "The server asked for a full resync (409 resync_required): this key's view of the "
-                    + "world changed, or its role did. Rebuilt from the start.";
-                return result;
+                return await ResetAsync(client, cache, e.ResyncReason, ct).ConfigureAwait(false);
             }
 
             // Only claim the tip if we actually reached the end of the feed. If the loop broke on
@@ -231,6 +246,59 @@ namespace OnlyWorlds.Sdk
                 Removed = removed,
                 Cursor = cache.Cursor,
             };
+        }
+
+        /// <summary>
+        /// The answer to a 409 <c>resync_required</c>: walk the world again from the start, then settle what the cache
+        /// held that the new walk does not name by the server's reason (keel PR 104, #421; the published changes doc,
+        /// "What a reset keeps"). <c>view</c>: something left this key's view, so it goes. <c>role</c>, or no reason (a
+        /// server older than 2026-10-20): this key's own role or membership moved, and what it read is out of view now,
+        /// not gone (sharing is forward-only), so it stays. A reset never empties a copy on its own: when the walk
+        /// fails, the cache and its cursor are put back as they were and the failure is thrown.
+        /// </summary>
+        private static async Task<OWSyncResult> ResetAsync(
+            OWClient client, OWWorldCache cache, string reason, CancellationToken ct)
+        {
+            var held = cache.Snapshot();
+            var heldCursor = cache.Cursor;
+            var heldToken = cache.CursorToken;
+            var heldEpoch = cache.Epoch;
+            var heldAt = cache.SyncedAt;
+
+            OWSyncResult result;
+            try
+            {
+                result = await BaselineAsync(client, cache, ct: ct).ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                cache.Clear();
+                foreach (var element in held) cache.Upsert(element.Id, element.TypeSlug, element.RawJson);
+                cache.SetCursor(heldCursor, heldToken, heldEpoch, heldAt);
+                throw;
+            }
+
+            var keep = reason != "view";
+            if (keep)
+            {
+                foreach (var element in held)
+                {
+                    if (cache.Contains(element.Id)) continue;
+
+                    cache.Upsert(element.Id, element.TypeSlug, element.RawJson);
+                    result.Kept++;
+                }
+            }
+
+            result.ResyncReason = reason;
+            result.RebaselineReason = keep
+                ? "The server asked for a full resync (409 resync_required, "
+                  + (reason == null ? "no reason given, kept as for role" : "reason role: this key's role or membership moved")
+                  + $"). Walked again from the start and kept {result.Kept} element(s) the new walk no longer names: "
+                  + "out of view now, not gone."
+                : "The server asked for a full resync (409 resync_required, reason view): something left this key's "
+                  + "view. Walked again from the start and dropped what the new walk no longer names.";
+            return result;
         }
 
         /// <summary>

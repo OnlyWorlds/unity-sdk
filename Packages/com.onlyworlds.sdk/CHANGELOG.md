@@ -81,6 +81,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   PIN wherever one is sent, at a real memory cost per request, so reads carrying one loaded the server for nothing.
   A wrong PIN therefore no longer fails a read: the settings window's Test Connection now asks `GET /me` for a key
   that takes a PIN, so it still catches one. Parity with the TypeScript SDK 4.59.0, its test vector ported.
+- **A reset keeps what the server's reason says to keep** (keel PR 104, #421): when the change feed answers 409
+  `resync_required`, `OWSync.IncrementalAsync` still walks the world again from the start, but no longer drops every
+  element the new walk does not name. On reason `view` it drops them, as before; on `role`, or with no reason (a
+  server older than 2026-10-20), it keeps them: they are out of this key's view now, not gone, and sharing is
+  forward-only. `OWSyncResult.ResyncReason` and `OWSyncResult.Kept` say which happened, and `RebaselineReason` says
+  it in words. A reset whose walk fails now puts the cache and its cursor back as they were and throws, where it left
+  the cache emptied. The rule the TypeScript SDK and the Python package document for their callers; the vectors are
+  the crew's room feed's (view drops, role keeps) with the published doc's no-reason case.
 
 ## [0.15.0] - 2026-10-23
 
