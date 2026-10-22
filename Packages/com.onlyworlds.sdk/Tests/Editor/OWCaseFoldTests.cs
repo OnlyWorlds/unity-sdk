@@ -63,6 +63,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             TestContext.WriteLine($"Unicode {Constant<string>("UnicodeVersion")}: {changed} code points fold; "
                                   + $"this runtime's upper-then-lower differs from the fold on {runtimeDisagrees}");
+            Assert.AreEqual("15.1.0", Constant<string>("UnicodeVersion"), "Folder spec §4.7 pins the fold at 15.1.0.");
             Assert.AreEqual(Constant<int>("Count"), changed);
             Assert.AreEqual(Constant<string>("Digest"), digest, "The fold is not CaseFolding.txt's C and S lines.");
         }
@@ -78,7 +79,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [TestCase("ß", "ß")] // simple folding never makes ss
         [TestCase("İ", "İ")] // dotted capital I: Turkic (T) and full (F) only
         [TestCase("ı", "ı")] // dotless i
-        [TestCase("ﬅ", "ﬆ")] // the long s t ligature, status S (the fixture reference leaves it)
+        [TestCase("ﬅ", "ﬆ")] // the long s t ligature, status S: casefold()/lower() leave it
+        [TestCase("ΐ", "ΐ")] // status S, as are the two below
+        [TestCase("ΰ", "ΰ")]
+        [TestCase("ΐ", "ΐ")] // its full fold is three code points, so simple folding keeps it
         [TestCase("abc", "abc")]
         [TestCase("", "")]
         public void Fold_IsSimpleCaseFolding(string text, string expected)

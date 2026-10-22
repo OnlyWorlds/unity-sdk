@@ -1,40 +1,42 @@
 #!/usr/bin/env python3
-"""Generate the SDK's simple case folding table from Unicode's CaseFolding.txt.
+"""Generate the SDK's simple case folding table from Unicode's CaseFolding.txt, at the version folder spec 4.7 pins.
 
 Folder spec section 4.7 (OW-18) rules one fold for every `.owworld` reader: NFC, then Unicode SIMPLE case folding,
-the same on every runtime. .NET has no case folding API, and `ToUpperInvariant().ToLowerInvariant()` is not it (it
-leaves final sigma, long s and Cherokee apart, and its tables are the runtime's: Mono's, IL2CPP's and .NET's
-differ). So the fold is a table: every CaseFolding.txt line with status C (common) or S (simple), never F (full,
-which maps to more than one character) or T (Turkic, locale-dependent).
+the C and S rows of CaseFolding.txt at Unicode 15.1.0, the same on every runtime. .NET has no case folding API, and
+`ToUpperInvariant().ToLowerInvariant()` is not it (it leaves final sigma, long s and Cherokee apart, and its tables
+are the runtime's: Mono's, IL2CPP's and .NET's differ). So the fold is a table: every row with status C (common) or
+S (simple), never F (full, which maps to more than one character) or T (Turkic, locale-dependent).
 
-The table goes into `Packages/com.onlyworlds.sdk/Runtime/Core/OWCaseFold.cs`, written whole with its header naming
-the Unicode version, so nothing in the fold depends on the runtime's culture data. The file also carries `Digest`,
-the sha256 of every code point the fold changes, computed here from CaseFolding.txt itself: `OWCaseFoldTests` folds
-all 1,112,064 scalar values through the C# code and must reach the same digest, so the test covers the code and the
-table over every code point, not a sample.
+The version is pinned, not the newest: every reader must fold the same letters, and a newer CaseFolding.txt folds
+letters an older runtime's reader does not know. The source file is the one the conformance fixture set vendors
+beside its fixtures, pinned here by sha256, so the SDK, the set's reference and every other reader build their
+table from the same bytes. This script never fetches it.
+
+The table goes into `Packages/com.onlyworlds.sdk/Runtime/Core/OWCaseFold.cs`, written whole, its header naming the
+Unicode version and the source's sha256, so nothing in the fold depends on the runtime's culture data. The file also
+carries `Digest`, the sha256 of every code point the fold changes (one `XXXX;YYYY\n` line each, ascending),
+computed here from CaseFolding.txt: `OWCaseFoldTests` folds all 1,112,064 scalar values through the C# code and must
+reach the same digest, so the test covers the code and the table over every code point, not a sample.
 
 Usage:
-    python tools/gen_casefold.py                        # fetch Unicode's file (the version below), rewrite the table
-    python tools/gen_casefold.py --file CaseFolding.txt # from a local copy
-    python tools/gen_casefold.py --check                # exit 1 if the committed table is not what the file gives
+    python tools/gen_casefold.py --file CaseFolding-15.1.0.txt          # rewrite the table
+    python tools/gen_casefold.py --file CaseFolding-15.1.0.txt --check  # exit 1 if the committed table differs
 
-Unicode's case folding is stable (no assigned character's folding ever changes), so a newer version only adds
-characters. Raise VERSION to follow it.
+When folder spec 4.7 moves the version, change VERSION and SOURCE_SHA256 together, with the fixture set's copy.
 """
 import argparse
 import hashlib
 import os
 import sys
-import urllib.request
 
-VERSION = "17.0.0"
-URL = "https://www.unicode.org/Public/{v}/ucd/CaseFolding.txt"
+VERSION = "15.1.0"
+SOURCE_SHA256 = "4e55acfdc32825a22e87670e9056a3bf94ad7c5400065778e9e10f8314372bcf"
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..",
                    "Packages", "com.onlyworlds.sdk", "Runtime", "Core", "OWCaseFold.cs")
 
 
 def parse(text):
-    """Status C and S lines: code point -> code point. Also the file's own first line, which names its version."""
+    """Status C and S rows: code point -> code point. Also the file's own first line, which names its version."""
     first = text.splitlines()[0].strip()
     table = {}
     for line in text.splitlines():
@@ -46,16 +48,16 @@ def parse(text):
             continue
         target = [int(x, 16) for x in mapping.split()]
         if len(target) != 1:
-            sys.exit("a %s line maps %s to %d code points; C and S lines map to one" % (status, code, len(target)))
+            sys.exit("a %s row maps %s to %d code points; C and S rows map to one" % (status, code, len(target)))
         cp = int(code, 16)
         if cp in table:
-            sys.exit("%s has two C/S lines" % code)
+            sys.exit("%s has two C/S rows" % code)
         table[cp] = target[0]
     return first, table
 
 
 def check_table(table):
-    """What the C# code relies on, and what Unicode promises: no identity line, and the fold is idempotent."""
+    """What the C# code relies on, and what Unicode promises: no identity row, and the fold is idempotent."""
     for cp, to in table.items():
         if cp == to:
             sys.exit("U+%04X maps to itself" % cp)
@@ -71,7 +73,7 @@ def digest(table):
     return hashlib.sha256(lines.encode("ascii")).hexdigest()
 
 
-def render(first, table):
+def render(table):
     keys = sorted(table)
 
     def rows(values):
@@ -80,13 +82,13 @@ def render(first, table):
             out.append("            " + " ".join("0x%04X," % v for v in values[i:i + 8]))
         return "\n".join(out)
 
-    return TEMPLATE.format(version=VERSION, first=first, count=len(keys), digest=digest(table),
+    return TEMPLATE.format(version=VERSION, source_sha=SOURCE_SHA256, count=len(keys), digest=digest(table),
                            froms=rows(keys), tos=rows([table[k] for k in keys]))
 
 
 TEMPLATE = '''// <auto-generated>
-// Generated by tools/gen_casefold.py from Unicode {version} CaseFolding.txt ("{first}"),
-// statuses C and S (simple case folding). Do not edit by hand: run `python tools/gen_casefold.py`.
+// Generated by tools/gen_casefold.py from Unicode {version} CaseFolding.txt (sha256 {source_sha}),
+// statuses C and S (simple case folding). Do not edit by hand: run `python tools/gen_casefold.py --file ...`.
 // </auto-generated>
 
 using System;
@@ -106,8 +108,11 @@ namespace OnlyWorlds.Sdk
     /// </remarks>
     internal static class OWCaseFold
     {{
-        /// <summary>The Unicode version the table was generated from.</summary>
+        /// <summary>The Unicode version the table was generated from (folder spec §4.7 pins it).</summary>
         internal const string UnicodeVersion = "{version}";
+
+        /// <summary>sha256 of the CaseFolding.txt the table was generated from.</summary>
+        internal const string SourceSha256 = "{source_sha}";
 
         /// <summary>How many code points the fold changes.</summary>
         internal const int Count = {count};
@@ -177,22 +182,20 @@ namespace OnlyWorlds.Sdk
 
 def main():
     a = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    a.add_argument("--file", help="a local CaseFolding.txt (default: fetch Unicode %s's)" % VERSION)
+    a.add_argument("--file", required=True,
+                   help="CaseFolding.txt at Unicode %s, the copy the conformance fixture set vendors" % VERSION)
     a.add_argument("--check", action="store_true", help="compare with the committed table, write nothing")
     args = a.parse_args()
 
-    if args.file:
-        with open(args.file, encoding="utf-8") as f:
-            text = f.read()
-    else:
-        with urllib.request.urlopen(URL.format(v=VERSION)) as r:
-            text = r.read().decode("utf-8")
-
-    first, table = parse(text)
+    raw = open(args.file, "rb").read()
+    got = hashlib.sha256(raw).hexdigest()
+    if got != SOURCE_SHA256:
+        sys.exit("%s has sha256 %s, not the pinned %s (Unicode %s)" % (args.file, got, SOURCE_SHA256, VERSION))
+    first, table = parse(raw.decode("utf-8"))
     if VERSION not in first:
         sys.exit("the file says %r, not Unicode %s" % (first, VERSION))
     check_table(table)
-    source = render(first, table)
+    source = render(table)
 
     if args.check:
         with open(OUT, encoding="utf-8", newline="") as f:
