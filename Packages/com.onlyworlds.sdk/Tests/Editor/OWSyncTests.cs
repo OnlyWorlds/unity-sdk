@@ -48,10 +48,6 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             $@"{{""op"":""upsert"",""type"":""character"",""id"":""{id}"",""change_seq"":{seq},""updated_at"":""2026-10-16T00:00:00Z"",
                 ""element"":{{""id"":""{id}"",""name"":""{name}"",""level"":3}}}}";
 
-        private static string ResyncRequired =>
-            @"{""error"":{""type"":""invalid_request"",""code"":""resync_required"",""param"":""since"",
-                ""message"":""Your view of this world changed. Pull the feed again from the start (since=0) and replace your local copy.""}}";
-
         private static string EmptyPage => @"{""data"":[],""has_more"":false,""next_cursor"":null}";
 
         private void EnqueueBaseline(string head)
@@ -249,25 +245,93 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
         // -- The resync rule --------------------------------------------------
 
-        [Test]
-        public async Task Incremental_RebaselinesWhenTheFeedAsksForAResync()
-        {
-            // A guest key with a cache synced before the token was kept: keel answers its bare
-            // since=100 with 409 resync_required (core/changes.py parse_cursor).
-            _cache.Upsert("stale", "character", @"{""id"":""stale"",""name"":""Hidden now""}");
-            _cache.SetCursor(100, "t");
+        // What a reset keeps (keel PR 104, #421; the published changes doc, "What a reset keeps"): a 409 walks the
+        // world again from the start; what the copy holds that the new walk does not name is KEPT on `role` or on no
+        // reason (sharing is forward-only: out of view, not gone) and DROPPED on `view`. A reset never empties a copy
+        // on its own. The vectors are the crew's room feed's (Workshops parlor/feed.test.ts: view drops, role keeps),
+        // with the published doc's no-reason case; the npm SDK and the Python package state the rule but sync nothing.
 
-            _transport.Bodies.Enqueue(GuestHead(101, 2));
+        private static string Resync(string reason) =>
+            @"{""error"":{""type"":""invalid_request"",""code"":""resync_required"",""param"":""since"",""message"":""m"""
+            + (reason == null ? "" : @",""reason"":""" + reason + @"""") + "}}";
+
+        /// <summary>A tip, then a 409 on the walk from the cache's cursor, then a baseline naming only <paramref name="named"/>.</summary>
+        private void EnqueueReset(string tip, string resync, string named)
+        {
+            _transport.Bodies.Enqueue(tip);
             _transport.Statuses.Enqueue(200);
-            _transport.Bodies.Enqueue(ResyncRequired);
+            _transport.Bodies.Enqueue(resync);
             _transport.Statuses.Enqueue(409);
-            EnqueueBaseline(GuestHead(101, 2));
+            _transport.Bodies.Enqueue(tip);
+            _transport.Statuses.Enqueue(200);
+            foreach (var type in OWSync.ElementTypes)
+            {
+                _transport.Bodies.Enqueue(type == "character"
+                    ? $@"{{""data"":[{{""id"":""{named}"",""name"":""Fresh""}}],""has_more"":false}}"
+                    : EmptyPage);
+                _transport.Statuses.Enqueue(200);
+            }
+        }
+
+        /// <summary>A copy holding two Characters: one the next walk names again (a), one it no longer names (b).</summary>
+        private void CacheTwo(long cursor, string token, long? epoch)
+        {
+            _cache.Upsert("a", "character", @"{""id"":""a"",""name"":""Old A""}");
+            _cache.Upsert("b", "character", @"{""id"":""b"",""name"":""Out of view""}");
+            _cache.SetCursor(cursor, token, epoch, "t");
+        }
+
+        [Test]
+        public async Task Incremental_A409ForTheView_DropsWhatTheNewWalkDoesNotName()
+        {
+            CacheTwo(100, GuestTip(100, 2), 2);
+            EnqueueReset(GuestHead(101, 3), Resync("view"), "a");
+
+            var result = await OWSync.IncrementalAsync(Client(), _cache);
+
+            Assert.IsTrue(result.WasRebaselined);
+            Assert.AreEqual("view", result.ResyncReason);
+            Assert.AreEqual(0, result.Kept);
+            Assert.IsTrue(_cache.Contains("a"));
+            Assert.AreEqual("Fresh", _cache.Get<OWCharacter>("a").Name, "the walk's body replaces the old one");
+            Assert.IsFalse(_cache.Contains("b"), "view: something left this key's view, so it goes");
+            Assert.AreEqual(GuestTip(101, 3), _cache.CursorToken);
+            Assert.AreEqual(3, _cache.Epoch);
+        }
+
+        [Test]
+        public async Task Incremental_A409ForTheRole_KeepsWhatTheNewWalkDoesNotName()
+        {
+            CacheTwo(100, GuestTip(100, 2), 2);
+            EnqueueReset(GuestHead(101, 3), Resync("role"), "a");
+
+            var result = await OWSync.IncrementalAsync(Client(), _cache);
+
+            Assert.IsTrue(result.WasRebaselined);
+            Assert.AreEqual("role", result.ResyncReason);
+            Assert.AreEqual(1, result.Kept);
+            Assert.AreEqual("Fresh", _cache.Get<OWCharacter>("a").Name, "what the walk names, it refreshes");
+            Assert.IsTrue(_cache.Contains("b"), "role: out of this key's view now, not gone; sharing is forward-only");
+            Assert.AreEqual("Out of view", _cache.Get<OWCharacter>("b").Name);
+            Assert.AreEqual(GuestTip(101, 3), _cache.CursorToken, "the cursor is the new walk's");
+            Assert.AreEqual(3, _cache.Epoch);
+        }
+
+        [Test]
+        public async Task Incremental_A409WithNoReason_IsKeptLikeRole()
+        {
+            // A guest key with a cache synced before the token was kept: keel answers its bare since=100 with 409
+            // resync_required (core/changes.py parse_cursor). A server older than 2026-10-20 sends no reason.
+            CacheTwo(100, null, null);
+            EnqueueReset(GuestHead(101, 2), Resync(null), "a");
 
             var result = await OWSync.IncrementalAsync(Client(), _cache);
 
             Assert.IsTrue(result.WasRebaselined);
             StringAssert.Contains("resync_required", result.RebaselineReason);
-            Assert.IsFalse(_cache.Contains("stale"), "A guest is never sent deletes: only a replace drops what it lost.");
+            Assert.IsNull(result.ResyncReason);
+            Assert.AreEqual(1, result.Kept);
+            Assert.IsTrue(_cache.Contains("b"), "no reason: kept, as for role; a reset never empties a copy");
             Assert.AreEqual(GuestTip(101, 2), _cache.CursorToken);
             Assert.AreEqual(2, _cache.Epoch);
         }
@@ -276,20 +340,56 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public async Task Incremental_AtTheHead_ButAMovedEpoch_IsNotCurrent()
         {
             // A Character given or taken moves a guest's epoch with head unmoved.
-            _cache.Upsert("stale", "character", @"{""id"":""stale"",""name"":""Hidden now""}");
-            _cache.SetCursor(100, GuestTip(100, 3), 3, "t");
-
-            _transport.Bodies.Enqueue(GuestHead(100, 4));
-            _transport.Statuses.Enqueue(200);
-            _transport.Bodies.Enqueue(ResyncRequired);
-            _transport.Statuses.Enqueue(409);
-            EnqueueBaseline(GuestHead(100, 4));
+            CacheTwo(100, GuestTip(100, 3), 3);
+            EnqueueReset(GuestHead(100, 4), Resync("view"), "a");
 
             var result = await OWSync.IncrementalAsync(Client(), _cache);
 
             Assert.IsTrue(result.WasRebaselined, "Same head, another epoch: the walk answers 409 and the cache rebuilds.");
             Assert.AreEqual(4, _cache.Epoch);
-            Assert.IsFalse(_cache.Contains("stale"));
+            Assert.IsFalse(_cache.Contains("b"));
+        }
+
+        [Test]
+        public void Incremental_AResetWhoseWalkFails_LeavesTheCopyAndItsCursorAsTheyWere()
+        {
+            // A tool never empties a copy on its own: a reset that cannot finish its walk changes nothing.
+            CacheTwo(100, GuestTip(100, 2), 2);
+            _transport.Bodies.Enqueue(GuestHead(101, 3));
+            _transport.Statuses.Enqueue(200);
+            _transport.Bodies.Enqueue(Resync("view"));
+            _transport.Statuses.Enqueue(409);
+            _transport.Bodies.Enqueue(GuestHead(101, 3));
+            _transport.Statuses.Enqueue(200);
+            _transport.Bodies.Enqueue(@"{""error"":{""type"":""api_error"",""code"":""server_busy"",""message"":""busy""}}");
+            _transport.Statuses.Enqueue(503);
+
+            Assert.ThrowsAsync<OWApiError>(() => OWSync.IncrementalAsync(Client(), _cache));
+
+            Assert.AreEqual(2, _cache.Count);
+            Assert.AreEqual("Old A", _cache.Get<OWCharacter>("a").Name);
+            Assert.IsTrue(_cache.Contains("b"));
+            Assert.AreEqual(100, _cache.Cursor);
+            Assert.AreEqual(GuestTip(100, 2), _cache.CursorToken);
+            Assert.AreEqual(2, _cache.Epoch);
+        }
+
+        [Test]
+        public async Task Incremental_ADeleteRowForAHide_IsDropped()
+        {
+            // A contributor learns of a hide from a delete op with reason hidden: dropped, as for view.
+            _cache.Upsert("c1", "character", @"{""id"":""c1"",""name"":""Hidden now""}");
+            _cache.SetCursor(100, "t");
+
+            _transport.Bodies.Enqueue(Head(102));
+            _transport.Bodies.Enqueue(
+                @"{""cursor"":""c-1"",""has_more"":false,""head"":102,
+                   ""changes"":[{""op"":""delete"",""type"":""character"",""id"":""c1"",""change_seq"":102,""reason"":""hidden""}]}");
+
+            var result = await OWSync.IncrementalAsync(Client(), _cache);
+
+            Assert.AreEqual(1, result.Removed);
+            Assert.IsFalse(_cache.Contains("c1"));
         }
 
         [Test]
@@ -367,10 +467,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         // -- The rewind rule --------------------------------------------------
 
         [Test]
-        public async Task Incremental_RebaselinesWhenCursorIsAheadOfHead()
+        public async Task Incremental_RebaselinesWhenCursorIsAheadOfHead_AndKeepsWhatTheWalkDoesNotName()
         {
             // A cursor ahead of head means the server was restored from a backup: our cursor points
-            // at changes that no longer exist, so every future incremental would skip real data.
+            // at changes that no longer exist, so every future incremental would skip real data. The
+            // world is walked again, and what the copy holds that the walk does not name is kept: a
+            // reset never empties a copy (the Captain's ruling, keel PR 104; the room feed's "a head
+            // below ours walks again from zero and keeps what it no longer names", parlor/feed.test.ts).
             _cache.Upsert("stale", "character", @"{""id"":""stale"",""name"":""Old""}");
             _cache.SetCursor(9999, "t");
 
@@ -382,7 +485,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             Assert.IsTrue(result.WasRebaselined);
             Assert.AreEqual(100, _cache.Cursor, "The cursor must come down to the server's truth.");
-            Assert.IsFalse(_cache.Contains("stale"));
+            Assert.IsTrue(_cache.Contains("stale"), "a restore rewinds the server, not what this copy read");
+            Assert.AreEqual(1, result.Kept);
+            Assert.IsNull(result.ResyncReason, "no 409 was involved");
 
             // Assert the NUMBERS, not just the prose. Checking only the static suffix passes
             // whatever the interpolation says -- and it did: this message used to read

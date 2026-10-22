@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Net;
+using Newtonsoft.Json.Linq;
 
 namespace OnlyWorlds.Sdk
 {
@@ -15,8 +17,10 @@ namespace OnlyWorlds.Sdk
     /// Distinct from <see cref="OWTransportError"/>: this means the server answered and said no.
     /// A DNS failure or a dropped connection is a different problem with different remedies, and
     /// conflating them makes "offline" indistinguishable from "your key is wrong".
+    ///
+    /// Not sealed: a write that became a proposal throws the one subclass, <see cref="OWProposedError"/>.
     /// </remarks>
-    public sealed class OWApiError : Exception
+    public class OWApiError : Exception
     {
         /// <summary>HTTP status code.</summary>
         public HttpStatusCode Status { get; }
@@ -92,6 +96,128 @@ namespace OnlyWorlds.Sdk
         /// <see cref="OWSync.IncrementalAsync"/> does this itself.
         /// </summary>
         public bool IsResyncRequired => StatusCode == 409 && Code == "resync_required";
+
+        /// <summary>
+        /// Why <c>/changes</c> refused the cursor, from the 409 <c>resync_required</c> envelope's <c>reason</c> (keel #421,
+        /// only while keel's hidden mark is on): <c>role</c> (this key's own role or membership moved: keep what the
+        /// local copy holds that the new walk does not name; it is out of view now, not gone) or <c>view</c> (something
+        /// left this key's view: drop what the new walk does not name). When both happened since the cursor, keel says
+        /// <c>role</c>. Null for any other error, or when keel sends no reason (then keep the copy: a reset never empties
+        /// one).
+        /// </summary>
+        public string ResyncReason
+        {
+            get
+            {
+                if (!IsResyncRequired || string.IsNullOrEmpty(RawBody)) return null;
+
+                try
+                {
+                    var reason = (JObject.Parse(RawBody)["error"] as JObject)?["reason"] as JValue;
+                    var text = reason?.Type == JTokenType.String ? (string)reason : null;
+                    return text == "role" || text == "view" ? text : null;
+                }
+                catch (Exception)
+                {
+                    return null;
+                }
+            }
+        }
+
+        /// <summary>
+        /// A conditional write's <c>If-Match</c> was stale (412 <c>precondition_failed</c>: a patch or link edit, keel
+        /// #210, or a delete, keel #563): the
+        /// element changed since the <c>change_seq</c> you sent, and nothing was written. <see cref="Current"/> is
+        /// the element as it is now; decide from it, then send again with its <c>change_seq</c>.
+        /// </summary>
+        public bool IsPreconditionFailed => StatusCode == 412 && Code == "precondition_failed";
+
+        /// <summary>
+        /// The <c>current</c> object beside the envelope of a 412 (<see cref="IsPreconditionFailed"/>) or a 409
+        /// <c>stale_proposal</c> (<see cref="IsStaleProposal"/>): the element as the server holds it now. Null on any
+        /// other answer, when keel sent none, or when the body is not JSON.
+        /// </summary>
+        public JObject Current
+            => StatusCode == 412 || IsStaleProposal ? BesideTheEnvelope()?["current"] as JObject : null;
+
+        /// <summary>
+        /// On a 409 <c>stale_proposal</c> (<see cref="IsStaleProposal"/>): each proposed field that moved since the
+        /// proposal was made, with its value then and now (npm's <c>OwStaleProposalError.conflicts</c>). Empty on any
+        /// other error, or when keel sent none. A change to a field the proposal does not name does not count.
+        /// </summary>
+        public IReadOnlyList<OWProposalConflict> Conflicts
+        {
+            get
+            {
+                var list = new List<OWProposalConflict>();
+                if (!IsStaleProposal || !(BesideTheEnvelope()?["conflicts"] is JArray items)) return list;
+
+                foreach (var item in items)
+                {
+                    if (item is JObject o && o["field"]?.Type == JTokenType.String)
+                    {
+                        list.Add(new OWProposalConflict { Field = (string)o["field"], Base = o["base"], Current = o["current"] });
+                    }
+                }
+
+                return list;
+            }
+        }
+
+        /// <summary>The whole answer as an object (the envelope and what keel sends beside it), or null when it is not JSON.</summary>
+        private JObject BesideTheEnvelope()
+        {
+            if (string.IsNullOrEmpty(RawBody)) return null;
+
+            try
+            {
+                return JObject.Parse(RawBody);
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// A patch or a link edit became a proposal (202, keel #519): this error is an <see cref="OWProposedError"/>,
+        /// whose <see cref="OWProposedError.Proposal"/> is the row a keeper decides. The element did not change. Not a
+        /// failure to retry: the write is waiting for a person.
+        /// </summary>
+        public bool IsProposed => StatusCode == 202 && this is OWProposedError;
+
+        /// <summary>
+        /// A proposal named a field the proposer's own view of the element does not hold (422 <c>field_not_visible</c>,
+        /// <see cref="Param"/> names it, keel #519): the element reaches this key only as a stub, and a proposal changes
+        /// only what its proposer can read.
+        /// </summary>
+        public bool IsFieldNotVisible => StatusCode == 422 && Code == "field_not_visible";
+
+        /// <summary>
+        /// This proposer already has 5 open proposals on the element, or 50 in the world (422 <c>too_many_open</c>, keel
+        /// #519). Wait for a keeper to decide, or withdraw one; a lapsed proposal no longer counts.
+        /// </summary>
+        public bool IsTooManyOpen => StatusCode == 422 && Code == "too_many_open";
+
+        /// <summary>
+        /// An accept found a proposed field moved since the proposal was made (409 <c>stale_proposal</c>, keel #519).
+        /// Nothing was written and the proposal stays open; <see cref="Conflicts"/> lists each moved field and
+        /// <see cref="Current"/> is the element as it is now. The proposer proposes again on the current text.
+        /// </summary>
+        public bool IsStaleProposal => StatusCode == 409 && Code == "stale_proposal";
+
+        /// <summary>
+        /// While the world takes agent seats' writes as proposals (keel #519), an agent seat's key tried what it may not:
+        /// delete an element it did not create, or accept or decline a proposal (403 <c>proposed_only</c>). Retrying
+        /// will not help; a person decides.
+        /// </summary>
+        public bool IsProposedOnly => StatusCode == 403 && Code == "proposed_only";
+
+        /// <summary>
+        /// An accept or decline of the key's own proposal (403 <c>own_proposal</c>, keel #519): another keeper (the owner
+        /// or a co-builder) decides it. Retrying will not help.
+        /// </summary>
+        public bool IsOwnProposal => StatusCode == 403 && Code == "own_proposal";
 
         /// <summary>
         /// Seconds to wait before retrying, from the <c>Retry-After</c> header (a delay in seconds,

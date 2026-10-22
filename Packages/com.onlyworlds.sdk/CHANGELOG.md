@@ -16,6 +16,61 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   test, as it is the TypeScript SDK's and the Python package's. Parity with the TypeScript SDK 4.55.0 and 4.57.2's
   trim, its tests ported.
 
+- **The client's name on every element write** (keel #520): `OWClientConfig.Client` names the software that
+  writes, sent as `X-OW-Client` on `CreateAsync`, `PatchAsync`, `DeleteAsync`, `EditLinksAsync` and `BulkAsync`, never
+  on a read. keel stores it on the element as `OWElement.ChangedClient` and on a `/changes` delete as the new
+  `OWChange.DeletedClient`, so a reader can tell which tool made a change. Left null it is `unity-sdk`
+  (`OWClient.DefaultClientName`); a game or tool passes its own (`"atlas"`). The rule is keel's, `[a-z0-9-]{1,32}`
+  (lower case letters, digits and hyphens, no version): anything else, the empty string included, is an
+  `ArgumentException` when the client is built, never trimmed. The name is the client's claim, not proof, and it
+  changes no permission: an agent still sets `Agent`. Parity with the TypeScript SDK 4.56.0, its test vector ported.
+- **The conditional tip read** (keel #518): `ChangesAsync(headOnly: true)` keeps the last tip read's `ETag` and sends
+  it back as `If-None-Match`, exactly as received. When nothing moved, keel answers 304 with no body (refunded against
+  the request budget), and the call returns the last 200's head, cursor and epoch with the new
+  `OWChangesPage.Unchanged` set; every 200 leaves it false. A 409 `resync_required` from any `ChangesAsync` call drops
+  the tag, so the next tip read is a full 200. A 304 while no tag is held is an `OWApiError` with status 304, never a
+  made-up head. The client never polls on its own. `OWSync.HasChangesAsync` and `IncrementalAsync` read the tip this
+  way unchanged, so a poll that mostly finds nothing costs little. Parity with the TypeScript SDK 4.57.0, its test
+  vector ported.
+- **The world's front door** (keel #558): `OWFrontDoor`, who a key is in a world, who answers for it and the house
+  rules: `Sponsor` (membership id, kind and Character name of the person who answers for a seat; null for the
+  owner's keys), `SponsorCharacter`, `MyCharacter`, `Charter` (the Law to read first) and `CharterSkill` (the Objects
+  the Charter names). `OWFrontDoor.Of(me)` reads it from `GetMeAsync`'s answer, and an agent's join answer carries it
+  as `OWJoined.FrontDoor` (null for a player). Parity with the TypeScript SDK 4.60.0 (which shipped the types with no
+  test; these tests are this package's own, with a wire check that the model maps exactly the keys keel serves).
+- **A conditional delete** (keel #563): `DeleteAsync(type, id, ifMatch: changeSeq)` sends the element's `change_seq`
+  as you read it in `If-Match`. The delete lands only if nothing changed since; otherwise it throws an `OWApiError`
+  whose new `IsPreconditionFailed` is true (412 `precondition_failed`) and whose new `Current` is the element as it is
+  now, and nothing is deleted. On an element already gone it is the idempotent 204. A negative `ifMatch` is an
+  `ArgumentOutOfRangeException` before anything is sent. The parameter comes after `ct`, so existing calls compile
+  as they were. Parity with the TypeScript SDK 4.61.0, its test vector ported.
+- **Conditional patches and link edits** (keel #210): `PatchAsync` and `EditLinksAsync` take `ifMatch` as
+  `DeleteAsync` does, the element's `change_seq` as you read it, sent in `If-Match`. The write lands only if nobody
+  changed the element since; otherwise nothing is written and the `OWApiError` has `IsPreconditionFailed` and the
+  element as it is now in `Current`. A link edit moves the element too, so it is checked the same way. Last
+  parameter, so existing calls compile as they were. Parity with the TypeScript SDK's `patch` and `editLinks`
+  `ifMatch`, their test vectors ported.
+- **The proposed change** (keel #519): a member can propose a change to an element without making it, and the world's
+  owner or a co-builder decides. `ProposeAsync(type, id, fields, evidence, expires, idempotencyKey)` (fields cleaned
+  as a PATCH body is, a known-of stub refused), `ListProposalsAsync` and `WorldProposalsAsync` (pages of
+  `OWProposal`, filtered by `OWProposalQuery`: state, since, element for the world queue, limit, cursor),
+  `AcceptProposalAsync` (the row and the element as written, one ordinary write by the keeper),
+  `DeclineProposalAsync` (with an optional reason) and `WithdrawProposalAsync`. In a world that takes an agent
+  seat's writes as proposals, a seat's `PatchAsync` or `EditLinksAsync` answers 202: it throws the new
+  `OWProposedError` (`IsProposed`, the row under `Proposal`) and the element did not change; a bulk item's 202 stays
+  in its slot (`OWBulkSlot.IsProposed`, `OWBulkSlot.Proposal`). Five new `OWApiError` helpers: `IsFieldNotVisible`,
+  `IsTooManyOpen`, `IsStaleProposal` (with the moved fields in the new `Conflicts` and the element in `Current`),
+  `IsProposedOnly` and `IsOwnProposal`. `OWApiError` is no longer sealed, so `OWProposedError` can derive from it.
+  Propose and accept send the client's name (`X-OW-Client`) and never `X-OW-Agent`, as keel's document lists. A
+  world's `agent_writes_proposed` switch reads through `GetWorldAsync`; this package has no world write to strip it
+  from. Parity with the TypeScript SDK 4.58.0, its test vector ported.
+- **Why a view restarted** (keel #421, while keel's hidden mark is on): `OWChangesPage.EpochReason` says why the epoch
+  last moved, `role` (the key's own role or membership moved: keep what a fresh walk no longer names, it is out of
+  view, not gone) or `view` (something left the key's view: drop it); `OWApiError.ResyncReason` reads the same word
+  from a 409 `resync_required`, and covers every move since the cursor. Both are null when keel sends none. A
+  conditional tip read answered 304 carries no `EpochReason`, as in the TypeScript SDK. Parity with the TypeScript
+  SDK's `epoch_reason` and `resyncReason`, their test vectors ported.
+
 ### Changed
 
 - **A folder export declares folder format 0.3.15** (`OWFolderExport.FormatVersion`), with the onlyworlds Python
@@ -29,6 +84,23 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   private records go too: one that is not UTF-8 (a byte order mark is read past), holds an entry that is not an
   object, or marks private an entry whose `producer` is not one directory name (missing, empty, `.`, `..`, or with a
   `/` or `\`). 0.15.0 skipped such entries, so a private producer it could not name travelled.
+- **`API-Pin` goes only where keel checks it**: on every write, on `GetMeAsync`, and on every request of a 10-digit
+  legacy key; a prefixed key's other reads now go without it, and an account token never sent it. keel verifies a
+  PIN wherever one is sent, at a real memory cost per request, so reads carrying one loaded the server for nothing.
+  A wrong PIN therefore no longer fails a read: the settings window's Test Connection now asks `GET /me` for a key
+  that takes a PIN, so it still catches one. Parity with the TypeScript SDK 4.59.0, its test vector ported.
+- **A reset keeps what the server's reason says to keep** (keel PR 104, #421): when the change feed answers 409
+  `resync_required`, `OWSync.IncrementalAsync` still walks the world again from the start, but no longer drops every
+  element the new walk does not name. On reason `view` it drops them, as before; on `role`, or with no reason (a
+  server older than 2026-10-20), it keeps them: they are out of this key's view now, not gone, and sharing is
+  forward-only. `OWSyncResult.ResyncReason` and `OWSyncResult.Kept` say which happened, and `RebaselineReason` says
+  it in words. A reset whose walk fails now puts the cache and its cursor back as they were and throws, where it left
+  the cache emptied. The rule the TypeScript SDK and the Python package document for their callers; the vectors are
+  the crew's room feed's (view drops, role keeps) with the published doc's no-reason case.
+- **A cursor ahead of the server's head keeps the copy too**: when `OWSync.IncrementalAsync` finds the server rewound
+  (restored from a backup), it walks the world again as before, but keeps what the cache held that the restored
+  server no longer names (`OWSyncResult.Kept`), where it used to clear it, and a failed walk leaves the cache as it
+  was. A restore rewinds the server, not what this copy read.
 
 ## [0.15.0] - 2026-10-23
 

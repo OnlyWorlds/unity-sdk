@@ -23,6 +23,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         /// <summary>Successive statuses, beside <see cref="Bodies"/>; <see cref="Status"/> once it is empty.</summary>
         public Queue<int> Statuses = new Queue<int>();
 
+        /// <summary>Successive response headers, beside <see cref="Bodies"/>; <see cref="ResponseHeaders"/> once it is empty.</summary>
+        public Queue<Dictionary<string, string>> HeaderSets = new Queue<Dictionary<string, string>>();
+
         public Task<OWResponse> SendAsync(OWRequest request, CancellationToken ct = default)
         {
             Calls.Add(request);
@@ -31,8 +34,18 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             {
                 Status = Statuses.Count > 0 ? Statuses.Dequeue() : Status,
                 Body = body,
-                Headers = ResponseHeaders,
+                Headers = HeaderSets.Count > 0 ? HeaderSets.Dequeue() : ResponseHeaders,
             });
+        }
+
+        /// <summary>Scripts one answer: its status, body and headers (an ETag, when given).</summary>
+        public void Then(int status, string body, string etag = null)
+        {
+            Statuses.Enqueue(status);
+            Bodies.Enqueue(body);
+            HeaderSets.Enqueue(etag == null
+                ? new Dictionary<string, string>()
+                : new Dictionary<string, string> { ["etag"] = etag });
         }
 
         public OWRequest Last => Calls[Calls.Count - 1];
@@ -53,14 +66,108 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         // -- Auth shape -------------------------------------------------------
 
         [Test]
-        public async Task WorldKey_UsesApiKeyAndPin()
+        public async Task WorldKey_UsesApiKey_AndApiPinOnAWrite()
         {
             var t = new FakeTransport();
-            await Make(t).GetWorldAsync();
+            var c = Make(t);
+            await c.GetWorldAsync();
 
             Assert.AreEqual("ow_w_test", t.Last.Headers["API-Key"]);
-            Assert.AreEqual("0000", t.Last.Headers["API-Pin"]);
+            Assert.IsFalse(t.Last.Headers.ContainsKey("API-Pin"), "a read (h29 #10663)");
             Assert.IsFalse(t.Last.Headers.ContainsKey("Authorization"));
+
+            await c.PatchAsync<JObject>("character", "c1", new JObject { ["name"] = "M" });
+            Assert.AreEqual("0000", t.Last.Headers["API-Pin"]);
+        }
+
+        // -- API-Pin only where keel checks it (Skeld's ruling, OW Keel h29 #10663; npm 4.59.0's vector) --
+        //
+        // keel verifies a PIN wherever it is sent (argon2, 64 MiB each), and reads sent with one OOM-killed
+        // staging on a cold cache (2026-10-22). Each call states its own expectation for a prefixed key, so the
+        // test does not re-derive the rule from the method it checks.
+
+        private static readonly (string Name, string Verb, bool Pin, System.Func<OWClient, Task> Run)[] PinCalls =
+        {
+            // reads
+            ("list", "GET", false, c => c.ListAsync<JObject>("location")),
+            ("list (name search)", "GET", false, c => c.ListAsync<JObject>("location", new OWListParams { NameContains = "harb" })),
+            ("get", "GET", false, c => c.GetAsync<JObject>("location", "l1")),
+            ("changes", "GET", false, c => c.ChangesAsync()),
+            ("changes head", "GET", false, c => c.ChangesAsync(headOnly: true)),
+            ("world", "GET", false, c => c.GetWorldAsync()),
+            // the one read keel checks a PIN on
+            ("me", "GET", true, c => c.GetMeAsync()),
+            // writes, each verb
+            ("create", "POST", true, c => c.CreateAsync<JObject>("location", new JObject { ["name"] = "Harbour" })),
+            ("patch", "PATCH", true, c => c.PatchAsync<JObject>("location", "l1", new JObject { ["description"] = "x" })),
+            ("delete", "DELETE", true, c => c.DeleteAsync("location", "l1")),
+            ("links", "POST", true, c => c.EditLinksAsync<JObject>("location", "l1", "zones", add: new[] { "z1" })),
+            ("bulk", "POST", true, c => c.BulkAsync(new[] { new OWBulkItem { Type = "location", Element = new JObject { ["name"] = "B" } } })),
+        };
+
+        /// <summary>Every call the client may make, each through its own client; the request each sent.</summary>
+        private static async Task<List<(string Name, bool Pin, OWRequest Sent)>> PinSweep(string key, string pin)
+        {
+            var sent = new List<(string, bool, OWRequest)>();
+            foreach (var call in PinCalls)
+            {
+                var t = new FakeTransport
+                {
+                    ResponseBody = @"{""data"":[],""has_more"":false,""changes"":[],""head"":0,""cursor"":""0"",""results"":[]}",
+                };
+                await call.Run(Make(t, key, pin));
+
+                Assert.AreEqual(1, t.Calls.Count, $"{call.Name}: one request");
+                Assert.AreEqual(call.Verb, t.Last.Method, $"{call.Name}: sent as {call.Verb}");
+                sent.Add((call.Name, call.Pin, t.Last));
+            }
+
+            return sent;
+        }
+
+        private static string PinOf(OWRequest sent)
+            => sent.Headers.TryGetValue("API-Pin", out var pin) ? pin : null;
+
+        [Test]
+        public async Task ApiPin_WorldKeyWithAPin_OnEveryWriteAndOnGetMe_OnNoOtherRead()
+        {
+            foreach (var (name, pin, sent) in await PinSweep("ow_w_test", "1234"))
+            {
+                Assert.AreEqual("ow_w_test", sent.Headers["API-Key"], name);
+                Assert.AreEqual(pin ? "1234" : null, PinOf(sent), $"{name} ({sent.Method} {sent.Url})");
+            }
+        }
+
+        [Test]
+        public async Task ApiPin_TenDigitLegacyKeyWithAPin_OnEveryRequest_ReadsIncluded()
+        {
+            // keel #421: a legacy key needs it on reads of a world with a PIN (v1 parity).
+            foreach (var (name, _, sent) in await PinSweep("0123456789", "1234"))
+            {
+                Assert.AreEqual("0123456789", sent.Headers["API-Key"], name);
+                Assert.AreEqual("1234", PinOf(sent), $"{name} ({sent.Method} {sent.Url})");
+            }
+        }
+
+        [Test]
+        public async Task ApiPin_ReadKeyWithNoPin_Never()
+        {
+            foreach (var (name, _, sent) in await PinSweep("ow_r_test", null))
+            {
+                Assert.AreEqual("ow_r_test", sent.Headers["API-Key"], name);
+                Assert.IsFalse(sent.Headers.ContainsKey("API-Pin"), name);
+            }
+        }
+
+        [Test]
+        public async Task ApiPin_AccountToken_Never_EvenWithAPinConfigured_BearerAndNoApiKey()
+        {
+            foreach (var (name, _, sent) in await PinSweep("ow_a_acct", "1234"))
+            {
+                Assert.AreEqual("Bearer ow_a_acct", sent.Headers["Authorization"], name);
+                Assert.IsFalse(sent.Headers.ContainsKey("API-Pin"), name);
+                Assert.IsFalse(sent.Headers.ContainsKey("API-Key"), name);
+            }
         }
 
         [Test]
@@ -372,6 +479,242 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsTrue(OWWriteDoor.IsAgent(page.Changes[0].DeletedVia));
         }
 
+        // -- The client's name (keel #520: X-OW-Client; npm 4.56.0's vector) --
+
+        private static OWClient MakeNamed(FakeTransport t, string client)
+            => new OWClient(new OWClientConfig
+            {
+                ApiKey = "ow_w_test",
+                ApiPin = "0000",
+                Transport = t,
+                BaseUrl = "https://example.test/api/v2",
+                Client = client,
+            });
+
+        [Test]
+        public async Task Client_IsUnitySdkByDefault_OnEveryElementWrite()
+        {
+            var t = new FakeTransport();
+            await RunEveryWrite(MakeNamed(t, null));
+
+            Assert.AreEqual(5, t.Calls.Count);
+            foreach (var call in t.Calls)
+            {
+                Assert.IsTrue(call.Headers.ContainsKey("X-OW-Client"), $"{call.Method} {call.Url} should name the client.");
+                Assert.AreEqual("unity-sdk", call.Headers["X-OW-Client"], $"{call.Method} {call.Url}");
+            }
+        }
+
+        [TestCase("atlas")]
+        [TestCase("a-1")]
+        [TestCase("zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz")] // 32: inside the rule
+        public async Task Client_AGivenName_RidesEveryElementWriteInstead(string name)
+        {
+            var t = new FakeTransport();
+            await RunEveryWrite(MakeNamed(t, name));
+
+            Assert.AreEqual(5, t.Calls.Count);
+            foreach (var call in t.Calls) Assert.AreEqual(name, call.Headers["X-OW-Client"], $"{call.Method} {call.Url}");
+        }
+
+        [Test]
+        public async Task Client_NoReadCarriesTheName()
+        {
+            var t = new FakeTransport();
+            var c = MakeNamed(t, "atlas");
+            await c.GetWorldAsync();
+            await c.GetMeAsync();
+            await c.GetAsync<JObject>("character", "c1");
+            t.ResponseBody = @"{""data"":[],""has_more"":false}";
+            await c.ListAsync<JObject>("character");
+            t.ResponseBody = @"{""changes"":[],""has_more"":false,""head"":0}";
+            await c.ChangesAsync();
+            await c.ChangesAsync(headOnly: true);
+
+            Assert.AreEqual(6, t.Calls.Count);
+            foreach (var call in t.Calls)
+            {
+                Assert.IsFalse(call.Headers.ContainsKey("X-OW-Client"),
+                    $"{call.Method} {call.Url}: keel reads the name on the element writes only.");
+            }
+        }
+
+        [Test]
+        public void Client_ANameOutsideTheRule_IsRefusedAtConstruction_NamingTheOptionAndTheRule()
+        {
+            var bad = new[]
+            {
+                "Atlas", "", new string('z', 33), "a b", " atlas", "atlas\n", "atlas_1", (char)0xE4 + "tlas", "atlas ",
+            };
+
+            foreach (var name in bad)
+            {
+                var t = new FakeTransport();
+                var e = Assert.Throws<System.ArgumentException>(() => MakeNamed(t, name), $"'{name}'");
+                StringAssert.Contains("Client", e.Message, $"'{name}'");
+                StringAssert.Contains("[a-z0-9-]", e.Message, $"'{name}'");
+                StringAssert.Contains("32", e.Message, $"'{name}'");
+                Assert.AreEqual(0, t.Calls.Count);
+            }
+
+            Assert.DoesNotThrow(() => MakeNamed(new FakeTransport(), null));
+        }
+
+        [Test]
+        public void ChangeFeed_ReadsTheDeletingClientsName()
+        {
+            var page = OWJson.Deserialize<OWChangesPage>(
+                @"{""changes"":[{""op"":""delete"",""type"":""character"",""id"":""c1"",""change_seq"":9,
+                    ""deleted_by"":null,""deleted_via"":""api"",""deleted_client"":""atlas""},
+                    {""op"":""delete"",""type"":""character"",""id"":""c2"",""change_seq"":10,""deleted_client"":null}],
+                  ""has_more"":false,""head"":10}");
+
+            Assert.AreEqual("atlas", page.Changes[0].DeletedClient);
+            Assert.IsNull(page.Changes[1].DeletedClient);
+        }
+
+        // -- Delete takes ifMatch (keel #563; npm 4.61.0's vector) -----------
+
+        private const string Fix412 = @"{""error"":{""type"":""invalid_request"",""code"":""precondition_failed"",
+            ""message"":""The element has changed since change_seq 41 (now 44)."",""param"":""If-Match"",
+            ""doc_url"":""https://onlyworlds.github.io/api/errors/#precondition_failed""},
+            ""current"":{""type"":""character"",""id"":""x"",""name"":""Theirs"",""change_seq"":44}}";
+
+        [Test]
+        public async Task Delete_WithIfMatch_SendsIfMatch_WithoutIt_NoHeader()
+        {
+            var t = new FakeTransport { Status = 204, ResponseBody = "" };
+            var c = Make(t);
+
+            await c.DeleteAsync("character", "x", ifMatch: 44);
+            Assert.AreEqual("DELETE", t.Last.Method);
+            Assert.AreEqual("\"44\"", t.Last.Headers["If-Match"], "a quoted change_seq");
+
+            await c.DeleteAsync("character", "x");
+            Assert.IsFalse(t.Last.Headers.ContainsKey("If-Match"));
+        }
+
+        // keel #210: the PATCH and link-write precondition (npm c1d5d2a's vectors).
+
+        [Test]
+        public async Task Patch_WithIfMatch_SendsIfMatchAsAQuotedChangeSeq_WithoutIt_NoHeader()
+        {
+            var t = new FakeTransport { ResponseBody = @"{""id"":""x"",""change_seq"":45}" };
+            var c = Make(t);
+
+            await c.PatchAsync<JObject>("character", "x", new JObject { ["name"] = "Mine" }, ifMatch: 44);
+            Assert.AreEqual("\"44\"", t.Last.Headers["If-Match"]);
+            Assert.AreEqual("PATCH", t.Last.Method);
+
+            await c.PatchAsync<JObject>("character", "x", new JObject { ["name"] = "Mine" });
+            Assert.IsFalse(t.Last.Headers.ContainsKey("If-Match"));
+        }
+
+        [Test]
+        public async Task EditLinks_WithIfMatch_SendsIfMatchToo()
+        {
+            var t = new FakeTransport { ResponseBody = @"{""id"":""x"",""change_seq"":45}" };
+            var c = Make(t);
+
+            await c.EditLinksAsync<JObject>("character", "x", "species", add: new[] { "y" }, ifMatch: 7);
+            Assert.AreEqual("\"7\"", t.Last.Headers["If-Match"]);
+
+            await c.EditLinksAsync<JObject>("character", "x", "species", add: new[] { "y" });
+            Assert.IsFalse(t.Last.Headers.ContainsKey("If-Match"));
+        }
+
+        [Test]
+        public void Patch_AStaleOne_IsPreconditionFailed_CarryingTheElementAsItIsNow()
+        {
+            var t = new FakeTransport { Status = 412, ResponseBody = Fix412 };
+            var e = Assert.ThrowsAsync<OWApiError>(() =>
+                Make(t).PatchAsync<JObject>("character", "x", new JObject { ["name"] = "Mine" }, ifMatch: 41));
+
+            Assert.IsTrue(e.IsPreconditionFailed);
+            Assert.AreEqual(44, (int)e.Current["change_seq"]);
+        }
+
+        [Test]
+        public void PatchAndEditLinks_WithANegativeIfMatch_AreRefusedBeforeSending()
+        {
+            var t = new FakeTransport();
+            var c = Make(t);
+
+            Assert.ThrowsAsync<System.ArgumentOutOfRangeException>(() =>
+                c.PatchAsync<JObject>("character", "x", new JObject { ["name"] = "M" }, ifMatch: -1));
+            Assert.ThrowsAsync<System.ArgumentOutOfRangeException>(() =>
+                c.EditLinksAsync<JObject>("character", "x", "species", add: new[] { "y" }, ifMatch: -1));
+            Assert.AreEqual(0, t.Calls.Count);
+        }
+
+        [Test]
+        public void Delete_WithANegativeIfMatch_IsRefusedBeforeSending()
+        {
+            var t = new FakeTransport { Status = 204, ResponseBody = "" };
+            Assert.ThrowsAsync<System.ArgumentOutOfRangeException>(() => Make(t).DeleteAsync("character", "x", ifMatch: -1));
+            Assert.AreEqual(0, t.Calls.Count);
+        }
+
+        [Test]
+        public void Delete_AStaleOne_IsPreconditionFailed_CarryingTheElementAsItIsNow()
+        {
+            var t = new FakeTransport { Status = 412, ResponseBody = Fix412 };
+            var e = Assert.ThrowsAsync<OWApiError>(() => Make(t).DeleteAsync("character", "x", ifMatch: 41));
+
+            Assert.IsTrue(e.IsPreconditionFailed);
+            Assert.AreEqual(44, (int)e.Current["change_seq"]);
+            Assert.AreEqual("Theirs", (string)e.Current["name"]);
+        }
+
+        [Test]
+        public void PreconditionFailed_IsA412WithItsCode_AndAnErrorWithoutCurrentHasNone()
+        {
+            var other = new FakeTransport { Status = 422, ResponseBody = @"{""error"":{""code"":""precondition_failed""}}" };
+            var e = Assert.ThrowsAsync<OWApiError>(() => Make(other).DeleteAsync("character", "x"));
+
+            Assert.IsFalse(e.IsPreconditionFailed, "the code without its status");
+            Assert.IsNull(e.Current);
+
+            var html = new FakeTransport { Status = 412, ResponseBody = "<html>Precondition Failed</html>" };
+            Assert.IsNull(Assert.ThrowsAsync<OWApiError>(() => Make(html).DeleteAsync("character", "x", ifMatch: 1)).Current);
+        }
+
+        // -- The front door on /me (keel #558) --------------------------------
+
+        [Test]
+        public async Task Me_ReadsTheFrontDoor()
+        {
+            var t = new FakeTransport
+            {
+                ResponseBody = @"{""world"":{""id"":""w1"",""name"":""W""},""scope"":""write"",""kind"":""agent"",""role"":""contributor"",
+                    ""membership"":""m-bot"",""character"":""c-bot"",
+                    ""front_door"":{""sponsor"":{""id"":null,""kind"":""owner"",""name"":null},""sponsor_character"":null,
+                        ""my_character"":""c-bot"",""charter"":null,""charter_skill"":[]}}",
+            };
+
+            var door = OWFrontDoor.Of(await Make(t).GetMeAsync());
+
+            Assert.IsNull(door.Sponsor.Id, "the world's owner has no membership id");
+            Assert.AreEqual("owner", door.Sponsor.Kind);
+            Assert.IsNull(door.Sponsor.Name);
+            Assert.IsNull(door.SponsorCharacter);
+            Assert.AreEqual("c-bot", door.MyCharacter);
+            Assert.IsNull(door.Charter);
+            Assert.IsEmpty(door.CharterSkill);
+        }
+
+        [Test]
+        public void Me_AnOwnersKeyHasNoSponsor_AndAnAnswerWithoutTheDoorHasNone()
+        {
+            var owner = OWFrontDoor.Of(JObject.Parse(
+                @"{""front_door"":{""sponsor"":null,""sponsor_character"":null,""my_character"":""c-own"",""charter"":""law-1"",""charter_skill"":[""o1""]}}"));
+
+            Assert.IsNull(owner.Sponsor);
+            Assert.AreEqual("law-1", owner.Charter);
+            Assert.IsNull(OWFrontDoor.Of(JObject.Parse(@"{""kind"":""owner""}")), "an older keel sends none");
+            Assert.IsNull(OWFrontDoor.Of(null));
+        }
+
         // -- Errors -----------------------------------------------------------
 
         [Test]
@@ -673,6 +1016,205 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             await big.ChangesAsync();
 
             StringAssert.Contains("limit=1000", t.Last.Url);
+        }
+
+        // -- The conditional head poll (keel #518: ETag "<head>:<epoch>", If-None-Match, 304; npm 4.57.0's vector) --
+
+        private static string HeadBody(long head, string epoch = "null")
+            => $@"{{""cursor"":{head},""changes"":[],""has_more"":false,""head"":{head},""epoch"":{epoch}}}";
+
+        private const string Resync =
+            @"{""error"":{""type"":""invalid_request"",""code"":""resync_required"",""message"":""Walk the feed again.""}}";
+
+        private static string SentTag(FakeTransport t, int i)
+            => t.Calls[i].Headers.TryGetValue("If-None-Match", out var tag) ? tag : null;
+
+        [Test]
+        public async Task HeadPoll_FirstReadSendsNoTag_TheNextSendsTheETagBackExactlyAsReceived()
+        {
+            var t = new FakeTransport();
+            t.Then(200, HeadBody(821), "W/\"821:-\"");
+            t.Then(200, HeadBody(821), "W/\"821:-\"");
+            var c = Make(t);
+
+            var first = await c.ChangesAsync(headOnly: true);
+            Assert.IsNull(SentTag(t, 0));
+            Assert.IsFalse(first.Unchanged, "every 200 says unchanged: false");
+
+            await c.ChangesAsync(headOnly: true);
+            Assert.AreEqual("W/\"821:-\"", SentTag(t, 1), "W/ and quotes included, never compared");
+        }
+
+        [Test]
+        public async Task HeadPoll_A304_AnswersTheHeldHeadCursorAndEpoch_Unchanged_InOneRequest()
+        {
+            const string cursor = "4021:ffffffff-ffff-ffff-ffff-ffffffffffff:3";
+            var t = new FakeTransport();
+            t.Then(200, $@"{{""cursor"":""{cursor}"",""changes"":[],""has_more"":false,""head"":4021,""epoch"":3}}", "W/\"4021:3\"");
+            t.Then(304, "", "\"4021:3\"");
+            var c = Make(t);
+
+            await c.ChangesAsync(headOnly: true);
+            var tip = await c.ChangesAsync(headOnly: true);
+
+            Assert.IsTrue(tip.Unchanged);
+            Assert.AreEqual(4021, tip.Head);
+            Assert.AreEqual(cursor, tip.Cursor);
+            Assert.AreEqual(3, tip.Epoch);
+            Assert.IsEmpty(tip.Changes);
+            Assert.AreEqual(2, t.Calls.Count);
+            Assert.AreEqual("W/\"4021:3\"", SentTag(t, 1));
+        }
+
+        [Test]
+        public async Task HeadPoll_A200AfterA304StoresTheNewTag_A200WithoutAnETagLeavesNoneHeld()
+        {
+            var t = new FakeTransport();
+            t.Then(200, HeadBody(821), "W/\"821:-\"");
+            t.Then(304, "", "\"821:-\"");
+            t.Then(200, HeadBody(822), "W/\"822:-\"");
+            t.Then(200, HeadBody(823));
+            t.Then(200, HeadBody(823));
+            var c = Make(t);
+
+            await c.ChangesAsync(headOnly: true);
+            await c.ChangesAsync(headOnly: true);
+            var moved = await c.ChangesAsync(headOnly: true);
+            Assert.AreEqual(822, moved.Head);
+            Assert.AreEqual("822", moved.Cursor);
+            Assert.IsNull(moved.Epoch);
+            Assert.IsFalse(moved.Unchanged);
+
+            await c.ChangesAsync(headOnly: true);
+            Assert.AreEqual("W/\"822:-\"", SentTag(t, 3));
+            await c.ChangesAsync(headOnly: true);
+            Assert.IsNull(SentTag(t, 4));
+        }
+
+        [Test]
+        public async Task HeadPoll_A409ResyncRequired_FromTheFeedOrTheHeadRead_ClearsTheTag()
+        {
+            var t = new FakeTransport();
+            t.Then(200, HeadBody(9, "2"), "W/\"9:2\"");
+            t.Then(409, Resync);
+            t.Then(200, HeadBody(9, "3"), "W/\"9:3\"");
+            t.Then(409, Resync);
+            t.Then(200, HeadBody(9, "4"));
+            var c = Make(t);
+
+            await c.ChangesAsync(headOnly: true);
+            var e = Assert.ThrowsAsync<OWApiError>(() => c.ChangesAsync("9:x:2"));
+            Assert.IsTrue(e.IsResyncRequired);
+
+            var after = await c.ChangesAsync(headOnly: true);
+            Assert.AreEqual(3, after.Epoch);
+            Assert.IsFalse(after.Unchanged);
+            Assert.IsNull(SentTag(t, 2), "the feed's 409 dropped the tag");
+
+            e = Assert.ThrowsAsync<OWApiError>(() => c.ChangesAsync(headOnly: true));
+            Assert.IsTrue(e.IsResyncRequired);
+            Assert.AreEqual("W/\"9:3\"", SentTag(t, 3));
+
+            await c.ChangesAsync(headOnly: true);
+            Assert.IsNull(SentTag(t, 4), "the head read's own 409 dropped the tag");
+        }
+
+        [Test]
+        public void HeadPoll_A304WhileNothingIsHeld_IsAnErrorNamingIt_NeverAnInventedHead()
+        {
+            var t = new FakeTransport();
+            t.Then(304, "", "\"821:-\"");
+
+            var e = Assert.ThrowsAsync<OWApiError>(() => Make(t).ChangesAsync(headOnly: true));
+            Assert.AreEqual(304, e.StatusCode);
+            StringAssert.Contains("nothing is held", e.Message);
+        }
+
+        [Test]
+        public async Task HeadPoll_TheFeedsOwnPagesSendNoTag()
+        {
+            var t = new FakeTransport();
+            t.Then(200, HeadBody(5), "W/\"5:-\"");
+            t.Then(200, HeadBody(5), "W/\"5:-\"");
+            var c = Make(t);
+
+            await c.ChangesAsync(headOnly: true);
+            var page = await c.ChangesAsync("5");
+
+            Assert.IsNull(SentTag(t, 1), "If-None-Match rides the head read alone");
+            Assert.IsFalse(page.Unchanged);
+        }
+
+        // -- Why the epoch moved (keel #421: epoch_reason, a 409's reason; npm's vectors) --
+
+        [Test]
+        public async Task EpochReason_PassesThroughWhenKeelSendsIt()
+        {
+            const string cursor = "4021:ffffffff-ffff-ffff-ffff-ffffffffffff:3";
+            var t = new FakeTransport
+            {
+                ResponseBody = $@"{{""cursor"":""{cursor}"",""changes"":[],""has_more"":false,""head"":4021,""epoch"":3,""epoch_reason"":""role""}}",
+            };
+            var guest = await Make(t).ChangesAsync(headOnly: true);
+            Assert.AreEqual("role", guest.EpochReason);
+            Assert.AreEqual(3, guest.Epoch);
+
+            t.ResponseBody = @"{""cursor"":7,""changes"":[],""has_more"":false,""head"":7,""epoch"":null,""epoch_reason"":null}";
+            Assert.IsNull((await Make(t).ChangesAsync(headOnly: true)).EpochReason);
+
+            t.ResponseBody = $@"{{""cursor"":""{cursor}"",""changes"":[],""has_more"":false,""head"":4021,""epoch"":3,""epoch_reason"":""view""}}";
+            Assert.AreEqual("view", (await Make(t).ChangesAsync(cursor)).EpochReason, "a feed page carries it too");
+        }
+
+        [Test]
+        public async Task EpochReason_A304DropsIt_AsTheNpmSdkDoes()
+        {
+            var t = new FakeTransport();
+            t.Then(200, @"{""cursor"":""9"",""changes"":[],""has_more"":false,""head"":9,""epoch"":3,""epoch_reason"":""view""}", "W/\"9:3\"");
+            t.Then(304, "", "\"9:3\"");
+            var c = Make(t);
+
+            Assert.AreEqual("view", (await c.ChangesAsync(headOnly: true)).EpochReason);
+            var tip = await c.ChangesAsync(headOnly: true);
+
+            Assert.IsTrue(tip.Unchanged);
+            Assert.AreEqual(3, tip.Epoch);
+            Assert.IsNull(tip.EpochReason, "npm's 304 answer carries no epoch_reason (Python's carries the held one)");
+        }
+
+        [TestCase("role")]
+        [TestCase("view")]
+        public void ResyncReason_ReadsThe409EnvelopesReason(string reason)
+        {
+            var t = new FakeTransport
+            {
+                Status = 409,
+                ResponseBody = @"{""error"":{""type"":""invalid_request"",""code"":""resync_required"",""message"":""m"",""reason"":""" + reason + @"""}}",
+            };
+            var e = Assert.ThrowsAsync<OWApiError>(() => Make(t).ChangesAsync("12:abc:3"));
+
+            Assert.IsTrue(e.IsResyncRequired);
+            Assert.AreEqual(reason, e.ResyncReason);
+        }
+
+        [Test]
+        public void ResyncReason_IsNullWithoutOne_ForAnUnknownOne_AndOnAnotherError()
+        {
+            ExpectReason(409, "resync_required", null, null);
+            ExpectReason(409, "resync_required", "something", null);
+            ExpectReason(409, "id_conflict", "role", null);
+
+            void ExpectReason(int status, string code, string reason, string expected)
+            {
+                var t = new FakeTransport
+                {
+                    Status = status,
+                    ResponseBody = @"{""error"":{""type"":""invalid_request"",""code"":""" + code + @""",""message"":""m"""
+                        + (reason == null ? "" : @",""reason"":""" + reason + @"""") + "}}",
+                };
+                var e = Assert.ThrowsAsync<OWApiError>(() => Make(t).ChangesAsync("12:abc"));
+                Assert.AreEqual(expected, e.ResyncReason, $"{status} {code} reason {reason ?? "none"}");
+            }
         }
 
         // -- Construction guards ----------------------------------------------

@@ -81,6 +81,14 @@ namespace OnlyWorlds.Sdk
         /// <summary>On a delete: the door it came through (<see cref="OWWriteDoor"/>), or null.</summary>
         [JsonProperty("deleted_via")]
         public string DeletedVia;
+
+        /// <summary>
+        /// On a delete: the name the deleting client gave in its <c>X-OW-Client</c> header (keel #520), as an
+        /// element's <see cref="OWElement.ChangedClient"/>: the client's claim, never proof. Null when none was
+        /// recorded, and on a <c>hidden</c> row.
+        /// </summary>
+        [JsonProperty("deleted_client")]
+        public string DeletedClient;
     }
 
     /// <summary>A page of the <c>/changes</c> feed.</summary>
@@ -122,5 +130,25 @@ namespace OnlyWorlds.Sdk
         /// </summary>
         [JsonProperty("epoch")]
         public long? Epoch;
+
+        /// <summary>
+        /// Why <see cref="Epoch"/> last moved (keel #421, only while keel's hidden mark is on; null when the epoch is null,
+        /// and on an <see cref="Unchanged"/> tip read): <c>role</c> (this key's own role or membership moved: keep what
+        /// the local copy holds that a walk from the start no longer names) or <c>view</c> (something left its view:
+        /// drop it; also <c>view</c> for an epoch that never moved). It names the last move only: when the epoch moved
+        /// more than once since the one you applied, walk with your cursor and read the 409's
+        /// <see cref="OWApiError.ResyncReason"/>, which covers every move since it. Never empty a copy on your own.
+        /// </summary>
+        [JsonProperty("epoch_reason")]
+        public string EpochReason;
+
+        /// <summary>
+        /// On a tip read (<c>headOnly</c>): keel answered 304 Not Modified to the tag the client held, so
+        /// <see cref="Head"/>, <see cref="Cursor"/> and <see cref="Epoch"/> are the last 200's, handed back. Nothing
+        /// moved since this client's last tip read, which is not the same as since your last walk: compare
+        /// <see cref="Head"/> and <see cref="Epoch"/> with what you applied. False on every 200. Never on the wire.
+        /// </summary>
+        [JsonIgnore]
+        public bool Unchanged;
     }
 }

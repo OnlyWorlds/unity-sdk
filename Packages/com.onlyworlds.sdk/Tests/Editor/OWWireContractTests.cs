@@ -126,11 +126,27 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             await c.CreateAsync<JObject>("character", new JObject { ["name"] = "N" });
             await c.PatchAsync<JObject>("character", "c1", new JObject { ["name"] = "M" });
             await c.DeleteAsync("character", "c1");
+            await c.DeleteAsync("character", "c1", ifMatch: 7);
+            await c.PatchAsync<JObject>("character", "c1", new JObject { ["name"] = "M" }, ifMatch: 7);
+            await c.EditLinksAsync<JObject>("character", "c1", "friends", add: new[] { "a1" }, ifMatch: 7);
             await c.EditLinksAsync<JObject>("character", "c1", "friends", add: new[] { "a1" });
             await c.BulkAsync(new[] { new OWBulkItem { Type = "character", Element = new JObject { ["name"] = "B" } } });
             t.ResponseBody = @"{""changes"":[],""has_more"":false,""head"":0}";
             await c.ChangesAsync("4:069620b9-0794-708d-8000-42b0ea685f38");
+            t.ResponseHeaders = new Dictionary<string, string> { ["etag"] = "W/\"0:-\"" };
             await c.ChangesAsync(headOnly: true);
+            await c.ChangesAsync(headOnly: true); // sends If-None-Match
+            t.ResponseHeaders = new Dictionary<string, string>();
+
+            // The proposed change (keel #519), every option given, so each query key, body key and header is checked.
+            t.ResponseBody = "{}";
+            var at = new DateTimeOffset(2026, 11, 1, 0, 0, 0, TimeSpan.Zero);
+            await c.ProposeAsync("character", "c1", new JObject { ["name"] = "P" }, "seen", expires: at, idempotencyKey: "k");
+            await c.ListProposalsAsync("character", "c1", new OWProposalQuery { State = "all", Since = at, Limit = 5, Cursor = "c" });
+            await c.WorldProposalsAsync(new OWProposalQuery { State = "open", Since = at, Element = "c1", Limit = 5, Cursor = "c" });
+            await c.AcceptProposalAsync("character", "c1", "p1");
+            await c.DeclineProposalAsync("character", "c1", "p1", "not canon");
+            await c.WithdrawProposalAsync("character", "c1", "p1");
 
             // Joining is keyless, so it is not on the client; the same transport records it. The redeem passes every
             // option at once (no real code takes all three) so each key it can put in the body is on the wire here.
@@ -334,7 +350,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
         [TestCase(typeof(OWJoinPreview), "/api/v2/join/preview", "POST")]
         [TestCase(typeof(OWJoined), "/api/v2/join", "POST")]
-        public void EveryKeyAJoinModelReads_IsOneKeelServes(Type model, string path, string method)
+        [TestCase(typeof(OWChangesPage), "/api/v2/changes", "GET")]
+        [TestCase(typeof(OWPage<OWProposal>), "/api/v2/world/proposals", "GET")]
+        [TestCase(typeof(OWPage<OWProposal>), "/api/v2/character/{id}/proposals", "GET")]
+        [TestCase(typeof(OWProposalAccepted), "/api/v2/character/{id}/proposals/{pid}/accept", "POST")]
+        public void EveryKeyAModelReads_IsOneKeelServes(Type model, string path, string method)
         {
             var op = Wire["paths"]?[path]?[method] as JObject;
             Assert.IsNotNull(op, $"{method} {path} is not in the fixture");
@@ -350,6 +370,19 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             var stale = NotServed.Keys.Where(k => k.StartsWith(path + " ")).Where(k => served.Contains(k.Substring(path.Length + 1)));
             Assert.IsEmpty(stale, "keel serves these now; drop them from NotServed: " + string.Join(", ", stale));
+        }
+
+        [TestCase("/api/v2/me", "GET")]
+        [TestCase("/api/v2/join", "POST")]
+        public void EveryFrontDoorKey_IsOneKeelServes_AndEveryOneItServesIsRead(string path, string method)
+        {
+            // keel #558: front_door on /me and on an agent's join. GetMeAsync answers a JObject, so the model is checked here.
+            var served = Wire["paths"][path][method]["response"].Values<string>()
+                .Where(k => k.StartsWith("front_door.")).ToList();
+            var mapped = MappedKeys(typeof(OWFrontDoor), false).Select(k => "front_door." + k).ToList();
+
+            Assert.IsNotEmpty(served, $"{method} {path} serves no front_door keys in the fixture");
+            CollectionAssert.AreEquivalent(served, mapped);
         }
 
         [Test]
@@ -394,7 +427,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public async Task TheRecordingCoversEveryCall()
         {
             // An empty recording would pass the checks above with nothing checked.
-            Assert.AreEqual(13, (await RecordEveryCall()).Count);
+            var calls = await RecordEveryCall();
+            Assert.AreEqual(23, calls.Count);
+
+            // The conditional headers are on the wire here, so the header check above saw them.
+            Assert.That(calls.Any(c => c.Headers.ContainsKey("If-Match")), "a delete with ifMatch is recorded");
+            Assert.That(calls.Any(c => c.Headers.ContainsKey("If-None-Match")), "a tip read with a tag is recorded");
         }
     }
 }

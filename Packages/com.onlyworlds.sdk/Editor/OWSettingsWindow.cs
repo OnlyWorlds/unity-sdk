@@ -140,12 +140,16 @@ namespace OnlyWorlds.Sdk.Editor
             _testResult = "Testing...";
             Repaint();
 
+            // A key that takes a PIN is tested through GET /me, the one read the client sends the PIN on (keel #314):
+            // a world read goes without it now, and would report a wrong PIN as connected.
+            var viaMe = OWKey.RequiresPin(client.KeyKind);
+
             OWEditorAsync.Run(
-                client.GetWorldAsync(),
-                world =>
+                viaMe ? client.GetMeAsync() : client.GetWorldAsync(),
+                answer =>
                 {
                     _busy = false;
-                    _testResult = $"Connected: {world["name"]}";
+                    _testResult = $"Connected: {(viaMe ? answer["world"]?["name"] : answer["name"])}";
                     Repaint();
                 },
                 error =>

@@ -175,6 +175,10 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("env")]
         public string Env;
 
+        /// <summary>An agent's: the world's front door for the new seat, its sponsor, its Character and the Charter to read first (keel #558); null for a player.</summary>
+        [JsonProperty("front_door")]
+        public OWFrontDoor FrontDoor;
+
         public bool IsPlayer => Kind == "player";
         public bool IsAgent => Kind == "agent";
 

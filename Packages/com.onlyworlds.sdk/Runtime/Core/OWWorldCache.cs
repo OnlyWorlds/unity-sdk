@@ -267,6 +267,9 @@ namespace OnlyWorlds.Sdk
             return true;
         }
 
+        /// <summary>A copy of every cached element, for a sync that must put back what a reset keeps (<see cref="OWSync"/>).</summary>
+        internal List<OWCachedElement> Snapshot() => new List<OWCachedElement>(_elements);
+
         public void Clear()
         {
             _elements.Clear();
