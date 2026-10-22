@@ -6,6 +6,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-10-22
+
+A world's own words for the types. `OWNames` reads the names profile (schema-dist serial 48), and `OWElement`
+reads the client's name on a write; the schema pin moves to dist.48, with no schema file moved. A minor release because
+it adds public API (below).
+
 ### Added
 
 - **A world's own words for the types** (the names profile, schema-dist serial 48): `OWNames.TypeWord(world, type,
