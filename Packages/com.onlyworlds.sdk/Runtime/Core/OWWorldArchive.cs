@@ -74,6 +74,20 @@ namespace OnlyWorlds.Sdk
         public const string Extension = "owworld";
 
         /// <summary>
+        /// The <c>.owworld</c> media type, the bytes of the marker entry (folder spec §4.7, OW-6): ASCII, no newline.
+        /// </summary>
+        /// <remarks>
+        /// A reader never requires the marker (every file made before §4.7 has none), and refuses one that holds
+        /// other bytes. The type is in the <c>vnd.</c> tree; its registration with IANA is a separate act.
+        /// </remarks>
+        public const string MediaType = "application/vnd.onlyworlds.world+zip";
+
+        /// <summary>The marker entry's name, at the archive's root: EPUB's shape, the media type as the whole file.</summary>
+        internal const string MarkerEntry = "mimetype";
+
+        private static readonly byte[] MediaTypeBytes = Encoding.ASCII.GetBytes(MediaType);
+
+        /// <summary>
         /// The time stamped on every entry: the zip format's own epoch, 1980-01-01 00:00.
         /// </summary>
         /// <remarks>
@@ -434,12 +448,17 @@ namespace OnlyWorlds.Sdk
         /// non-ASCII name without the zip's UTF-8 flag. Inside the world, a second <c>world.json</c> anywhere but
         /// under <c>records/</c> is a second world.
         /// </para>
+        /// <para>
+        /// A <c>mimetype</c> entry at the archive's root is the marker (OW-6): never required, and when present it
+        /// must hold exactly <see cref="MediaType"/>, or the archive is refused. Its shape (first, stored) is a
+        /// writer's rule, not checked here.
+        /// </para>
         /// </remarks>
         /// <exception cref="FileNotFoundException">The archive does not exist.</exception>
         /// <exception cref="OWFolderFormatException">
         /// Not a zip; an entry name that is not a plain relative path, or is repeated, colliding or unsafe; a path both a file and a folder,
         /// a link, an encrypted entry or one in a method other than stored or deflate; past the budget, or an entry
-        /// inflating past its declared size; no world or more than one in it, a nested one included; or the world's
+        /// inflating past its declared size; a marker holding other bytes; no world or more than one in it, a nested one included; or the world's
         /// own <c>world.json</c> is unreadable.
         /// </exception>
         public static OWFolderReadResult Read(
@@ -529,6 +548,16 @@ namespace OnlyWorlds.Sdk
                     }
                 }
 
+                // The marker (OW-6) is never required, but one that is there must say exactly what the file is.
+                foreach (var (entry, path) in named)
+                {
+                    if (path == MarkerEntry && !HoldsTheMediaType(entry))
+                    {
+                        throw Hostile(entry.FullName,
+                            $"is the marker but does not hold exactly '{MediaType}' (ASCII, no newline)");
+                    }
+                }
+
                 var root = FindWorldRoot(named.Select(n => n.path));
 
                 // Then the world's own entries: every name is already a plain path, so its place is its name.
@@ -553,6 +582,24 @@ namespace OnlyWorlds.Sdk
                 }
 
                 return OWFolderReader.ReadEntries(entries, includeLegacySpatial, archivePath);
+            }
+        }
+
+        /// <summary>
+        /// True when the marker entry holds exactly <see cref="MediaType"/>'s bytes. Its declared size is compared
+        /// first, so a marker of another length is never inflated; one that cannot be inflated holds other bytes.
+        /// </summary>
+        private static bool HoldsTheMediaType(ZipArchiveEntry entry)
+        {
+            if (entry.Length != MediaTypeBytes.Length) return false;
+            try
+            {
+                var held = InflateAsDeclared(entry);
+                return held != null && held.ToArray().SequenceEqual(MediaTypeBytes);
+            }
+            catch (Exception)
+            {
+                return false;
             }
         }
 

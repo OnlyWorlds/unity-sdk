@@ -6,6 +6,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **The `.owworld` marker** (folder spec §4.7, OW-6): `OWWorldArchive.MediaType` is the file's media type,
+  `application/vnd.onlyworlds.world+zip`. `OWWorldArchive.Read` (and so `LoadInto` and the importer) accepts an
+  archive whose root holds a `mimetype` entry with exactly those bytes, never requires one, and refuses one that
+  holds anything else (another type, a trailing newline, a BOM).
+
 ### Changed
 
 - **An `.owworld` is read within a budget**: `OWWorldArchive.Read` and `LoadInto` (and so the importer) refuse an

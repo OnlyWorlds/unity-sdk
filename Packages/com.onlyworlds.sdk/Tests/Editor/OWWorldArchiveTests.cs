@@ -917,6 +917,45 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             StringAssert.Contains("refusing the archive", e.Message);
         }
 
+        // -- The marker (folder spec §4.7, OW-6) --------------------------------------------
+
+        [Test]
+        public void Read_AcceptsTheMarker_AndNeverRequiresIt()
+        {
+            Assert.AreEqual("application/vnd.onlyworlds.world+zip", OWWorldArchive.MediaType);
+
+            var marked = MakeZip("marked.owworld", ("mimetype", OWWorldArchive.MediaType),
+                ("w/world.json", WorldJson(WId, "W")), ("w/elements/character/one.json", ElementBody));
+            Assert.AreEqual(1, OWWorldArchive.Read(marked).Elements.Count);
+
+            // Its shape is a writer's rule: a reader takes the right bytes deflated or late (the set's U2 reading).
+            var late = WorldZip("late.owworld", ("mimetype", OWWorldArchive.MediaType));
+            Assert.AreEqual(1, OWWorldArchive.Read(late).Elements.Count);
+
+            Assert.AreEqual(1, OWWorldArchive.Read(WorldZip("unmarked.owworld")).Elements.Count, "Never required.");
+        }
+
+        [TestCase("application/zip")]
+        [TestCase("application/vnd.onlyworlds.world+zip\n")]
+        [TestCase("application/vnd.onlyworlds.world+zip\r\n")]
+        [TestCase("﻿application/vnd.onlyworlds.world+zip")] // a BOM
+        [TestCase("APPLICATION/VND.ONLYWORLDS.WORLD+ZIP")]
+        [TestCase("application/vnd.onlyworlds.world+zi")]
+        [TestCase("")]
+        public void Read_RefusesAMarkerThatHoldsOtherBytes(string marker)
+        {
+            var archive = WorldZip("marker.owworld", ("mimetype", marker));
+            StringAssert.Contains("is the marker but does not hold exactly", Refused(archive).Message);
+        }
+
+        [Test]
+        public void Read_AMimetypeInsideTheWorld_IsNoMarker()
+        {
+            // The marker sits at the archive's root; w/mimetype is a file in the world's folder, never read.
+            var archive = WorldZip("inner.owworld", ("w/mimetype", "text/plain"));
+            Assert.AreEqual(1, OWWorldArchive.Read(archive).Elements.Count);
+        }
+
         [Test]
         public void Read_AcceptsFolderEntries_TheirOneTrailingSlashIsNoEmptySegment()
         {
