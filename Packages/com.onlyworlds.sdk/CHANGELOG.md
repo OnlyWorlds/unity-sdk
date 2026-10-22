@@ -8,18 +8,18 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Added
 
-- **The `.owworld` conformance set runs as the package's own test** (schema-dist `fixtures/owworld/`, dist.39;
-  folder spec §4.7): `OWWorldArchiveConformanceTests` reads all 78 zips with `OWWorldArchive.Read` and checks each
+- **The `.owworld` conformance set runs as the package's own test** (schema-dist `fixtures/owworld/`, dist.40;
+  folder spec §4.7): `OWWorldArchiveConformanceTests` reads all 79 zips with `OWWorldArchive.Read` and checks each
   verdict and each refusal's cause against the set's `verdicts.json`, which is pinned to the dist's manifest, every
   zip to its sha256. The set is vendored in a folder Unity does not import (`Tests/Editor/Fixtures/owworld~/`), so
   the package's own importer never opens a hostile file in it. `OW_OWWORLD_FIXTURES` runs another copy of the set.
 
 ### Changed
 
-- The schema pin moves to dist.39 (`v0.32.2-dist.39`; canonical `00.32.02` unchanged, and no decoded file moved:
+- The schema pin moves to dist.40 (`v0.32.2-dist.40`; canonical `00.32.02` unchanged, and no decoded file moved:
   the schema, the walk, its rulings, `presentation.json` and the examples are byte for byte dist.35's). The dist
   gained the packet and review extension profiles, a folder lint rule, and the `.owworld` conformance set (folder
-  spec §4.7). The generated models changed only in their serial.
+  spec §4.7; serial 40 adds its CRC case). The generated models changed only in their serial.
 - An export declares folder format `0.3.13` (`OWFolderExport.FormatVersion`), as the Python package's 0.15.0 does.
   0.3.13 rules the `.owworld` archive (§4.7), which this SDK's reader already follows on the whole conformance set;
   it asks nothing more of a folder. A `format_version` a world already carries is still kept as it is.

@@ -10,7 +10,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// The <c>.owworld</c> conformance set (folder spec §4.7; schema-dist <c>fixtures/owworld/</c>, tag
-    /// <c>v0.32.2-dist.39</c>): every zip in it read by <see cref="OWWorldArchive.Read"/>, which must accept or refuse
+    /// <c>v0.32.2-dist.40</c>): every zip in it read by <see cref="OWWorldArchive.Read"/>, which must accept or refuse
     /// it, for the cause the set names, as its <c>verdicts.json</c> says.
     /// </summary>
     /// <remarks>
@@ -40,8 +40,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     {
         private const string FolderName = "owworld~";
 
-        /// <summary><c>fixtures/owworld/verdicts.json</c>'s sha256 as dist.39's MANIFEST.json records it.</summary>
-        private const string VerdictsSha256 = "e37f3b64a63efa115d756fd36deaefa43998cc478aa485975055aa432166b23c";
+        /// <summary><c>fixtures/owworld/verdicts.json</c>'s sha256 as dist.40's MANIFEST.json records it.</summary>
+        private const string VerdictsSha256 = "2d384a1861f97e1d0f1f4e02b218df02e58809c33ac834df2e8050cf8502e263";
 
         private static string _dir;
         private static bool _vendored;
@@ -137,7 +137,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             if (_vendored)
             {
                 Assert.AreEqual(VerdictsSha256, Sha256Of(Path.Combine(FixtureDir, "verdicts.json")),
-                    "the vendored verdicts.json is not dist.39's: re-vendor the set from schema-dist byte for byte");
+                    "the vendored verdicts.json is not dist.40's: re-vendor the set from schema-dist byte for byte");
             }
             else
             {
