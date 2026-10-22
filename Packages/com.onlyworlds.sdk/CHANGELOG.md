@@ -20,6 +20,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   the schema, the walk, its rulings, `presentation.json` and the examples are byte for byte dist.35's). The dist
   gained the packet and review extension profiles, a folder lint rule, and the `.owworld` conformance set (folder
   spec §4.7). The generated models changed only in their serial.
+- An export declares folder format `0.3.13` (`OWFolderExport.FormatVersion`), as the Python package's 0.15.0 does.
+  0.3.13 rules the `.owworld` archive (§4.7), which this SDK's reader already follows on the whole conformance set;
+  it asks nothing more of a folder. A `format_version` a world already carries is still kept as it is.
 
 ## [0.11.0] - 2026-10-22
 
