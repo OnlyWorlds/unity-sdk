@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.33.00";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 44;
+        public const int DistSerial = 48;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.33.0-dist.44";
+        public const string Tag = "v0.33.0-dist.48";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -139,9 +139,19 @@ namespace OnlyWorlds.Sdk
         /// (<c>profiles/room.md</c>, <c>room.fixture.json</c>: which elements are a room's lines and work items), which
         /// this SDK does not read yet. The generated models changed only in their serial stamp.
         /// </para>
+        /// <para>
+        /// <b>44 -> 48 (2026-10-22)</b>: canonical unchanged, no schema file moved. The room profile gained its mark,
+        /// <c>x_room_of</c> (45: the pair and the mark together make a room element), and defines "trimmed and without
+        /// regard to case" once for every profile (47). Element bodies carry <c>changed_client</c> beside
+        /// <c>changed_by</c> and <c>changed_via</c> (46, keel #520): the example export and the folder lint's body keys
+        /// say so, and the export is re-vendored for <c>OWEnvelopeReaderTests</c>. Two profiles joined: <c>checks</c>
+        /// (47, <c>x_checks_rules</c> on a work world's Charter) and <c>names</c> (48, <c>x_names</c> on the World, a
+        /// world's own words for the types), neither read here yet. <c>presentation.json</c>, <c>schema_walk.py</c> and
+        /// <c>rulings.yaml</c> are byte-identical; the generated models changed only in their serial stamp.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "787ee6eaf5dc57075c6795966cb686ecabe79545f7fd1319c0775b4feb86f070";
+            "62c33f211b472075b27c053a400871b98e44129d56bcaa4de66e33f282bc5acd";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.

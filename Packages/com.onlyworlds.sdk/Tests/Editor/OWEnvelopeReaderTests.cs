@@ -10,14 +10,14 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// <summary>
     /// The portal's one-file export (keel's <c>world_export</c>, spec §8c). The fixture is keel's own: the emitter's
     /// output for one fixed world, pinned by keel's <c>tests/test_export_fixture.py</c> and published in schema-dist as
-    /// <c>example/world-export.json</c> (serial 43, tag <c>v0.33.0-dist.43</c>), vendored byte for byte. When keel's
+    /// <c>example/world-export.json</c> (serial 46, tag <c>v0.33.0-dist.46</c>), vendored byte for byte. When keel's
     /// emitter moves on purpose, the dist moves with it: re-vendor from the dist and update the hash below. The edge
     /// cases are inline.
     /// </summary>
     public class OWEnvelopeReaderTests
     {
-        /// <summary>The fixture's sha256 as dist.43's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "50dc6c2ab8e2caeff77a26ae8ca10f4dbe5e11df3a6ae27a33fdc067e85314d2";
+        /// <summary>The fixture's sha256 as dist.46's MANIFEST.json records it (unchanged to dist.48).</summary>
+        private const string DistSha256 = "bdbd5605dbc189a7b5c1d747b92f864cfd3708631f19ea3cb9f5d770170807ac";
 
         private const string WorldId = "01999999-0000-7000-8000-000000000420";
         private const string Keep = "01999999-0000-7000-8000-000000000001";
@@ -49,7 +49,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = System.BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(FixturePath))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored export is not dist.43's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored export is not dist.46's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]

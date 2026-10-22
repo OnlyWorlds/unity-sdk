@@ -6,6 +6,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The schema pin moves to dist.48 (`v0.33.0-dist.48`; canonical `00.33.00` unchanged, and no schema file moved). The
+  room profile gains its mark, `x_room_of` (45), and defines "trimmed and without regard to case" once for every
+  profile (47); element bodies carry `changed_client` (46, keel #520), so the example export the envelope tests read
+  moved; two profiles join the dist, `checks` (47, house rules on a work world's Charter, which this SDK does not read)
+  and `names` (48, a world's own words for the types). The generated models changed only in their serial.
+
 ## [0.13.0] - 2026-10-22
 
 Schema 00.33.00: a Zone says how its markers join. `OWZone.Shape` (`polygon` or `line`) is generated from the schema's
