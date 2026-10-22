@@ -6,6 +6,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-10-22
+
+Schema 00.33.00: a Zone says how its markers join. `OWZone.Shape` (`polygon` or `line`) is generated from the schema's
+new field, and the schema pin moves to dist.44 (the field at serial 43, the room profile at 44, which this SDK does not
+read yet). A minor release because it adds public API (below).
+
 ### Added
 
 - **`OWZone.Shape`** (schema `00.33.00`): how a zone's markers join, `polygon` or `line`, lowercase; empty, absent or
