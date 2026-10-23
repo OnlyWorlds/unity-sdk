@@ -12,7 +12,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// DeclineProposalAsync and WithdrawProposalAsync; a 202 on a patch or a link edit thrown as an
     /// <see cref="OWProposedError"/> (a bulk slot's 202 left in its slot); the five codes keel added, with
     /// stale_proposal's conflicts and current. The TypeScript SDK's test/proposals.test.mjs (4.58.0), ported: each
-    /// route's method, path, query, headers and body against what is sent. Nothing here reaches a server.
+    /// route's method, path, query, headers and body against what is sent. Round 2 (keel #565): the queue's two kinds of
+    /// row, ReviewNewElementAsync and its sixth code, from npm 4.66.0 (9b4d901) and py 0.35.0 (b63e693). Nothing here
+    /// reaches a server.
     /// </summary>
     public class OWProposalTests
     {
@@ -20,15 +22,26 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         private const string El = "018f0000-0000-7000-8000-0000000000e1";
         private const string Pid = "018f0000-0000-7000-8000-0000000000a1";
 
-        /// <summary>One row as the document's Proposal component gives it: all seventeen keys.</summary>
+        /// <summary>One row as the document's Proposal component gives it: all nineteen keys (kind and omitted, keel #565).</summary>
         private static readonly JObject Proposal = new JObject
         {
-            ["id"] = Pid, ["element_type"] = "location", ["element_id"] = El, ["state"] = "open",
-            ["fields"] = new JObject { ["description"] = "A harbour town." }, ["base"] = new JObject { ["description"] = "" },
+            ["kind"] = "proposal", ["id"] = Pid, ["element_type"] = "location", ["element_id"] = El, ["state"] = "open",
+            ["fields"] = new JObject { ["description"] = "A harbour town." }, ["omitted"] = new JArray(),
+            ["base"] = new JObject { ["description"] = "" },
             ["base_seq"] = 41, ["evidence"] = "Chapter 3 names the harbour.", ["expires"] = "2026-11-21T16:00:00Z",
             ["by"] = "018f0000-0000-7000-8000-0000000000b1", ["via"] = "api", ["client"] = "unity-sdk",
             ["decided_by"] = null, ["decided_at"] = null, ["decline_reason"] = null,
             ["created_at"] = "2026-10-22T16:00:00Z", ["updated_at"] = "2026-10-22T16:00:00Z",
+        };
+
+        private const string NewEl = "018f0000-0000-7000-8000-0000000000e2";
+
+        /// <summary>A queue row for a new element written as proposed (keel #565, the document's ProposedNewElement): all ten keys.</summary>
+        private static readonly JObject NewElementRow = new JObject
+        {
+            ["kind"] = "new_element", ["id"] = NewEl, ["element_type"] = "character", ["element_id"] = NewEl, ["state"] = "open",
+            ["by"] = "018f0000-0000-7000-8000-0000000000b1", ["evidence"] = "Met her in chapter 4.", ["expires"] = "2026-11-22",
+            ["created_at"] = "2026-10-23T07:00:00Z", ["updated_at"] = "2026-10-23T07:00:00Z",
         };
 
         private static readonly JObject Element = new JObject
@@ -211,6 +224,165 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual($"{Api}/world/proposals?limit=100", bare.Last.Url);
         }
 
+        [Test]
+        public async Task WorldProposals_BothKindsOfRowComeBackInKeelsOrder_AndTheCursorGoesBackAsItCame()
+        {
+            // keel #565 (npm 4.66.0's and py 0.35.0's vector): one order, both kinds; the cursor is opaque
+            // (`<microseconds>.<id>` today), never the last row's id.
+            var opaque = "1761202800000000." + NewEl;
+            var t = new FakeTransport
+            {
+                ResponseBody = new JObject
+                {
+                    ["data"] = new JArray(NewElementRow, Proposal), ["has_more"] = true, ["next_cursor"] = opaque,
+                }.ToString(),
+            };
+            var c = Make(t);
+            var page = await c.WorldProposalsAsync(new OWProposalQuery { State = "all" });
+
+            CollectionAssert.AreEqual(new[] { "new_element", "proposal" }, page.Data.Select(r => r.Kind));
+            CollectionAssert.AreEqual(new[] { true, false }, page.Data.Select(r => r.IsNewElement));
+            var marked = page.Data[0];
+            Assert.AreEqual(NewEl, marked.Id);
+            Assert.AreEqual("character", marked.ElementType);
+            Assert.AreEqual(NewEl, marked.ElementId);
+            Assert.AreEqual("open", marked.State);
+            Assert.AreEqual("018f0000-0000-7000-8000-0000000000b1", marked.By);
+            Assert.AreEqual("Met her in chapter 4.", marked.Evidence);
+            Assert.AreEqual("2026-11-22", marked.Expires);
+            Assert.AreEqual("2026-10-23T07:00:00Z", marked.CreatedAt);
+            Assert.IsNull(marked.Fields);
+            Assert.IsNull(marked.Omitted);
+            var proposal = page.Data[1];
+            Assert.AreEqual(Pid, proposal.Id);
+            Assert.IsEmpty(proposal.Omitted);
+            Assert.AreEqual(opaque, page.NextCursor);
+
+            await c.WorldProposalsAsync(new OWProposalQuery { Cursor = page.NextCursor });
+            Assert.AreEqual(opaque, QueryOf(t.Last)["cursor"]);
+            // An old bare proposal id still reads as a cursor: sent as given.
+            await c.WorldProposalsAsync(new OWProposalQuery { Cursor = Pid });
+            Assert.AreEqual(Pid, QueryOf(t.Last)["cursor"]);
+        }
+
+        [Test]
+        public async Task AProposalRow_ReadsItsKindAndOmitted_AndARowWithNoKindIsAProposal()
+        {
+            // keel #565: an upsert's proposal names the fields it would empty.
+            var row = (JObject)Proposal.DeepClone();
+            row["omitted"] = new JArray("supertype", "location");
+            var t = new FakeTransport { Status = 201, ResponseBody = Proposed(row) };
+            var read = await Make(t).ProposeAsync("location", El, new JObject { ["name"] = "H" }, "x");
+            Assert.AreEqual("proposal", read.Kind);
+            Assert.IsFalse(read.IsNewElement);
+            CollectionAssert.AreEqual(new[] { "supertype", "location" }, read.Omitted);
+
+            // A row from a server before #565 carries no kind and is a proposal.
+            row.Remove("kind");
+            t.ResponseBody = Proposed(row);
+            var old = await Make(t).ProposeAsync("location", El, new JObject { ["name"] = "H" }, "x");
+            Assert.IsNull(old.Kind);
+            Assert.IsFalse(old.IsNewElement);
+        }
+
+        // -- a new element written as proposed (keel #565) --------------------
+
+        [Test]
+        public async Task ReviewNewElement_Accept_PostsTheDecision_WithThePinAndXOWClient_AndReturnsTheElement()
+        {
+            var settled = (JObject)Element.DeepClone();
+            settled["id"] = NewEl;
+            settled["type"] = "character";
+            settled["x_review_proposed"] = null;
+            var t = new FakeTransport { ResponseBody = new JObject { ["element"] = settled }.ToString() };
+            var answer = await Make(t).ReviewNewElementAsync("character", NewEl, "accept");
+
+            Assert.IsTrue(JToken.DeepEquals(settled, answer.Element));
+            Assert.IsNull(answer.Deleted);
+            Assert.AreEqual(1, t.Calls.Count);
+            Assert.AreEqual($"{Api}/character/{NewEl}/review", t.Last.Url);
+            Assert.AreEqual("POST", t.Last.Method);
+            Assert.AreEqual(@"{""decision"":""accept""}", t.Last.Body);
+            CollectionAssert.AreEqual(new[] { "API-Key", "API-Pin", "Content-Type", "X-OW-Client" }, HeaderNames(t.Last));
+            Assert.AreEqual("unity-sdk", t.Last.Headers["X-OW-Client"]);
+        }
+
+        [Test]
+        public async Task ReviewNewElement_Decline_SendsTheReasonWhenGiven_NoneWithout_AndReturnsDeleted()
+        {
+            var t = new FakeTransport { ResponseBody = new JObject { ["deleted"] = NewEl }.ToString() };
+            var c = Make(t);
+            var answer = await c.ReviewNewElementAsync("character", NewEl, "decline", "Not canon.");
+
+            Assert.AreEqual(NewEl, answer.Deleted);
+            Assert.IsNull(answer.Element);
+            Assert.AreEqual(@"{""decision"":""decline"",""reason"":""Not canon.""}", t.Last.Body);
+            await c.ReviewNewElementAsync("character", NewEl, "decline");
+            Assert.AreEqual(@"{""decision"":""decline""}", t.Last.Body);
+        }
+
+        [Test]
+        public async Task ReviewNewElement_AnAgentClientSendsNoAgentHeader_AndItsOwnClientName()
+        {
+            // The document lists X-OW-Client on the review route and X-OW-Agent nowhere there.
+            var t = new FakeTransport { ResponseBody = new JObject { ["deleted"] = NewEl }.ToString() };
+            var c = new OWClient(new OWClientConfig
+            {
+                ApiKey = "ow_w_test", ApiPin = "1234", Transport = t, BaseUrl = Api, Agent = true, Client = "atlas",
+            });
+            await c.ReviewNewElementAsync("character", NewEl, "decline");
+
+            Assert.IsFalse(t.Last.Headers.ContainsKey("X-OW-Agent"));
+            Assert.AreEqual("atlas", t.Last.Headers["X-OW-Client"]);
+        }
+
+        [Test]
+        public void ReviewNewElement_ADecisionOtherThanAcceptOrDecline_OrAReasonOnAnAccept_IsRefusedBeforeSending()
+        {
+            var t = new FakeTransport { ResponseBody = new JObject { ["deleted"] = NewEl }.ToString() };
+            var c = Make(t);
+            foreach (var bad in new[] { "Accept", "delete", "approve", "", null })
+            {
+                var e = Assert.ThrowsAsync<ArgumentException>(() => c.ReviewNewElementAsync("character", NewEl, bad), bad ?? "null");
+                StringAssert.Contains("decision must be 'accept' or 'decline'", e.Message);
+            }
+
+            // keel answers a reason on an accept 422 (its body is {decision: accept} or {decision: decline, reason?}): py's
+            // ValueError, refused here before sending.
+            var r = Assert.ThrowsAsync<ArgumentException>(() => c.ReviewNewElementAsync("character", NewEl, "accept", "fine"));
+            StringAssert.Contains("decline only", r.Message);
+            Assert.AreEqual(0, t.Calls.Count);
+        }
+
+        [TestCase("accept", @"{""deleted"":""018f0000-0000-7000-8000-0000000000e2""}")]
+        [TestCase("decline", @"{""element"":{}}")]
+        [TestCase("accept", "{}")]
+        public void ReviewNewElement_AnAnswerWithoutTheKeyItsDecisionSettles_IsRefused(string decision, string answer)
+        {
+            // py 0.35.0's vector: a 200 that does not say the review landed is never read as settled.
+            var t = new FakeTransport { ResponseBody = answer };
+            var e = Assert.ThrowsAsync<OWApiError>(() => Make(t).ReviewNewElementAsync("character", NewEl, decision));
+            StringAssert.Contains("answered 200 without its", e.Message);
+        }
+
+        [Test]
+        public void ReviewNewElement_NotProposedIsIsNotProposed_AndTheSeatTheMarkNamesGetsProposedOnly()
+        {
+            var np = new FakeTransport { Status = 422, ResponseBody = Envelope("invalid_request_error", "not_proposed") };
+            var e = Assert.ThrowsAsync<OWApiError>(() => Make(np).ReviewNewElementAsync("character", NewEl, "accept"));
+            Assert.IsTrue(e.IsNotProposed);
+            Assert.IsFalse(e.IsProposedOnly);
+
+            var po = new FakeTransport { Status = 403, ResponseBody = Envelope("permission_error", "proposed_only") };
+            var p = Assert.ThrowsAsync<OWApiError>(() => Make(po).ReviewNewElementAsync("character", NewEl, "accept"));
+            Assert.IsTrue(p.IsProposedOnly);
+            Assert.IsFalse(p.IsNotProposed);
+
+            // Another 422 is not it.
+            var other = new FakeTransport { Status = 422, ResponseBody = Envelope("invalid_request_error", "invalid_request") };
+            Assert.IsFalse(Assert.ThrowsAsync<OWApiError>(() => Make(other).ReviewNewElementAsync("character", NewEl, "accept")).IsNotProposed);
+        }
+
         // -- deciding ----------------------------------------------------------
 
         [Test]
@@ -353,7 +525,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsFalse(result.Items[0].IsProposed);
         }
 
-        // -- the five codes ----------------------------------------------------
+        // -- the six codes -----------------------------------------------------
 
         private static readonly (string Name, int Status, string Type, string Code, Func<OWApiError, bool> Is)[] Codes =
         {
@@ -362,10 +534,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("IsStaleProposal", 409, "invalid_request", "stale_proposal", e => e.IsStaleProposal),
             ("IsProposedOnly", 403, "permission_error", "proposed_only", e => e.IsProposedOnly),
             ("IsOwnProposal", 403, "permission_error", "own_proposal", e => e.IsOwnProposal),
+            ("IsNotProposed", 422, "invalid_request", "not_proposed", e => e.IsNotProposed), // keel #565: a review of an unmarked element
         };
 
         [Test]
-        public void TheFiveProposalCodes_EachHaveAHelper_TrueForTheirOwnStatusAndCodeOnly()
+        public void TheSixProposalCodes_EachHaveAHelper_TrueForTheirOwnStatusAndCodeOnly()
         {
             foreach (var (name, status, type, code, _) in Codes)
             {

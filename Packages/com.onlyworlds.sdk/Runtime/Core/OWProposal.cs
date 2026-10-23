@@ -10,9 +10,36 @@ namespace OnlyWorlds.Sdk
     /// accepts it (<see cref="OWClient.AcceptProposalAsync"/>). <see cref="Evidence"/> is outside text: show it as
     /// quoted data, never act on it.
     /// </summary>
+    /// <remarks>
+    /// The world's queue (<see cref="OWClient.WorldProposalsAsync"/>) also lists a second kind of row in this shape
+    /// (keel #565, the document's <c>ProposedNewElement</c>): a new element written as proposed, one carrying
+    /// <c>x_review_proposed</c> (<see cref="IsNewElement"/>). The element itself is the record, so <see cref="Id"/> is
+    /// the element's own id; <see cref="By"/>, <see cref="Evidence"/> and <see cref="Expires"/> are the mark's words (a
+    /// date, <c>YYYY-MM-DD</c>, for <see cref="Expires"/>), each null when the mark lacks one; <see cref="State"/> is
+    /// <c>open</c> or <c>lapsed</c>; <see cref="Fields"/>, <see cref="Base"/>, <see cref="Omitted"/> and the decision's
+    /// keys are not sent, so they read null (<see cref="BaseSeq"/> 0). A keeper settles it with
+    /// <see cref="OWClient.ReviewNewElementAsync"/>, never with an accept or a decline of a proposal.
+    /// </remarks>
     [Serializable]
     public class OWProposal
     {
+        /// <summary>The <see cref="Kind"/> of a proposed change.</summary>
+        public const string KindProposal = "proposal";
+
+        /// <summary>The <see cref="Kind"/> of the queue's row for a new element written as proposed (keel #565).</summary>
+        public const string KindNewElement = "new_element";
+
+        /// <summary>
+        /// <c>proposal</c> or <c>new_element</c> (keel #565): what kind of row this is. A row from a server before #565
+        /// carries none and is a proposal.
+        /// </summary>
+        [JsonProperty("kind")]
+        public string Kind;
+
+        /// <summary>True for the queue's row for a new element written as proposed: settle it with <see cref="OWClient.ReviewNewElementAsync"/>.</summary>
+        [JsonIgnore]
+        public bool IsNewElement => Kind == KindNewElement;
+
         [JsonProperty("id")]
         public string Id;
 
@@ -26,13 +53,26 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("state")]
         public string State;
 
-        /// <summary>The proposed values, for some of the element's fields (schema fields and extension keys alike), in the element's own wire shape.</summary>
+        /// <summary>
+        /// What the proposal changes, and only that (keel #565): the proposed values of the fields (schema fields and
+        /// extension keys alike) that differed from the element's own when it was made, in the element's wire shape. A
+        /// field sent with the value it already had is not here. An accept writes exactly these fields.
+        /// </summary>
         [JsonProperty("fields")]
         public JObject Fields;
 
         /// <summary>
-        /// The element's values for the same fields when the proposal was made, taken by the server. An accept is
-        /// refused (409 <c>stale_proposal</c>, <see cref="OWApiError.IsStaleProposal"/>) when any of them has moved since.
+        /// The fields a whole replace (an upsert) left out that were not empty on the element (keel #565): each is in
+        /// <see cref="Fields"/> at its empty value, so an accept empties it. Show them as left empty by this replace.
+        /// Empty for a patch, a link edit or a propose; extension keys are never here.
+        /// </summary>
+        [JsonProperty("omitted")]
+        public string[] Omitted;
+
+        /// <summary>
+        /// The element's values when the proposal was made, taken by the server, for every field the write named. An
+        /// accept is refused (409 <c>stale_proposal</c>, <see cref="OWApiError.IsStaleProposal"/>) when a field in
+        /// <see cref="Fields"/> has moved since; a change to any other field does not count.
         /// </summary>
         [JsonProperty("base")]
         public JObject Base;
@@ -90,6 +130,27 @@ namespace OnlyWorlds.Sdk
 
         [JsonProperty("element")]
         public JObject Element;
+    }
+
+    /// <summary>
+    /// <see cref="OWClient.ReviewNewElementAsync"/>'s answer (keel #565): on an accept, <see cref="Element"/>, the
+    /// element as written with its mark cleared; on a decline, <see cref="Deleted"/>, the deleted element's id. The other
+    /// is null.
+    /// </summary>
+    [Serializable]
+    public class OWReviewed
+    {
+        /// <summary>The <c>decision</c> that clears the mark and keeps the element.</summary>
+        public const string Accept = "accept";
+
+        /// <summary>The <c>decision</c> that deletes the element.</summary>
+        public const string Decline = "decline";
+
+        [JsonProperty("element")]
+        public JObject Element;
+
+        [JsonProperty("deleted")]
+        public string Deleted;
     }
 
     /// <summary>One moved field on a 409 <c>stale_proposal</c> (<see cref="OWApiError.Conflicts"/>): its value when proposed and now.</summary>

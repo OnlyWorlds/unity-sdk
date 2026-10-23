@@ -208,8 +208,9 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// While the world takes agent seats' writes as proposals (keel #519), an agent seat's key tried what it may not:
-        /// delete an element it did not create, or accept or decline a proposal (403 <c>proposed_only</c>). Retrying
-        /// will not help; a person decides.
+        /// delete an element it did not create, or accept or decline a proposal (403 <c>proposed_only</c>). On any world,
+        /// a review of a new element by the member its mark names is the same 403 (keel #565). Retrying will not help; a
+        /// person decides.
         /// </summary>
         public bool IsProposedOnly => StatusCode == 403 && Code == "proposed_only";
 
@@ -218,6 +219,13 @@ namespace OnlyWorlds.Sdk
         /// or a co-builder) decides it. Retrying will not help.
         /// </summary>
         public bool IsOwnProposal => StatusCode == 403 && Code == "own_proposal";
+
+        /// <summary>
+        /// A review of a new element that carries no <c>x_review_proposed</c> mark (422 <c>not_proposed</c>, keel #565):
+        /// nothing to settle. It was never written as proposed, or an accept already landed (a retried accept meets
+        /// this; a retried decline meets a 404). npm's <c>isNotProposed</c>, the Python package's <c>is_not_proposed</c>.
+        /// </summary>
+        public bool IsNotProposed => StatusCode == 422 && Code == "not_proposed";
 
         /// <summary>
         /// Seconds to wait before retrying, from the <c>Retry-After</c> header (a delay in seconds,
