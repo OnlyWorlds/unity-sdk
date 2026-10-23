@@ -32,6 +32,15 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   as it came, a cleared `null` included.
 - Parity with the TypeScript SDK 4.66.0 and the Python package 0.35.0 (the queue, the review, `IsNotProposed`), and
   with the Python package 0.36.0 and the server's own two rules (the mark's readers); their test vectors ported.
+- **`OWClient.CreateAccountWorldAsync(OWAccountWorldCreate)`**: makes a world on the account (`POST /account/worlds`)
+  with its one write key, and returns `OWAccountWorldCreated`: the world's id, name, role and `PublicRead`, its key
+  row (`OWAccountWorldKey`: name, last four, scope, revoked), and the full `ow_w_` key in `Key`, shown this once.
+  `Name` is required; `Pin` only for an account with no PIN yet (it becomes the account PIN; either mistake is a 422
+  with `Param` `pin` and nothing made); `KeyName` names the key; `Source` and `Producer` are the folder format's
+  provenance lines, kept on the world and served back as its `origin`. Members left null are not sent. It takes an
+  account token (`ow_a_`) only: any other key is refused before anything is sent. Parity with the TypeScript SDK
+  4.66.0 (`createAccountWorld`), its test vectors ported; the answer is checked against the server's published
+  `AccountWorldCreated`.
 
 ### Changed
 
