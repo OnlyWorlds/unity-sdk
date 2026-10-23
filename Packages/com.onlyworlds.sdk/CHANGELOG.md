@@ -6,6 +6,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-10-23
+
+The world's own settings, written from Unity: `PatchWorldAsync` sends a change to a world's settings, its origin and
+its tools' extension keys (keel #571), and folders carry the world's origin as the server keeps it (folder format
+0.3.16). A minor release because it adds public API (below).
+
 ### Added
 
 - **`OWClient.PatchWorldAsync(partial)`**, a write to the world's own settings (`PATCH /world`): only the keys sent
