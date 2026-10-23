@@ -6,6 +6,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-10-23
+
+The server's newer conversation, caught up with the TypeScript SDK through 4.63.0. Writes name the client that made
+them, a tip read can come back "unchanged", the PIN goes only where the server checks it, deletes, patches and link
+edits can be made conditional on what you read, and a member can propose a change instead of making it. The sync's
+reset no longer empties a copy unless the server says the elements left the key's view. Also the room profile's
+reader, and a folder export at format 0.3.15. A minor release because it adds public API (below).
+
 ### Added
 
 - **`OWRoom.IsRoomElement(element)`**, the room profile's reader (schema-dist `profiles/room.md`, serial 45): true
@@ -15,7 +23,6 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   without the mark is lore, and a mark without a pair is not a room element. The profile's 23-case fixture is its
   test, as it is the TypeScript SDK's and the Python package's. Parity with the TypeScript SDK 4.55.0 and 4.57.2's
   trim, its tests ported.
-
 - **The client's name on every element write** (keel #520): `OWClientConfig.Client` names the software that
   writes, sent as `X-OW-Client` on `CreateAsync`, `PatchAsync`, `DeleteAsync`, `EditLinksAsync` and `BulkAsync`, never
   on a read. keel stores it on the element as `OWElement.ChangedClient` and on a `/changes` delete as the new
@@ -64,7 +71,7 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   Propose and accept send the client's name (`X-OW-Client`) and never `X-OW-Agent`, as keel's document lists. A
   world's `agent_writes_proposed` switch reads through `GetWorldAsync`; this package has no world write to strip it
   from. Parity with the TypeScript SDK 4.58.0, its test vector ported.
-- **Why a view restarted** (keel #421, while keel's hidden mark is on): `OWChangesPage.EpochReason` says why the epoch
+- **Why a view restarted** (keel #421; served while the server's hidden-element feature is on): `OWChangesPage.EpochReason` says why the epoch
   last moved, `role` (the key's own role or membership moved: keep what a fresh walk no longer names, it is out of
   view, not gone) or `view` (something left the key's view: drop it); `OWApiError.ResyncReason` reads the same word
   from a 409 `resync_required`, and covers every move since the cursor. Both are null when keel sends none. A
@@ -95,8 +102,8 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   server older than 2026-10-20), it keeps them: they are out of this key's view now, not gone, and sharing is
   forward-only. `OWSyncResult.ResyncReason` and `OWSyncResult.Kept` say which happened, and `RebaselineReason` says
   it in words. A reset whose walk fails now puts the cache and its cursor back as they were and throws, where it left
-  the cache emptied. The rule the TypeScript SDK and the Python package document for their callers; the vectors are
-  the crew's room feed's (view drops, role keeps) with the published doc's no-reason case.
+  the cache emptied. This is the rule the TypeScript SDK and the Python package document for their callers (neither
+  keeps a copy itself), with the no-reason case as the published changes documentation states it.
 - **A cursor ahead of the server's head keeps the copy too**: when `OWSync.IncrementalAsync` finds the server rewound
   (restored from a backup), it walks the world again as before, but keeps what the cache held that the restored
   server no longer names (`OWSyncResult.Kept`), where it used to clear it, and a failed walk leaves the cache as it
