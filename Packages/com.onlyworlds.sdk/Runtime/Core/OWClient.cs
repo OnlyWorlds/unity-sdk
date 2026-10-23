@@ -147,6 +147,52 @@ namespace OnlyWorlds.Sdk
             => RequestAsync<JObject>("GET", "/world/", ct: ct);
 
         /// <summary>
+        /// PATCH /world -- changes the world's own settings: only the keys sent. Returns the world as the server
+        /// holds it after.
+        /// </summary>
+        /// <param name="partial">
+        /// The keys to change: a <see cref="JObject"/>, a dictionary or any object. A <see cref="GetWorldAsync"/> body
+        /// can be sent back whole. Not changed.
+        /// </param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="partial"/> is null.</exception>
+        /// <exception cref="OWApiError">
+        /// The server refused: a key it does not take is a 422; a key only the owner may change, sent by a member's key,
+        /// is a 403 (<see cref="OWApiError.IsOwnerOnly"/>).
+        /// </exception>
+        /// <remarks>
+        /// <para>
+        /// The server-managed keys (<see cref="OWPayload.ReadOnlyFields"/>) and the world's own read-only ones
+        /// (<see cref="OWPayload.WorldReadOnlyFields"/>: <c>id</c>, <c>slug</c>, <c>public_page</c>, <c>public_read</c>,
+        /// <c>agent_narrator_rule</c>, <c>agent_writes_proposed</c>, <c>origin</c>) are left out. Everything else is sent
+        /// as given, <c>null</c> included.
+        /// </para>
+        /// <para>
+        /// The world's <c>origin</c>, where it first came from, is written as the plain keys <c>source</c> and
+        /// <c>producer</c> (each an object or <c>null</c>, which clears it; the folder format's provenance lines, §4.2) and
+        /// served back under <c>origin</c>. Extension keys (<c>x_*</c>, <c>atlas_*</c>, <c>shadow_*</c>) are a tool's own
+        /// settings on the world, kept as given at the top level of its body, at most 64 KB in all; <c>null</c> removes
+        /// one.
+        /// </para>
+        /// <para>
+        /// The owner's key may send any key the server takes; a co-builder's only <c>time_range_current</c>,
+        /// <c>source</c>, <c>producer</c> and extension keys. Sent with the PIN, as every write is, and without
+        /// <c>X-OW-Agent</c> or <c>X-OW-Client</c>, which the server reads on element writes only. A world-settings edit
+        /// does not appear in <c>/changes</c>: read <see cref="GetWorldAsync"/>'s <c>updated_at</c> for it.
+        /// </para>
+        /// </remarks>
+        public Task<JObject> PatchWorldAsync(object partial, CancellationToken ct = default)
+        {
+            if (partial == null) throw new ArgumentNullException(nameof(partial));
+
+            var body = JObject.FromObject(partial, Newtonsoft.Json.JsonSerializer.Create(OWJson.Settings));
+            foreach (var field in OWPayload.ReadOnlyFields) body.Remove(field);
+            foreach (var field in OWPayload.WorldReadOnlyFields) body.Remove(field);
+
+            return RequestAsync<JObject>("PATCH", "/world/", body: body, ct: ct);
+        }
+
+        /// <summary>
         /// GET /me -- who this key is: <c>{world, scope, kind, role, membership, character, name?}</c>. <c>kind</c> is
         /// <c>owner</c> for an owner-minted or classic key, else the membership's (<c>person</c>, <c>agent</c>,
         /// <c>player</c>); <c>role</c> is <c>owner</c>, <c>co_builder</c>, <c>contributor</c> or <c>guest</c>;

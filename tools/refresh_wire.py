@@ -12,7 +12,9 @@ sent rather than what keel serves (EditLinksAsync's /editLinks/, ChangesAsync's 
 2026-10-16). keel publishes the document; this fixture is its snapshot, so the suite needs no network.
 
 Per operation the fixture keeps `query` and `header` (parameter names, always present), `body` (the
-JSON request body's property names, when the operation takes one) and `response` (the 200/201 JSON
+JSON request body's property names, when the operation takes one), `body_patterns` (the request
+schema's patternProperties keys, when it has any: keel's extension keys, `^(atlas_|shadow_|x_)`, on
+the element writes and PATCH /world) and `response` (the 200/201 JSON
 answer's property names, when it declares one). Both name lists go one level down: `world.name`
 for an object's property, `characters[].taken` for an array of objects' items. A `$ref` is
 resolved into components; `allOf`, `oneOf` and `anyOf` are merged (an answer told apart by `kind`
@@ -81,6 +83,16 @@ def names(doc, schema):
     return sorted(out)
 
 
+def patterns(doc, schema):
+    """An object schema's patternProperties keys (regexes a key may match), allOf/oneOf/anyOf merged, sorted."""
+    schema = resolve(doc, schema)
+    out = set(schema.get('patternProperties', {}))
+    for key in ('allOf', 'oneOf', 'anyOf'):
+        for branch in schema.get(key, []):
+            out.update(patterns(doc, branch))
+    return sorted(out)
+
+
 def json_schema(doc, holder):
     """The application/json schema of a requestBody or a response, or None when it has none."""
     holder = resolve(doc, holder)
@@ -106,6 +118,8 @@ def extract(doc):
             body = json_schema(doc, op.get('requestBody', {}))
             if body is not None:
                 entry['body'] = names(doc, body)
+                if patterns(doc, body):
+                    entry['body_patterns'] = patterns(doc, body)
             answers = [json_schema(doc, op.get('responses', {}).get(code, {})) for code in ('200', '201')]
             answers = [a for a in answers if a is not None]
             if answers:

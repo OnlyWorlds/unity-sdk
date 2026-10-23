@@ -6,6 +6,33 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **`OWClient.PatchWorldAsync(partial)`**, a write to the world's own settings (`PATCH /world`): only the keys sent
+  change, and the call returns the world as the server holds it after. A `GetWorldAsync` body can be sent back whole:
+  the keys the server refuses there are left out (`id`, `slug`, `public_page`, `public_read`, `agent_narrator_rule`,
+  `agent_writes_proposed`, `origin`, now listed as `OWPayload.WorldReadOnlyFields`, and the element write's own
+  read-only keys). A world's origin, where it first came from, is written as the plain keys `source` and `producer`
+  (each an object, or `null` to clear it; keel #571) and served back under `origin`. The world's extension keys
+  (`x_*`, `atlas_*`, `shadow_*`, at the top level of its body, at most 64 KB in all) are sent as given, and `null`
+  removes one. The owner's key may change any setting the server takes; a co-builder's only `time_range_current`,
+  `source`, `producer` and extension keys, and anything more is a 403 (`OWApiError.IsOwnerOnly`). Sent with the PIN,
+  like every write, and without `X-OW-Agent` or `X-OW-Client`. Parity with the TypeScript SDK 4.65.0 and the Python
+  package 0.34.0, their test vectors ported.
+
+### Changed
+
+- **A folder export declares folder format 0.3.16** (`OWFolderExport.FormatVersion`), with the onlyworlds Python
+  package's 0.33.0. The world's `origin` (its first import, as the server keeps it since keel #571) is written into
+  `world.json` exactly as `GET /world` serves it or as the one-file export carries it, beside the export's own `source`
+  and `producer`; it is never made up from those two, and a world that has none gets none. The world's extension keys
+  ride along the same way. Both readers (`OWFolderReader`, `OWEnvelopeReader`) keep `origin` and the extension keys in
+  the world they read, so a folder rewritten from a read one carries them byte for byte. Nothing else in what an
+  export writes changed.
+- The schema pin moves to dist.51 (`v0.33.0-dist.51`; canonical `00.33.00` unchanged, no schema file moved). Only
+  the example one-file export moved: its world block is now the World whole, with `origin` and an `x_names` map. The
+  package's test copy of it moves with it.
+
 ### Fixed
 
 - **The settings window's key note wraps**: the write key's line ("writes need one (a seat's secret, or the account

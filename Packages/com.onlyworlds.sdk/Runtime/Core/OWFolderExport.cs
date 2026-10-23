@@ -108,7 +108,7 @@ namespace OnlyWorlds.Sdk
     public static class OWFolderExport
     {
         /// <summary>The OW Folder Format version an export declares in <c>world.json</c>.</summary>
-        public const string FormatVersion = "0.3.15";
+        public const string FormatVersion = "0.3.16";
 
         /// <summary>The name this package publishes under: the <c>tool</c> of the <c>producer</c> line it writes.</summary>
         public const string ProducerTool = "com.onlyworlds.sdk";
@@ -222,6 +222,12 @@ namespace OnlyWorlds.Sdk
         /// A <c>format_version</c> the body already carries is kept as it is, even null: the version is
         /// written at a folder's birth and never rewritten.
         /// </para>
+        /// <para>
+        /// <c>origin</c> (§4.2, v0.3.16) is the world's first import as the server keeps it, <c>{source, producer}</c>:
+        /// carried as given, from <c>GET /world</c> or a read <c>world.json</c>, and never derived from <c>source</c> or
+        /// <c>producer</c>, which name this folder's maker. A world that has none gets none. The World's extension keys
+        /// (<c>x_</c>, <c>atlas_</c>, <c>shadow_</c>, at the top level of its body) ride along like any other key.
+        /// </para>
         /// </remarks>
         public static JObject WorldForDisk(JObject wireWorld, IReadOnlyDictionary<string, int> counts = null)
         {
@@ -329,7 +335,8 @@ namespace OnlyWorlds.Sdk
             // The provenance lines (§4.2, v0.3.9 and v0.3.14) after the wire's keys, as the package's export_world adds
             // them. An export is a folder's birth, so source and producer are always this export's own: a body that
             // already carries either (keel keeps them from a folder upload) names the maker of another folder, and its
-            // line is replaced where it stands.
+            // line is replaced where it stands. The body's origin (v0.3.16), the world's first import, is the server's and
+            // rides along as served; none served, none written.
             wireWorld = (JObject)wireWorld.DeepClone();
             wireWorld["source"] = new JObject
             {
@@ -382,7 +389,8 @@ namespace OnlyWorlds.Sdk
         /// <para>
         /// The file's maker is the folder's maker: the <c>producer</c> line its world carries (keel's) is written verbatim,
         /// as its <c>source</c> is, and a file whose world carries none gives a folder with none (§4.2, v0.3.14: absent is
-        /// the honest value, and a later writer never invents one).
+        /// the honest value, and a later writer never invents one). Its <c>origin</c> (v0.3.16), the world's first import,
+        /// is carried the same way, and a file with none gives a folder with none.
         /// </para>
         /// </remarks>
         public static async Task<OWFolderExportReport> ExportFileAsync(

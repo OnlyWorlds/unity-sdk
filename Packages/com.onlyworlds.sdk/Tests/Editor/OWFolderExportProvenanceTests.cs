@@ -178,6 +178,31 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 world.Properties().Select(p => p.Name), "replaced where they stood, as the package's dict assignment does");
         }
 
+        // -- origin (§4.2, v0.3.16) ----------------------------------------------------------------------
+
+        [Test]
+        public async Task AnExport_CarriesTheServersOrigin_BesideItsOwnLines()
+        {
+            // The world's first import, as the server keeps it, beside this export's own fresh lines. The package's vector.
+            const string first = "{\"source\":null,\"producer\":{\"tool\":\"lantern\",\"version\":\"0.9.0\",\"input\":\"bare\"}}";
+            var world = await Export(new RouteTransport { World = "{\"id\":\"w-1\",\"name\":\"W\",\"public_read\":false,\"origin\":" + first + "}" });
+
+            Assert.AreEqual(first, world["origin"].ToString(Newtonsoft.Json.Formatting.None), "as served");
+            Assert.AreEqual("w-1", (string)world["source"]["world"], "this export's own line, fresh");
+            Assert.IsTrue(JToken.DeepEquals(OWFolderExport.ExportProducer, world["producer"]));
+            CollectionAssert.AreEqual(new[] { "id", "name", "public_read", "origin", "source", "producer", "format_version" },
+                world.Properties().Select(p => p.Name));
+        }
+
+        [Test]
+        public async Task AnExport_OfAWorldServingNoOrigin_WritesNone()
+        {
+            // None served, none written: the export's own source and producer are never turned into one.
+            var world = await Export(Moor("{\"kind\":\"owner\",\"role\":\"owner\",\"character\":null}"));
+
+            Assert.IsFalse(world.ContainsKey("origin"));
+        }
+
         [Test]
         public void TheProducersVersion_IsThePackagesVersion()
         {

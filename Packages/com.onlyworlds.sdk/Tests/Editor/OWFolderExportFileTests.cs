@@ -118,6 +118,39 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public async Task TheFilesOrigin_AndExtensionStore_AreCarriedVerbatim()
+        {
+            // Folder spec §4.2 (v0.3.16): keel's download writes origin, the world's first import, beside its own lines,
+            // and the World's extension keys at the top level (keel #571). The folder keeps both as the file has them.
+            var world = @"{""id"":""w1"",""name"":""W"",
+                ""origin"":{""source"":{""server"":""https://www.onlyworlds.com"",""world"":""w0"",""at"":""2026-10-18T09:00:00+00:00""},
+                    ""producer"":{""tool"":""atlas"",""input"":""server"",""version"":""1.19.0""}},
+                ""x_names"":{""types"":{""character"":{""one"":""Villager"",""many"":""Villagers""}},""version"":1},
+                ""source"":{""server"":""https://www.onlyworlds.com"",""world"":""w1"",""at"":""2026-10-22T05:00:00+00:00""}}";
+            await OWFolderExport.ExportFileAsync(ExportFile(@"{""character"":[{""id"":""c1"",""name"":""Pip""}]}", world), _folder, NoMedia);
+
+            var written = OWFolderReader.Read(_folder).World;
+            var given = OWFolderWriter.Parse(world);
+            Assert.IsTrue(JToken.DeepEquals(given["origin"], written["origin"]), "the first import, as the file has it");
+            CollectionAssert.AreEqual(new[] { "tool", "input", "version" }, ((JObject)written["origin"]["producer"]).Properties().Select(p => p.Name),
+                "its key order too");
+            Assert.IsTrue(JToken.DeepEquals(given["x_names"], written["x_names"]));
+            CollectionAssert.AreEqual(new[] { "id", "name", "origin", "x_names", "source", "format_version" }, written.Properties().Select(p => p.Name));
+        }
+
+        [Test]
+        public async Task AFileWithNoOrigin_GivesAFolderWithNone_WhateverItsOtherLines()
+        {
+            // A writer never derives one: keel's own source and producer describe the download, not the world's first import.
+            var world = @"{""id"":""w1"",""name"":""W"",
+                ""source"":{""server"":""https://www.onlyworlds.com"",""world"":""w1"",""at"":""2026-10-22T05:00:00+00:00""},
+                ""producer"":{""tool"":""keel"",""version"":""2026.10.23"",""input"":""server""}}";
+            await OWFolderExport.ExportFileAsync(ExportFile(@"{""character"":[{""id"":""c1"",""name"":""Pip""}]}", world), _folder, NoMedia);
+
+            Assert.IsFalse(OWFolderReader.Read(_folder).World.ContainsKey("origin"));
+        }
+
+        [Test]
         public async Task AFileWithNoProducer_GivesAFolderWithNone()
         {
             // Absent is the honest value: this SDK copied the file, it did not make the world.
