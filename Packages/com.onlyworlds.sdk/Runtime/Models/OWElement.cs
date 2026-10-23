@@ -178,6 +178,16 @@ namespace OnlyWorlds.Sdk
                && marker != null && marker.Type == Newtonsoft.Json.Linq.JTokenType.Boolean && (bool)marker;
 
         /// <summary>
+        /// True for a hidden element (<c>hidden: true</c>, folder format §4.8): shown to the world's holder with the word
+        /// hidden on it, left out by a reader that hands the world on (<see cref="OWPayload.IsHidden"/>). Read from the
+        /// extensions bag, so the key goes back out only as it came in.
+        /// </summary>
+        public bool IsHidden
+            => _extensions != null
+               && _extensions.TryGetValue(OWPayload.Hidden, out var mark)
+               && mark != null && mark.Type == Newtonsoft.Json.Linq.JTokenType.Boolean && (bool)mark;
+
+        /// <summary>
         /// True for a proposed element (<c>x_review_proposed</c> an object, keel #565): not canon until a keeper settles
         /// it. The queue's and a viewer's rule (<see cref="OWPayload.IsProposed"/>); the mark stays in the extensions bag.
         /// </summary>

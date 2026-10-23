@@ -5,7 +5,7 @@
     "X-Session-Token",
     "Authorization"
   ],
-  "document_sha256": "da570dd9121348f97d90c91b1a6de8d396f09440f519f1aa50976daeb27ed4d7",
+  "document_sha256": "dcf66a40cba7b51da5a86cdb1b25061ccd0148f97149326293a83b7ce0485a35",
   "error_codes": {
     "already_member": 409,
     "already_reported": 409,
@@ -24,6 +24,7 @@
     "files_full": 403,
     "gone": 410,
     "guest_not_supported": 403,
+    "hidden_not_allowed": 403,
     "id_conflict": 409,
     "idempotency_error": 409,
     "idempotency_in_flight": 409,
@@ -69,7 +70,7 @@
     "world_full": 422,
     "write_failed": 502
   },
-  "fetched": "2026-10-23T10:28+02:00",
+  "fetched": "2026-10-23T13:44+02:00",
   "openapi_version": "2.0",
   "paths": {
     "/api/v2/ability": {
@@ -1773,6 +1774,7 @@
         "query": [
           "as_of",
           "budget",
+          "compact",
           "components",
           "depth",
           "mode",
@@ -1811,6 +1813,7 @@
           "now",
           "policy",
           "proposed",
+          "proposed[].circles",
           "proposed[].element",
           "proposed[].grade",
           "proposed[].her_links",
@@ -1830,6 +1833,7 @@
           "role[].her_links",
           "role[].via",
           "room",
+          "room[].circles",
           "room[].element",
           "room[].grade",
           "room[].her_links",

@@ -6,6 +6,20 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Reading the hidden mark** (folder format §4.8): `OWPayload.IsHidden(body)` and `OWElement.IsHidden` are true when an
+  element's `hidden` is the boolean `true`. A folder carries no viewer identity, so the mark means hidden from whoever
+  the world is handed to, never from the person who opened it: a viewer shows the element with the word hidden on it,
+  and a reader that hands the world on leaves it out unless asked. The key is kept and written back as it came.
+
+### Changed
+
+- Folders declare format 0.3.18. The version adds the producer `input` word `campfire-export` and rules
+  the hidden mark (§4.8): an element file's `hidden: true` stays hidden, and a push never publishes it. This SDK
+  writes `server`, reads every word as given and keeps the mark byte for byte; it has no push from a folder (a folder
+  loads into a read-only cache), so nothing else moved.
+
 ## [0.18.1] - 2026-10-23
 
 Folders declare format 0.3.17. A patch release: nothing else changed.

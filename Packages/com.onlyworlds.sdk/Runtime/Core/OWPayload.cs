@@ -90,6 +90,26 @@ namespace OnlyWorlds.Sdk
             return marker != null && marker.Type == JTokenType.Boolean && (bool)marker;
         }
 
+        /// <summary>The hidden mark on an element (folder format §4.8; keel #421, #587).</summary>
+        public const string Hidden = "hidden";
+
+        /// <summary>
+        /// True for an element whose <c>hidden</c> is the JSON boolean <c>true</c>: what its source or its owner hid. Absent,
+        /// <c>false</c> or anything else is not hidden.
+        /// </summary>
+        /// <remarks>
+        /// Folder format §4.8 (RULED 2026-10-23, Skeld h58 #11461): a folder carries no viewer identity, so the mark means
+        /// hidden from whoever the world is handed to, never from the person who opened it. A reader that shows a world to
+        /// its holder (a viewer, this SDK's folder readers handing elements to their own caller) shows the element with
+        /// the word hidden on it; a reader that hands a world on (a pack, a context packet, a share) leaves it out unless
+        /// asked and counts what it left out. A writer keeps the key byte for byte.
+        /// </remarks>
+        public static bool IsHidden(JObject body)
+        {
+            var mark = body?[Hidden];
+            return mark != null && mark.Type == JTokenType.Boolean && (bool)mark;
+        }
+
         /// <summary>The review profile's mark on a new element written as proposed (schema-dist <c>profiles/review.md</c>; keel #565).</summary>
         public const string ReviewProposed = "x_review_proposed";
 
