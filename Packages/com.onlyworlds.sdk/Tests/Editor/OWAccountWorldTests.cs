@@ -195,9 +195,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public void ThePublishedTypes_TheRequestsFiveKeys_TheAnswerTheWorldRowPlusKey()
         {
             // npm's published-types vector, in keel's spelling: what each class maps is what the wire carries.
-            CollectionAssert.AreEqual(new[] { "name", "pin", "key_name", "source", "producer" }, Mapped(typeof(OWAccountWorldCreate)));
-            CollectionAssert.AreEqual(new[] { "id", "name", "role", "public_read", "keys", "key" }, Mapped(typeof(OWAccountWorldCreated)));
-            CollectionAssert.AreEqual(new[] { "name", "last4", "scope", "revoked" }, Mapped(typeof(OWAccountWorldKey)));
+            // As sets: GetFields promises no order, and the claim is which keys each class maps, not where they sit.
+            CollectionAssert.AreEquivalent(new[] { "name", "pin", "key_name", "source", "producer" }, Mapped(typeof(OWAccountWorldCreate)));
+            CollectionAssert.AreEquivalent(new[] { "id", "name", "role", "public_read", "keys", "key" }, Mapped(typeof(OWAccountWorldCreated)));
+            CollectionAssert.AreEquivalent(new[] { "name", "last4", "scope", "revoked" }, Mapped(typeof(OWAccountWorldKey)));
 
             var method = typeof(OWClient).GetMethod(nameof(OWClient.CreateAccountWorldAsync));
             Assert.AreEqual(typeof(Task<OWAccountWorldCreated>), method.ReturnType);
