@@ -183,6 +183,23 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual("w1", OWEnvelopeReader.Parse(json).WorldId);
         }
 
+        [Test]
+        public void TheWorldBlock_KeepsOriginAndTheExtensionStore_AsGiven()
+        {
+            // keel #571: the download's world block carries origin and the World's top-level x_, atlas_ and shadow_ keys.
+            // The reader tolerates them and keeps them whole; it reads none of them into a shape.
+            var world = @"{""id"":""w1"",""name"":""W"",
+                ""origin"":{""source"":null,""producer"":{""tool"":""atlas"",""version"":""1.19.0"",""input"":""server""}},
+                ""x_names"":{""types"":{""character"":{""one"":""Villager""}},""version"":1},""atlas_color"":""#8b0000"",""shadow_seen"":[]}";
+
+            var read = OWEnvelopeReader.Parse(Envelope("{}", world));
+
+            Assert.AreEqual("w1", read.WorldId);
+            Assert.IsTrue(JToken.DeepEquals(OWFolderWriter.Parse(world), read.World), "every key as the file gives it");
+            CollectionAssert.AreEqual(new[] { "id", "name", "origin", "x_names", "atlas_color", "shadow_seen" },
+                read.World.Properties().Select(p => p.Name));
+        }
+
         [TestCase(@"{""world"":{""id"":""w1""},""elements"":{}}", "missing")]
         [TestCase(@"{""format"":""onlyworlds-world"",""world"":{""id"":""w1""}}", "onlyworlds-world")]
         [TestCase(@"{""format"":1,""world"":{""id"":""w1""}}", "missing")]
