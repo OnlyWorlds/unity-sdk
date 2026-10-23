@@ -5,7 +5,7 @@
     "X-Session-Token",
     "Authorization"
   ],
-  "document_sha256": "3bce5b000739848132f062ea5eb619d9241c63f172525fa6159e82cccdbdea54",
+  "document_sha256": "441f7ffec6360bda0addfae92dcb442e40c51cfa16e2af4be297e923afda94aa",
   "error_codes": {
     "already_member": 409,
     "already_reported": 409,
@@ -37,6 +37,7 @@
     "method_not_allowed": 405,
     "not_author": 403,
     "not_found": 404,
+    "not_proposed": 422,
     "not_removable": 403,
     "own_proposal": 403,
     "owner_only": 403,
@@ -68,7 +69,7 @@
     "world_full": 422,
     "write_failed": 502
   },
-  "fetched": "2026-10-23T05:59+02:00",
+  "fetched": "2026-10-23T09:48+02:00",
   "openapi_version": "2.0",
   "paths": {
     "/api/v2/ability": {
@@ -85,7 +86,8 @@
           "name",
           "name__icontains",
           "subtype",
-          "supertype"
+          "supertype",
+          "world"
         ],
         "response": [
           "data",
@@ -209,7 +211,8 @@
         "query": [
           "as",
           "expand",
-          "fields"
+          "fields",
+          "world"
         ],
         "response": [
           "activation",
@@ -577,6 +580,8 @@
           "data[].expires",
           "data[].fields",
           "data[].id",
+          "data[].kind",
+          "data[].omitted",
           "data[].state",
           "data[].updated_at",
           "data[].via",
@@ -611,6 +616,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -646,6 +653,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -675,9 +684,27 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/ability/{id}/review": {
+      "POST": {
+        "body": [
+          "decision",
+          "reason"
+        ],
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "deleted",
+          "element"
         ]
       }
     },
@@ -1210,7 +1237,8 @@
           "name",
           "name__icontains",
           "subtype",
-          "supertype"
+          "supertype",
+          "world"
         ],
         "response": [
           "data",
@@ -1391,7 +1419,8 @@
         "query": [
           "as",
           "expand",
-          "fields"
+          "fields",
+          "world"
         ],
         "response": [
           "CHA",
@@ -1769,6 +1798,11 @@
           "names",
           "now",
           "policy",
+          "proposed",
+          "proposed[].element",
+          "proposed[].grade",
+          "proposed[].her_links",
+          "proposed[].via",
           "recent",
           "recent[].door",
           "recent[].id",
@@ -1984,6 +2018,8 @@
           "data[].expires",
           "data[].fields",
           "data[].id",
+          "data[].kind",
+          "data[].omitted",
           "data[].state",
           "data[].updated_at",
           "data[].via",
@@ -2018,6 +2054,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -2053,6 +2091,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -2082,9 +2122,27 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/character/{id}/review": {
+      "POST": {
+        "body": [
+          "decision",
+          "reason"
+        ],
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "deleted",
+          "element"
         ]
       }
     },
@@ -2103,7 +2161,8 @@
           "name",
           "name__icontains",
           "subtype",
-          "supertype"
+          "supertype",
+          "world"
         ],
         "response": [
           "data",
@@ -2227,7 +2286,8 @@
         "query": [
           "as",
           "expand",
-          "fields"
+          "fields",
+          "world"
         ],
         "response": [
           "abilities",
@@ -2595,6 +2655,8 @@
           "data[].expires",
           "data[].fields",
           "data[].id",
+          "data[].kind",
+          "data[].omitted",
           "data[].state",
           "data[].updated_at",
           "data[].via",
@@ -2629,6 +2691,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -2664,6 +2728,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -2693,9 +2759,27 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/collective/{id}/review": {
+      "POST": {
+        "body": [
+          "decision",
+          "reason"
+        ],
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "deleted",
+          "element"
         ]
       }
     },
@@ -2714,7 +2798,8 @@
           "name",
           "name__icontains",
           "subtype",
-          "supertype"
+          "supertype",
+          "world"
         ],
         "response": [
           "data",
@@ -2874,7 +2959,8 @@
         "query": [
           "as",
           "expand",
-          "fields"
+          "fields",
+          "world"
         ],
         "response": [
           "abilities",
@@ -3326,6 +3412,8 @@
           "data[].expires",
           "data[].fields",
           "data[].id",
+          "data[].kind",
+          "data[].omitted",
           "data[].state",
           "data[].updated_at",
           "data[].via",
@@ -3360,6 +3448,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -3395,6 +3485,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -3424,9 +3516,27 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/construct/{id}/review": {
+      "POST": {
+        "body": [
+          "decision",
+          "reason"
+        ],
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "deleted",
+          "element"
         ]
       }
     },
@@ -3444,7 +3554,8 @@
           "name",
           "name__icontains",
           "subtype",
-          "supertype"
+          "supertype",
+          "world"
         ],
         "response": [
           "data",
@@ -3580,7 +3691,8 @@
         "query": [
           "as",
           "expand",
-          "fields"
+          "fields",
+          "world"
         ],
         "response": [
           "abilities",
@@ -3976,6 +4088,8 @@
           "data[].expires",
           "data[].fields",
           "data[].id",
+          "data[].kind",
+          "data[].omitted",
           "data[].state",
           "data[].updated_at",
           "data[].via",
@@ -4010,6 +4124,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -4045,6 +4161,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -4074,9 +4192,27 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/creature/{id}/review": {
+      "POST": {
+        "body": [
+          "decision",
+          "reason"
+        ],
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "deleted",
+          "element"
         ]
       }
     },
@@ -4095,7 +4231,8 @@
           "name",
           "name__icontains",
           "subtype",
-          "supertype"
+          "supertype",
+          "world"
         ],
         "response": [
           "data",
@@ -4243,7 +4380,8 @@
         "query": [
           "as",
           "expand",
-          "fields"
+          "fields",
+          "world"
         ],
         "response": [
           "abilities",
@@ -4667,6 +4805,8 @@
           "data[].expires",
           "data[].fields",
           "data[].id",
+          "data[].kind",
+          "data[].omitted",
           "data[].state",
           "data[].updated_at",
           "data[].via",
@@ -4701,6 +4841,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -4736,6 +4878,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -4765,9 +4909,27 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/event/{id}/review": {
+      "POST": {
+        "body": [
+          "decision",
+          "reason"
+        ],
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "deleted",
+          "element"
         ]
       }
     },
@@ -4785,7 +4947,8 @@
           "name",
           "name__icontains",
           "subtype",
-          "supertype"
+          "supertype",
+          "world"
         ],
         "response": [
           "data",
@@ -4903,7 +5066,8 @@
         "query": [
           "as",
           "expand",
-          "fields"
+          "fields",
+          "world"
         ],
         "response": [
           "abilities",
@@ -5257,6 +5421,8 @@
           "data[].expires",
           "data[].fields",
           "data[].id",
+          "data[].kind",
+          "data[].omitted",
           "data[].state",
           "data[].updated_at",
           "data[].via",
@@ -5291,6 +5457,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -5326,6 +5494,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -5355,9 +5525,27 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/family/{id}/review": {
+      "POST": {
+        "body": [
+          "decision",
+          "reason"
+        ],
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "deleted",
+          "element"
         ]
       }
     },
@@ -5409,7 +5597,8 @@
           "name",
           "name__icontains",
           "subtype",
-          "supertype"
+          "supertype",
+          "world"
         ],
         "response": [
           "data",
@@ -5521,7 +5710,8 @@
         "query": [
           "as",
           "expand",
-          "fields"
+          "fields",
+          "world"
         ],
         "response": [
           "adversaries",
@@ -5861,6 +6051,8 @@
           "data[].expires",
           "data[].fields",
           "data[].id",
+          "data[].kind",
+          "data[].omitted",
           "data[].state",
           "data[].updated_at",
           "data[].via",
@@ -5895,6 +6087,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -5930,6 +6124,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -5959,9 +6155,27 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/institution/{id}/review": {
+      "POST": {
+        "body": [
+          "decision",
+          "reason"
+        ],
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "deleted",
+          "element"
         ]
       }
     },
@@ -6053,7 +6267,8 @@
           "name",
           "name__icontains",
           "subtype",
-          "supertype"
+          "supertype",
+          "world"
         ],
         "response": [
           "data",
@@ -6159,7 +6374,8 @@
         "query": [
           "as",
           "expand",
-          "fields"
+          "fields",
+          "world"
         ],
         "response": [
           "change_seq",
@@ -6485,6 +6701,8 @@
           "data[].expires",
           "data[].fields",
           "data[].id",
+          "data[].kind",
+          "data[].omitted",
           "data[].state",
           "data[].updated_at",
           "data[].via",
@@ -6519,6 +6737,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -6554,6 +6774,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -6583,9 +6805,27 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/language/{id}/review": {
+      "POST": {
+        "body": [
+          "decision",
+          "reason"
+        ],
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "deleted",
+          "element"
         ]
       }
     },
@@ -6603,7 +6843,8 @@
           "name",
           "name__icontains",
           "subtype",
-          "supertype"
+          "supertype",
+          "world"
         ],
         "response": [
           "data",
@@ -6718,7 +6959,8 @@
         "query": [
           "as",
           "expand",
-          "fields"
+          "fields",
+          "world"
         ],
         "response": [
           "adjudicators",
@@ -7065,6 +7307,8 @@
           "data[].expires",
           "data[].fields",
           "data[].id",
+          "data[].kind",
+          "data[].omitted",
           "data[].state",
           "data[].updated_at",
           "data[].via",
@@ -7099,6 +7343,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -7134,6 +7380,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -7163,9 +7411,27 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/law/{id}/review": {
+      "POST": {
+        "body": [
+          "decision",
+          "reason"
+        ],
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "deleted",
+          "element"
         ]
       }
     },
@@ -7183,7 +7449,8 @@
           "name",
           "name__icontains",
           "subtype",
-          "supertype"
+          "supertype",
+          "world"
         ],
         "response": [
           "data",
@@ -7358,7 +7625,8 @@
         "query": [
           "as",
           "expand",
-          "fields"
+          "fields",
+          "world"
         ],
         "response": [
           "architecture",
@@ -7845,6 +8113,8 @@
           "data[].expires",
           "data[].fields",
           "data[].id",
+          "data[].kind",
+          "data[].omitted",
           "data[].state",
           "data[].updated_at",
           "data[].via",
@@ -7879,6 +8149,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -7914,6 +8186,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -7943,9 +8217,27 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/location/{id}/review": {
+      "POST": {
+        "body": [
+          "decision",
+          "reason"
+        ],
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "deleted",
+          "element"
         ]
       }
     },
@@ -7963,7 +8255,8 @@
           "name",
           "name__icontains",
           "subtype",
-          "supertype"
+          "supertype",
+          "world"
         ],
         "response": [
           "data",
@@ -8066,7 +8359,8 @@
         "query": [
           "as",
           "expand",
-          "fields"
+          "fields",
+          "world"
         ],
         "response": [
           "background_color",
@@ -8385,6 +8679,8 @@
           "data[].expires",
           "data[].fields",
           "data[].id",
+          "data[].kind",
+          "data[].omitted",
           "data[].state",
           "data[].updated_at",
           "data[].via",
@@ -8419,6 +8715,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -8454,6 +8752,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -8483,9 +8783,27 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/map/{id}/review": {
+      "POST": {
+        "body": [
+          "decision",
+          "reason"
+        ],
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "deleted",
+          "element"
         ]
       }
     },
@@ -8503,7 +8821,8 @@
           "name",
           "name__icontains",
           "subtype",
-          "supertype"
+          "supertype",
+          "world"
         ],
         "response": [
           "data",
@@ -8603,7 +8922,8 @@
         "query": [
           "as",
           "expand",
-          "fields"
+          "fields",
+          "world"
         ],
         "response": [
           "change_seq",
@@ -8915,6 +9235,8 @@
           "data[].expires",
           "data[].fields",
           "data[].id",
+          "data[].kind",
+          "data[].omitted",
           "data[].state",
           "data[].updated_at",
           "data[].via",
@@ -8949,6 +9271,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -8984,6 +9308,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -9013,9 +9339,27 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/marker/{id}/review": {
+      "POST": {
+        "body": [
+          "decision",
+          "reason"
+        ],
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "deleted",
+          "element"
         ]
       }
     },
@@ -9131,7 +9475,8 @@
           "name",
           "name__icontains",
           "subtype",
-          "supertype"
+          "supertype",
+          "world"
         ],
         "response": [
           "data",
@@ -9297,7 +9642,8 @@
         "query": [
           "as",
           "expand",
-          "fields"
+          "fields",
+          "world"
         ],
         "response": [
           "abilities",
@@ -9763,6 +10109,8 @@
           "data[].expires",
           "data[].fields",
           "data[].id",
+          "data[].kind",
+          "data[].omitted",
           "data[].state",
           "data[].updated_at",
           "data[].via",
@@ -9797,6 +10145,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -9832,6 +10182,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -9861,9 +10213,27 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/narrative/{id}/review": {
+      "POST": {
+        "body": [
+          "decision",
+          "reason"
+        ],
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "deleted",
+          "element"
         ]
       }
     },
@@ -9881,7 +10251,8 @@
           "name",
           "name__icontains",
           "subtype",
-          "supertype"
+          "supertype",
+          "world"
         ],
         "response": [
           "data",
@@ -10005,7 +10376,8 @@
         "query": [
           "as",
           "expand",
-          "fields"
+          "fields",
+          "world"
         ],
         "response": [
           "abilities",
@@ -10373,6 +10745,8 @@
           "data[].expires",
           "data[].fields",
           "data[].id",
+          "data[].kind",
+          "data[].omitted",
           "data[].state",
           "data[].updated_at",
           "data[].via",
@@ -10407,6 +10781,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -10442,6 +10818,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -10471,9 +10849,27 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/object/{id}/review": {
+      "POST": {
+        "body": [
+          "decision",
+          "reason"
+        ],
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "deleted",
+          "element"
         ]
       }
     },
@@ -10491,7 +10887,8 @@
           "name",
           "name__icontains",
           "subtype",
-          "supertype"
+          "supertype",
+          "world"
         ],
         "response": [
           "data",
@@ -10603,7 +11000,8 @@
         "query": [
           "as",
           "expand",
-          "fields"
+          "fields",
+          "world"
         ],
         "response": [
           "catalysts",
@@ -10943,6 +11341,8 @@
           "data[].expires",
           "data[].fields",
           "data[].id",
+          "data[].kind",
+          "data[].omitted",
           "data[].state",
           "data[].updated_at",
           "data[].via",
@@ -10977,6 +11377,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -11012,6 +11414,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -11041,9 +11445,27 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/phenomenon/{id}/review": {
+      "POST": {
+        "body": [
+          "decision",
+          "reason"
+        ],
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "deleted",
+          "element"
         ]
       }
     },
@@ -11061,7 +11483,8 @@
           "name",
           "name__icontains",
           "subtype",
-          "supertype"
+          "supertype",
+          "world"
         ],
         "response": [
           "data",
@@ -11161,7 +11584,8 @@
         "query": [
           "as",
           "expand",
-          "fields"
+          "fields",
+          "world"
         ],
         "response": [
           "change_seq",
@@ -11473,6 +11897,8 @@
           "data[].expires",
           "data[].fields",
           "data[].id",
+          "data[].kind",
+          "data[].omitted",
           "data[].state",
           "data[].updated_at",
           "data[].via",
@@ -11507,6 +11933,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -11542,6 +11970,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -11571,9 +12001,27 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/pin/{id}/review": {
+      "POST": {
+        "body": [
+          "decision",
+          "reason"
+        ],
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "deleted",
+          "element"
         ]
       }
     },
@@ -11592,7 +12040,8 @@
           "name",
           "name__icontains",
           "subtype",
-          "supertype"
+          "supertype",
+          "world"
         ],
         "response": [
           "data",
@@ -11740,7 +12189,8 @@
         "query": [
           "as",
           "expand",
-          "fields"
+          "fields",
+          "world"
         ],
         "response": [
           "abilities",
@@ -12164,6 +12614,8 @@
           "data[].expires",
           "data[].fields",
           "data[].id",
+          "data[].kind",
+          "data[].omitted",
           "data[].state",
           "data[].updated_at",
           "data[].via",
@@ -12198,6 +12650,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -12233,6 +12687,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -12262,9 +12718,27 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/relation/{id}/review": {
+      "POST": {
+        "body": [
+          "decision",
+          "reason"
+        ],
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "deleted",
+          "element"
         ]
       }
     },
@@ -12275,7 +12749,8 @@
           "as",
           "limit",
           "q",
-          "type"
+          "type",
+          "world"
         ],
         "response": [
           "count",
@@ -12307,7 +12782,8 @@
           "name",
           "name__icontains",
           "subtype",
-          "supertype"
+          "supertype",
+          "world"
         ],
         "response": [
           "data",
@@ -12440,7 +12916,8 @@
         "query": [
           "as",
           "expand",
-          "fields"
+          "fields",
+          "world"
         ],
         "response": [
           "adaptations",
@@ -12829,6 +13306,8 @@
           "data[].expires",
           "data[].fields",
           "data[].id",
+          "data[].kind",
+          "data[].omitted",
           "data[].state",
           "data[].updated_at",
           "data[].via",
@@ -12863,6 +13342,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -12898,6 +13379,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -12927,9 +13410,27 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/species/{id}/review": {
+      "POST": {
+        "body": [
+          "decision",
+          "reason"
+        ],
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "deleted",
+          "element"
         ]
       }
     },
@@ -12948,7 +13449,8 @@
           "name",
           "name__icontains",
           "subtype",
-          "supertype"
+          "supertype",
+          "world"
         ],
         "response": [
           "data",
@@ -13102,7 +13604,8 @@
         "query": [
           "as",
           "expand",
-          "fields"
+          "fields",
+          "world"
         ],
         "response": [
           "authority",
@@ -13540,6 +14043,8 @@
           "data[].expires",
           "data[].fields",
           "data[].id",
+          "data[].kind",
+          "data[].omitted",
           "data[].state",
           "data[].updated_at",
           "data[].via",
@@ -13574,6 +14079,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -13609,6 +14116,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -13638,9 +14147,27 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/title/{id}/review": {
+      "POST": {
+        "body": [
+          "decision",
+          "reason"
+        ],
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "deleted",
+          "element"
         ]
       }
     },
@@ -13658,7 +14185,8 @@
           "name",
           "name__icontains",
           "subtype",
-          "supertype"
+          "supertype",
+          "world"
         ],
         "response": [
           "data",
@@ -13782,7 +14310,8 @@
         "query": [
           "as",
           "expand",
-          "fields"
+          "fields",
+          "world"
         ],
         "response": [
           "anti_trait",
@@ -14150,6 +14679,8 @@
           "data[].expires",
           "data[].fields",
           "data[].id",
+          "data[].kind",
+          "data[].omitted",
           "data[].state",
           "data[].updated_at",
           "data[].via",
@@ -14184,6 +14715,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -14219,6 +14752,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -14248,9 +14783,27 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/trait/{id}/review": {
+      "POST": {
+        "body": [
+          "decision",
+          "reason"
+        ],
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "deleted",
+          "element"
         ]
       }
     },
@@ -14259,10 +14812,15 @@
         "header": [
           "If-None-Match"
         ],
-        "query": [],
+        "query": [
+          "world"
+        ],
         "response": [
           "agent_narrator_rule",
           "agent_writes_proposed",
+          "counts",
+          "counts.total",
+          "counts.types",
           "created_at",
           "description",
           "distance_unit",
@@ -14321,6 +14879,9 @@
         "response": [
           "agent_narrator_rule",
           "agent_writes_proposed",
+          "counts",
+          "counts.total",
+          "counts.types",
           "created_at",
           "description",
           "distance_unit",
@@ -14413,6 +14974,8 @@
           "data[].expires",
           "data[].fields",
           "data[].id",
+          "data[].kind",
+          "data[].omitted",
           "data[].state",
           "data[].updated_at",
           "data[].via",
@@ -14435,7 +14998,8 @@
           "name",
           "name__icontains",
           "subtype",
-          "supertype"
+          "supertype",
+          "world"
         ],
         "response": [
           "data",
@@ -14547,7 +15111,8 @@
         "query": [
           "as",
           "expand",
-          "fields"
+          "fields",
+          "world"
         ],
         "response": [
           "change_seq",
@@ -14887,6 +15452,8 @@
           "data[].expires",
           "data[].fields",
           "data[].id",
+          "data[].kind",
+          "data[].omitted",
           "data[].state",
           "data[].updated_at",
           "data[].via",
@@ -14921,6 +15488,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -14956,6 +15525,8 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
@@ -14985,9 +15556,27 @@
           "proposal.expires",
           "proposal.fields",
           "proposal.id",
+          "proposal.kind",
+          "proposal.omitted",
           "proposal.state",
           "proposal.updated_at",
           "proposal.via"
+        ]
+      }
+    },
+    "/api/v2/zone/{id}/review": {
+      "POST": {
+        "body": [
+          "decision",
+          "reason"
+        ],
+        "header": [
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "deleted",
+          "element"
         ]
       }
     }

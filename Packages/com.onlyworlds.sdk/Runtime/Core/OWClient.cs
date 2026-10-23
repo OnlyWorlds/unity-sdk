@@ -164,7 +164,7 @@ namespace OnlyWorlds.Sdk
         /// <para>
         /// The server-managed keys (<see cref="OWPayload.ReadOnlyFields"/>) and the world's own read-only ones
         /// (<see cref="OWPayload.WorldReadOnlyFields"/>: <c>id</c>, <c>slug</c>, <c>public_page</c>, <c>public_read</c>,
-        /// <c>agent_narrator_rule</c>, <c>agent_writes_proposed</c>, <c>origin</c>) are left out. Everything else is sent
+        /// <c>agent_narrator_rule</c>, <c>agent_writes_proposed</c>, <c>origin</c>, <c>counts</c>) are left out. Everything else is sent
         /// as given, <c>null</c> included.
         /// </para>
         /// <para>
