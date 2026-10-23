@@ -6,6 +6,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Folders declare format 0.3.17. The version only grew the list of a producer's `input` words (`kanka-export`,
+  `legendkeeper-api`, `legendkeeper-export`); this SDK writes `server` and reads every word as given, so nothing else
+  moved.
+
 ## [0.18.0] - 2026-10-23
 
 Elements written as proposed, from Unity: the world's review queue lists new elements that carry the review mark, a

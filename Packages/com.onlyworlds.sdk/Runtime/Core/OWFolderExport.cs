@@ -108,7 +108,7 @@ namespace OnlyWorlds.Sdk
     public static class OWFolderExport
     {
         /// <summary>The OW Folder Format version an export declares in <c>world.json</c>.</summary>
-        public const string FormatVersion = "0.3.16";
+        public const string FormatVersion = "0.3.17";
 
         /// <summary>The name this package publishes under: the <c>tool</c> of the <c>producer</c> line it writes.</summary>
         public const string ProducerTool = "com.onlyworlds.sdk";
