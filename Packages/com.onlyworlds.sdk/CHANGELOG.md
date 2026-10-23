@@ -12,6 +12,20 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   element's `hidden` is the boolean `true`. A folder carries no viewer identity, so the mark means hidden from whoever
   the world is handed to, never from the person who opened it: a viewer shows the element with the word hidden on it,
   and a reader that hands the world on leaves it out unless asked. The key is kept and written back as it came.
+- **A world file made as a share leaves hidden elements out** (folder spec §4.8, Skeld's ruling, OW Atlas h20 #11469):
+  `OWWorldArchive.Pack(worldFolder, archivePath, keepApiBlock, includePrivateRecords, includeHidden, hiddenLeftOut)`.
+  A world file is a copy, so every overload keeps an element file carrying the mark byte for byte by default, as keel's
+  own download keeps an owner's hidden elements. A tool making the file to hand to someone else passes
+  `includeHidden: false`: every `.json` file (any case) directly in a type folder of `elements/` or the legacy
+  `spatial/` whose JSON object carries the mark or a doubt is left out whole, and `hiddenLeftOut`, when given, receives
+  their paths inside the world in entry order (its count is the count). A file there that is not UTF-8 JSON, or not an
+  object, is kept; nothing else is rewritten, so a visible element's link to a hidden one keeps its id. The two
+  defaults differ on purpose: private records out unless asked, hidden kept unless the write is a share. The npm SDK's
+  `writeWorldFile` (4.70.0) and the Python package's `write_world_file` (0.43.0) do the same.
+- **`OWPayload.IsHiddenOrInDoubt(body)`**: the rule of a reader that hands a world on, wider than `IsHidden`. Any value
+  of `hidden` but absent, `null` and `false` counts (`"true"`, `1`), so a doubt is never handed on, as the Python
+  package's `folder.is_hidden` reads it. `IsHidden` stays the viewer's rule (only the boolean `true`), where a doubt
+  only decides whether the word is shown.
 
 ### Changed
 

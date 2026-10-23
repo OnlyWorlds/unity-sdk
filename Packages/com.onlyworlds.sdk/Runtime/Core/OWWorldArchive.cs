@@ -255,6 +255,34 @@ namespace OnlyWorlds.Sdk
         /// <exception cref="ArgumentException"><paramref name="archivePath"/> is inside the folder.</exception>
         public static List<string> Pack(string worldFolder, string archivePath, bool keepApiBlock,
             bool includePrivateRecords)
+            => Pack(worldFolder, archivePath, keepApiBlock, includePrivateRecords, includeHidden: true);
+
+        /// <summary>
+        /// Packs a world folder into an <c>.owworld</c>, saying whether private records go too and whether the file is a
+        /// share.
+        /// </summary>
+        /// <param name="worldFolder">Directory containing <c>world.json</c>.</param>
+        /// <param name="archivePath">The archive to write. Replaced if it exists. Must not be inside the folder.</param>
+        /// <param name="keepApiBlock">As the first overload.</param>
+        /// <param name="includePrivateRecords">As the overload above.</param>
+        /// <param name="includeHidden">
+        /// Carry element files marked hidden (folder spec §4.8). On by default in every overload: a world file is a copy,
+        /// as keel's own download keeps an owner's hidden elements, and a file is also how a person moves or backs up their
+        /// own world. A tool that makes the file to hand to someone else passes <c>false</c>: every <c>.json</c> file
+        /// directly in a type folder of <c>elements/</c> or the legacy <c>spatial/</c> whose JSON object carries a mark or
+        /// a doubt (<see cref="OWPayload.IsHiddenOrInDoubt"/>) is left out whole. A file there that is not UTF-8 JSON, or
+        /// not an object, is kept. Nothing else is rewritten: a visible element's link to a hidden one keeps its id.
+        /// </param>
+        /// <param name="hiddenLeftOut">
+        /// When given, receives the paths inside the world (forward slashes, code point order) of the element files left
+        /// out for the mark; its count is the count. Nothing is added when <paramref name="includeHidden"/> is on.
+        /// </param>
+        /// <returns>The entry names written, in order.</returns>
+        /// <exception cref="DirectoryNotFoundException">The folder does not exist.</exception>
+        /// <exception cref="OWFolderFormatException">As the overload above.</exception>
+        /// <exception cref="ArgumentException"><paramref name="archivePath"/> is inside the folder.</exception>
+        public static List<string> Pack(string worldFolder, string archivePath, bool keepApiBlock,
+            bool includePrivateRecords, bool includeHidden, ICollection<string> hiddenLeftOut = null)
         {
             if (string.IsNullOrEmpty(worldFolder)) throw new ArgumentNullException(nameof(worldFolder));
             if (string.IsNullOrEmpty(archivePath)) throw new ArgumentNullException(nameof(archivePath));
@@ -272,6 +300,15 @@ namespace OnlyWorlds.Sdk
 
             var worldBytes = WorldJsonBytes(root, keepApiBlock);
             var plan = PackPlan(root, includePrivateRecords);
+            if (!includeHidden)
+            {
+                plan.RemoveAll(entry =>
+                {
+                    if (!IsHiddenElementFile(entry.relative, entry.source)) return false;
+                    hiddenLeftOut?.Add(entry.relative);
+                    return true;
+                });
+            }
 
             var top = Path.GetFileName(root);
             if (string.IsNullOrEmpty(top)) top = "world";
@@ -509,6 +546,26 @@ namespace OnlyWorlds.Sdk
             // the archive's bytes must not depend on which one packed it.
             plan.Sort((a, b) => CompareByCodePoint(a.relative, b.relative));
             return plan;
+        }
+
+        /// <summary>
+        /// Whether a planned file is an element file a share leaves out (folder spec §4.8): a <c>.json</c> file (any case)
+        /// directly in a type folder of <c>elements/</c> or <c>spatial/</c>, whose JSON is an object carrying the mark or a
+        /// doubt. Not UTF-8, not JSON, or not an object: no element, kept. The npm writer's <c>isHiddenElement</c>.
+        /// </summary>
+        internal static bool IsHiddenElementFile(string relative, string source)
+        {
+            var parts = relative.Split('/');
+            if (parts.Length != 3 || (parts[0] != "elements" && parts[0] != "spatial")
+                || !parts[2].EndsWith(".json", StringComparison.OrdinalIgnoreCase)) return false;
+            try
+            {
+                var text = StrictUtf8.GetString(File.ReadAllBytes(source));
+                if (text.Length > 0 && text[0] == '﻿') text = text.Substring(1);
+                return JToken.Parse(text) is JObject body && OWPayload.IsHiddenOrInDoubt(body);
+            }
+            catch (DecoderFallbackException) { return false; }
+            catch (Newtonsoft.Json.JsonException) { return false; }
         }
 
         /// <summary>

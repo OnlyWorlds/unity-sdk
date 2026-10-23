@@ -23,6 +23,21 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsFalse(OWPayload.IsHidden(null));
         }
 
+        // Kills: the hand-on rule as narrow as the viewer's (a doubt handed on), or false and null read as marks.
+        [Test]
+        public void AReaderThatHandsOn_TakesADoubtAsAMark()
+        {
+            foreach (var json in new[]
+                     {
+                         @"{""hidden"":true}", @"{""hidden"":""true""}", @"{""hidden"":1}", @"{""hidden"":0}", @"{""hidden"":{}}",
+                         @"{""hidden"":""""}",
+                     })
+                Assert.IsTrue(OWPayload.IsHiddenOrInDoubt(JObject.Parse(json)), json);
+            foreach (var json in new[] { @"{""hidden"":false}", @"{""hidden"":null}", @"{""id"":""c1""}" })
+                Assert.IsFalse(OWPayload.IsHiddenOrInDoubt(JObject.Parse(json)), json);
+            Assert.IsFalse(OWPayload.IsHiddenOrInDoubt(null));
+        }
+
         // Kills: the element reading another key, or dropping the mark on its way back out.
         [Test]
         public void ATypedElement_ReadsTheMark_AndWritesItBackAsItCame()

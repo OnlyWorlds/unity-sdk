@@ -900,6 +900,85 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             }
         }
 
+        /// <summary>
+        /// A world with element files marked, doubted and kept for every reason a share keeps one (folder spec §4.8).
+        /// </summary>
+        private string HiddenWorld()
+        {
+            var root = Path.Combine(_temp, "h");
+            Write(root, "world.json", WorldJson("0695db52-0000-7000-8000-0000000000bb", "H"));
+            Write(root, "elements/character/pal.json", "{\"id\": \"c1\", \"name\": \"Pal\", \"location\": \"l1\"}\n");
+            Write(root, "elements/character/spy.json", "{\"id\": \"c2\", \"name\": \"Spy\", \"hidden\": true}\n");
+            Write(root, "elements/location/vault.JSON", "﻿{\"id\": \"l1\", \"hidden\": \"true\"}\n");
+            Write(root, "spatial/pin/secret.json", "{\"id\": \"p1\", \"hidden\": 1}\n");
+            Write(root, "elements/location/open.json", "{\"id\": \"l2\", \"hidden\": false}\n");
+            Write(root, "elements/location/plain.json", "{\"id\": \"l3\", \"hidden\": null}\n");
+            Write(root, "elements/location/nested.json", "{\"id\": \"l4\", \"x\": {\"hidden\": true}}\n");
+            Write(root, "elements/location/torn.json", "{\"id\": \"l5\", \"hidden\": tr");
+            Write(root, "elements/location/list.json", "[{\"hidden\": true}]\n");
+            Write(root, "elements/location/deep/inner.json", "{\"id\": \"l6\", \"hidden\": true}\n");
+            Write(root, "elements/location/note.txt", "{\"hidden\": true}\n");
+            Write(root, "media/m.json", "{\"hidden\": true}\n");
+            var latin = Path.Combine(root, "elements", "location", "latin.json");
+            File.WriteAllBytes(latin, new byte[] { 0x7B, 0x22, 0x68, 0x69, 0x64, 0x64, 0x65, 0x6E, 0x22, 0x3A, 0x74, 0x72, 0x75, 0x65, 0x2C, 0x22, 0x6E, 0x22, 0x3A, 0x22, 0xE9, 0x22, 0x7D });
+            return root;
+        }
+
+        // Kills: a hidden element left out of a copy, or anything else changed by the flag's default.
+        [Test]
+        public void Pack_KeepsHiddenElementsByDefault_AWorldFileIsACopy()
+        {
+            var root = HiddenWorld();
+            var plain = OWWorldArchive.Pack(root, Path.Combine(_temp, "a.owworld"));
+            var leftOut = new List<string>();
+            var asked = OWWorldArchive.Pack(root, Path.Combine(_temp, "b.owworld"), false, false, includeHidden: true, leftOut);
+
+            CollectionAssert.AreEqual(plain, asked);
+            Assert.Contains("h/elements/character/spy.json", plain);
+            CollectionAssert.IsEmpty(leftOut, "nothing is left out of a copy");
+            CollectionAssert.AreEqual(File.ReadAllBytes(Path.Combine(_temp, "a.owworld")),
+                File.ReadAllBytes(Path.Combine(_temp, "b.owworld")));
+        }
+
+        // Kills: a doubt handed on in a share, a file kept for its case, a deeper or non-element file left out, an
+        // unreadable file left out, or the count not the files left out.
+        [Test]
+        public void Pack_AsAShare_LeavesMarkedAndDoubtedElementFilesOutWhole_AndCountsThem()
+        {
+            var root = HiddenWorld();
+            var leftOut = new List<string>();
+            var entries = OWWorldArchive.Pack(root, Path.Combine(_temp, "s.owworld"), false, false, includeHidden: false,
+                leftOut);
+
+            CollectionAssert.AreEqual(new[]
+            {
+                "elements/character/spy.json",
+                "elements/location/vault.JSON",
+                "spatial/pin/secret.json",
+            }, leftOut);
+            foreach (var gone in leftOut) Assert.IsFalse(entries.Contains("h/" + gone), gone);
+            foreach (var kept in new[]
+                     {
+                         "elements/character/pal.json", "elements/location/open.json", "elements/location/plain.json",
+                         "elements/location/nested.json", "elements/location/torn.json", "elements/location/list.json",
+                         "elements/location/deep/inner.json", "elements/location/note.txt", "elements/location/latin.json",
+                         "media/m.json", "world.json",
+                     })
+                Assert.Contains("h/" + kept, entries, kept);
+
+            // The rest is the copy's, entry for entry and byte for byte: a link to a hidden element keeps its id.
+            var copy = OWWorldArchive.Pack(root, Path.Combine(_temp, "c.owworld"));
+            CollectionAssert.AreEqual(copy.Where(e => !leftOut.Contains(e.Substring(2))).ToList(), entries);
+            using (var zip = ZipFile.OpenRead(Path.Combine(_temp, "s.owworld")))
+            using (var stream = zip.GetEntry("h/elements/character/pal.json").Open())
+            using (var bytes = new MemoryStream())
+            {
+                stream.CopyTo(bytes);
+                CollectionAssert.AreEqual(File.ReadAllBytes(Path.Combine(root, "elements", "character", "pal.json")),
+                    bytes.ToArray());
+            }
+        }
+
         [Test]
         public void Pack_AskedForPrivateRecords_CarriesThemWhole()
         {
