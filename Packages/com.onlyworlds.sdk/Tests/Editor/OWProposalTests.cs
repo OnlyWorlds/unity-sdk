@@ -525,6 +525,70 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsFalse(result.Items[0].IsProposed);
         }
 
+        // -- the mark (the review profile, dist.52) ---------------------------
+
+        private const string Doubt = "check this against the harbour ledger";
+
+        private static JObject Marked(JToken mark)
+        {
+            var body = new JObject { ["id"] = NewEl, ["name"] = "Pal" };
+            if (mark != null) body[OWPayload.ReviewProposed] = mark;
+            return body;
+        }
+
+        [Test]
+        public void IsProposed_IsAnObjectMarkOnly_AndIsProposedOrInDoubt_IsAnyValueButNull()
+        {
+            var mark = JObject.Parse(@"{""by"":""0d4e8a2c"",""evidence"":""the Harbour Ledger, entry 14"",""expires"":""2026-11-21""}");
+
+            // py 0.36.0's vector (tests/test_pack.py): a mark, an empty object; null and absent are settled.
+            foreach (var marked in new[] { Marked(mark), Marked(new JObject()) })
+            {
+                Assert.IsTrue(OWPayload.IsProposed(marked), marked.ToString());
+                Assert.IsTrue(OWPayload.IsProposedOrInDoubt(marked), marked.ToString());
+            }
+
+            foreach (var settled in new[] { Marked(JValue.CreateNull()), Marked(null), null })
+            {
+                Assert.IsFalse(OWPayload.IsProposed(settled), settled?.ToString() ?? "null body");
+                Assert.IsFalse(OWPayload.IsProposedOrInDoubt(settled), settled?.ToString() ?? "null body");
+            }
+
+            // keel's vector (tests/test_proposed_readers_580.py, amendment A): a doubt is no mark for the queue and the
+            // review route, and counts with one for a reader that hands a world on.
+            foreach (var doubt in new JToken[] { Doubt, 0, new JArray(), false })
+            {
+                Assert.IsFalse(OWPayload.IsProposed(Marked(doubt)), doubt.ToString());
+                Assert.IsTrue(OWPayload.IsProposedOrInDoubt(Marked(doubt)), doubt.ToString());
+            }
+        }
+
+        [Test]
+        public void ATypedElement_ReadsTheMarkFromItsExtensions_AndWritesItBackAsItCame()
+        {
+            const string mark = @"{""by"":""0d4e8a2c"",""evidence"":""the Harbour Ledger, entry 14"",""expires"":""2026-11-21""}";
+            var proposed = OWJson.Deserialize<OWCharacter>(@"{""id"":""c1"",""name"":""Pal"",""x_review_proposed"":" + mark + "}");
+            Assert.IsTrue(proposed.IsProposed);
+            Assert.IsTrue(proposed.IsProposedOrInDoubt);
+            Assert.IsTrue(JToken.DeepEquals(JObject.Parse(mark), JObject.Parse(OWJson.Serialize(proposed))["x_review_proposed"]),
+                "the mark is kept as it came");
+
+            var doubted = OWJson.Deserialize<OWCharacter>(@"{""id"":""c1"",""name"":""Pal"",""x_review_proposed"":""" + Doubt + @"""}");
+            Assert.IsFalse(doubted.IsProposed);
+            Assert.IsTrue(doubted.IsProposedOrInDoubt);
+
+            foreach (var json in new[] { @"{""id"":""c1"",""name"":""Pal"",""x_review_proposed"":null}", @"{""id"":""c1"",""name"":""Pal""}" })
+            {
+                var settled = OWJson.Deserialize<OWCharacter>(json);
+                Assert.IsFalse(settled.IsProposed, json);
+                Assert.IsFalse(settled.IsProposedOrInDoubt, json);
+            }
+
+            // A cleared mark goes back out as the null it came in as: a clear is written, never only omitted.
+            Assert.AreEqual(JTokenType.Null,
+                JObject.Parse(OWJson.Serialize(OWJson.Deserialize<OWCharacter>(@"{""id"":""c1"",""name"":""P"",""x_review_proposed"":null}")))["x_review_proposed"]?.Type);
+        }
+
         // -- the six codes -----------------------------------------------------
 
         private static readonly (string Name, int Status, string Type, string Code, Func<OWApiError, bool> Is)[] Codes =

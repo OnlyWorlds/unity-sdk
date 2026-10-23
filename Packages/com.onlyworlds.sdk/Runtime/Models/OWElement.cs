@@ -178,6 +178,24 @@ namespace OnlyWorlds.Sdk
                && marker != null && marker.Type == Newtonsoft.Json.Linq.JTokenType.Boolean && (bool)marker;
 
         /// <summary>
+        /// True for a proposed element (<c>x_review_proposed</c> an object, keel #565): not canon until a keeper settles
+        /// it. The queue's and a viewer's rule (<see cref="OWPayload.IsProposed"/>); the mark stays in the extensions bag.
+        /// </summary>
+        public bool IsProposed
+            => _extensions != null
+               && _extensions.TryGetValue(OWPayload.ReviewProposed, out var mark)
+               && OWPayload.IsAMark(mark);
+
+        /// <summary>
+        /// True for a proposed element or one whose mark is in doubt (<c>x_review_proposed</c> there and not null): the
+        /// rule of a reader that hands a world on (<see cref="OWPayload.IsProposedOrInDoubt"/>).
+        /// </summary>
+        public bool IsProposedOrInDoubt
+            => _extensions != null
+               && _extensions.TryGetValue(OWPayload.ReviewProposed, out var mark)
+               && OWPayload.IsMarkOrDoubt(mark);
+
+        /// <summary>
         /// Every unmodeled field on this element, as key + raw JSON.
         /// </summary>
         /// <remarks>
