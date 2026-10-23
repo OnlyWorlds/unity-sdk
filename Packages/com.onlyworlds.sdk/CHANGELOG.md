@@ -45,7 +45,8 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 ### Changed
 
 - `OWClient.PatchWorldAsync` also leaves out `counts`, which the server now serves on a world read with no key and
-  refuses on a world write (`OWPayload.WorldReadOnlyFields`).
+  refuses on a world write (`OWPayload.WorldReadOnlyFields`), as the TypeScript SDK 4.68.0 and the Python package
+  0.37.0 do.
 - The schema pin moves to dist.52 (`v0.33.0-dist.52`; canonical `00.33.00` unchanged, no schema file moved). Only the
   review profile moved: its reader rule.
 
