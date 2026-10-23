@@ -5,7 +5,7 @@
     "X-Session-Token",
     "Authorization"
   ],
-  "document_sha256": "bff963e44d98c5930cc0fd31d4598561a385ffaff42cf8c5796bf104dc4c761e",
+  "document_sha256": "3bce5b000739848132f062ea5eb619d9241c63f172525fa6159e82cccdbdea54",
   "error_codes": {
     "already_member": 409,
     "already_reported": 409,
@@ -68,7 +68,7 @@
     "world_full": 422,
     "write_failed": 502
   },
-  "fetched": "2026-10-22T22:18+02:00",
+  "fetched": "2026-10-23T05:29+02:00",
   "openapi_version": "2.0",
   "paths": {
     "/api/v2/ability": {
@@ -862,7 +862,11 @@
         "body": [
           "key_name",
           "name",
-          "pin"
+          "pin",
+          "producer",
+          "producer.tool",
+          "source",
+          "source.world"
         ],
         "header": [],
         "query": []
@@ -14078,6 +14082,9 @@
           "length_unit",
           "mass_unit",
           "name",
+          "origin",
+          "origin.producer",
+          "origin.source",
           "owner_character",
           "public_page",
           "public_page.hero",
@@ -14106,6 +14113,10 @@
           "mass_unit",
           "name",
           "owner_character",
+          "producer",
+          "producer.tool",
+          "source",
+          "source.world",
           "time_basic_unit",
           "time_format_equivalents",
           "time_format_names",
@@ -14126,6 +14137,9 @@
           "length_unit",
           "mass_unit",
           "name",
+          "origin",
+          "origin.producer",
+          "origin.source",
           "owner_character",
           "public_page",
           "public_page.hero",
