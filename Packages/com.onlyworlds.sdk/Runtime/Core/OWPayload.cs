@@ -41,9 +41,11 @@ namespace OnlyWorlds.Sdk
         /// <c>id</c> (keel's World marks it read-only); <c>slug</c> and <c>public_page</c> (keel #471) and the owner's
         /// switches <c>public_read</c>, <c>agent_narrator_rule</c> and <c>agent_writes_proposed</c> (keel #519), each set on
         /// the world page; and <c>origin</c> (keel #571), the world's first import, which is written as the plain keys
-        /// <c>source</c> and <c>producer</c> and never as itself. <c>owner_character</c> is not here: PATCH takes it. The
-        /// same list as the npm SDK's <c>WORLD_READ_ONLY_FIELDS</c> (4.65.0) and the Python package's (0.34.0). Kept apart
-        /// from <see cref="ReadOnlyFields"/> so an element write never loses a field of these names.
+        /// <c>source</c> and <c>producer</c> and never as itself; and <c>counts</c> (read-only in keel's World), the element
+        /// counts a keyless read serves, absent with a key. <c>owner_character</c> is not here: PATCH takes it. The same
+        /// list as the npm SDK's <c>WORLD_READ_ONLY_FIELDS</c> (4.65.0) and the Python package's (0.34.0), plus
+        /// <c>counts</c>, which neither strips yet. Kept apart from <see cref="ReadOnlyFields"/> so an element write never
+        /// loses a field of these names.
         /// </remarks>
         public static readonly IReadOnlyList<string> WorldReadOnlyFields = new[]
         {
@@ -54,6 +56,7 @@ namespace OnlyWorlds.Sdk
             "agent_narrator_rule",
             "agent_writes_proposed",
             "origin",
+            "counts",
         };
 
         /// <summary>The stub marker's key (folder format §4.4, v0.3.10; keel PR 113).</summary>
@@ -86,5 +89,38 @@ namespace OnlyWorlds.Sdk
             var marker = body?[KnownOf];
             return marker != null && marker.Type == JTokenType.Boolean && (bool)marker;
         }
+
+        /// <summary>The review profile's mark on a new element written as proposed (schema-dist <c>profiles/review.md</c>; keel #565).</summary>
+        public const string ReviewProposed = "x_review_proposed";
+
+        /// <summary>
+        /// True for a proposed element, one whose <c>x_review_proposed</c> is an object: not canon until a keeper settles
+        /// it (<see cref="OWClient.ReviewNewElementAsync"/>). Absent, <c>null</c> or any other value is settled.
+        /// </summary>
+        /// <remarks>
+        /// The review profile's rules 1 and 4, and keel's own <c>has_mark</c> (<c>proposals/marked.py</c>): the rule of the
+        /// review queue and the review route, and of a reader that shows a world to its people, which shows such an
+        /// element with its mark visible, apart from settled ones. A reader that hands a world on (a pack, a context
+        /// packet for an AI) reads the wider <see cref="IsProposedOrInDoubt"/> instead.
+        /// </remarks>
+        public static bool IsProposed(JObject body) => IsAMark(body?[ReviewProposed]);
+
+        /// <summary>
+        /// True when <c>x_review_proposed</c> is there with any value but <c>null</c>: a mark (an object) or a doubt (a
+        /// string, a number, a list). The rule of a reader that hands a world on, which leaves such an element out
+        /// unless asked, so a doubt never reaches an AI as canon.
+        /// </summary>
+        /// <remarks>
+        /// keel's <c>doubt_or_mark</c> (<c>proposals/marked.py</c>; keel #580 amendment A, Kael h29 #11132), which its
+        /// draught and MCP reads use, and the Python package's <c>pack.is_proposed</c> (0.36.0). Wider than
+        /// <see cref="IsProposed"/>, which the queue and the review route keep.
+        /// </remarks>
+        public static bool IsProposedOrInDoubt(JObject body) => IsMarkOrDoubt(body?[ReviewProposed]);
+
+        /// <summary><see cref="IsProposed"/>'s rule on the mark's own value.</summary>
+        internal static bool IsAMark(JToken mark) => mark != null && mark.Type == JTokenType.Object;
+
+        /// <summary><see cref="IsProposedOrInDoubt"/>'s rule on the mark's own value.</summary>
+        internal static bool IsMarkOrDoubt(JToken mark) => mark != null && mark.Type != JTokenType.Null;
     }
 }

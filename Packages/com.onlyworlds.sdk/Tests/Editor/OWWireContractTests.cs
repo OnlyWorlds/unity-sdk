@@ -153,6 +153,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             await c.AcceptProposalAsync("character", "c1", "p1");
             await c.DeclineProposalAsync("character", "c1", "p1", "not canon");
             await c.WithdrawProposalAsync("character", "c1", "p1");
+            // A new element written as proposed (keel #565): each decision, the decline with its reason.
+            t.ResponseBody = @"{""element"":{},""deleted"":""c1""}";
+            await c.ReviewNewElementAsync("character", "c1", OWReviewed.Accept);
+            await c.ReviewNewElementAsync("character", "c1", OWReviewed.Decline, "not canon");
 
             // Joining is keyless, so it is not on the client; the same transport records it. The redeem passes every
             // option at once (no real code takes all three) so each key it can put in the body is on the wire here.
@@ -397,6 +401,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [TestCase(typeof(OWPage<OWProposal>), "/api/v2/world/proposals", "GET")]
         [TestCase(typeof(OWPage<OWProposal>), "/api/v2/character/{id}/proposals", "GET")]
         [TestCase(typeof(OWProposalAccepted), "/api/v2/character/{id}/proposals/{pid}/accept", "POST")]
+        [TestCase(typeof(OWReviewed), "/api/v2/character/{id}/review", "POST")]
         public void EveryKeyAModelReads_IsOneKeelServes(Type model, string path, string method)
         {
             var op = Wire["paths"]?[path]?[method] as JObject;
@@ -471,7 +476,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             // An empty recording would pass the checks above with nothing checked.
             var calls = await RecordEveryCall();
-            Assert.AreEqual(24, calls.Count);
+            Assert.AreEqual(26, calls.Count);
 
             // The conditional headers are on the wire here, so the header check above saw them.
             Assert.That(calls.Any(c => c.Headers.ContainsKey("If-Match")), "a delete with ifMatch is recorded");

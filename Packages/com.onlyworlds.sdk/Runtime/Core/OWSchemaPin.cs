@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.33.00";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 51;
+        public const int DistSerial = 52;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.33.0-dist.51";
+        public const string Tag = "v0.33.0-dist.52";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -164,9 +164,16 @@ namespace OnlyWorlds.Sdk
         /// <c>x_names</c> map, the World's extension store (51; folder spec v0.3.16). The export is re-vendored for
         /// <c>OWEnvelopeReaderTests</c>. The generated models changed only in their serial stamp.
         /// </para>
+        /// <para>
+        /// <b>51 -> 52 (2026-10-23)</b>: canonical unchanged, no schema file moved. Only <c>profiles/review.md</c> moved: the
+        /// reader rule (keel #580). A reader that hands a world on leaves elements whose <c>x_review_proposed</c> is an
+        /// object out unless asked, counts them and labels a kept one "proposed, not yet reviewed"; a reader that shows
+        /// a world to its people shows the mark. The SDK parses no profile file; the generated models changed only in
+        /// their serial stamp.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "aab887d40c131f93e9dc54329691ed9b494abbe3eb23e9edcb49cee0551bf86d";
+            "37707f7a2a0f4d6cfe156a7263d061b4d13c8a988ed885808bb22ea2196c221c";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.

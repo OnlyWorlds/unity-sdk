@@ -164,7 +164,7 @@ namespace OnlyWorlds.Sdk
         /// <para>
         /// The server-managed keys (<see cref="OWPayload.ReadOnlyFields"/>) and the world's own read-only ones
         /// (<see cref="OWPayload.WorldReadOnlyFields"/>: <c>id</c>, <c>slug</c>, <c>public_page</c>, <c>public_read</c>,
-        /// <c>agent_narrator_rule</c>, <c>agent_writes_proposed</c>, <c>origin</c>) are left out. Everything else is sent
+        /// <c>agent_narrator_rule</c>, <c>agent_writes_proposed</c>, <c>origin</c>, <c>counts</c>) are left out. Everything else is sent
         /// as given, <c>null</c> included.
         /// </para>
         /// <para>
@@ -547,10 +547,17 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
-        /// GET /world/proposals -- the world's queue, newest first: every proposal for the owner's and a co-builder's
-        /// keys, a member's own for any other; <see cref="OWProposalQuery.Element"/> keeps one element's rows. Any member
-        /// key, a read key included; a read key with no member (a demo key, the owner's read key) gets a 404.
+        /// GET /world/proposals -- the world's queue, newest first by <c>created_at</c>: every row for the owner's and a
+        /// co-builder's keys, a member's own for any other; <see cref="OWProposalQuery.Element"/> keeps one element's rows.
+        /// Any member key, a read key included; a read key with no member (a demo key, the owner's read key) gets a 404.
         /// </summary>
+        /// <remarks>
+        /// Two kinds of row in one order, told apart by <see cref="OWProposal.Kind"/> (keel #565): a proposed change to an
+        /// element, and a new element written as proposed, one carrying <c>x_review_proposed</c>
+        /// (<see cref="OWProposal.IsNewElement"/>; listed under <c>open</c>, <c>lapsed</c> and <c>all</c>, never
+        /// <c>accepted</c> or <c>declined</c>; settled with <see cref="ReviewNewElementAsync"/>). keel reads at most the
+        /// 500 newest marked elements. The page's <c>next_cursor</c> is opaque: pass it back as it came.
+        /// </remarks>
         public Task<OWPage<OWProposal>> WorldProposalsAsync(OWProposalQuery query = default, CancellationToken ct = default)
             => RequestAsync<OWPage<OWProposal>>("GET", "/world/proposals", query: ProposalQuery(query), ct: ct);
 
@@ -592,6 +599,60 @@ namespace OnlyWorlds.Sdk
         /// </summary>
         public Task WithdrawProposalAsync(string type, string id, string pid, CancellationToken ct = default)
             => RequestAsync<object>("DELETE", $"{ProposalsPath(type, id)}/{Uri.EscapeDataString(pid)}", allowEmpty: true, ct: ct);
+
+        /// <summary>
+        /// POST /{type}/{id}/review -- settle a new element written as proposed, one carrying <c>x_review_proposed</c>
+        /// (the queue's <see cref="OWProposal.IsNewElement"/> row, keel #565). <see cref="OWReviewed.Accept"/> clears the
+        /// mark (a write by this key: a new <c>change_seq</c>, one <c>/changes</c> row) and answers
+        /// <see cref="OWReviewed.Element"/>; <see cref="OWReviewed.Decline"/> deletes the element (a tombstone, the links
+        /// to it scrubbed, its open proposals dropped) and answers <see cref="OWReviewed.Deleted"/>, its id.
+        /// </summary>
+        /// <param name="decision"><c>accept</c> or <c>decline</c>.</param>
+        /// <param name="reason">With a decline only (at most 2,000 characters): answered back and kept nowhere.</param>
+        /// <remarks>
+        /// The owner's key or a co-builder's, with its PIN. Refusals: 422 <see cref="OWApiError.IsNotProposed"/> (the
+        /// element carries no mark: never marked, or an accept already landed), 403 <see cref="OWApiError.IsProposedOnly"/>
+        /// (the member the mark names, or an agent seat while the world holds its writes), 403 for any key but a keeper's.
+        /// <c>X-OW-Client</c> goes with it; <c>X-OW-Agent</c> does not. A proposed change to an existing element is decided
+        /// with <see cref="AcceptProposalAsync"/> or <see cref="DeclineProposalAsync"/> instead. Mirrors the npm SDK's
+        /// <c>reviewNewElement</c> (4.66.0) and the Python package's <c>review_new_element</c> (0.35.0), whose refusal of
+        /// a reason on an accept this follows (keel answers one 422).
+        /// </remarks>
+        /// <exception cref="ArgumentException">
+        /// The decision is not <c>accept</c> or <c>decline</c>, or a reason goes with an accept; nothing was sent.
+        /// </exception>
+        /// <exception cref="OWApiError">The server refused, or answered 200 without the key the decision settles.</exception>
+        public async Task<OWReviewed> ReviewNewElementAsync(
+            string type, string id, string decision, string reason = null, CancellationToken ct = default)
+        {
+            if (decision != OWReviewed.Accept && decision != OWReviewed.Decline)
+            {
+                throw new ArgumentException(
+                    $"review: decision must be 'accept' or 'decline', got {(decision == null ? "null" : "'" + decision + "'")}. Nothing was sent.",
+                    nameof(decision));
+            }
+
+            if (reason != null && decision != OWReviewed.Decline)
+            {
+                throw new ArgumentException("review: a reason goes with a decline only. Nothing was sent.", nameof(reason));
+            }
+
+            var body = new JObject { ["decision"] = decision };
+            if (reason != null) body["reason"] = reason;
+
+            var path = $"/{type}/{Uri.EscapeDataString(id)}/review";
+            var answer = await RequestAsync<OWReviewed>("POST", path, body: body, named: true, ct: ct).ConfigureAwait(false);
+
+            // keel answers exactly one of the two; a 200 without the one this decision settles is never read as settled.
+            var settled = decision == OWReviewed.Accept ? answer?.Element != null : answer?.Deleted != null;
+            if (!settled)
+            {
+                throw new OWApiError((HttpStatusCode)200,
+                    $"POST {path} answered 200 without its {(decision == OWReviewed.Accept ? "element" : "deleted")}: the review's outcome is unknown");
+            }
+
+            return answer;
+        }
 
         /// <summary>The proposals of one element: /{type}/{id}/proposals.</summary>
         private static string ProposalsPath(string type, string id) => $"/{type}/{Uri.EscapeDataString(id)}/proposals";
