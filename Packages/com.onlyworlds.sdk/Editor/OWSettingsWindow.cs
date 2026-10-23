@@ -59,7 +59,11 @@ namespace OnlyWorlds.Sdk.Editor
                         : kind == OWKeyKind.Write
                             ? "Write key: reads without a PIN; writes need one (a seat's secret, or the account PIN)."
                             : $"Detected: {kind} key.";
-                EditorGUILayout.LabelField(" ", note, EditorStyles.miniLabel);
+                // Wrapped: the window is a fixed 430 wide, and the write key's note ran past its edge.
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.Space(EditorGUIUtility.labelWidth + 3f);
+                GUILayout.Label(note, EditorStyles.wordWrappedMiniLabel);
+                EditorGUILayout.EndHorizontal();
             }
 
             EditorGUILayout.Space(6f);

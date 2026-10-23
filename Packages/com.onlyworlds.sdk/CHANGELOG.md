@@ -6,6 +6,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **The settings window's key note wraps**: the write key's line ("writes need one (a seat's secret, or the account
+  PIN)") ran past the window's fixed edge and was cut. Found by pressing Test Connection in an Editor on three keys: a
+  write key with its secret answers "Connected" through `GET /me`, the same key with a wrong PIN "Failed: 401
+  invalid_credentials", a write key with no PIN "Connected" (reads need none).
+
 ## [0.16.0] - 2026-10-23
 
 The server's newer conversation, caught up with the TypeScript SDK through 4.63.0. Writes name the client that made
