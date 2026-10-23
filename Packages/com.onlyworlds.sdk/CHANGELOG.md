@@ -6,6 +6,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-10-23
+
+The hidden mark, read and kept (folder format §4.8): `OWPayload.IsHidden` and `OWElement.IsHidden` say whether an
+element is hidden from whoever the world is handed to, by the one rule the npm SDK and the Python package use, and a
+world file made as a share leaves hidden elements out and lists them (`Pack`'s `includeHidden`). Folders declare
+format 0.3.18. A minor release because it adds public API (below).
+
 ### Added
 
 - **Reading the hidden mark** (folder format §4.8): `OWPayload.IsHidden(body)` and `OWElement.IsHidden` are true when an
