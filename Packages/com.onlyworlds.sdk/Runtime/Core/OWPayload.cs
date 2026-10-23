@@ -33,6 +33,29 @@ namespace OnlyWorlds.Sdk
             KnownOf,
         };
 
+        /// <summary>
+        /// The world's own keys <c>GET /world</c> serves and <c>PATCH /world</c> refuses (a 422 for each), stripped by
+        /// <see cref="OWClient.PatchWorldAsync"/> on top of <see cref="ReadOnlyFields"/> so a read body can be sent back.
+        /// </summary>
+        /// <remarks>
+        /// <c>id</c> (keel's World marks it read-only); <c>slug</c> and <c>public_page</c> (keel #471) and the owner's
+        /// switches <c>public_read</c>, <c>agent_narrator_rule</c> and <c>agent_writes_proposed</c> (keel #519), each set on
+        /// the world page; and <c>origin</c> (keel #571), the world's first import, which is written as the plain keys
+        /// <c>source</c> and <c>producer</c> and never as itself. <c>owner_character</c> is not here: PATCH takes it. The
+        /// same list as the npm SDK's <c>WORLD_READ_ONLY_FIELDS</c> (4.65.0) and the Python package's (0.34.0). Kept apart
+        /// from <see cref="ReadOnlyFields"/> so an element write never loses a field of these names.
+        /// </remarks>
+        public static readonly IReadOnlyList<string> WorldReadOnlyFields = new[]
+        {
+            "id",
+            "slug",
+            "public_page",
+            "public_read",
+            "agent_narrator_rule",
+            "agent_writes_proposed",
+            "origin",
+        };
+
         /// <summary>The stub marker's key (folder format §4.4, v0.3.10; keel PR 113).</summary>
         public const string KnownOf = "known_of";
 

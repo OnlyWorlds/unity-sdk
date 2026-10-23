@@ -114,6 +114,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             });
 
             await c.GetWorldAsync();
+            // The world's origin written as its two plain keys, and an extension key (keel #571).
+            await c.PatchWorldAsync(new JObject
+            {
+                ["name"] = "W", ["source"] = new JObject { ["world"] = "w0" }, ["producer"] = new JObject { ["tool"] = "t" },
+                ["x_names"] = new JObject { ["version"] = 1 },
+            });
             await c.GetMeAsync();
             t.ResponseBody = @"{""data"":[],""has_more"":false}";
             await c.ListAsync<JObject>("character", new OWListParams
@@ -331,10 +337,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 }
 
                 var declared = list.Values<string>().ToList();
+                var patterns = (op["body_patterns"] as JArray)?.Values<string>().ToList() ?? new List<string>();
                 foreach (var key in KeysOf(JObject.Parse(call.Body), declared))
                 {
                     checkedOps.Add(where);
-                    if (!declared.Contains(key))
+                    if (!declared.Contains(key) && !MatchesAPattern(key, patterns))
                     {
                         failures.Add($"{where}: body key '{key}' is not one keel declares there "
                             + $"({string.Join(", ", declared.Where(d => !d.Contains('.')))})");
@@ -346,6 +353,42 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             // An empty walk passes with nothing checked; the join routes carry the party link's keys.
             Assert.That(checkedOps, Does.Contain("POST /api/v2/join").And.Contain("POST /api/v2/join/preview"));
+            Assert.That(checkedOps, Does.Contain("PATCH /api/v2/world"));
+        }
+
+        /// <summary>
+        /// A top-level body key keel's request schema allows by pattern (<c>body_patterns</c>: its extension keys,
+        /// <c>^(atlas_|shadow_|x_)</c>), never a nested one: the pattern is the schema's own, not a prefix list of ours.
+        /// </summary>
+        private static bool MatchesAPattern(string key, List<string> patterns)
+            => !key.Contains('.') && !key.Contains("[]") && patterns.Any(p => Regex.IsMatch(key, p));
+
+        [Test]
+        public async Task PatchWorld_TakesBackEveryKeyTheWorldBodyServes_SendingOnlyWhatWorldPatchTakes()
+        {
+            // The Python package's wire vector: a GET /world body with every key the World serves, handed back, sends only
+            // what PATCH /world takes, its names and its extension pattern. The next read-only key keel adds to the World
+            // fails here, not as a caller's 422.
+            var get = (JObject)Wire["paths"]["/api/v2/world"]["GET"];
+            var patch = (JObject)Wire["paths"]["/api/v2/world"]["PATCH"];
+            var takes = patch["body"].Values<string>().ToList();
+            var patterns = patch["body_patterns"]?.Values<string>().ToList() ?? new List<string>();
+            Assert.IsNotEmpty(patterns, "keel's WorldPatch declares its extension keys by pattern");
+
+            var body = new JObject();
+            foreach (var key in get["response"].Values<string>().Where(k => !k.Contains('.'))) body[key] = null;
+            body["id"] = "w";
+            body["x_names"] = null;
+
+            var t = new FakeTransport();
+            await new OWClient(new OWClientConfig { ApiKey = "ow_w_test", ApiPin = "0000", Transport = t, BaseUrl = Base })
+                .PatchWorldAsync(body);
+
+            var sent = JObject.Parse(t.Last.Body).Properties().Select(p => p.Name).ToList();
+            var leaked = sent.Where(k => !takes.Contains(k) && !MatchesAPattern(k, patterns)).ToList();
+            Assert.IsEmpty(leaked, "PatchWorldAsync still sends " + string.Join(", ", leaked));
+            CollectionAssert.Contains(sent, "x_names");
+            CollectionAssert.Contains(sent, "name");
         }
 
         [TestCase(typeof(OWJoinPreview), "/api/v2/join/preview", "POST")]
@@ -428,7 +471,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             // An empty recording would pass the checks above with nothing checked.
             var calls = await RecordEveryCall();
-            Assert.AreEqual(23, calls.Count);
+            Assert.AreEqual(24, calls.Count);
 
             // The conditional headers are on the wire here, so the header check above saw them.
             Assert.That(calls.Any(c => c.Headers.ContainsKey("If-Match")), "a delete with ifMatch is recorded");

@@ -103,6 +103,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("delete", "DELETE", true, c => c.DeleteAsync("location", "l1")),
             ("links", "POST", true, c => c.EditLinksAsync<JObject>("location", "l1", "zones", add: new[] { "z1" })),
             ("bulk", "POST", true, c => c.BulkAsync(new[] { new OWBulkItem { Type = "location", Element = new JObject { ["name"] = "B" } } })),
+            ("patch world", "PATCH", true, c => c.PatchWorldAsync(new JObject { ["name"] = "W" })),
         };
 
         /// <summary>Every call the client may make, each through its own client; the request each sent.</summary>
@@ -1215,6 +1216,143 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 var e = Assert.ThrowsAsync<OWApiError>(() => Make(t).ChangesAsync("12:abc"));
                 Assert.AreEqual(expected, e.ResyncReason, $"{status} {code} reason {reason ?? "none"}");
             }
+        }
+
+        // -- World settings: PATCH /world (keel #571; npm 4.65.0's and Python 0.34.0's vectors) ------------
+
+        private static readonly JObject Origin = JObject.Parse(
+            @"{""source"":{""server"":""https://www.onlyworlds.com"",""world"":""0f1e2d3c-4b5a-4968-8776-655443322110"",""at"":""2026-10-23T05:00:00Z""},
+               ""producer"":{""tool"":""atlas"",""version"":""1.82.0"",""input"":""folder""}}");
+
+        private static readonly JObject XNames = JObject.Parse(@"{""version"":1,""types"":{""character"":{""one"":""Soul"",""many"":""Souls""}}}");
+
+        /// <summary>A GET /world body as keel serves it since keel #571: every World key, the origin and an extension key.</summary>
+        private static JObject WorldBody() => new JObject
+        {
+            ["id"] = "w", ["name"] = "V", ["description"] = "", ["image_url"] = "",
+            ["time_format_names"] = new JArray(), ["time_format_equivalents"] = new JArray(), ["time_basic_unit"] = "Year",
+            ["time_range_min"] = null, ["time_range_max"] = null, ["time_range_current"] = null,
+            ["length_unit"] = "", ["mass_unit"] = "", ["distance_unit"] = "", ["public_read"] = false,
+            ["agent_narrator_rule"] = false, ["agent_writes_proposed"] = false, ["owner_character"] = null, ["slug"] = null,
+            ["public_page"] = JObject.Parse(@"{""on"":false,""palette"":null,""hero"":"""",""sections"":[],""pin"":null,""index"":false}"),
+            ["origin"] = Origin.DeepClone(), ["x_names"] = XNames.DeepClone(),
+            ["created_at"] = "2026-10-01T00:00:00Z", ["updated_at"] = "2026-10-23T05:20:00Z",
+        };
+
+        [Test]
+        public async Task PatchWorld_AGetWorldBodySentBack_SendsNoOriginAndNoId_AndKeepsXNames()
+        {
+            var t = new FakeTransport { ResponseBody = WorldBody().ToString() };
+            await Make(t).PatchWorldAsync(WorldBody());
+
+            Assert.AreEqual("PATCH", t.Last.Method);
+            Assert.AreEqual("https://example.test/api/v2/world/", t.Last.Url);
+            var sent = t.LastBody;
+            Assert.IsFalse(sent.ContainsKey("origin"), "origin is read-only: keel answers it as an unknown key");
+            Assert.IsFalse(sent.ContainsKey("id"), "id is read-only: keel answers it as an unknown key");
+            Assert.IsTrue(JToken.DeepEquals(XNames, sent["x_names"]));
+            CollectionAssert.AreEqual(new[]
+            {
+                "description", "distance_unit", "image_url", "length_unit", "mass_unit", "name", "owner_character", "time_basic_unit",
+                "time_format_equivalents", "time_format_names", "time_range_current", "time_range_max", "time_range_min", "x_names",
+            }, sent.Properties().Select(p => p.Name).OrderBy(n => n, System.StringComparer.Ordinal));
+        }
+
+        [Test]
+        public async Task PatchWorld_SendsSourceProducerAndEveryExtensionPrefix_AsGiven_NullIncluded()
+        {
+            // null clears source or producer, and removes an extension key.
+            var t = new FakeTransport();
+            var patch = new JObject
+            {
+                ["source"] = Origin["source"].DeepClone(), ["producer"] = null, ["x_names"] = null,
+                ["atlas_view"] = JObject.Parse(@"{""zoom"":2}"), ["shadow_note"] = "kept", ["x_tool_setting"] = new JArray(1, "a"),
+            };
+            await Make(t).PatchWorldAsync(patch);
+
+            Assert.AreEqual(patch.ToString(Newtonsoft.Json.Formatting.None), t.Last.Body, "every key, its value and its place");
+        }
+
+        [Test]
+        public async Task PatchWorld_DropsTheReadOnlyKeysKeelRefuses_AndKeepsTheExtensionKeys()
+        {
+            // Python 0.34.0's two vectors in one body: a read body's refused keys out, its extension keys in, null kept.
+            var t = new FakeTransport();
+            await Make(t).PatchWorldAsync(new Dictionary<string, object>
+            {
+                ["id"] = "w", ["name"] = "W", ["public_read"] = true, ["slug"] = "bells",
+                ["public_page"] = new Dictionary<string, object> { ["on"] = true }, ["agent_narrator_rule"] = false,
+                ["agent_writes_proposed"] = false, ["owner_character"] = null,
+                ["origin"] = new Dictionary<string, object> { ["source"] = null, ["producer"] = null },
+                ["x_names"] = XNames, ["x_gone"] = null, ["atlas_calendar"] = new Dictionary<string, object> { ["months"] = 12 },
+                ["shadow_note"] = "n",
+            });
+
+            Assert.AreEqual(
+                @"{""name"":""W"",""owner_character"":null,""x_names"":" + XNames.ToString(Newtonsoft.Json.Formatting.None)
+                + @",""x_gone"":null,""atlas_calendar"":{""months"":12},""shadow_note"":""n""}",
+                t.Last.Body);
+        }
+
+        [Test]
+        public async Task PatchWorld_CarriesTheUnits_AndStripsTheServerManagedKeys()
+        {
+            var t = new FakeTransport { ResponseBody = @"{""id"":""w"",""name"":""W"",""length_unit"":""cm"",""mass_unit"":""kg"",""distance_unit"":""km""}" };
+            var world = await Make(t).PatchWorldAsync(new { length_unit = "cm", mass_unit = "kg", distance_unit = "km", world = "x", change_seq = 3 });
+
+            Assert.AreEqual(@"{""length_unit"":""cm"",""mass_unit"":""kg"",""distance_unit"":""km""}", t.Last.Body);
+            Assert.AreEqual("cm", (string)world["length_unit"], "the world as keel answers it");
+        }
+
+        [Test]
+        public async Task PatchWorld_LeavesItsInputAlone()
+        {
+            var t = new FakeTransport();
+            var body = WorldBody();
+            var before = body.ToString();
+
+            await Make(t).PatchWorldAsync(body);
+
+            Assert.AreEqual(before, body.ToString(), "the caller's body keeps its origin and id");
+        }
+
+        [Test]
+        public async Task PatchWorld_SendsThePin_AndNoAgentOrClientHeader_EvenForAnAgent()
+        {
+            // keel reads X-OW-Agent and X-OW-Client on element writes only, and declares neither here (npm's vector).
+            var t = new FakeTransport();
+            var c = new OWClient(new OWClientConfig
+            {
+                ApiKey = "ow_w_test", ApiPin = "1234", Transport = t, BaseUrl = "https://example.test/api/v2", Agent = true,
+            });
+            await c.PatchWorldAsync(new JObject { ["name"] = "W" });
+
+            Assert.AreEqual("1234", t.Last.Headers["API-Pin"]);
+            Assert.IsFalse(t.Last.Headers.ContainsKey("X-OW-Agent"));
+            Assert.IsFalse(t.Last.Headers.ContainsKey("X-OW-Client"));
+        }
+
+        [Test]
+        public void PatchWorld_AMembersKey_IsOwnerOnly_NotNotAuthor()
+        {
+            var t = new FakeTransport
+            {
+                Status = 403,
+                ResponseBody = @"{""error"":{""type"":""permission_error"",""code"":""owner_only"",""message"":""Only the owner may change this.""}}",
+            };
+            var e = Assert.ThrowsAsync<OWApiError>(() => Make(t).PatchWorldAsync(new JObject { ["name"] = "K" }));
+
+            Assert.IsTrue(e.IsOwnerOnly);
+            Assert.IsFalse(e.IsNotAuthor);
+            Assert.IsFalse(e.IsAuthError);
+        }
+
+        [Test]
+        public void PatchWorld_NothingToSend_IsRefused()
+        {
+            var t = new FakeTransport();
+            Assert.Throws<System.ArgumentNullException>(() => Make(t).PatchWorldAsync(null));
+            Assert.IsEmpty(t.Calls);
         }
 
         // -- Construction guards ----------------------------------------------

@@ -68,7 +68,7 @@
     "world_full": 422,
     "write_failed": 502
   },
-  "fetched": "2026-10-23T05:29+02:00",
+  "fetched": "2026-10-23T05:59+02:00",
   "openapi_version": "2.0",
   "paths": {
     "/api/v2/ability": {
@@ -151,6 +151,9 @@
           "talents",
           "tradition",
           "world"
+        ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
         ],
         "header": [
           "Idempotency-Key",
@@ -270,6 +273,9 @@
           "tradition",
           "world"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "If-Match",
           "X-OW-Agent",
@@ -337,6 +343,9 @@
           "talents",
           "tradition",
           "world"
+        ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
         ],
         "header": [
           "X-OW-Agent",
@@ -1306,6 +1315,9 @@
           "weight",
           "world"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "Idempotency-Key",
           "X-OW-Agent",
@@ -1481,6 +1493,9 @@
           "weight",
           "world"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "If-Match",
           "X-OW-Agent",
@@ -1586,6 +1601,9 @@
           "traits",
           "weight",
           "world"
+        ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
         ],
         "header": [
           "X-OW-Agent",
@@ -2152,6 +2170,9 @@
           "symbolism",
           "world"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "Idempotency-Key",
           "X-OW-Agent",
@@ -2270,6 +2291,9 @@
           "symbolism",
           "world"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "If-Match",
           "X-OW-Agent",
@@ -2337,6 +2361,9 @@
           "supertype",
           "symbolism",
           "world"
+        ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
         ],
         "header": [
           "X-OW-Agent",
@@ -2778,6 +2805,9 @@
           "world",
           "zones"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "Idempotency-Key",
           "X-OW-Agent",
@@ -2932,6 +2962,9 @@
           "world",
           "zones"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "If-Match",
           "X-OW-Agent",
@@ -3023,6 +3056,9 @@
           "traits",
           "world",
           "zones"
+        ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
         ],
         "header": [
           "X-OW-Agent",
@@ -3483,6 +3519,9 @@
           "world",
           "zone"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "Idempotency-Key",
           "X-OW-Agent",
@@ -3613,6 +3652,9 @@
           "world",
           "zone"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "If-Match",
           "X-OW-Agent",
@@ -3688,6 +3730,9 @@
           "weight",
           "world",
           "zone"
+        ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
         ],
         "header": [
           "X-OW-Agent",
@@ -4133,6 +4178,9 @@
           "world",
           "zones"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "Idempotency-Key",
           "X-OW-Agent",
@@ -4275,6 +4323,9 @@
           "world",
           "zones"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "If-Match",
           "X-OW-Agent",
@@ -4358,6 +4409,9 @@
           "triggers",
           "world",
           "zones"
+        ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
         ],
         "header": [
           "X-OW-Agent",
@@ -4794,6 +4848,9 @@
           "traits",
           "world"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "Idempotency-Key",
           "X-OW-Agent",
@@ -4906,6 +4963,9 @@
           "traits",
           "world"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "If-Match",
           "X-OW-Agent",
@@ -4969,6 +5029,9 @@
           "traditions",
           "traits",
           "world"
+        ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
         ],
         "header": [
           "X-OW-Agent",
@@ -5405,6 +5468,9 @@
           "world",
           "zones"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "Idempotency-Key",
           "X-OW-Agent",
@@ -5511,6 +5577,9 @@
           "world",
           "zones"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "If-Match",
           "X-OW-Agent",
@@ -5570,6 +5639,9 @@
           "supertype",
           "world",
           "zones"
+        ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
         ],
         "header": [
           "X-OW-Agent",
@@ -6036,6 +6108,9 @@
           "world",
           "writing"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "Idempotency-Key",
           "X-OW-Agent",
@@ -6136,6 +6211,9 @@
           "world",
           "writing"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "If-Match",
           "X-OW-Agent",
@@ -6191,6 +6269,9 @@
           "supertype",
           "world",
           "writing"
+        ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
         ],
         "header": [
           "X-OW-Agent",
@@ -6583,6 +6664,9 @@
           "world",
           "zones"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "Idempotency-Key",
           "X-OW-Agent",
@@ -6692,6 +6776,9 @@
           "world",
           "zones"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "If-Match",
           "X-OW-Agent",
@@ -6753,6 +6840,9 @@
           "supertype",
           "world",
           "zones"
+        ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
         ],
         "header": [
           "X-OW-Agent",
@@ -7194,6 +7284,9 @@
           "world",
           "zone"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "Idempotency-Key",
           "X-OW-Agent",
@@ -7363,6 +7456,9 @@
           "world",
           "zone"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "If-Match",
           "X-OW-Agent",
@@ -7464,6 +7560,9 @@
           "supertype",
           "world",
           "zone"
+        ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
         ],
         "header": [
           "X-OW-Agent",
@@ -7917,6 +8016,9 @@
           "width",
           "world"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "Idempotency-Key",
           "X-OW-Agent",
@@ -8014,6 +8116,9 @@
           "width",
           "world"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "If-Match",
           "X-OW-Agent",
@@ -8067,6 +8172,9 @@
           "supertype",
           "width",
           "world"
+        ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
         ],
         "header": [
           "X-OW-Agent",
@@ -8446,6 +8554,9 @@
           "z",
           "zone"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "Idempotency-Key",
           "X-OW-Agent",
@@ -8540,6 +8651,9 @@
           "z",
           "zone"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "If-Match",
           "X-OW-Agent",
@@ -8591,6 +8705,9 @@
           "y",
           "z",
           "zone"
+        ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
         ],
         "header": [
           "X-OW-Agent",
@@ -9109,6 +9226,9 @@
           "world",
           "zones"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "Idempotency-Key",
           "X-OW-Agent",
@@ -9269,6 +9389,9 @@
           "world",
           "zones"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "If-Match",
           "X-OW-Agent",
@@ -9364,6 +9487,9 @@
           "traits",
           "world",
           "zones"
+        ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
         ],
         "header": [
           "X-OW-Agent",
@@ -9822,6 +9948,9 @@
           "weight",
           "world"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "Idempotency-Key",
           "X-OW-Agent",
@@ -9940,6 +10069,9 @@
           "weight",
           "world"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "If-Match",
           "X-OW-Agent",
@@ -10007,6 +10139,9 @@
           "utility",
           "weight",
           "world"
+        ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
         ],
         "header": [
           "X-OW-Agent",
@@ -10415,6 +10550,9 @@
           "wielders",
           "world"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "Idempotency-Key",
           "X-OW-Agent",
@@ -10521,6 +10659,9 @@
           "wielders",
           "world"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "If-Match",
           "X-OW-Agent",
@@ -10580,6 +10721,9 @@
           "triggers",
           "wielders",
           "world"
+        ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
         ],
         "header": [
           "X-OW-Agent",
@@ -10968,6 +11112,9 @@
           "y",
           "z"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "Idempotency-Key",
           "X-OW-Agent",
@@ -11062,6 +11209,9 @@
           "y",
           "z"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "If-Match",
           "X-OW-Agent",
@@ -11113,6 +11263,9 @@
           "x",
           "y",
           "z"
+        ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
         ],
         "header": [
           "X-OW-Agent",
@@ -11522,6 +11675,9 @@
           "world",
           "zones"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "Idempotency-Key",
           "X-OW-Agent",
@@ -11664,6 +11820,9 @@
           "world",
           "zones"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "If-Match",
           "X-OW-Agent",
@@ -11747,6 +11906,9 @@
           "traits",
           "world",
           "zones"
+        ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
         ],
         "header": [
           "X-OW-Agent",
@@ -12218,6 +12380,9 @@
           "world",
           "zones"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "Idempotency-Key",
           "X-OW-Agent",
@@ -12345,6 +12510,9 @@
           "world",
           "zones"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "If-Match",
           "X-OW-Agent",
@@ -12418,6 +12586,9 @@
           "weight",
           "world",
           "zones"
+        ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
         ],
         "header": [
           "X-OW-Agent",
@@ -12864,6 +13035,9 @@
           "world",
           "zones"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "Idempotency-Key",
           "X-OW-Agent",
@@ -13012,6 +13186,9 @@
           "world",
           "zones"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "If-Match",
           "X-OW-Agent",
@@ -13099,6 +13276,9 @@
           "symbols",
           "world",
           "zones"
+        ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
         ],
         "header": [
           "X-OW-Agent",
@@ -13545,6 +13725,9 @@
           "supertype",
           "world"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "Idempotency-Key",
           "X-OW-Agent",
@@ -13663,6 +13846,9 @@
           "supertype",
           "world"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "If-Match",
           "X-OW-Agent",
@@ -13730,6 +13916,9 @@
           "subtype",
           "supertype",
           "world"
+        ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
         ],
         "header": [
           "X-OW-Agent",
@@ -14124,6 +14313,9 @@
           "time_range_max",
           "time_range_min"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [],
         "query": [],
         "response": [
@@ -14302,6 +14494,9 @@
           "titles",
           "world"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "Idempotency-Key",
           "X-OW-Agent",
@@ -14408,6 +14603,9 @@
           "titles",
           "world"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [
           "If-Match",
           "X-OW-Agent",
@@ -14467,6 +14665,9 @@
           "supertype",
           "titles",
           "world"
+        ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
         ],
         "header": [
           "X-OW-Agent",
