@@ -6,6 +6,10 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.18.1] - 2026-10-23
+
+Folders declare format 0.3.17. A patch release: nothing else changed.
+
 ### Changed
 
 - Folders declare format 0.3.17. The version only grew the list of a producer's `input` words (`kanka-export`,
