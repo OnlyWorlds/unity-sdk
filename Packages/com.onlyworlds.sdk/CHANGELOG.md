@@ -6,6 +6,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-10-23
+
+Elements written as proposed, from Unity: the world's review queue lists new elements that carry the review mark, a
+keeper settles one with `ReviewNewElementAsync`, and the mark's two readers say whether an element is settled (keel
+#565 and #580, schema-dist dist.52). A world can also be made on an account with its first key
+(`CreateAccountWorldAsync`, keel #579). A minor release because it adds public API (below).
+
 ### Added
 
 - **The world's review queue lists new elements written as proposed** (keel #565). `OWClient.WorldProposalsAsync`
