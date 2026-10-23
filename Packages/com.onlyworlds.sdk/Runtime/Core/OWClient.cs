@@ -676,6 +676,62 @@ namespace OnlyWorlds.Sdk
         private static OWProposal ProposalOf(JObject answer)
             => (answer?["proposal"] as JObject)?.ToObject<OWProposal>(Newtonsoft.Json.JsonSerializer.Create(OWJson.Settings));
 
+        // -- The account's worlds (account token) -----------------------------
+
+        /// <summary>
+        /// POST /account/worlds -- make a world on the account, with its one write key. Returns the world's row and the
+        /// full <c>ow_w_</c> key, shown this once (<see cref="OWAccountWorldCreated.Key"/>).
+        /// </summary>
+        /// <param name="world">
+        /// The world: <see cref="OWAccountWorldCreate.Name"/> is required; each other member is sent only when it is not
+        /// null (<see cref="OWAccountWorldCreate.KeyName"/> as <c>key_name</c>).
+        /// </param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <exception cref="ArgumentNullException"><paramref name="world"/> is null; nothing was sent.</exception>
+        /// <exception cref="ArgumentException">The world has no name; nothing was sent.</exception>
+        /// <exception cref="OWApiError">
+        /// The server refused. A 422 with <see cref="OWApiError.Param"/> <c>pin</c> is the PIN: the account has none and
+        /// <see cref="OWAccountWorldCreate.Pin"/> was not sent, or it has one and it was. Nothing was made; send again
+        /// with or without it.
+        /// </exception>
+        /// <remarks>
+        /// <para>
+        /// An account token only, sent as its Bearer and never with <c>API-Pin</c>. No <c>X-OW-Agent</c> or
+        /// <c>X-OW-Client</c>, which keel's document does not list here, and no <c>Idempotency-Key</c>, which it does
+        /// not take: if the answer is lost, the world is on the account's world list without its full key, and a new
+        /// key is minted for it there.
+        /// </para>
+        /// <para>
+        /// <see cref="OWAccountWorldCreate.Source"/> and <see cref="OWAccountWorldCreate.Producer"/> are the folder
+        /// format's provenance lines, from a tool that makes the world from a folder; keel keeps them as given and
+        /// serves them back under the world's <c>origin</c> (<see cref="GetWorldAsync"/>). Mirrors the npm SDK's
+        /// <c>createAccountWorld</c> (4.66.0), its refusal of any other key kind included.
+        /// </para>
+        /// </remarks>
+        public async Task<OWAccountWorldCreated> CreateAccountWorldAsync(OWAccountWorldCreate world, CancellationToken ct = default)
+        {
+            if (KeyKind != OWKeyKind.Account)
+            {
+                throw new InvalidOperationException(
+                    "CreateAccountWorldAsync needs an account token (ow_a_); this client holds a "
+                    + $"{KeyKind.ToString().ToLowerInvariant()} key. Nothing was sent.");
+            }
+
+            if (world == null) throw new ArgumentNullException(nameof(world));
+            if (world.Name == null)
+            {
+                throw new ArgumentException(
+                    "CreateAccountWorldAsync: Name is required, the world's name. Nothing was sent.", nameof(world));
+            }
+
+            // Only the members given: keel reads a null and a missing key alike here, so none is sent.
+            var body = JObject.FromObject(world, Newtonsoft.Json.JsonSerializer.Create(
+                new Newtonsoft.Json.JsonSerializerSettings { NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore }));
+
+            return await RequestAsync<OWAccountWorldCreated>("POST", "/account/worlds", body: body, ct: ct).ConfigureAwait(false);
+        }
+
         // -- Sync -------------------------------------------------------------
 
         /// <summary>

@@ -158,6 +158,15 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             await c.ReviewNewElementAsync("character", "c1", OWReviewed.Accept);
             await c.ReviewNewElementAsync("character", "c1", OWReviewed.Decline, "not canon");
 
+            // The account's world create (keel #579) takes an account token: every member given, on the same transport.
+            var account = new OWClient(new OWClientConfig { ApiKey = "ow_a_test", ApiPin = "0000", Transport = t, BaseUrl = Base, Agent = true });
+            t.ResponseBody = @"{""id"":""w1"",""name"":""W"",""role"":""owner"",""public_read"":false,""keys"":[],""key"":""ow_w_x""}";
+            await account.CreateAccountWorldAsync(new OWAccountWorldCreate
+            {
+                Name = "W", Pin = "4821", KeyName = "k",
+                Source = new JObject { ["world"] = "w0" }, Producer = new JObject { ["tool"] = "t" },
+            });
+
             // Joining is keyless, so it is not on the client; the same transport records it. The redeem passes every
             // option at once (no real code takes all three) so each key it can put in the body is on the wire here.
             t.ResponseBody = @"{""reader"":""player"",""world"":{""name"":""W"",""description"":""""}}";
@@ -358,6 +367,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             // An empty walk passes with nothing checked; the join routes carry the party link's keys.
             Assert.That(checkedOps, Does.Contain("POST /api/v2/join").And.Contain("POST /api/v2/join/preview"));
             Assert.That(checkedOps, Does.Contain("PATCH /api/v2/world"));
+            Assert.That(checkedOps, Does.Contain("POST /api/v2/account/worlds"));
         }
 
         /// <summary>
@@ -402,6 +412,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [TestCase(typeof(OWPage<OWProposal>), "/api/v2/character/{id}/proposals", "GET")]
         [TestCase(typeof(OWProposalAccepted), "/api/v2/character/{id}/proposals/{pid}/accept", "POST")]
         [TestCase(typeof(OWReviewed), "/api/v2/character/{id}/review", "POST")]
+        [TestCase(typeof(OWAccountWorldCreated), "/api/v2/account/worlds", "POST")]
         public void EveryKeyAModelReads_IsOneKeelServes(Type model, string path, string method)
         {
             var op = Wire["paths"]?[path]?[method] as JObject;
@@ -418,6 +429,22 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             var stale = NotServed.Keys.Where(k => k.StartsWith(path + " ")).Where(k => served.Contains(k.Substring(path.Length + 1)));
             Assert.IsEmpty(stale, "keel serves these now; drop them from NotServed: " + string.Join(", ", stale));
+        }
+
+        [TestCase(typeof(OWAccountWorldCreate), "/api/v2/account/worlds", "POST")]
+        public void EveryKeyARequestModelMaps_IsOneKeelTakes(Type model, string path, string method)
+        {
+            // The body is serialized from the model's attributes, so a key the model maps that keel's request schema does
+            // not name fails here, sent or not.
+            var op = Wire["paths"]?[path]?[method] as JObject;
+            Assert.IsNotNull(op?["body"], $"{method} {path} declares no JSON body in the fixture");
+
+            var takes = op["body"].Values<string>().ToList();
+            var mapped = MappedKeys(model);
+            Assert.IsNotEmpty(mapped, $"{model.Name} maps no keys");
+
+            var unknown = mapped.Where(k => !takes.Contains(k)).ToList();
+            Assert.IsEmpty(unknown, $"{model.Name} maps keys {method} {path} does not take: {string.Join(", ", unknown)}");
         }
 
         [TestCase("/api/v2/me", "GET")]
@@ -476,7 +503,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             // An empty recording would pass the checks above with nothing checked.
             var calls = await RecordEveryCall();
-            Assert.AreEqual(26, calls.Count);
+            Assert.AreEqual(27, calls.Count);
 
             // The conditional headers are on the wire here, so the header check above saw them.
             Assert.That(calls.Any(c => c.Headers.ContainsKey("If-Match")), "a delete with ifMatch is recorded");
