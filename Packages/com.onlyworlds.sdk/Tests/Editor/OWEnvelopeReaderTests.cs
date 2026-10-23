@@ -10,14 +10,14 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// <summary>
     /// The portal's one-file export (keel's <c>world_export</c>, spec §8c). The fixture is keel's own: the emitter's
     /// output for one fixed world, pinned by keel's <c>tests/test_export_fixture.py</c> and published in schema-dist as
-    /// <c>example/world-export.json</c> (serial 46, tag <c>v0.33.0-dist.46</c>), vendored byte for byte. When keel's
+    /// <c>example/world-export.json</c> (serial 51, tag <c>v0.33.0-dist.51</c>), vendored byte for byte. When keel's
     /// emitter moves on purpose, the dist moves with it: re-vendor from the dist and update the hash below. The edge
     /// cases are inline.
     /// </summary>
     public class OWEnvelopeReaderTests
     {
-        /// <summary>The fixture's sha256 as dist.46's MANIFEST.json records it (unchanged to dist.48).</summary>
-        private const string DistSha256 = "bdbd5605dbc189a7b5c1d747b92f864cfd3708631f19ea3cb9f5d770170807ac";
+        /// <summary>The fixture's sha256 as dist.51's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "b0b61f43adda2bd40e6791535cf6f13300a675a4efc3251ffc5ba1b1a9c675b8";
 
         private const string WorldId = "01999999-0000-7000-8000-000000000420";
         private const string Keep = "01999999-0000-7000-8000-000000000001";
@@ -49,7 +49,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = System.BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(FixturePath))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored export is not dist.46's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored export is not dist.51's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
@@ -77,6 +77,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(WorldId, (string)read.World["source"]["world"]);
             Assert.AreEqual("owner", (string)read.World["exported_as"]["kind"]);
             Assert.AreEqual(JTokenType.Null, read.World["exported_as"]["character"].Type);
+
+            // The world block is the World whole (dist.50), with the world's first import and its extension store at the
+            // top level (dist.51, keel #571, folder spec v0.3.16): kept as the file gives them, never read into a shape.
+            Assert.AreEqual("atlas", (string)read.World["origin"]["producer"]["tool"]);
+            Assert.AreEqual("01999999-0000-7000-8000-000000000419", (string)read.World["origin"]["source"]["world"]);
+            Assert.AreEqual("Villager", (string)read.World["x_names"]["types"]["character"]["one"]);
+            Assert.AreEqual(JTokenType.Boolean, read.World["public_read"].Type);
         }
 
         [Test]

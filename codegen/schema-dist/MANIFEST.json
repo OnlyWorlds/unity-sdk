@@ -37,7 +37,7 @@
     "example/hyperion/elements/trait/swamp-rage--dff0708a.json": "6bd7a73f73f9a8c37d8ca603af8209c75251ad524aa485fc06538a63c0123588",
     "example/hyperion/elements/zone/swamps--d138f887.json": "d9e9caf3360daaecee51dab9716c7e4a444b47736284c0a6b4269d8b84ae2c45",
     "example/hyperion/world.json": "eeaa6f45d6c232e7aae2114a40eb68a7d30fa7eadcb9e51e6a77908db8d738bb",
-    "example/world-export.json": "bdbd5605dbc189a7b5c1d747b92f864cfd3708631f19ea3cb9f5d770170807ac",
+    "example/world-export.json": "b0b61f43adda2bd40e6791535cf6f13300a675a4efc3251ffc5ba1b1a9c675b8",
     "fixtures/owworld/CaseFolding-15.1.0.txt": "4e55acfdc32825a22e87670e9056a3bf94ad7c5400065778e9e10f8314372bcf",
     "fixtures/owworld/fail-OW-1-json-export.owworld": "f6159d0ae98ef51f9a9d920143e2c0b69bba08192d4d65a632dbd229443e8696",
     "fixtures/owworld/fail-OW-11-key-added.owworld": "e8350c68f455a09b09b7c49ed3097a7ecb45912987dc10f575757e89a9a91189",
@@ -165,7 +165,7 @@
     "schema/world.yaml": "167091ddf5637abeae9a81a49c82f837cafea2437635ce6610cc4d2ccc3794ed",
     "schema/zone.yaml": "9828429f3172b83b6277c0a71a75a3f4079b8b1eccb2135418a458f2fc80f2b7",
     "schema.json": "b0bd929d273cbf2201ac414ad98d10bd6759056a0302b838abd6fc7bb8f317b4",
-    "VERSION": "9870095d1f88da2cfb1947a8957eb96463031f5bbdd6621f72c3b7a43f97508c",
+    "VERSION": "1c5c126470db1dcad2b685a89267ea40d7da941a582d74f1a93fb8dbfd60fa33",
     "walk/lint_folder.py": "5b5a912d47ae2c62328c190276667bf396baf944bd42dbd7985445a7643b973b",
     "walk/rulings.yaml": "75fff534c7dd47763ba79d489a31c7792b4f0569e5d3cbbf44f46e677e92deef",
     "walk/schema_walk.py": "0ab025b14a05e87890075b6750d1224f8c560b92246b8f35280605a4115e2966"

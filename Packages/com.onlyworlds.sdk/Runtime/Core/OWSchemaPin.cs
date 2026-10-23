@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.33.00";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 49;
+        public const int DistSerial = 51;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.33.0-dist.49";
+        public const string Tag = "v0.33.0-dist.51";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -157,9 +157,16 @@ namespace OnlyWorlds.Sdk
         /// The set is re-vendored for <c>OWWorldArchiveConformanceTests</c>, whose <c>Pack</c> case now runs. The
         /// generated models changed only in their serial stamp.
         /// </para>
+        /// <para>
+        /// <b>49 -> 51 (2026-10-23)</b>: canonical unchanged, no schema file moved. Only <c>example/world-export.json</c>
+        /// moved: its world block is now the World whole, every key GET /world serves (50), and carries <c>origin</c> (the
+        /// world's first import: <c>source</c> and <c>producer</c> as the importing tool gave them) and a top-level
+        /// <c>x_names</c> map, the World's extension store (51; folder spec v0.3.16). The export is re-vendored for
+        /// <c>OWEnvelopeReaderTests</c>. The generated models changed only in their serial stamp.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "d926f4dcb42d21ccc7249b6d474601c0dd6e7a42307ea46c19889e21038282f7";
+            "aab887d40c131f93e9dc54329691ed9b494abbe3eb23e9edcb49cee0551bf86d";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.
@@ -173,7 +180,7 @@ namespace OnlyWorlds.Sdk
             "3c20afa9fee3c191c390452f74f415eb999156bbbf966c56beac283fa0ea91a4";
 
         /// <summary>When these constants were last verified against the published dist.</summary>
-        public const string PinnedOn = "2026-10-22";
+        public const string PinnedOn = "2026-10-23";
 
         /// <summary>
         /// ⚑ Rulings that bind THIS SDK and any emitter generating into it. Read the row, not the key.
