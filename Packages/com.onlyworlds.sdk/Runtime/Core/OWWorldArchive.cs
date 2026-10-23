@@ -270,7 +270,7 @@ namespace OnlyWorlds.Sdk
         /// as keel's own download keeps an owner's hidden elements, and a file is also how a person moves or backs up their
         /// own world. A tool that makes the file to hand to someone else passes <c>false</c>: every <c>.json</c> file
         /// directly in a type folder of <c>elements/</c> or the legacy <c>spatial/</c> whose JSON object carries a mark or
-        /// a doubt (<see cref="OWPayload.IsHiddenOrInDoubt"/>) is left out whole. A file there that is not UTF-8 JSON, or
+        /// a doubt (<see cref="OWPayload.IsHidden"/>) is left out whole. A file there that is not UTF-8 JSON, or
         /// not an object, is kept. Nothing else is rewritten: a visible element's link to a hidden one keeps its id.
         /// </param>
         /// <param name="hiddenLeftOut">
@@ -562,7 +562,7 @@ namespace OnlyWorlds.Sdk
             {
                 var text = StrictUtf8.GetString(File.ReadAllBytes(source));
                 if (text.Length > 0 && text[0] == '﻿') text = text.Substring(1);
-                return JToken.Parse(text) is JObject body && OWPayload.IsHiddenOrInDoubt(body);
+                return JToken.Parse(text) is JObject body && OWPayload.IsHidden(body);
             }
             catch (DecoderFallbackException) { return false; }
             catch (Newtonsoft.Json.JsonException) { return false; }

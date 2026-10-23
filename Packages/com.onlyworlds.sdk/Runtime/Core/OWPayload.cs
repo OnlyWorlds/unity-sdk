@@ -94,36 +94,24 @@ namespace OnlyWorlds.Sdk
         public const string Hidden = "hidden";
 
         /// <summary>
-        /// True for an element whose <c>hidden</c> is the JSON boolean <c>true</c>: what its source or its owner hid. Absent,
-        /// <c>false</c> or anything else is not hidden.
+        /// True for an element whose <c>hidden</c> is there with any value but <c>null</c> and <c>false</c>: the mark
+        /// (<c>true</c>, what its source or its owner hid) or a doubt (<c>"true"</c>, <c>1</c>), which counts as the mark, so
+        /// a doubt is never handed on. Absent, <c>null</c> and <c>false</c> are not hidden.
         /// </summary>
         /// <remarks>
         /// Folder format §4.8 (RULED 2026-10-23, Skeld h58 #11461): a folder carries no viewer identity, so the mark means
         /// hidden from whoever the world is handed to, never from the person who opened it. A reader that shows a world to
         /// its holder (a viewer, this SDK's folder readers handing elements to their own caller) shows the element with
         /// the word hidden on it; a reader that hands a world on (a pack, a context packet, a share) leaves it out unless
-        /// asked and counts what it left out. A writer keeps the key byte for byte.
+        /// asked and counts what it left out. A writer keeps the key byte for byte. One rule for both kinds of reader, so
+        /// the word a viewer shows predicts what a share leaves out: the Python package's <c>folder.is_hidden</c> (0.43.0)
+        /// and the npm SDK's world-file writer (4.70.0) read it the same way (Kael h58).
         /// </remarks>
-        public static bool IsHidden(JObject body)
-        {
-            var mark = body?[Hidden];
-            return mark != null && mark.Type == JTokenType.Boolean && (bool)mark;
-        }
+        public static bool IsHidden(JObject body) => IsHiddenMark(body?[Hidden]);
 
-        /// <summary>
-        /// True when <c>hidden</c> is there with any value but <c>null</c> and <c>false</c>: the mark (<c>true</c>) or a
-        /// doubt (<c>"true"</c>, <c>1</c>, an object). The rule of a reader that hands a world on, which leaves such an
-        /// element out of a share, so a doubt is never handed on.
-        /// </summary>
-        /// <remarks>
-        /// The Python package's <c>folder.is_hidden</c> (0.43.0) and the npm SDK's world-file writer (4.70.0), folder format
-        /// §4.8. Wider than <see cref="IsHidden"/>, which a viewer keeps: there a doubt only decides whether the word is shown.
-        /// </remarks>
-        public static bool IsHiddenOrInDoubt(JObject body)
-        {
-            var mark = body?[Hidden];
-            return mark != null && mark.Type != JTokenType.Null && !(mark.Type == JTokenType.Boolean && !(bool)mark);
-        }
+        /// <summary><see cref="IsHidden"/>'s rule on the mark's own value.</summary>
+        internal static bool IsHiddenMark(JToken mark)
+            => mark != null && mark.Type != JTokenType.Null && !(mark.Type == JTokenType.Boolean && !(bool)mark);
 
         /// <summary>The review profile's mark on a new element written as proposed (schema-dist <c>profiles/review.md</c>; keel #565).</summary>
         public const string ReviewProposed = "x_review_proposed";
