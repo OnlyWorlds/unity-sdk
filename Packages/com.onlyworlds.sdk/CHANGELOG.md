@@ -6,6 +6,40 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **The world's review queue lists new elements written as proposed** (keel #565). `OWClient.WorldProposalsAsync`
+  now returns two kinds of row in one order, newest first, told apart by the new `OWProposal.Kind`: a proposed change
+  to an element (`proposal`), and a new element that carries the review mark `x_review_proposed` (`new_element`,
+  `OWProposal.IsNewElement`). A new-element row is the element's own record: its `Id` is the element's id, and `By`,
+  `Evidence` and `Expires` (a date) are the mark's words. A row from a server before keel #565 has no kind and is a
+  proposal. The page's `NextCursor` is opaque: pass it back as it came.
+- **`OWProposal.Omitted`**: the fields a whole-replace proposal would empty (each also in `Fields` at its empty value).
+  A proposal's `Fields` now holds only what differs from the element.
+- **`OWClient.ReviewNewElementAsync(type, id, decision, reason)`**: a keeper (the owner or a co-builder, with the PIN)
+  settles a new element written as proposed (`POST /{type}/{id}/review`). `"accept"` clears the mark and returns the
+  element as written (`OWReviewed.Element`); `"decline"` deletes the element and returns its id (`OWReviewed.Deleted`).
+  A reason goes with a decline only. Another decision, or a reason on an accept, is refused before anything is sent;
+  an answer without the key its decision settles is an `OWApiError`. Sends `X-OW-Client`, never `X-OW-Agent`.
+- **`OWApiError.IsNotProposed`**: 422 `not_proposed`, a review of an element that carries no mark (never marked, or
+  already accepted).
+- **Reading the review mark** (schema-dist's review profile): `OWPayload.IsProposed(body)` and
+  `OWElement.IsProposed` are true when `x_review_proposed` is an object. That is the rule of the review queue and of a
+  viewer, which shows such an element with its mark visible and apart from settled ones.
+  `OWPayload.IsProposedOrInDoubt(body)` and `OWElement.IsProposedOrInDoubt` are true when the key is there with any
+  value but `null`, a mark or a doubt. That is the rule of a reader that hands a world on, such as a context pack for
+  an AI, which leaves those elements out unless asked. The mark is kept in the element's extensions and written back
+  as it came, a cleared `null` included.
+- Parity with the TypeScript SDK 4.66.0 and the Python package 0.35.0 (the queue, the review, `IsNotProposed`), and
+  with the Python package 0.36.0 and the server's own two rules (the mark's readers); their test vectors ported.
+
+### Changed
+
+- `OWClient.PatchWorldAsync` also leaves out `counts`, which the server now serves on a world read with no key and
+  refuses on a world write (`OWPayload.WorldReadOnlyFields`).
+- The schema pin moves to dist.52 (`v0.33.0-dist.52`; canonical `00.33.00` unchanged, no schema file moved). Only the
+  review profile moved: its reader rule.
+
 ## [0.17.0] - 2026-10-23
 
 The world's own settings, written from Unity: `PatchWorldAsync` sends a change to a world's settings, its origin and
