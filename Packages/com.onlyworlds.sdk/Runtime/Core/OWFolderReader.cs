@@ -138,8 +138,12 @@ namespace OnlyWorlds.Sdk
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Implements the OW Folder Format spec v0.3.8's reading rules. The rules that shape this code, all of which
-    /// are easy to violate by accident:
+    /// Implements the OW Folder Format spec's reading rules through the version <see cref="OWFolderExport.FormatVersion"/>
+    /// declares. Since v0.3.8 those that reach a reader: the world's provenance keys (<c>source</c>, <c>exported_as</c>,
+    /// <c>producer</c>, <c>origin</c>: v0.3.9, v0.3.14, v0.3.16) kept as written, a known-of stub read as one (v0.3.10),
+    /// <c>records/</c> left to the producers that know it (v0.3.12); the archive is <see cref="OWWorldArchive"/>'s
+    /// (v0.3.13). The rest (v0.3.11, v0.3.15) bind writers. The rules that shape this code, all of which are easy to
+    /// violate by accident:
     /// </para>
     /// <list type="bullet">
     /// <item><b>Opening is not editing.</b> This class only reads. It creates no directories, no
