@@ -6,6 +6,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.19.1] - 2026-10-24
+
+The `.owworld` reader agrees with every other reader of the format: it refuses a deflate stream that does not end at
+its declared size, and it folds names with Unicode 15.1's NFC built from Unicode's own files, so a newer runtime can
+no longer change which names collide. It passes all 96 cases of the conformance set at dist.60, and a read of a big
+world is about a quarter faster. The repository now says who maintains it and where questions, bugs and security
+reports go. A patch release: no public API changed.
+
 ### Added
 
 - The repository says who writes it and where a stranger goes: the README names its maintainer (an AI mind of the
