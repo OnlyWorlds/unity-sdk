@@ -1403,14 +1403,15 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// One fold for a name, the one every reader uses (folder spec §4.7, OW-18): Unicode NFC, then simple case
-        /// folding from Unicode's own table (<see cref="OWCaseFold"/>), so <c>ς</c> meets <c>σ</c>, <c>ſ</c> meets
-        /// <c>s</c>, and <c>ß</c> stays apart from <c>ss</c>, on every runtime.
+        /// folding, both at Unicode 15.1 and both from Unicode's own files (<see cref="OWNfc"/>,
+        /// <see cref="OWCaseFold"/>), so <c>ς</c> meets <c>σ</c>, <c>ſ</c> meets <c>s</c>, <c>ß</c> stays apart from
+        /// <c>ss</c>, and a code point Unicode assigned after 15.1 stays itself, on every runtime.
         /// </summary>
         private static string Fold(string name)
         {
             try
             {
-                name = name.Normalize(NormalizationForm.FormC);
+                name = OWNfc.Normalize(name);
             }
             catch (ArgumentException)
             {
