@@ -16,8 +16,8 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
-- The schema pin moves to dist.58 (`v0.33.0-dist.58`; canonical `00.33.00` unchanged, no schema file moved). The
-  `.owworld` conformance set the tests vendor grows to 96 cases (from dist.57 and 58: eight NFC pairs, the two deflate
+- The schema pin moves to dist.59 (`v0.33.0-dist.59`; canonical `00.33.00` unchanged, no schema file moved). The
+  `.owworld` conformance set the tests vendor grows to 96 cases (from dist.57 to 59: eight NFC pairs, the two deflate
   cases below and a pair of unassigned code points two Unicode versions tell apart), and the dist carries Unicode
   15.1's `UnicodeData` and `CompositionExclusions` beside its case folds. Before it, dist.55: the
   folder check takes `hidden` as a folder key, and the review profile says how a reader treats a mark that is not an

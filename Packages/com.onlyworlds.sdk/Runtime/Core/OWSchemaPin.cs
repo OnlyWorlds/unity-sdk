@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.33.00";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 58;
+        public const int DistSerial = 59;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.33.0-dist.58";
+        public const string Tag = "v0.33.0-dist.59";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -188,11 +188,12 @@ namespace OnlyWorlds.Sdk
         /// OW-18's NFC from them (57), eight NFC pairs (57), and three cases of 58: a deflate stream that ends before its
         /// declared compressed size, one that never ends, and an unassigned pair two NFCs tell apart. The spine profile
         /// gains its seat and projection sentences; the dist carries a LICENSE and SECURITY of the publisher's.
-        /// <c>presentation.json</c> is byte-identical.
+        /// <c>presentation.json</c> is byte-identical. <b>59</b> is text only: the set's rules, the profile pages and the
+        /// folder lint say when a rule was ruled, not where; the zips are byte for byte, <c>verdicts.json</c> moved.
         /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "7746970ee66bcb9dca9aa0974e9c17891bd9a38a4fff0fe73d3fad4f97ae9724";
+            "f402293f61735f616457e90698b8e268de7125cf7b29d96f3fa88ed54e87d22e";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.
