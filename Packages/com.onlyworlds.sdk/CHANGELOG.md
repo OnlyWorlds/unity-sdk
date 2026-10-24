@@ -6,6 +6,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The schema pin moves to dist.61 (`v0.33.0-dist.61`; canonical `00.33.00` unchanged, no schema YAML moved).
+  `schema.json` and the walk now carry each integer field's `minimum` and `maximum` as the YAML has them, as advisory
+  data for display; the platform enforces neither, and this SDK neither reads nor enforces them. The folder lint warns
+  on a newer `format_version` stamp, and the spine profile's fixture grows; this SDK reads neither. The generated
+  models changed only in their serial stamps.
+
 ## [0.19.1] - 2026-10-24
 
 The `.owworld` reader agrees with every other reader of the format: it refuses a deflate stream that does not end at
