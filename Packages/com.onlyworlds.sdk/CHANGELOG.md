@@ -6,6 +6,15 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The schema pin moves to dist.55 (`v0.33.0-dist.55`; canonical `00.33.00` unchanged, no schema file moved). The
+  folder check takes `hidden` as a folder key, and the review profile says how a reader treats a mark that is not an
+  object (a reader that hands a world on counts it as a doubt and leaves it out; a viewer shows the element as
+  settled): `OWPayload.IsHidden`, `IsProposedOrInDoubt` and `IsProposed` already read both so. The checks profile
+  gains `where.type` as a list, and a new spine profile describes a world that maps a software ecosystem; this SDK
+  reads neither. The generated models changed only in their serial and date stamps.
+
 ## [0.19.0] - 2026-10-23
 
 The hidden mark, read and kept (folder format §4.8): `OWPayload.IsHidden` and `OWElement.IsHidden` say whether an

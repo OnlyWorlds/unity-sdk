@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.33.00";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 52;
+        public const int DistSerial = 55;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.33.0-dist.52";
+        public const string Tag = "v0.33.0-dist.55";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -171,9 +171,20 @@ namespace OnlyWorlds.Sdk
         /// a world to its people shows the mark. The SDK parses no profile file; the generated models changed only in
         /// their serial stamp.
         /// </para>
+        /// <para>
+        /// <b>52 -> 55 (2026-10-24)</b>: canonical unchanged, no schema file moved. The folder lint takes <c>hidden</c> as a
+        /// folder key, true or false (53; folder format §4.8, which <see cref="OWPayload.IsHidden"/> already reads). The
+        /// review profile's rule 4 says what a reader does with a malformed mark (53): a reader that hands a world on treats
+        /// it as a doubt, a reader that shows a world to its people shows the element as settled, the queue reads an object
+        /// only; <see cref="OWPayload.IsProposedOrInDoubt"/> and <see cref="OWPayload.IsProposed"/> already read it so. The
+        /// checks profile's list case and reader rules 6 to 8 (54), and the spine profile (55, <c>profiles/spine.md</c>,
+        /// <c>spine.fixture.json</c>: a world that maps a software ecosystem), which this SDK does not read.
+        /// <c>presentation.json</c>, <c>schema_walk.py</c> and <c>rulings.yaml</c> are byte-identical; the generated models
+        /// changed only in their serial and date stamps.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "37707f7a2a0f4d6cfe156a7263d061b4d13c8a988ed885808bb22ea2196c221c";
+            "7b4db33d576692918595d71ceba4832a5eb2ae56c8e83e0cafa68f62b6c1edc4";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.
@@ -187,7 +198,7 @@ namespace OnlyWorlds.Sdk
             "3c20afa9fee3c191c390452f74f415eb999156bbbf966c56beac283fa0ea91a4";
 
         /// <summary>When these constants were last verified against the published dist.</summary>
-        public const string PinnedOn = "2026-10-23";
+        public const string PinnedOn = "2026-10-24";
 
         /// <summary>
         /// ⚑ Rulings that bind THIS SDK and any emitter generating into it. Read the row, not the key.

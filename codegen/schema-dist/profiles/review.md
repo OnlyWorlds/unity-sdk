@@ -19,7 +19,7 @@
    - **A reader that shows a world to its people** (an editor, a viewer, the world page, a review queue) **shows proposed elements with the mark visible**, apart from settled ones (a word before the colour, never merged into counts of what the world holds as true), since the keeper has to see them to settle them. An element asked for by its own id is served whole, mark on, to any reader.
 2. `expires` past: the proposal lapsed; a reader shows it as lapsed and a doctor reports it; nothing deletes it on its own.
 3. `x_review_checked.at` is the element's freshness date where it exists; last checked outranks last edited. A reader that shows age shows the check's date first and the edit's beside it.
-4. A value that is not an object with the keys above is ignored, never repaired, and reported by a lint.
+4. A value that is not an object with the keys above is never repaired and is reported by a lint. A reader that hands a world on treats it as a doubt: left out unless asked for and counted with the proposed, so a doubt never reaches an AI as canon. A reader that shows a world to its people ignores it, showing the element as settled with the lint's finding beside it. The queue and the review route read an object only.
 
 **What a writer must do.**
 - Write a proposal only where the world's charter says writes of this kind land as proposed; a settled world's writer never adds the key.
