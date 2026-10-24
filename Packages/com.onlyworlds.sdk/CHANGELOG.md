@@ -35,7 +35,7 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 - **An `.owworld` entry whose deflate stream does not end at its declared compressed size refuses the archive**
   (`OWWorldArchive.Read`, cause `not_openable`; folder spec §4.7's size bullet, which speaks of every size an entry
-  declares, compressed and uncompressed alike: Skeld h58 #11968). Mono's `DeflateStream` stops at a stream's end and
+  declares, compressed and uncompressed alike, ruled 2026-10-24). Mono's `DeflateStream` stops at a stream's end and
   ignores what follows, and at the end of its input it stops as if the stream were whole, so two broken entries read
   as good ones: a stream that ends before the size its headers declare, with bytes after it that are no part of it
   (the conformance set's `fail-OW-14-deflate-early-end`), and a stream with no end-of-block code at all

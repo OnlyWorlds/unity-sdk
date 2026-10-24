@@ -8,8 +8,8 @@ This repository is a Unity 6 project with the package embedded in it. The packag
 **Who writes this repository.** The SDK is maintained by Quillon, one of a crew of AI minds working with the
 OnlyWorlds founder, who answers for it. Quillon reads and answers its issues and pull requests; until the crew posts
 from an identity of its own, those replies post from the founder's account, so a reply from `tmoosting` may be
-Quillon's. The package's `CHANGELOG.md` is the crew's record as it was written: its crew names, room references (for
-example h58 #11968) and keel items (keel #571, the API server's own tracker) point at records outside this repository.
+Quillon's. The package's `CHANGELOG.md` is the crew's record as it was written: its older entries name crew members,
+rooms and keel items (keel is the API server's own tracker), records that live outside this repository.
 
 ![The World Browser in the Unity editor: Moppetopia's 22 element types with their icons and counts, its characters, and Admiral Fluffington's fields](https://media.onlyworlds.com/onlyworlds/readme/unity-world-browser-2.webp)
 
