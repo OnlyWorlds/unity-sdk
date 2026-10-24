@@ -924,7 +924,11 @@ namespace OnlyWorlds.Sdk
                     $"'{archivePath}' is not a zip archive.", e);
             }
 
+            // The deflate walk (EndsWhereItDeclares) reads each entry's raw bytes through a stream of its own: entries
+            // are walked in the archive's order, so it reads on from where the last one ended, never seeking, where on
+            // the zip's own stream every entry would cost two seeks and the reads after them (measured on Sikelia).
             using (zip)
+            using (var raw = new FileStream(archivePath, FileMode.Open, FileAccess.Read, FileShare.Read, RawBufferSize))
             {
                 // What ZipArchiveEntry leaves out (a name's raw bytes and flags, the method, a Unix mode) is read from
                 // the central directory by hand, one record per entry, in the same order. The zip reads its own first.
@@ -1005,7 +1009,7 @@ namespace OnlyWorlds.Sdk
                 // The marker (OW-6) is never required, but one that is there must say exactly what the file is.
                 foreach (var (entry, path, record) in named)
                 {
-                    if (path == MarkerEntry && !HoldsTheMediaType(stream, entry, record))
+                    if (path == MarkerEntry && !HoldsTheMediaType(raw, entry, record))
                     {
                         throw Hostile(OWWorldArchiveReason.Marker, entry.FullName,
                             $"is the marker but does not hold exactly '{MediaType}' (ASCII, no newline)");
@@ -1043,11 +1047,11 @@ namespace OnlyWorlds.Sdk
                     var relative = path.StartsWith(root, StringComparison.Ordinal) ? path.Substring(root.Length) : null;
                     if (relative == null || !IsRead(relative, includeLegacySpatial))
                     {
-                        Inflate(stream, entry, record, keep: false);
+                        Inflate(raw, entry, record, keep: false);
                         continue;
                     }
 
-                    entries.Add(new KeyValuePair<string, string>(relative, ReadText(stream, entry, record)));
+                    entries.Add(new KeyValuePair<string, string>(relative, ReadText(raw, entry, record)));
                 }
 
                 OWFolderReadResult read;
@@ -1125,7 +1129,7 @@ namespace OnlyWorlds.Sdk
         /// unreadable file would be in a folder: it is a broken archive, and the TypeScript reader and the reference
         /// checker refuse it.
         /// </exception>
-        /// <param name="archive">The archive's own stream, for the entry's raw bytes.</param>
+        /// <param name="archive">The archive's file, read in entry order for the entry's raw bytes (<see cref="EndsWhereItDeclares"/>).</param>
         /// <param name="entry">The entry.</param>
         /// <param name="record">Its central-directory record, for the CRC-32 and the local header.</param>
         /// <param name="keep">False checks the entry and keeps nothing: the result is null.</param>
@@ -1185,17 +1189,20 @@ namespace OnlyWorlds.Sdk
         /// of it, and one that never ends inside it. The bits after the end in that last byte are padding.
         /// </summary>
         /// <exception cref="OWFolderFormatException"><c>not_openable</c>.</exception>
-        private static void EndsWhereItDeclares(Stream archive, ZipArchiveEntry entry, DirectoryRecord record)
+        /// <param name="raw">The archive's file, read in entry order: positioned where the last walk ended, it is not sought.</param>
+        private static void EndsWhereItDeclares(Stream raw, ZipArchiveEntry entry, DirectoryRecord record)
         {
             var declared = entry.CompressedLength;
             long used;
             try
             {
-                // The zip has opened this local header already (its signature checked), so only its lengths are read.
+                // The zip has opened this local header already (its signature checked), so only its lengths are read,
+                // and the name and extra field are read through rather than sought past.
                 if (record.LocalHeader < 0) throw new InvalidDataException("its local header cannot be found");
-                var header = ReadAt(archive, record.LocalHeader, LocalHeaderSize);
-                archive.Seek(record.LocalHeader + LocalHeaderSize + U16(header, 26) + U16(header, 28), SeekOrigin.Begin);
-                used = OWDeflateEnd.Measure(archive, declared);
+                if (raw.Position != record.LocalHeader) raw.Seek(record.LocalHeader, SeekOrigin.Begin);
+                var header = ReadExactly(raw, LocalHeaderSize);
+                ReadExactly(raw, U16(header, 26) + U16(header, 28));
+                used = OWDeflateEnd.Measure(raw, declared);
             }
             catch (Exception e) when (e is InvalidDataException || e is IOException)
             {
@@ -1212,6 +1219,9 @@ namespace OnlyWorlds.Sdk
         }
 
         private const int LocalHeaderSize = 30;
+
+        /// <summary>The walk's stream's buffer: most entries are a few hundred bytes, so one read holds many.</summary>
+        private const int RawBufferSize = 1 << 16;
 
         // -- CRC-32 (the zip format's: IEEE 802.3, reflected, polynomial 0xEDB88320) --------
 
@@ -1568,8 +1578,14 @@ namespace OnlyWorlds.Sdk
         /// <summary><paramref name="count"/> bytes from <paramref name="offset"/>; an <see cref="IOException"/> when the file is shorter.</summary>
         private static byte[] ReadAt(Stream stream, long offset, int count)
         {
-            var bytes = new byte[count];
             stream.Seek(offset, SeekOrigin.Begin);
+            return ReadExactly(stream, count);
+        }
+
+        /// <summary>The next <paramref name="count"/> bytes; an <see cref="EndOfStreamException"/> when the file is shorter.</summary>
+        private static byte[] ReadExactly(Stream stream, int count)
+        {
+            var bytes = new byte[count];
             var held = 0;
             while (held < count)
             {
