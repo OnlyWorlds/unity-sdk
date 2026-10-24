@@ -1367,6 +1367,18 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             StringAssert.Contains("inflates past the 64 bytes it declares", e.Message);
         }
 
+        [Test]
+        public void Read_RefusesAnEntryDeclaringNoBytesThatInflatesToSome()
+        {
+            // The read's buffer is sized to the entry, one byte past it: an entry declaring 0 bytes must still show
+            // its lie on the first read (a buffer of exactly its size would read nothing and find nothing).
+            var archive = WorldZip("empty-lying.owworld", ("w/media/a.png", "png bytes"));
+            DeclareSize(archive, "w/media/a.png", 0);
+            var e = Refused(archive);
+            Assert.AreEqual(OWWorldArchiveReason.TooBig, e.Reason);
+            StringAssert.Contains("inflates past the 0 bytes it declares", e.Message);
+        }
+
         /// <summary>Flips the lowest bit of the CRC-32 an entry declares, in its local header (14) and its central record (16).</summary>
         private static void FlipCrc(string archive, string name)
             => PatchEntry(archive, name, (bytes, at, central) => bytes[at + (central ? 16 : 14)] ^= 1);

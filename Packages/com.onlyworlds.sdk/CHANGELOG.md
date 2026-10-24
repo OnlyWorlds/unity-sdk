@@ -14,6 +14,26 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   settled): `OWPayload.IsHidden`, `IsProposedOrInDoubt` and `IsProposed` already read both so. The checks profile
   gains `where.type` as a list, and a new spine profile describes a world that maps a software ecosystem; this SDK
   reads neither. The generated models changed only in their serial and date stamps.
+- An `.owworld` read is about a quarter faster on a big world: each entry was inflated through a buffer of its own
+  of 80 KiB, which Mono puts on its large-object heap, and that cost more than the inflating. The buffer is now the
+  entry's size plus one byte (at most 80 KiB), so an entry that inflates past its size, an empty one included, still
+  shows it on the first read. Sikelia's pack (20,791 entries), the deflate walk below included: a read's median
+  4.4 to 4.7 s before, 3.2 to 3.6 s after (three runs each, alternated).
+
+### Fixed
+
+- **An `.owworld` entry whose deflate stream does not end at its declared compressed size refuses the archive**
+  (`OWWorldArchive.Read`, cause `not_openable`; folder spec §4.7's size bullet, which speaks of every size an entry
+  declares, compressed and uncompressed alike: Skeld h58 #11968). Mono's `DeflateStream` stops at a stream's end and
+  ignores what follows, and at the end of its input it stops as if the stream were whole, so two broken entries read
+  as good ones: a stream that ends before the size its headers declare, with bytes after it that are no part of it
+  (the conformance set's `fail-OW-14-deflate-early-end`), and a stream with no end-of-block code at all
+  (`fail-OW-14-deflate-no-end`), both with honest inflated sizes and CRCs. Every reader but Unity refused them. Each
+  deflated entry's raw bytes are now walked after its size and CRC pass (`OWDeflateEnd`, internal: RFC 1951's stored,
+  fixed and dynamic blocks, every symbol decoded and nothing copied) to the byte holding the final end-of-block code,
+  which must be the last byte the entry declares (its bits after the code are padding). The walk reads through a file
+  stream of its own in the archive's order, so it never seeks: on Sikelia's pack (20,790 deflated entries) it adds
+  about 0.4 s to a read of about 4.5 s.
 
 ## [0.19.0] - 2026-10-23
 

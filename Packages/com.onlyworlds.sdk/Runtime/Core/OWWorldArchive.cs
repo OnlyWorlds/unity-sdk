@@ -899,7 +899,8 @@ namespace OnlyWorlds.Sdk
         /// Its <see cref="OWFolderFormatException.Reason"/> names the cause (<see cref="OWWorldArchiveReason"/>). Not a
         /// zip; an entry name that is not a plain relative path, or is repeated, colliding or unsafe; a path both a
         /// file and a folder, a link, an encrypted entry or one in a method other than stored or deflate; past the
-        /// budget, or an entry inflating past its declared size; an entry that is broken, short or fails its CRC-32;
+        /// budget, or an entry inflating past its declared size; an entry that is broken, short or fails its CRC-32,
+        /// or whose deflate stream does not end at the compressed size it declares;
         /// a marker holding other bytes; no world or more than
         /// one in it, a nested one included; or the world's own <c>world.json</c> is unreadable.
         /// </exception>
@@ -923,7 +924,11 @@ namespace OnlyWorlds.Sdk
                     $"'{archivePath}' is not a zip archive.", e);
             }
 
+            // The deflate walk (EndsWhereItDeclares) reads each entry's raw bytes through a stream of its own: entries
+            // are walked in the archive's order, so it reads on from where the last one ended, never seeking, where on
+            // the zip's own stream every entry would cost two seeks and the reads after them (measured on Sikelia).
             using (zip)
+            using (var raw = new FileStream(archivePath, FileMode.Open, FileAccess.Read, FileShare.Read, RawBufferSize))
             {
                 // What ZipArchiveEntry leaves out (a name's raw bytes and flags, the method, a Unix mode) is read from
                 // the central directory by hand, one record per entry, in the same order. The zip reads its own first.
@@ -1004,7 +1009,7 @@ namespace OnlyWorlds.Sdk
                 // The marker (OW-6) is never required, but one that is there must say exactly what the file is.
                 foreach (var (entry, path, record) in named)
                 {
-                    if (path == MarkerEntry && !HoldsTheMediaType(entry, record))
+                    if (path == MarkerEntry && !HoldsTheMediaType(raw, entry, record))
                     {
                         throw Hostile(OWWorldArchiveReason.Marker, entry.FullName,
                             $"is the marker but does not hold exactly '{MediaType}' (ASCII, no newline)");
@@ -1042,11 +1047,11 @@ namespace OnlyWorlds.Sdk
                     var relative = path.StartsWith(root, StringComparison.Ordinal) ? path.Substring(root.Length) : null;
                     if (relative == null || !IsRead(relative, includeLegacySpatial))
                     {
-                        Inflate(entry, record, keep: false);
+                        Inflate(raw, entry, record, keep: false);
                         continue;
                     }
 
-                    entries.Add(new KeyValuePair<string, string>(relative, ReadText(entry, record)));
+                    entries.Add(new KeyValuePair<string, string>(relative, ReadText(raw, entry, record)));
                 }
 
                 OWFolderReadResult read;
@@ -1075,10 +1080,10 @@ namespace OnlyWorlds.Sdk
         /// first, so a marker of another length is never inflated.
         /// </summary>
         /// <exception cref="OWFolderFormatException">The marker is a broken entry, as <see cref="Inflate"/> refuses one.</exception>
-        private static bool HoldsTheMediaType(ZipArchiveEntry entry, DirectoryRecord record)
+        private static bool HoldsTheMediaType(Stream archive, ZipArchiveEntry entry, DirectoryRecord record)
         {
             if (entry.Length != MediaTypeBytes.Length) return false;
-            return Inflate(entry, record).ToArray().SequenceEqual(MediaTypeBytes);
+            return Inflate(archive, entry, record).ToArray().SequenceEqual(MediaTypeBytes);
         }
 
         /// <summary>True for the paths the folder reader looks at: world.json, elements/, spatial/.</summary>
@@ -1089,9 +1094,9 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>An entry's text as <c>File.ReadAllText</c> reads a file (UTF-8, BOM honoured).</summary>
         /// <exception cref="OWFolderFormatException">The entry is broken or lies about its size (<see cref="Inflate"/>).</exception>
-        private static string ReadText(ZipArchiveEntry entry, DirectoryRecord record)
+        private static string ReadText(Stream archive, ZipArchiveEntry entry, DirectoryRecord record)
         {
-            using (var reader = new StreamReader(Inflate(entry, record))) return reader.ReadToEnd();
+            using (var reader = new StreamReader(Inflate(archive, entry, record))) return reader.ReadToEnd();
         }
 
         /// <summary>
@@ -1109,20 +1114,33 @@ namespace OnlyWorlds.Sdk
         /// as other text (an element with a broken id) with no error at all. The CRC is taken here in the same pass that
         /// copies the bytes, one table lookup a byte, and compared with the central directory's.
         /// </para>
+        /// <para>
+        /// The size bullet speaks of the compressed size too (Skeld h58 #11968): a deflated entry's stream must end in
+        /// the last byte of the compressed size it declares. Mono's inflater stops at a stream's end and ignores what
+        /// follows, and at the end of its input it stops as if the stream were whole, so neither a stream ending early
+        /// nor one that never ends is an error to it. <see cref="EndsWhereItDeclares"/> walks the raw bytes to find
+        /// the end, once the bytes have passed every check above.
+        /// </para>
         /// </remarks>
         /// <exception cref="OWFolderFormatException">
         /// <c>too_big</c> when it inflates past the size it declares; <c>not_openable</c> when its deflate stream is
-        /// broken, when it holds fewer bytes than it declares, or when its bytes fail its CRC-32. A broken entry is
-        /// never skipped as an unreadable file would be in a folder: it is a broken archive, and the TypeScript reader
-        /// and the reference checker refuse it.
+        /// broken, when it holds fewer bytes than it declares, when its bytes fail its CRC-32, or when its deflate
+        /// stream does not end in the last byte of its declared compressed size. A broken entry is never skipped as an
+        /// unreadable file would be in a folder: it is a broken archive, and the TypeScript reader and the reference
+        /// checker refuse it.
         /// </exception>
+        /// <param name="archive">The archive's file, read in entry order for the entry's raw bytes (<see cref="EndsWhereItDeclares"/>).</param>
         /// <param name="entry">The entry.</param>
-        /// <param name="record">Its central-directory record, for the CRC-32.</param>
+        /// <param name="record">Its central-directory record, for the CRC-32 and the local header.</param>
         /// <param name="keep">False checks the entry and keeps nothing: the result is null.</param>
-        private static MemoryStream Inflate(ZipArchiveEntry entry, DirectoryRecord record, bool keep = true)
+        private static MemoryStream Inflate(Stream archive, ZipArchiveEntry entry, DirectoryRecord record, bool keep = true)
         {
             var held = keep ? new MemoryStream() : null;
-            var buffer = new byte[81920];
+
+            // Sized to the entry, one byte past it so the first read already shows an entry that inflates past its
+            // size (an empty one too): most entries are a few hundred bytes, and an 80 KiB buffer for each, on Mono's
+            // large-object heap, cost more than the inflating (Sikelia's 20,790 entries, measured 2026-10-24).
+            var buffer = new byte[(int)Math.Min(81920, entry.Length + 1)];
             var crc = Crc32Start;
             long total = 0;
             try
@@ -1163,9 +1181,51 @@ namespace OnlyWorlds.Sdk
                     $"fails its CRC-32 (its bytes give {actual:x8}, its header says {record.Crc32:x8})");
             }
 
+            if (record.Method == MethodDeflate) EndsWhereItDeclares(archive, entry, record);
+
             if (held != null) held.Position = 0;
             return held;
         }
+
+        /// <summary>
+        /// Refuses a deflated entry whose stream does not end in the last byte of the compressed size it declares
+        /// (folder spec §4.7's size bullet, OW-14): one that ends before it, with bytes after its end that are no part
+        /// of it, and one that never ends inside it. The bits after the end in that last byte are padding.
+        /// </summary>
+        /// <exception cref="OWFolderFormatException"><c>not_openable</c>.</exception>
+        /// <param name="raw">The archive's file, read in entry order: positioned where the last walk ended, it is not sought.</param>
+        private static void EndsWhereItDeclares(Stream raw, ZipArchiveEntry entry, DirectoryRecord record)
+        {
+            var declared = entry.CompressedLength;
+            long used;
+            try
+            {
+                // The zip has opened this local header already (its signature checked), so only its lengths are read,
+                // and the name and extra field are read through rather than sought past.
+                if (record.LocalHeader < 0) throw new InvalidDataException("its local header cannot be found");
+                if (raw.Position != record.LocalHeader) raw.Seek(record.LocalHeader, SeekOrigin.Begin);
+                var header = ReadExactly(raw, LocalHeaderSize);
+                ReadExactly(raw, U16(header, 26) + U16(header, 28));
+                used = OWDeflateEnd.Measure(raw, declared);
+            }
+            catch (Exception e) when (e is InvalidDataException || e is IOException)
+            {
+                throw new OWFolderFormatException(OWWorldArchiveReason.NotOpenable,
+                    $"The archive's entry '{entry.FullName}' cannot be read to the {declared} compressed bytes it declares "
+                    + $"({e.Message}); refusing the archive.", e);
+            }
+
+            if (used != declared)
+            {
+                throw Hostile(OWWorldArchiveReason.NotOpenable, entry.FullName,
+                    $"has a deflate stream that ends {declared - used} bytes before the {declared} compressed bytes it declares");
+            }
+        }
+
+        private const int LocalHeaderSize = 30;
+
+        /// <summary>The walk's stream's buffer: most entries are a few hundred bytes, so one read holds many.</summary>
+        private const int RawBufferSize = 1 << 16;
 
         // -- CRC-32 (the zip format's: IEEE 802.3, reflected, polynomial 0xEDB88320) --------
 
@@ -1386,6 +1446,9 @@ namespace OnlyWorlds.Sdk
             /// <summary>The CRC-32 of the entry's bytes, as the central directory records it.</summary>
             public uint Crc32;
 
+            /// <summary>Where the entry's local header starts in the file (its zip64 form when the record carries one); -1 when unknown.</summary>
+            public long LocalHeader = -1;
+
             /// <summary>A name byte past 0x7F.</summary>
             public bool NonAscii;
 
@@ -1471,6 +1534,7 @@ namespace OnlyWorlds.Sdk
                         Method = U16(directory, pos + 10),
                         ExternalAttributes = U32(directory, pos + 38),
                         Crc32 = U32(directory, pos + 16),
+                        LocalHeader = LocalHeaderOf(directory, pos, nameLength),
                         NonAscii = nonAscii,
                         NotUtf8 = notUtf8,
                     });
@@ -1485,6 +1549,31 @@ namespace OnlyWorlds.Sdk
             }
         }
 
+        /// <summary>
+        /// A central record's local-header offset (field 42), or its zip64 form: when the field is <c>0xFFFFFFFF</c>
+        /// the zip64 extra field (tag 1) holds it, after the uncompressed and compressed sizes when those fields are
+        /// <c>0xFFFFFFFF</c> too (APPNOTE 4.5.3), as <see cref="ZipArchive"/> reads it. -1 when it cannot be found.
+        /// </summary>
+        private static long LocalHeaderOf(byte[] directory, int pos, int nameLength)
+        {
+            long offset = U32(directory, pos + 42);
+            if (offset != uint.MaxValue) return offset;
+
+            var skip = (U32(directory, pos + 24) == uint.MaxValue ? 8 : 0) + (U32(directory, pos + 20) == uint.MaxValue ? 8 : 0);
+            var at = pos + DirectoryRecordSize + nameLength;
+            var end = at + U16(directory, pos + 30);
+            while (at + 4 <= end)
+            {
+                var tag = U16(directory, at);
+                var size = U16(directory, at + 2);
+                if (at + 4 + size > end) return -1;
+                if (tag == 1) return size >= skip + 8 ? (long)U64(directory, at + 4 + skip) : -1;
+                at += 4 + size;
+            }
+
+            return -1;
+        }
+
         private const int EndRecordSize = 22;
         private const int Zip64LocatorSize = 20;
         private const int Zip64EndRecordSize = 56;
@@ -1493,8 +1582,14 @@ namespace OnlyWorlds.Sdk
         /// <summary><paramref name="count"/> bytes from <paramref name="offset"/>; an <see cref="IOException"/> when the file is shorter.</summary>
         private static byte[] ReadAt(Stream stream, long offset, int count)
         {
-            var bytes = new byte[count];
             stream.Seek(offset, SeekOrigin.Begin);
+            return ReadExactly(stream, count);
+        }
+
+        /// <summary>The next <paramref name="count"/> bytes; an <see cref="EndOfStreamException"/> when the file is shorter.</summary>
+        private static byte[] ReadExactly(Stream stream, int count)
+        {
+            var bytes = new byte[count];
             var held = 0;
             while (held < count)
             {
