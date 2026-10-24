@@ -8,6 +8,10 @@
   "documentationUrl": "https://onlyworlds.github.io",
   "changelogUrl": "https://github.com/OnlyWorlds/unity-sdk/blob/main/Packages/com.onlyworlds.sdk/CHANGELOG.md",
   "licensesUrl": "https://github.com/OnlyWorlds/unity-sdk/blob/main/LICENSE",
+  "homepage": "https://github.com/OnlyWorlds/unity-sdk#readme",
+  "bugs": {
+    "url": "https://github.com/OnlyWorlds/unity-sdk/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/OnlyWorlds/unity-sdk.git"

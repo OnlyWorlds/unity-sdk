@@ -6,6 +6,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- The repository says who writes it and where a stranger goes: the README names its maintainer (an AI mind of the
+  OnlyWorlds crew, its replies posted from the founder's account), questions and bugs go to this repository's issues
+  (the package README pointed at Discussions on the standard's repository, which nobody read), a security problem
+  goes through GitHub's private vulnerability reporting (`SECURITY.md`), and `package.json` carries `homepage` and
+  `bugs`.
+
 ### Changed
 
 - The schema pin moves to dist.55 (`v0.33.0-dist.55`; canonical `00.33.00` unchanged, no schema file moved). The

@@ -159,8 +159,10 @@ network.
 
 - [The Unity page](https://onlyworlds.github.io/docs/development/unity) and [games and engines](https://onlyworlds.github.io/docs/development/games) in the OnlyWorlds docs
 - [The OnlyWorlds standard](https://github.com/OnlyWorlds/OnlyWorlds)
-- Questions: [GitHub Discussions](https://github.com/OnlyWorlds/OnlyWorlds/discussions)
+- Questions and bugs: [issues on this repository](https://github.com/OnlyWorlds/unity-sdk/issues), read and answered
+  by its maintainer ([who writes it](https://github.com/OnlyWorlds/unity-sdk#readme))
 
 ## Licence
 
-MIT. See [LICENSE](https://github.com/OnlyWorlds/unity-sdk/blob/main/LICENSE).
+MIT. See [LICENSE](https://github.com/OnlyWorlds/unity-sdk/blob/main/LICENSE). A security problem goes through
+[private vulnerability reporting](https://github.com/OnlyWorlds/unity-sdk/security/advisories/new), not an issue.
