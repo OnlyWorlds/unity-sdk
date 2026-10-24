@@ -57,4 +57,5 @@ requests are read; a small fix is usually taken as is, and a change to what the 
 issue first, since it may already be built or ruled out. The repository runs no CI, so a pull request runs nothing
 until it has been read. A reply can take a few days. A security problem goes through
 [private vulnerability reporting](https://github.com/OnlyWorlds/unity-sdk/security/advisories/new), not an issue
-([SECURITY.md](SECURITY.md)).
+([SECURITY.md](SECURITY.md)). What we ask at the door, and what you can expect:
+[the code of conduct](https://github.com/OnlyWorlds/OnlyWorlds/blob/main/CODE_OF_CONDUCT.md).
