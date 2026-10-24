@@ -33,6 +33,20 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Fixed
 
+- **The `.owworld` reader's NFC is Unicode 15.1's, built from Unicode's own files, never the runtime's** (folder spec
+  §4.7, OW-18, ruled at dist.57). The name fold called `string.Normalize`, which answers from the runtime's tables:
+  the set passed only because Mono's predate Unicode 16, and a runtime at 16 decomposes U+11383 (unassigned at 15.1)
+  and would refuse `pass-OW-18-nfc-unassigned` as a collision. NFC now comes from `UnicodeData-15.1.0.txt` and
+  `CompositionExclusions-15.1.0.txt`, the dist's copies, as the case fold comes from `CaseFolding-15.1.0.txt`:
+  `tools/gen_nfc.py` writes their facts into `OWNfcData` (internal: the classes, the canonical decompositions one level
+  deep, the listed exclusions; 74 KB of source, about 30 KB of assembly), and `OWNfc` (internal) derives the rest at its
+  first use (Full_Composition_Exclusion, 1,120 code points; 941 primary composites) and runs UAX #15: decompose, order
+  the marks by class, recompose; Hangul by arithmetic. Unicode's NormalizationTest-15.1.0.txt, vendored in the tests'
+  fixtures, proves it: 19,074 lines, every NFC invariant held, and every code point its Part 1 does not list is its own
+  NFC. A name below U+0300 (any ASCII path) is returned untouched without building a table. A lone surrogate is folded
+  by case alone on every runtime (Mono's `string.Normalize` composed around one, CoreCLR's refuses it). Sikelia's pack
+  reads in the same time (its 20,791 names are ASCII); folding them is faster, and the first non-ASCII fold in a process
+  costs about 7 ms once, where Mono's tables cost about 1.4 ms.
 - **An `.owworld` entry whose deflate stream does not end at its declared compressed size refuses the archive**
   (`OWWorldArchive.Read`, cause `not_openable`; folder spec §4.7's size bullet, which speaks of every size an entry
   declares, compressed and uncompressed alike: Skeld h58 #11968). Mono's `DeflateStream` stops at a stream's end and
