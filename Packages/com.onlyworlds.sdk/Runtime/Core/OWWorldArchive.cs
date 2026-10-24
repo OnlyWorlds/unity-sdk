@@ -1136,7 +1136,11 @@ namespace OnlyWorlds.Sdk
         private static MemoryStream Inflate(Stream archive, ZipArchiveEntry entry, DirectoryRecord record, bool keep = true)
         {
             var held = keep ? new MemoryStream() : null;
-            var buffer = new byte[81920];
+
+            // Sized to the entry, one byte past it so the first read already shows an entry that inflates past its
+            // size (an empty one too): most entries are a few hundred bytes, and an 80 KiB buffer for each, on Mono's
+            // large-object heap, cost more than the inflating (Sikelia's 20,790 entries, measured 2026-10-24).
+            var buffer = new byte[(int)Math.Min(81920, entry.Length + 1)];
             var crc = Crc32Start;
             long total = 0;
             try

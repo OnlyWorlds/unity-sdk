@@ -14,6 +14,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   settled): `OWPayload.IsHidden`, `IsProposedOrInDoubt` and `IsProposed` already read both so. The checks profile
   gains `where.type` as a list, and a new spine profile describes a world that maps a software ecosystem; this SDK
   reads neither. The generated models changed only in their serial and date stamps.
+- An `.owworld` read is about a quarter faster on a big world: each entry was inflated through a buffer of its own
+  of 80 KiB, which Mono puts on its large-object heap, and that cost more than the inflating. The buffer is now the
+  entry's size plus one byte (at most 80 KiB), so an entry that inflates past its size, an empty one included, still
+  shows it on the first read. Sikelia's pack (20,791 entries), the deflate walk below included: a read's median
+  4.4 to 4.7 s before, 3.2 to 3.6 s after (three runs each, alternated).
 
 ### Fixed
 
