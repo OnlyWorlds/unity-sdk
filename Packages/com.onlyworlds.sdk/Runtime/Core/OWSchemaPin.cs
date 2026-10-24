@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.33.00";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 59;
+        public const int DistSerial = 60;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.33.0-dist.59";
+        public const string Tag = "v0.33.0-dist.60";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -190,10 +190,12 @@ namespace OnlyWorlds.Sdk
         /// gains its seat and projection sentences; the dist carries a LICENSE and SECURITY of the publisher's.
         /// <c>presentation.json</c> is byte-identical. <b>59</b> is text only: the set's rules, the profile pages and the
         /// folder lint say when a rule was ruled, not where; the zips are byte for byte, <c>verdicts.json</c> moved.
+        /// <b>60</b> moves only the spine profile's page (eight readings and the <c>x_spine_retires</c> key), which this SDK
+        /// does not read.
         /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "f402293f61735f616457e90698b8e268de7125cf7b29d96f3fa88ed54e87d22e";
+            "4517246eec6f34bc27f79cea644b8d828e4adf5745cdee7cb1c4ca455da0d5d3";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.
