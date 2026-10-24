@@ -97,11 +97,18 @@ def main() -> int:
         return 1
 
     print()
-    result = subprocess.run(
-        [sys.executable, str(CODEGEN / "generate_models.py"), "--check"],
-        cwd=str(CODEGEN.parent),
-    )
-    return result.returncode
+    root = CODEGEN.parent
+    unicode_dir = DIST_DIR / "fixtures" / "owworld"
+    failed = 0
+    # The models, then the two Unicode tables OW-18's fold is built from (OWCaseFold, OWNfcData): each generated from
+    # the same pinned dist, so a repin that moves one of their files shows here, not first in a reader.
+    for args in (
+        [str(CODEGEN / "generate_models.py"), "--check"],
+        [str(root / "tools" / "gen_casefold.py"), "--file", str(unicode_dir / "CaseFolding-15.1.0.txt"), "--check"],
+        [str(root / "tools" / "gen_nfc.py"), "--dir", str(unicode_dir), "--check"],
+    ):
+        failed |= subprocess.run([sys.executable] + args, cwd=str(root)).returncode
+    return failed
 
 
 if __name__ == "__main__":
