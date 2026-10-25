@@ -72,6 +72,13 @@ namespace OnlyWorlds.Sdk
         public bool IsWorldFull => StatusCode == 422 && Code == "world_full";
 
         /// <summary>
+        /// A delete named a Character someone plays on the roster: the world owner's Character or a member's
+        /// (422 <c>character_played</c>, param <c>id</c>; keel #688). The message says who plays it. Nothing was
+        /// deleted: re-point that member to another Character, or remove the member, then delete.
+        /// </summary>
+        public bool IsCharacterPlayed => StatusCode == 422 && Code == "character_played";
+
+        /// <summary>
         /// An element write carried <c>known_of</c> (422 <c>known_of_not_writable</c>, param <c>known_of</c>;
         /// keel PR 117), true or false: the key marks a stub and is never written. This client never sends
         /// it (<see cref="OWPayload.ReadOnlyFields"/> strips it, and a stub is refused before sending), so it

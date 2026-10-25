@@ -5,7 +5,7 @@
     "X-Session-Token",
     "Authorization"
   ],
-  "document_sha256": "05ce364f29d46cf044eb86bbe460d988ad092545697526e3e73ba3e5830a42ff",
+  "document_sha256": "f5f21996681ebcc207ac324bb1c2f0ade900af1344d43912deabb660aefb710a",
   "error_codes": {
     "already_member": 409,
     "already_reported": 409,
@@ -15,6 +15,7 @@
     "ask_unavailable": 503,
     "bad_key": 400,
     "character_hidden": 422,
+    "character_played": 422,
     "character_taken": 422,
     "content_length_required": 411,
     "empty_body": 400,
@@ -71,7 +72,7 @@
     "world_full": 422,
     "write_failed": 502
   },
-  "fetched": "2026-10-25T11:07+01:00",
+  "fetched": "2026-10-25T20:57+01:00",
   "openapi_version": "2.0",
   "paths": {
     "/api/v2/ability": {
@@ -12118,6 +12119,12 @@
           "deleted",
           "element"
         ]
+      }
+    },
+    "/api/v2/public/counts": {
+      "GET": {
+        "header": [],
+        "query": []
       }
     },
     "/api/v2/relation": {

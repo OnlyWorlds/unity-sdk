@@ -6,6 +6,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- `OWApiError.IsCharacterPlayed`: a delete that names a Character someone plays on the world's roster (the owner's
+  Character or a member's) is refused as 422 `character_played`, param `id`, and nothing is deleted. Re-point that
+  member to another Character, or remove the member, then delete. The wire fixture is refreshed from the API's
+  document (this code, and a public counts route this SDK does not call).
+
 ### Changed
 
 - The schema pin moves to dist.71 (`v0.33.0-dist.71`; only the calendar and room profiles' fixtures and pages

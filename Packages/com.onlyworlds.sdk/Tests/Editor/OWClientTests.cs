@@ -618,6 +618,26 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsFalse(t.Last.Headers.ContainsKey("If-Match"));
         }
 
+        // keel #688: a Character someone plays on the roster is never deleted (keel's test_character_played).
+
+        [Test]
+        public void Delete_APlayedCharacter_IsCharacterPlayed_OnlyAsA422()
+        {
+            var t = new FakeTransport
+            {
+                Status = 422,
+                ResponseBody = @"{""error"":{""type"":""invalid_request"",""code"":""character_played"",""param"":""id"",
+                    ""message"":""This Character is the world's owner's on the roster: re-point or remove that member first, then delete.""}}",
+            };
+            var e = Assert.ThrowsAsync<OWApiError>(() => Make(t).DeleteAsync("character", "x"));
+            Assert.AreEqual((true, false, false), (e.IsCharacterPlayed, e.IsCharacterTaken, e.IsNotFound));
+            Assert.AreEqual("id", e.Param);
+
+            t.Status = 409;
+            var other = Assert.ThrowsAsync<OWApiError>(() => Make(t).DeleteAsync("character", "x"));
+            Assert.IsFalse(other.IsCharacterPlayed, "the code on another status is not it");
+        }
+
         // keel #210: the PATCH and link-write precondition (npm c1d5d2a's vectors).
 
         [Test]
