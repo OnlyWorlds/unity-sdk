@@ -106,7 +106,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             }
 
             Assert.AreEqual(64, refusals + calendars, "the dist.69 fixture holds 64 cases");
-            Assert.Greater(steps, 0, "a fixture whose calendars read no steps checks nothing");
+            Assert.AreEqual(34, refusals, "the dist.69 fixture holds 34 refusals");
+            // The steps counted too, as the TypeScript SDK's fixture test does since 4.76.1: a dropped step reads green
+            // under a case count alone.
+            Assert.AreEqual(198, steps, "the dist.69 fixture's calendars read 198 steps");
             Assert.IsEmpty(misses, $"{refusals} refusals, {calendars} calendars, {steps} steps:\n" + string.Join("\n", misses));
         }
     }
