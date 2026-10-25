@@ -6,6 +6,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-10-25
+
+Calendar version 2: a festival day's leap rule can now say "every 4 years, not every 100, yet every 400" and count
+from a calendar with no year 0, so the Gregorian calendar and Harptos read exact, day for day, as LegendKeeper reads
+them. An era with no end now runs to the next counting-up era whatever order the eras are listed in. The change feed
+says who hid or unhid an element, when, and through which door, and the room profile counts a member's take on a work
+item. A minor release because it adds public API (below). The schema pin moves to dist.68.
+
 ### Added
 
 - **The room profile's ninth pair, relation/Take** (schema-dist serial 66): a member's take on a work item is the
