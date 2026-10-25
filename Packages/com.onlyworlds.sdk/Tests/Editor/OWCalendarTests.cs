@@ -632,7 +632,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsNull(OWCalendar.ReadConfig(null));
             Assert.IsNull(OWCalendar.ReadConfig(JValue.CreateNull())); // JS null
             Assert.IsNull(OWCalendar.ReadConfig("a string"));
-            Assert.IsNull(OWCalendar.ReadConfig(JObject.Parse("{ version: 2, grain: 'day' }")));
+            Assert.IsNull(OWCalendar.ReadConfig(JObject.Parse("{ version: 3, grain: 'day' }")));
             Assert.IsNull(OWCalendar.ReadConfig(JObject.Parse("{ version: 1 }")));
             Assert.IsNull(OWCalendar.ReadConfig(JObject.Parse("{ version: 1, grain: 'day', bundles: { months: { names: ['a'], lengths: [1, 2] } } }")));
             Assert.IsNull(OWCalendar.ReadConfig(JObject.Parse("{ version: 1, grain: 'day', eras: [{ name: 'X' }] }")));

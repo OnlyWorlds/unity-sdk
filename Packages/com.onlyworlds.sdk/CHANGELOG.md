@@ -18,15 +18,31 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   act's place in the feed, while the element's own stays where it was. Parity with the TypeScript SDK 4.74.0.
 - **`OWWriteDoor.Site`** (`"site"`): the owner's own page on onlyworlds.com, the door a hide made there names. It is
   not an agent's door.
+- **Calendar version 2** (the calendar profile at schema-dist serial 68): an intercalary entry's leap rule may carry
+  `except` (a list of divisors, each larger than and a multiple of `every_years` and of the one before, read in order,
+  the last match deciding: every 4, not every 100, yet every 400) and `offset` (added to the year index, so the rule
+  reads the year the calendar shows; 1 for a calendar with no year 0). `OWCalendar.ReadConfig` reads version 1 and 2
+  and reads the two keys only under version 2; a chain it can't read, or either key without `every_years`, is no
+  calendar. `CalendarIntercalary.Except` and `Offset` hold them, `OWCalendar.IntercalaryInYear` says whether an entry
+  falls in a year, and `Validate` names a bad chain and the keys on a version-1 config. Year starts, lengths, the year
+  search, weekdays and month starts all follow the rule. Parity with the TypeScript SDK 4.76.0: its LegendKeeper
+  vector (466 days on five preset calendars, read back from LegendKeeper) runs here as tests, and Gregorian and
+  Harptos now read exact.
 
 ### Changed
 
-- The schema pin moves to dist.66 (`v0.33.0-dist.66`; canonical `00.33.00` unchanged, no schema YAML moved).
+- **An era with no end runs to the next up era, past any down era** (the calendar profile's rule 4 at serial 68). An
+  up era starting at 0 listed before a down era with its pivot at 0 used to end where it began, decided by list order;
+  it now holds every step up to the next up era's start. The fixture's `era-overlap-down-later-start` reads `11 Rise`
+  from step 100, where it read no era before.
+
+- The schema pin moves to dist.68 (`v0.33.0-dist.68`; canonical `00.33.00` unchanged, no schema YAML moved).
   `schema.json` and the walk now carry each integer field's `minimum` and `maximum` as the YAML has them, as advisory
   data for display; the platform enforces neither, and this SDK neither reads nor enforces them. The folder lint warns
   on a newer `format_version` stamp and no longer changes `sys.path` when imported; the spine and checks profiles'
-  fixtures grow (the checks profile's two known-of stub cases); this SDK reads none of these. The generated models
-  changed only in their serial stamps.
+  fixtures grow (the checks profile's two known-of stub cases), and the import map profile arrives (a table from
+  another tool's words to the 22 types, for import doors); this SDK reads none of these. The calendar profile's
+  version 2 is above. The generated models changed only in their serial stamps.
 
 ## [0.19.1] - 2026-10-24
 

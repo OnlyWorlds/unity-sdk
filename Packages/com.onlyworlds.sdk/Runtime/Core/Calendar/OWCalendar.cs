@@ -78,8 +78,14 @@ namespace OnlyWorlds.Sdk
         public string Name { get; set; }
         /// <summary>0 = before month 1; k = after month k. Requires months.</summary>
         public long AfterMonth { get; set; }
-        /// <summary>Present only in years where FloorMod(absYear, N) == 0 (the leap rule). Null when every year.</summary>
+        /// <summary>Present only in years where FloorMod(absYear + Offset, N) == 0 (the leap rule). Null when every year.</summary>
         public long? EveryYears { get; set; }
+        /// <summary>Version 2: divisors that flip the rule in order, each a multiple of the one before
+        /// (<c>every_years: 4, except: [100, 400]</c>: every 4, not every 100, yet every 400). Null when absent.</summary>
+        public List<long> Except { get; set; }
+        /// <summary>Version 2: the rule reads year absYear + Offset (default 0; 1 for a calendar with no year 0).
+        /// Null when absent.</summary>
+        public long? Offset { get; set; }
         /// <summary>Counts in the free-running week (default true). The Shire lock = opting exactly Mid-year's Day
         /// and Overlithe out (364 = 52 x 7).</summary>
         public bool InWeek { get; set; } = true;
@@ -200,7 +206,7 @@ namespace OnlyWorlds.Sdk
         {
             var errors = new List<string>();
             if (cfg == null) { errors.Add("Grain is required"); return errors; }
-            if (cfg.Version != 1) errors.Add("Unsupported calendar version: " + Str(cfg.Version));
+            if (cfg.Version != 1 && cfg.Version != 2) errors.Add("Unsupported calendar version: " + Str(cfg.Version));
             if (string.IsNullOrEmpty(cfg.Grain)) errors.Add("Grain is required");
 
             var months = cfg.Bundles?.Months;
@@ -238,6 +244,10 @@ namespace OnlyWorlds.Sdk
                     errors.Add("Festival day \"" + ic.Name + "\": pick the month it follows");
                 if (ic.EveryYears != null && ic.EveryYears.Value < 1)
                     errors.Add("Festival day \"" + ic.Name + "\": every N yrs must be a whole number, 1 or more");
+                var rule = LeapRuleProblem(ic);
+                if (rule != null) errors.Add("Festival day \"" + ic.Name + "\": " + rule);
+                if (cfg.Version == 1 && (ic.Except != null || ic.Offset != null))
+                    errors.Add("Festival day \"" + ic.Name + "\": except and offset need calendar version 2");
             }
 
             var eras = cfg.Eras ?? new List<CalendarEra>();
@@ -281,12 +291,12 @@ namespace OnlyWorlds.Sdk
         static CalendarConfig ReadConfigCore(JToken value)
         {
             if (!(value is JObject o)) return null;
-            if (!TryNumber(o["version"], out double version) || version != 1) return null;
+            if (!TryNumber(o["version"], out double version) || (version != 1 && version != 2)) return null;
             if (!(o["grain"] is JValue g) || g.Type != JTokenType.String) return null;
 
             var cfg = new CalendarConfig
             {
-                Version = 1,
+                Version = (long)version,
                 Grain = (string)g,
                 StepName = OptString(o["step_name"]),
                 Format = OptString(o["format"]),
@@ -393,20 +403,91 @@ namespace OnlyWorlds.Sdk
                         if (!IsPositiveInt(ev, out long every)) return null;
                         ic.EveryYears = every;
                     }
+                    // Version 2's leap keys (version 1 ignores them, as it ignores any unknown key); null reads as
+                    // absent, and a chain LeapRuleProblem refuses is no calendar.
+                    var ex = io["except"];
+                    var off = io["offset"];
+                    if (cfg.Version == 2 && (!IsNullish(ex) || !IsNullish(off)))
+                    {
+                        if (ic.EveryYears == null) return null;
+                        if (!IsNullish(off))
+                        {
+                            if (!IsSafeInt(off, out long offset)) return null;
+                            ic.Offset = offset;
+                        }
+                        if (!IsNullish(ex))
+                        {
+                            if (!(ex is JArray exList)) return null;
+                            ic.Except = new List<long>();
+                            foreach (var d in exList)
+                            {
+                                if (!IsPositiveInt(d, out long divisor)) return null;
+                                ic.Except.Add(divisor);
+                            }
+                            if (LeapRuleProblem(ic) != null) return null;
+                        }
+                    }
                     cfg.Intercalary.Add(ic);
                 }
             }
             return cfg;
         }
 
+        /// <summary>
+        /// Why an entry's version-2 leap keys can't be read, or null. <c>except</c> must be a list of whole numbers,
+        /// each above and a multiple of the one before (the first of <c>every_years</c>), so "the last divisor that
+        /// matches" has one meaning and the closed-form count holds; neither key without <c>every_years</c>. The
+        /// offset's whole-number check is the reader's (a long always is one).
+        /// </summary>
+        static string LeapRuleProblem(CalendarIntercalary ic)
+        {
+            if (ic.Except == null && ic.Offset == null) return null;
+            if (ic.EveryYears == null) return "except and offset need every_years";
+            if (ic.Except != null)
+            {
+                long prev = ic.EveryYears.Value;
+                foreach (var d in ic.Except)
+                {
+                    if (d < 1 || prev < 1 || d <= prev || d % prev != 0)
+                        return "each except must be a multiple of the number before it, and larger";
+                    prev = d;
+                }
+            }
+            return null;
+        }
+
         // ---- Year arithmetic ----
+
+        /// <summary>A leap entry's rule as read: period, the except chain and the offset (both version 2 only).</summary>
+        struct LeapRule
+        {
+            public long N;
+            public List<long> Except;
+            public long Offset;
+        }
+
+        static readonly List<long> NoExcept = new List<long>();
+
+        static LeapRule RuleOf(CalendarConfig cfg, CalendarIntercalary ic)
+        {
+            bool v2 = cfg.Version == 2;
+            return new LeapRule
+            {
+                N = ic.EveryYears.Value,
+                Except = v2 && ic.Except != null ? ic.Except : NoExcept,
+                Offset = v2 && ic.Offset != null ? ic.Offset.Value : 0,
+            };
+        }
+
+        static List<LeapRule> LeapRules(CalendarConfig cfg, IEnumerable<CalendarIntercalary> inter) =>
+            inter.Where(i => i.EveryYears != null).Select(i => RuleOf(cfg, i)).ToList();
 
         struct YearShapeInfo
         {
             /// <summary>Base year length: months + non-leap intercalary (or year.steps, or 1).</summary>
             public long BaseLen;
-            /// <summary>Leap entries: every_years periods (one extra step each in leap years).</summary>
-            public List<long> LeapPeriods;
+            /// <summary>Leap entries' rules (one extra step each in the years a rule selects).</summary>
+            public List<LeapRule> Rules;
         }
 
         static List<CalendarIntercalary> Inter(CalendarConfig cfg) => cfg.Intercalary ?? new List<CalendarIntercalary>();
@@ -416,39 +497,68 @@ namespace OnlyWorlds.Sdk
         {
             var months = cfg.Bundles?.Months;
             var inter = Inter(cfg);
-            var leapPeriods = inter.Where(i => i.EveryYears != null).Select(i => i.EveryYears.Value).ToList();
+            var rules = LeapRules(cfg, inter);
             if (months != null)
             {
                 long sum = 0;
                 foreach (var l in months.Lengths) sum += l;
                 long b = sum + inter.Count(i => i.EveryYears == null);
-                return new YearShapeInfo { BaseLen = b, LeapPeriods = leapPeriods };
+                return new YearShapeInfo { BaseLen = b, Rules = rules };
             }
-            return new YearShapeInfo { BaseLen = cfg.Bundles?.Year?.Steps ?? 1, LeapPeriods = leapPeriods };
+            return new YearShapeInfo { BaseLen = cfg.Bundles?.Year?.Steps ?? 1, Rules = rules };
         }
 
-        /// <summary>Signed count of leap years k (FloorMod(k, N) == 0) with 0 &lt;= k &lt; y, minus those with y &lt;= k &lt; 0.</summary>
-        static long LeapYearsBefore(long y, long N)
+        /// <summary>True when the rule selects absolute year y: FloorMod(y + offset, n) == 0, flipped by each except
+        /// dividing it.</summary>
+        static bool RuleHolds(LeapRule r, long y)
         {
-            if (N == 0) return 0; // a zero period only slips in by hand (the reader refuses it); TS yields NaN here
-            if (y > 0) return FloorDiv(y - 1, N) + 1; // k = 0, N, 2N, ... < y
-            if (y == 0) return 0;
-            return -FloorDiv(-y, N); // k = -N, -2N, ... >= y (year 0 itself is not in [y, 0))
+            if (r.N == 0) return false; // a zero period only slips in by hand (the reader refuses it); TS: NaN, never === 0
+            long Y = y + r.Offset;
+            bool on = FloorMod(Y, r.N) == 0;
+            foreach (var d in r.Except) if (d != 0 && FloorMod(Y, d) == 0) on = !on;
+            return on;
         }
 
-        /// <summary>True when absolute year y contains the leap entry with period N.</summary>
+        /// <summary>How many k in [a, b) have FloorMod(k + offset, m) == 0.</summary>
+        static long MultiplesIn(long a, long b, long m, long offset) =>
+            m == 0 ? 0 : FloorDiv(b - 1 + offset, m) - FloorDiv(a - 1 + offset, m);
+
+        /// <summary>
+        /// Signed count of the years k the rule selects with 0 &lt;= k &lt; y, minus those with y &lt;= k &lt; 0.
+        /// Closed form: each except is a multiple of the divisor before it (the reader refuses any other list), so
+        /// its years are a subset of the last term's and the terms alternate.
+        /// </summary>
+        static long LeapYearsBefore(long y, LeapRule r)
+        {
+            long a = y >= 0 ? 0 : y, b = y >= 0 ? y : 0, sign = y >= 0 ? 1 : -1;
+            long count = MultiplesIn(a, b, r.N, r.Offset);
+            long s = -1;
+            foreach (var d in r.Except)
+            {
+                count += s * MultiplesIn(a, b, d, r.Offset);
+                s = -s;
+            }
+            return sign * count;
+        }
+
+        /// <summary>True when absolute year y contains a leap entry with period N (the version-1 rule).</summary>
         public static bool IsLeapYear(long y, long N)
         {
             if (N == 0) return false; // TS: floorMod(y, 0) is NaN, never === 0
             return FloorMod(y, N) == 0;
         }
 
+        /// <summary>True when the intercalary day falls in absolute year y: always without <c>every_years</c>,
+        /// else by its rule (version 2's except and offset included).</summary>
+        public static bool IntercalaryInYear(CalendarConfig cfg, CalendarIntercalary ic, long y) =>
+            ic.EveryYears == null || RuleHolds(RuleOf(cfg, ic), y);
+
         /// <summary>First step of absolute year y. YearStartStep(0) == 0 by construction.</summary>
         public static long YearStartStep(CalendarConfig cfg, long y)
         {
             var shape = YearShape(cfg);
             long start = y * shape.BaseLen;
-            foreach (var N in shape.LeapPeriods) start += LeapYearsBefore(y, N);
+            foreach (var r in shape.Rules) start += LeapYearsBefore(y, r);
             return start;
         }
 
@@ -457,8 +567,22 @@ namespace OnlyWorlds.Sdk
         {
             var shape = YearShape(cfg);
             long len = shape.BaseLen;
-            foreach (var N in shape.LeapPeriods) if (IsLeapYear(y, N)) len += 1;
+            foreach (var r in shape.Rules) if (RuleHolds(r, y)) len += 1;
             return len;
+        }
+
+        /// <summary>A rule's mean leap days per year: 1/n - 1/e1 + 1/e2 - ...</summary>
+        static double MeanLeap(LeapRule r)
+        {
+            if (r.N == 0) return double.PositiveInfinity; // as TS's 1 / 0
+            double m = 1.0 / r.N;
+            double s = -1;
+            foreach (var d in r.Except)
+            {
+                m += s / d;
+                s = -s;
+            }
+            return m;
         }
 
         /// <summary>Correction laps allowed per direction. A valid config needs about (leap periods + 2); the cap
@@ -472,7 +596,7 @@ namespace OnlyWorlds.Sdk
             // Seed on the MEAN year length (leap days included) so the correction stays a few laps at any
             // distance from zero.
             double meanLen = shape.BaseLen;
-            foreach (var N in shape.LeapPeriods) meanLen += 1.0 / N;
+            foreach (var r in shape.Rules) meanLen += MeanLeap(r);
             double seed = Math.Floor(step / meanLen);
             // Non-finite seed (a zero-length year): TS returns the non-finite value itself; a long cannot hold
             // it, so 0. Only a hand-built config that bypasses ReadConfig gets here.
@@ -501,8 +625,13 @@ namespace OnlyWorlds.Sdk
                 }
                 else
                 {
+                    // An open end runs to the next UP era's start: a down era holds no step at or above its pivot,
+                    // so it never ends an up era (before TS 4.76.0 an up era at 0 listed before a down era with
+                    // pivot 0 ended where it began, decided by list order).
+                    // "Up" as TS reads it here: direction absent or exactly "up" (any other word is neither).
+                    var nextUp = sorted.Skip(i + 1).FirstOrDefault(e => (e.Direction ?? "up") == "up");
                     double hi = era.End.HasValue ? era.End.Value
-                        : (i + 1 < sorted.Count ? sorted[i + 1].Start : double.PositiveInfinity);
+                        : (nextUp != null ? nextUp.Start : double.PositiveInfinity);
                     output.Add(new EraDomain { Era = era, Lo = era.Start, Hi = hi });
                 }
             }
@@ -564,7 +693,7 @@ namespace OnlyWorlds.Sdk
             void Push(long afterMonth)
             {
                 foreach (var ic in inter)
-                    if (ic.AfterMonth == afterMonth && (ic.EveryYears == null || IsLeapYear(y, ic.EveryYears.Value)))
+                    if (ic.AfterMonth == afterMonth && IntercalaryInYear(cfg, ic, y))
                         slots.Add(new DaySlot { IsIntercalary = true, Intercalary = ic });
             }
             Push(0);
@@ -597,8 +726,7 @@ namespace OnlyWorlds.Sdk
             var skipped = Inter(cfg).Where(i => !i.InWeek).ToList();
             long y = pos.AbsYear;
             long skippedBeforeYear = y * skipped.Count(i => i.EveryYears == null);
-            foreach (var ic in skipped)
-                if (ic.EveryYears != null) skippedBeforeYear += LeapYearsBefore(y, ic.EveryYears.Value);
+            foreach (var r in LeapRules(cfg, skipped)) skippedBeforeYear += LeapYearsBefore(y, r);
             long skippedInYear = 0;
             if (pos.Slots != null)
             {
@@ -783,7 +911,7 @@ namespace OnlyWorlds.Sdk
             var months = cfg.Bundles?.Months;
             if (months == null) return output;
             var inter = Inter(cfg);
-            bool Active(CalendarIntercalary ic) => ic.EveryYears == null || IsLeapYear(y, ic.EveryYears.Value);
+            bool Active(CalendarIntercalary ic) => IntercalaryInYear(cfg, ic, y);
             long offset = inter.Count(i => i.AfterMonth == 0 && Active(i));
             long start = YearStartStep(cfg, y);
             for (int m = 1; m <= months.Names.Count; m++)
@@ -1045,6 +1173,13 @@ namespace OnlyWorlds.Sdk
             if (d > 9.2e18 || d < -9.2e18) return false;
             v = (long)d;
             return true;
+        }
+
+        /// <summary>Number.isSafeInteger(n).</summary>
+        static bool IsSafeInt(JToken t, out long v)
+        {
+            if (!TryInteger(t, out v)) return false;
+            return v >= -9007199254740991L && v <= 9007199254740991L;
         }
 
         /// <summary>Number.isSafeInteger(n) and n >= 1.</summary>
