@@ -574,6 +574,29 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsNull(page.Changes[1].DeletedClient);
         }
 
+        [Test]
+        public void ChangeFeed_ReadsAHidesWhenWhoAndDoor_AndLeavesThemNullElsewhere()
+        {
+            // A hide's upsert row, as the readers who still see the element get it (TypeScript SDK 4.74.0's
+            // OwChangeUpsert), beside a plain upsert that carries none of the three.
+            var page = OWJson.Deserialize<OWChangesPage>(
+                @"{""changes"":[{""op"":""upsert"",""type"":""character"",""id"":""c1"",""change_seq"":12,
+                    ""element"":{""id"":""c1"",""hidden"":true,""change_seq"":7},
+                    ""changed_at"":""2026-10-25T08:30:00Z"",""changed_by"":""m-42"",""changed_via"":""site""},
+                    {""op"":""upsert"",""type"":""character"",""id"":""c2"",""change_seq"":13,
+                    ""element"":{""id"":""c2"",""change_seq"":13}}],
+                  ""has_more"":false,""head"":13}");
+
+            Assert.AreEqual("2026-10-25T08:30:00Z", page.Changes[0].ChangedAt);
+            Assert.AreEqual("m-42", page.Changes[0].ChangedBy);
+            Assert.AreEqual(OWWriteDoor.Site, page.Changes[0].ChangedVia);
+            Assert.AreEqual(12, page.Changes[0].ChangeSeq);
+            Assert.AreEqual(7, (int)page.Changes[0].Element["change_seq"]);
+            Assert.IsNull(page.Changes[1].ChangedAt);
+            Assert.IsNull(page.Changes[1].ChangedBy);
+            Assert.IsNull(page.Changes[1].ChangedVia);
+        }
+
         // -- Delete takes ifMatch (keel #563; npm 4.61.0's vector) -----------
 
         private const string Fix412 = @"{""error"":{""type"":""invalid_request"",""code"":""precondition_failed"",

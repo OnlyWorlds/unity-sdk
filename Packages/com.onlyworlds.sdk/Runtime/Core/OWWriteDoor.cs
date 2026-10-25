@@ -29,6 +29,9 @@ namespace OnlyWorlds.Sdk
         /// <summary>keel's own writes.</summary>
         public const string Server = "server";
 
+        /// <summary>The owner's own page on onlyworlds.com (a hide or an unhide made there).</summary>
+        public const string Site = "site";
+
         /// <summary>Whether a write came through an agent's door; false for null and unknown values.</summary>
         public static bool IsAgent(string door) => door == Seat || door == Mcp || door == Declared;
     }

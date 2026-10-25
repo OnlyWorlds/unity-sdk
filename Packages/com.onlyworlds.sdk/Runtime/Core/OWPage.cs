@@ -65,8 +65,33 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("id")]
         public string Id;
 
+        /// <summary>
+        /// The change's place in the world's feed. On a hide's or an unhide's row (the one carrying
+        /// <see cref="ChangedVia"/>) it is that act's place; the element's own <c>change_seq</c> stays where it was.
+        /// </summary>
         [JsonProperty("change_seq")]
         public long ChangeSeq;
+
+        /// <summary>
+        /// Only on a hide's or an unhide's upsert row, sent to the readers who still see the element (the owner's
+        /// keys, a co-builder, the member who made it): when it was hidden or unhidden. Null on every other row.
+        /// </summary>
+        [JsonProperty("changed_at")]
+        public string ChangedAt;
+
+        /// <summary>
+        /// Only on a hide's or an unhide's upsert row: the membership that hid or unhid it, or null for the world's
+        /// owner (as a hidden delete row's <see cref="DeletedBy"/>).
+        /// </summary>
+        [JsonProperty("changed_by")]
+        public string ChangedBy;
+
+        /// <summary>
+        /// Only on a hide's or an unhide's upsert row: its door (<see cref="OWWriteDoor"/>),
+        /// <see cref="OWWriteDoor.Site"/> for the owner's page on onlyworlds.com. Null on every other row.
+        /// </summary>
+        [JsonProperty("changed_via")]
+        public string ChangedVia;
 
         /// <summary>
         /// On an upsert: the element whole, as <c>GET /{type}/{id}</c> returns it. Null on a delete.

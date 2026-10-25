@@ -12,6 +12,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   taker's own Relation with supertype `Take`, so `OWRoom.IsRoomElement` now counts it as a room element when it
   carries `x_room_of`. `OWRoom.Pairs` holds the nine pairs in the fixture's order; the fixture's 25 cases, the two new
   ones among them, run as tests. Parity with the TypeScript SDK 4.75.0 and the Python package 0.52.0.
+- **`OWChange.ChangedAt`, `ChangedBy` and `ChangedVia`**: a hide's or an unhide's row in the `/changes` feed, as the
+  readers who still see the element receive it, says when it was hidden or unhidden, by which membership (null for
+  the world's owner) and through which door. All three are null on every other row; the row's `change_seq` is the
+  act's place in the feed, while the element's own stays where it was. Parity with the TypeScript SDK 4.74.0.
+- **`OWWriteDoor.Site`** (`"site"`): the owner's own page on onlyworlds.com, the door a hide made there names. It is
+  not an agent's door.
 
 ### Changed
 
