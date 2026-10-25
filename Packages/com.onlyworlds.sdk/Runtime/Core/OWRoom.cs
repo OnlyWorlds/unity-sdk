@@ -1,6 +1,6 @@
 // The room profile: which elements a parlor or a workshop puts in a world, told apart by type and supertype together
 // with the mark x_room_of (schema-dist profiles/room.md, serial 45; "trimmed and without regard to case" defined once
-// at serial 47).
+// at serial 47; the ninth pair, relation/Take, at serial 66).
 //
 // Ported from @onlyworlds/sdk src/room.ts (4.55.0, ca15043; the trim of 4.57.2), isRoomElement. The conformance
 // fixture, profiles/room.fixture.json, is this file's own test (OWRoomTests), as it is the TypeScript SDK's and the
@@ -17,7 +17,7 @@ namespace OnlyWorlds.Sdk
         /// <summary>The mark a room element carries: the id of the world or the sitting the room belongs to.</summary>
         public const string MarkField = "x_room_of";
 
-        /// <summary>The profile's eight pairs, a type slug and a supertype, in the fixture's order.</summary>
+        /// <summary>The profile's nine pairs, a type slug and a supertype, in the fixture's order.</summary>
         public static readonly IReadOnlyList<(string type, string supertype)> Pairs = new[]
         {
             ("narrative", "Message"),
@@ -25,6 +25,7 @@ namespace OnlyWorlds.Sdk
             ("relation", "Work item"),
             ("construct", "Spec"),
             ("relation", "Heart"),
+            ("relation", "Take"),
             ("relation", "Vote"),
             ("event", "Sitting"),
             ("character", "Member"),

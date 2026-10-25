@@ -2,8 +2,8 @@
 // Regenerate: python codegen/generate_models.py   (drift guard: codegen/check_drift.py)
 //
 // canonical: 00.33.00
-// serial: 61
-// published: 2026-10-24
+// serial: 66
+// published: 2026-10-25
 
 using System;
 using System.Collections.Generic;

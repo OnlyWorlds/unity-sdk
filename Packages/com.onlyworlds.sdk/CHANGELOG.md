@@ -6,13 +6,21 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **The room profile's ninth pair, relation/Take** (schema-dist serial 66): a member's take on a work item is the
+  taker's own Relation with supertype `Take`, so `OWRoom.IsRoomElement` now counts it as a room element when it
+  carries `x_room_of`. `OWRoom.Pairs` holds the nine pairs in the fixture's order; the fixture's 25 cases, the two new
+  ones among them, run as tests. Parity with the TypeScript SDK 4.75.0 and the Python package 0.52.0.
+
 ### Changed
 
-- The schema pin moves to dist.61 (`v0.33.0-dist.61`; canonical `00.33.00` unchanged, no schema YAML moved).
+- The schema pin moves to dist.66 (`v0.33.0-dist.66`; canonical `00.33.00` unchanged, no schema YAML moved).
   `schema.json` and the walk now carry each integer field's `minimum` and `maximum` as the YAML has them, as advisory
   data for display; the platform enforces neither, and this SDK neither reads nor enforces them. The folder lint warns
-  on a newer `format_version` stamp, and the spine profile's fixture grows; this SDK reads neither. The generated
-  models changed only in their serial stamps.
+  on a newer `format_version` stamp and no longer changes `sys.path` when imported; the spine and checks profiles'
+  fixtures grow (the checks profile's two known-of stub cases); this SDK reads none of these. The generated models
+  changed only in their serial stamps.
 
 ## [0.19.1] - 2026-10-24
 

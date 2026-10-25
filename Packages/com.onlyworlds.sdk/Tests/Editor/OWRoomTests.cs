@@ -10,15 +10,15 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// The room profile's conformance fixture (schema-dist <c>profiles/room.fixture.json</c>, vendored byte for byte in
-    /// <c>Tests/Editor/Fixtures/room/</c> from dist.49, unchanged since serial 45), read case by case through
+    /// <c>Tests/Editor/Fixtures/room/</c> from dist.66, which added the ninth pair and its two cases), read case by case through
     /// <see cref="OWRoom.IsRoomElement"/>, and its pairs held equal to <see cref="OWRoom.Pairs"/>. The TypeScript SDK
     /// and the Python package run the same cases; the tests beside the fixture are the TypeScript SDK's (test/room.test.mjs,
     /// 4.57.2). When the dist moves the fixture, re-vendor it and update the hash below.
     /// </summary>
     public class OWRoomTests
     {
-        /// <summary>The fixture's sha256 as dist.49's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "6116dc50f75e072d5c77e0138c05f72e838ba4aa334bb30119be4ba701598233";
+        /// <summary>The fixture's sha256 as dist.66's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "5af643cea19f88f790747f39b62fcd566303df4b413fe639893d387d3fb95a0f";
 
         private const string World = "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e0f";
 
@@ -88,7 +88,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.49's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.66's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
@@ -98,9 +98,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual("room", (string)Fixture["profile"]);
             var pairs = Fixture["pairs"].Cast<JObject>().Select(p => ((string)p["type"], (string)p["supertype"])).ToList();
             CollectionAssert.AreEqual(pairs, OWRoom.Pairs.ToList());
-            Assert.AreEqual(8, OWRoom.Pairs.Count);
+            Assert.AreEqual(9, OWRoom.Pairs.Count);
             Assert.AreEqual(OWRoom.MarkField, (string)Fixture["mark"]["field"]);
-            Assert.GreaterOrEqual(((JArray)Fixture["cases"]).Count, 23, "dist.49's fixture holds 23 cases");
+            Assert.GreaterOrEqual(((JArray)Fixture["cases"]).Count, 25, "dist.66's fixture holds 25 cases");
         }
 
         [TestCaseSource(nameof(Cases))]
