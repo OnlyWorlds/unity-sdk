@@ -8,14 +8,14 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// The <c>atlas_calendar</c> profile's conformance fixture (schema-dist <c>profiles/calendar.fixture.json</c>, tag
-    /// <c>v0.33.0-dist.68</c>, the profile's version 2: 64 cases, 34 of them refusals), vendored byte for byte. It is
+    /// <c>v0.33.0-dist.69</c>, the profile's version 2: 64 cases, 34 of them refusals), vendored byte for byte. It is
     /// generated from the TypeScript SDK's kernel (4.76.0) against the profile page: every reader refuses the same values and reads the same words, or one tool
     /// shows a calendar where another shows numbers. When the dist moves it, re-vendor and update the hash below.
     /// </summary>
     public class OWCalendarFixtureTests
     {
-        /// <summary>The fixture's sha256 as dist.68's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "5ad79ddb34e19694a8227cb7a86aef56bdfefff769edbe77653633ee6ae0ce8d";
+        /// <summary>The fixture's sha256 as dist.69's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "768318b7406099b0870d530e2409214145d9e4cd09a06299590056f2e95ce8d8";
 
         /// <summary>
         /// The package's own resolved path; outside the Editor (no package manager to ask), the working directory's
@@ -55,7 +55,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = System.BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(FixturePath))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.68's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.69's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
@@ -105,7 +105,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 }
             }
 
-            Assert.AreEqual(64, refusals + calendars, "the dist.68 fixture holds 64 cases");
+            Assert.AreEqual(64, refusals + calendars, "the dist.69 fixture holds 64 cases");
             Assert.Greater(steps, 0, "a fixture whose calendars read no steps checks nothing");
             Assert.IsEmpty(misses, $"{refusals} refusals, {calendars} calendars, {steps} steps:\n" + string.Join("\n", misses));
         }

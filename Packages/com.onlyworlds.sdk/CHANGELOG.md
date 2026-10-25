@@ -6,6 +6,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The schema pin moves to dist.69 (`v0.33.0-dist.69`; nothing but the calendar profile's fixture moved): the Gregorian
+  case gains twelve steps around Leap Day in 1900, 2000 and 2100, read back from LegendKeeper, so a reader whose year
+  layout ignores `except` while its year count keeps it now fails the shared fixture. This SDK reads all 198 steps.
+
 ## [0.20.0] - 2026-10-25
 
 Calendar version 2: a festival day's leap rule can now say "every 4 years, not every 100, yet every 400" and count
