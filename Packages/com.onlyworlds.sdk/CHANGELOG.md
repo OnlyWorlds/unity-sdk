@@ -39,9 +39,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   well as the cases. At serial 71 the room profile says "trimmed" means Unicode White_Space at both ends, with three
   new cases (a tab and an ideographic space are trimmed; a leading byte order mark and a trailing U+001C are not);
   `OWRoom` already read all 28. Serial 70 is skipped: its manifest was superseded by 71's.
-- The schema pin moves to dist.73 (`v0.33.0-dist.73`): serials 72 and 73 add the message profile (`profiles/message.md`
-  and its fixture of 43 cases), vendored with the distribution. No generated model changed; `OWMessage` reads the
-  message profile (above).
+- The schema pin moves to dist.74 (`v0.33.0-dist.74`): serials 72 and 73 add the message profile (`profiles/message.md`
+  and its fixture of 43 cases), vendored with the distribution; 74 changes only the text of the README and six
+  profile pages. No generated model changed; `OWMessage` reads the message profile (above).
 
 ## [0.20.0] - 2026-10-25
 
