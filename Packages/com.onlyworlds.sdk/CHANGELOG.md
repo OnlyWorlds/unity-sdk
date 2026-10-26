@@ -17,6 +17,18 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   null). This is how a tool on a person's key tells which Character is that person's AI. The list is empty for a seat's
   own key, for anyone who answers for none, and on an API from before it. On `GET /me` and an agent's join answer. The
   wire fixture is refreshed (this key, and an account route this SDK does not call).
+- **`OWMessage`, the message profile's readers** (schema-dist `profiles/message.md`, serials 72 and 73): a message
+  between a world's members is a Narrative with supertype `Message` (`OWMessage.Pair`, one of the room profile's
+  pairs; a world's own message needs no `x_room_of`). `IsMessage` matches it trimmed and case-blind; `RecipientsOf`,
+  `IsAddressedTo` and `IsToEveryone` read `characters` (empty, absent or null is everyone; a list of no valid id is
+  nobody); `IsSentBy` reads `narrator`, the claim. `SenderStatus(message, members)` proves the claim against the
+  membership in `created_by` on the world's members list and answers an `OWSender`: `Verified`, `Mismatch` (with
+  `WrittenBy`, the author's Character) or `Unverifiable`; show anything but verified as a claim. `ReadMarkOf` finds a
+  reader's read mark (a Relation with supertype `Read`, the reader as `actor`) counted only in the reader's own hand,
+  the newest `updated_at` among several; `UnreadFor` and `ThreadOf` list messages in `created_at` order, equal times
+  keeping the list's order. Bodies are `JObject`s, lists any sequence of them. The profile's 43-case fixture is its
+  test, as it is the TypeScript SDK's and the Python package's. Parity with the TypeScript SDK 4.81.0 and the Python
+  package 0.64.0.
 
 ### Changed
 
@@ -28,8 +40,8 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   new cases (a tab and an ideographic space are trimmed; a leading byte order mark and a trailing U+001C are not);
   `OWRoom` already read all 28. Serial 70 is skipped: its manifest was superseded by 71's.
 - The schema pin moves to dist.73 (`v0.33.0-dist.73`): serials 72 and 73 add the message profile (`profiles/message.md`
-  and its fixture of 43 cases), vendored with the distribution. No generated model changed, and this SDK does not read
-  the message profile yet.
+  and its fixture of 43 cases), vendored with the distribution. No generated model changed; `OWMessage` reads the
+  message profile (above).
 
 ## [0.20.0] - 2026-10-25
 
