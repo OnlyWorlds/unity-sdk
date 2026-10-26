@@ -10,8 +10,8 @@ using NUnit.Framework;
 namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
-    /// CreateAccountWorldAsync (POST /account/worlds, keel #363's key_name, keel #571's source and producer, keel #579's
-    /// AccountWorldCreated): the account Bearer, a body of the name and only the members given, in keel's spelling; the
+    /// CreateAccountWorldAsync (POST /account/worlds, its key_name, source and producer, and the
+    /// AccountWorldCreated answer): the account Bearer, a body of the name and only the members given, in keel's spelling; the
     /// PIN dance (an account with no PIN answers 422 param pin until one is sent); the 201 read as keel's document gives
     /// it. The TypeScript SDK's test/account-worlds.test.mjs (4.66.0, 9b4d901), ported; the Python package has no such
     /// call. Nothing here reaches a server.

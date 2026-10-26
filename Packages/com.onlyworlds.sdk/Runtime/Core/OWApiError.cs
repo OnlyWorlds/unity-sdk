@@ -73,14 +73,14 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// A delete named a Character someone plays on the roster: the world owner's Character or a member's
-        /// (422 <c>character_played</c>, param <c>id</c>; keel #688). The message says who plays it. Nothing was
+        /// (422 <c>character_played</c>, param <c>id</c>). The message says who plays it. Nothing was
         /// deleted: re-point that member to another Character, or remove the member, then delete.
         /// </summary>
         public bool IsCharacterPlayed => StatusCode == 422 && Code == "character_played";
 
         /// <summary>
-        /// An element write carried <c>known_of</c> (422 <c>known_of_not_writable</c>, param <c>known_of</c>;
-        /// keel PR 117), true or false: the key marks a stub and is never written. This client never sends
+        /// An element write carried <c>known_of</c> (422 <c>known_of_not_writable</c>, param <c>known_of</c>),
+        /// true or false: the key marks a stub and is never written. This client never sends
         /// it (<see cref="OWPayload.ReadOnlyFields"/> strips it, and a stub is refused before sending), so it
         /// reaches you only from a body sent some other way. <c>/bulk/</c> never throws for it: the item's
         /// slot carries the code, and its siblings apply.
@@ -105,8 +105,8 @@ namespace OnlyWorlds.Sdk
         public bool IsResyncRequired => StatusCode == 409 && Code == "resync_required";
 
         /// <summary>
-        /// Why <c>/changes</c> refused the cursor, from the 409 <c>resync_required</c> envelope's <c>reason</c> (keel #421,
-        /// only while keel's hidden mark is on): <c>role</c> (this key's own role or membership moved: keep what the
+        /// Why <c>/changes</c> refused the cursor, from the 409 <c>resync_required</c> envelope's <c>reason</c> (only
+        /// while keel's hidden mark is on): <c>role</c> (this key's own role or membership moved: keep what the
         /// local copy holds that the new walk does not name; it is out of view now, not gone) or <c>view</c> (something
         /// left this key's view: drop what the new walk does not name). When both happened since the cursor, keel says
         /// <c>role</c>. Null for any other error, or when keel sends no reason (then keep the copy: a reset never empties
@@ -132,8 +132,7 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
-        /// A conditional write's <c>If-Match</c> was stale (412 <c>precondition_failed</c>: a patch or link edit, keel
-        /// #210, or a delete, keel #563): the
+        /// A conditional write's <c>If-Match</c> was stale (412 <c>precondition_failed</c>: a patch, a link edit or a delete): the
         /// element changed since the <c>change_seq</c> you sent, and nothing was written. <see cref="Current"/> is
         /// the element as it is now; decide from it, then send again with its <c>change_seq</c>.
         /// </summary>
@@ -187,7 +186,7 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
-        /// A patch or a link edit became a proposal (202, keel #519): this error is an <see cref="OWProposedError"/>,
+        /// A patch or a link edit became a proposal (202): this error is an <see cref="OWProposedError"/>,
         /// whose <see cref="OWProposedError.Proposal"/> is the row a keeper decides. The element did not change. Not a
         /// failure to retry: the write is waiting for a person.
         /// </summary>
@@ -195,40 +194,40 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// A proposal named a field the proposer's own view of the element does not hold (422 <c>field_not_visible</c>,
-        /// <see cref="Param"/> names it, keel #519): the element reaches this key only as a stub, and a proposal changes
+        /// <see cref="Param"/> names it): the element reaches this key only as a stub, and a proposal changes
         /// only what its proposer can read.
         /// </summary>
         public bool IsFieldNotVisible => StatusCode == 422 && Code == "field_not_visible";
 
         /// <summary>
-        /// This proposer already has 5 open proposals on the element, or 50 in the world (422 <c>too_many_open</c>, keel
-        /// #519). Wait for a keeper to decide, or withdraw one; a lapsed proposal no longer counts.
+        /// This proposer already has 5 open proposals on the element, or 50 in the world (422 <c>too_many_open</c>).
+        /// Wait for a keeper to decide, or withdraw one; a lapsed proposal no longer counts.
         /// </summary>
         public bool IsTooManyOpen => StatusCode == 422 && Code == "too_many_open";
 
         /// <summary>
-        /// An accept found a proposed field moved since the proposal was made (409 <c>stale_proposal</c>, keel #519).
+        /// An accept found a proposed field moved since the proposal was made (409 <c>stale_proposal</c>).
         /// Nothing was written and the proposal stays open; <see cref="Conflicts"/> lists each moved field and
         /// <see cref="Current"/> is the element as it is now. The proposer proposes again on the current text.
         /// </summary>
         public bool IsStaleProposal => StatusCode == 409 && Code == "stale_proposal";
 
         /// <summary>
-        /// While the world takes agent seats' writes as proposals (keel #519), an agent seat's key tried what it may not:
+        /// While the world takes agent seats' writes as proposals, an agent seat's key tried what it may not:
         /// delete an element it did not create, or accept or decline a proposal (403 <c>proposed_only</c>). On any world,
-        /// a review of a new element by the member its mark names is the same 403 (keel #565). Retrying will not help; a
+        /// a review of a new element by the member its mark names is the same 403. Retrying will not help; a
         /// person decides.
         /// </summary>
         public bool IsProposedOnly => StatusCode == 403 && Code == "proposed_only";
 
         /// <summary>
-        /// An accept or decline of the key's own proposal (403 <c>own_proposal</c>, keel #519): another keeper (the owner
+        /// An accept or decline of the key's own proposal (403 <c>own_proposal</c>): another keeper (the owner
         /// or a co-builder) decides it. Retrying will not help.
         /// </summary>
         public bool IsOwnProposal => StatusCode == 403 && Code == "own_proposal";
 
         /// <summary>
-        /// A review of a new element that carries no <c>x_review_proposed</c> mark (422 <c>not_proposed</c>, keel #565):
+        /// A review of a new element that carries no <c>x_review_proposed</c> mark (422 <c>not_proposed</c>):
         /// nothing to settle. It was never written as proposed, or an accept already landed (a retried accept meets
         /// this; a retried decline meets a 404). npm's <c>isNotProposed</c>, the Python package's <c>is_not_proposed</c>.
         /// </summary>

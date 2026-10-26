@@ -10,7 +10,7 @@ using NUnit.Framework;
 namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
-    /// Known-of stubs (folder format v0.3.10 §4.4; keel PR 113): written as they are, read as known of, never
+    /// Known-of stubs (folder format v0.3.10 §4.4): written as they are, read as known of, never
     /// pushed or edited, and whole again once they arrive whole.
     /// </summary>
     /// <remarks>

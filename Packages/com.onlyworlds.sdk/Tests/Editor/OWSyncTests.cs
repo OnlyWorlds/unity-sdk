@@ -245,7 +245,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
         // -- The resync rule --------------------------------------------------
 
-        // What a reset keeps (keel PR 104, #421; the published changes doc, "What a reset keeps"): a 409 walks the
+        // What a reset keeps (the published changes doc, "What a reset keeps"): a 409 walks the
         // world again from the start; what the copy holds that the new walk does not name is KEPT on `role` or on no
         // reason (sharing is forward-only: out of view, not gone) and DROPPED on `view`. A reset never empties a copy
         // on its own. The vectors are the crew's room feed's (Workshops parlor/feed.test.ts: view drops, role keeps),
@@ -472,7 +472,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             // A cursor ahead of head means the server was restored from a backup: our cursor points
             // at changes that no longer exist, so every future incremental would skip real data. The
             // world is walked again, and what the copy holds that the walk does not name is kept: a
-            // reset never empties a copy (Titus's ruling, keel PR 104; the room feed's "a head
+            // reset never empties a copy (Titus's ruling; the room feed's "a head
             // below ours walks again from zero and keeps what it no longer names", parlor/feed.test.ts).
             _cache.Upsert("stale", "character", @"{""id"":""stale"",""name"":""Old""}");
             _cache.SetCursor(9999, "t");

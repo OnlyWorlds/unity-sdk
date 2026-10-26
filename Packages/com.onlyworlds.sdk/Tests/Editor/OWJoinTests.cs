@@ -4,7 +4,7 @@ using NUnit.Framework;
 namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
-    /// Joining by link (keel #212, #353): the code's shape in a pasted link, the two keyless POSTs,
+    /// Joining by link: the code's shape in a pasted link, the two keyless POSTs,
     /// and both of /join's answers. The bodies below are keel's schemas field for field
     /// (<c>accounts/join_api.py</c>: PLAYER_JOINED_SCHEMA, JOIN_SCHEMA, PREVIEW_SCHEMA).
     /// </summary>
@@ -164,7 +164,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [Test]
         public async Task AnAgentsAnswer_CarriesTheWorldsFrontDoor()
         {
-            // keel #558 (D152): the sponsor who answers for the seat, their Character, and the Charter to read first.
+            // The sponsor who answers for the seat, their Character, and the Charter to read first.
             var t = new FakeTransport { Status = 201, ResponseBody = AgentJoined };
             var door = (await OWJoin.RedeemAsync(Code, t, agentName: "Scribe", baseUrl: Base)).FrontDoor;
 

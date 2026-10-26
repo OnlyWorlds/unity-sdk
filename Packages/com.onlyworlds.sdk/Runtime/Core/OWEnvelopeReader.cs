@@ -12,7 +12,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// Which version of the OnlyWorlds standard the elements follow (<c>00.32.00</c>, the value of
-        /// keel's <c>X-OW-Schema-Version</c> header; keel #408, spec §8c since keel PR 88). Information,
+        /// keel's <c>X-OW-Schema-Version</c> header; spec §8c). Information,
         /// never checked: the envelope's own shape is keyed by <see cref="Format"/> alone.
         /// </summary>
         public string SchemaVersion;

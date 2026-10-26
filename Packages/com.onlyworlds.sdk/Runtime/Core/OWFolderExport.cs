@@ -165,7 +165,7 @@ namespace OnlyWorlds.Sdk
         /// The package's <c>known_of_for_disk</c>. The unset fields keel serves on a stub (<c>""</c>, <c>null</c>,
         /// <c>[]</c>) are left out, never written: on disk they would read as a whole element with nothing filled
         /// in. Anything else it sent is kept, whatever the field (a Character's public <c>physicality</c>,
-        /// <c>height</c>, <c>species</c>: keel PR 117), since a writer never drops data it has (§3). <c>0</c> and
+        /// <c>height</c>, <c>species</c>), since a writer never drops data it has (§3). <c>0</c> and
         /// <c>false</c> are values. This reads the body, never a list of public fields, so a type that gains
         /// public fields needs no change here.
         /// </para>

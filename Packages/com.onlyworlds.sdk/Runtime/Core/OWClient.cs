@@ -40,7 +40,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// This client's own name, sent as <c>X-OW-Client</c> on every element write (create, patch, delete, link
-        /// edit, bulk) and on no read (keel #520). keel stores it on the element as
+        /// edit, bulk) and on no read. keel stores it on the element as
         /// <see cref="OWElement.ChangedClient"/>, and on a <c>/changes</c> delete as <see cref="OWChange.DeletedClient"/>,
         /// so a reader can tell which tool made a change. Null (the default) sends
         /// <see cref="OWClient.DefaultClientName"/>; a game or tool passes its own.
@@ -83,7 +83,7 @@ namespace OnlyWorlds.Sdk
 
         public string BaseUrl { get; }
 
-        /// <summary>The name this client sends as <c>X-OW-Client</c> on element writes (keel #520).</summary>
+        /// <summary>The name this client sends as <c>X-OW-Client</c> on element writes.</summary>
         public string ClientName { get; }
         public int PageSize { get; }
         public OWKeyKind KeyKind { get; }
@@ -108,7 +108,7 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
-        /// keel #520's rule for <c>X-OW-Client</c>, exact here: keel trims and stores null for anything else, this
+        /// The server's rule for <c>X-OW-Client</c>, exact here: keel trims and stores null for anything else, this
         /// client refuses it. Checked by hand, not by a regex, whose <c>$</c> would let a trailing newline through.
         /// </summary>
         private static string ClientNameOf(string value)
@@ -319,7 +319,7 @@ namespace OnlyWorlds.Sdk
         /// so send only what changed. Never PATCH a link array to add one item -- that replaces the
         /// whole array; use <see cref="EditLinksAsync"/>.
         /// <para>
-        /// In a world that takes an agent seat's writes as proposals (keel #519, the world's
+        /// In a world that takes an agent seat's writes as proposals (the world's
         /// <c>agent_writes_proposed</c>), a seat's patch answers 202 with the proposal, never an element: this
         /// throws an <see cref="OWProposedError"/> and the element did not change. If-Match is checked first:
         /// a stale one is still a 412.
@@ -327,7 +327,7 @@ namespace OnlyWorlds.Sdk
         /// </remarks>
         /// <exception cref="OWProposedError">The patch became a proposal (202); nothing was written to the element.</exception>
         /// <param name="ifMatch">
-        /// The element's <c>change_seq</c> as you read it (keel #210), sent as <c>If-Match</c>. The update lands only if
+        /// The element's <c>change_seq</c> as you read it, sent as <c>If-Match</c>. The update lands only if
         /// nobody changed the element since; otherwise nothing is written and this throws an <see cref="OWApiError"/>
         /// with <see cref="OWApiError.IsPreconditionFailed"/>, whose <see cref="OWApiError.Current"/> is the element as it
         /// is now. Leave it null for an unconditional write. Last, so a caller passing <paramref name="ct"/> by
@@ -347,7 +347,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>DELETE /{type}/{id}/</summary>
         /// <param name="ifMatch">
-        /// The element's <c>change_seq</c> as you read it (keel #563), sent as <c>If-Match</c>. The delete lands only if
+        /// The element's <c>change_seq</c> as you read it, sent as <c>If-Match</c>. The delete lands only if
         /// nothing changed since; otherwise an <see cref="OWApiError"/> with <see cref="OWApiError.IsPreconditionFailed"/>
         /// whose <see cref="OWApiError.Current"/> is the element as it is now, and nothing is deleted. On an element
         /// already gone it is the idempotent 204. Last, so a caller passing <paramref name="ct"/> by position keeps working.
@@ -461,11 +461,11 @@ namespace OnlyWorlds.Sdk
         /// <remarks>
         /// The ONLY correct way to modify a link array. A PATCH carrying a link field replaces it
         /// wholesale, so two clients each adding one item means the second silently erases the
-        /// first's addition. A 202 (an agent seat's link edit that became a proposal, keel #519) is thrown as an
+        /// first's addition. A 202 (an agent seat's link edit that became a proposal) is thrown as an
         /// <see cref="OWProposedError"/>, as on <see cref="PatchAsync{T}"/>.
         /// </remarks>
         /// <param name="ifMatch">
-        /// As on <see cref="PatchAsync{T}"/> (keel #210): a link write moves the element too, so a stale
+        /// As on <see cref="PatchAsync{T}"/>: a link write moves the element too, so a stale
         /// <c>change_seq</c> is a 412 and nothing is written.
         /// </param>
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="ifMatch"/> is negative; nothing was sent.</exception>
@@ -483,7 +483,7 @@ namespace OnlyWorlds.Sdk
                 body: body, write: true, ct: ct, ifMatch: ifMatch, proposable: true);
         }
 
-        // -- The proposed change (keel #519) -----------------------------------
+        // -- The proposed change -------------------------------------------------
         //
         // A proposal is a record kept beside an element, never in its body: the element does not change until the
         // world's owner or a co-builder accepts it. A proposal is seen by the owner, the co-builders and the member who
@@ -552,7 +552,7 @@ namespace OnlyWorlds.Sdk
         /// Any member key, a read key included; a read key with no member (a demo key, the owner's read key) gets a 404.
         /// </summary>
         /// <remarks>
-        /// Two kinds of row in one order, told apart by <see cref="OWProposal.Kind"/> (keel #565): a proposed change to an
+        /// Two kinds of row in one order, told apart by <see cref="OWProposal.Kind"/>: a proposed change to an
         /// element, and a new element written as proposed, one carrying <c>x_review_proposed</c>
         /// (<see cref="OWProposal.IsNewElement"/>; listed under <c>open</c>, <c>lapsed</c> and <c>all</c>, never
         /// <c>accepted</c> or <c>declined</c>; settled with <see cref="ReviewNewElementAsync"/>). keel reads at most the
@@ -602,7 +602,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// POST /{type}/{id}/review -- settle a new element written as proposed, one carrying <c>x_review_proposed</c>
-        /// (the queue's <see cref="OWProposal.IsNewElement"/> row, keel #565). <see cref="OWReviewed.Accept"/> clears the
+        /// (the queue's <see cref="OWProposal.IsNewElement"/> row). <see cref="OWReviewed.Accept"/> clears the
         /// mark (a write by this key: a new <c>change_seq</c>, one <c>/changes</c> row) and answers
         /// <see cref="OWReviewed.Element"/>; <see cref="OWReviewed.Decline"/> deletes the element (a tombstone, the links
         /// to it scrubbed, its open proposals dropped) and answers <see cref="OWReviewed.Deleted"/>, its id.
@@ -751,7 +751,7 @@ namespace OnlyWorlds.Sdk
         /// <c>limit</c> with a 422 where the element lists clamp it.
         /// </para>
         /// <para>
-        /// The tip read is conditional (keel #518): keel tags its answer with an ETag covering the head and the
+        /// The tip read is conditional: keel tags its answer with an ETag covering the head and the
         /// epoch, the client keeps the last one and sends it as <c>If-None-Match</c> on its next tip read, exactly as
         /// received (<c>W/</c> and quotes included, never compared). When nothing moved keel answers 304 with no
         /// body, refunded against the request budget, and this returns the last 200's head, cursor and epoch with
@@ -853,14 +853,14 @@ namespace OnlyWorlds.Sdk
         /// tip read's ETag -- and duplicating the auth/error path to reach them would be worse.
         /// </summary>
         /// <param name="write">An element write: <c>X-OW-Agent</c> (for an agent client) and <c>X-OW-Client</c>.</param>
-        /// <param name="ifNoneMatch">A tag sent as <c>If-None-Match</c> exactly as given (keel #518, the tip read).</param>
+        /// <param name="ifNoneMatch">A tag sent as <c>If-None-Match</c> exactly as given (the tip read).</param>
         /// <param name="notModified">A 304 is returned with a default value instead of thrown; the caller reads the status.</param>
-        /// <param name="ifMatch">A <c>change_seq</c> sent as <c>If-Match</c>, quoted (keel #210, #563).</param>
+        /// <param name="ifMatch">A <c>change_seq</c> sent as <c>If-Match</c>, quoted.</param>
         /// <param name="named">
-        /// A write keel reads <c>X-OW-Client</c> on but not <c>X-OW-Agent</c> (keel #519's propose and accept).
+        /// A write keel reads <c>X-OW-Client</c> on but not <c>X-OW-Agent</c> (propose and accept).
         /// </param>
         /// <param name="proposable">
-        /// A write keel may answer 202 with <c>{proposal}</c> (keel #519: a patch, a link edit): a 202 then throws an
+        /// A write keel may answer 202 with <c>{proposal}</c> (a patch, a link edit): a 202 then throws an
         /// <see cref="OWProposedError"/> instead of returning a body that is not the element.
         /// </param>
         private async Task<(T Value, OWResponse Response)> RequestWithResponseAsync<T>(
@@ -886,8 +886,8 @@ namespace OnlyWorlds.Sdk
                 // The PIN only where keel checks it (Skeld's ruling, 2026-10-22): keel verifies a PIN
                 // wherever it is sent (argon2, 64 MiB each), and scripts reading with it OOM-killed staging on a
                 // cold cache (2026-10-22). Sent on every write (any method but GET), on GET /me, the connection
-                // test (keel #314, D93), and on every request of a 10-digit legacy key, which needs it on reads of a
-                // world with a PIN (v1 parity, keel #421). Derived from the method and path, as the npm SDK does.
+                // test, and on every request of a 10-digit legacy key, which needs it on reads of a
+                // world with a PIN (v1 parity). Derived from the method and path, as the npm SDK does.
                 var read = string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase);
                 var me = path == "/me/" || path == "/me";
                 if (_apiPin != null && (!read || me || KeyKind == OWKeyKind.Legacy)) headers["API-Pin"] = _apiPin;
@@ -896,11 +896,11 @@ namespace OnlyWorlds.Sdk
             if (body != null) headers["Content-Type"] = "application/json";
             if (!string.IsNullOrEmpty(idempotencyKey)) headers["Idempotency-Key"] = idempotencyKey;
 
-            // keel #299 (D104): presence is the declaration, the value is never stored. Opt-in, and
+            // Presence is the declaration, the value is never stored. Opt-in, and
             // on the element writes alone, the operations keel's document declares it on.
             if (_agent && write) headers["X-OW-Agent"] = "1";
 
-            // keel #520: the client's own name, on the element writes and on keel #519's propose and accept (where the
+            // The client's own name, on the element writes and on propose and accept (where the
             // document lists X-OW-Client and not X-OW-Agent), never on a read nor on a decline or a withdrawal.
             if (write || named) headers["X-OW-Client"] = ClientName;
 
@@ -949,7 +949,7 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
-        /// A 202 on a write that may become a proposal (keel #519): an <see cref="OWProposedError"/> carrying the row. A
+        /// A 202 on a write that may become a proposal: an <see cref="OWProposedError"/> carrying the row. A
         /// 202 whose body holds no proposal is a plain <see cref="OWApiError"/> with status 202: the client never hands
         /// back a body that is not the element, and never makes up a proposal.
         /// </summary>

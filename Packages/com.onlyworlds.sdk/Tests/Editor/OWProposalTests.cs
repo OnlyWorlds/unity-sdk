@@ -8,11 +8,11 @@ using NUnit.Framework;
 namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
-    /// The proposed change (keel #519): ProposeAsync, ListProposalsAsync, WorldProposalsAsync, AcceptProposalAsync,
+    /// The proposed change: ProposeAsync, ListProposalsAsync, WorldProposalsAsync, AcceptProposalAsync,
     /// DeclineProposalAsync and WithdrawProposalAsync; a 202 on a patch or a link edit thrown as an
     /// <see cref="OWProposedError"/> (a bulk slot's 202 left in its slot); the five codes keel added, with
     /// stale_proposal's conflicts and current. The TypeScript SDK's test/proposals.test.mjs (4.58.0), ported: each
-    /// route's method, path, query, headers and body against what is sent. Round 2 (keel #565): the queue's two kinds of
+    /// route's method, path, query, headers and body against what is sent. Round 2: the queue's two kinds of
     /// row, ReviewNewElementAsync and its sixth code, from npm 4.66.0 (9b4d901) and py 0.35.0 (b63e693). Nothing here
     /// reaches a server.
     /// </summary>
@@ -22,7 +22,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         private const string El = "018f0000-0000-7000-8000-0000000000e1";
         private const string Pid = "018f0000-0000-7000-8000-0000000000a1";
 
-        /// <summary>One row as the document's Proposal component gives it: all nineteen keys (kind and omitted, keel #565).</summary>
+        /// <summary>One row as the document's Proposal component gives it: all nineteen keys (kind and omitted).</summary>
         private static readonly JObject Proposal = new JObject
         {
             ["kind"] = "proposal", ["id"] = Pid, ["element_type"] = "location", ["element_id"] = El, ["state"] = "open",
@@ -36,7 +36,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
         private const string NewEl = "018f0000-0000-7000-8000-0000000000e2";
 
-        /// <summary>A queue row for a new element written as proposed (keel #565, the document's ProposedNewElement): all ten keys.</summary>
+        /// <summary>A queue row for a new element written as proposed (the document's ProposedNewElement): all ten keys.</summary>
         private static readonly JObject NewElementRow = new JObject
         {
             ["kind"] = "new_element", ["id"] = NewEl, ["element_type"] = "character", ["element_id"] = NewEl, ["state"] = "open",
@@ -227,7 +227,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [Test]
         public async Task WorldProposals_BothKindsOfRowComeBackInKeelsOrder_AndTheCursorGoesBackAsItCame()
         {
-            // keel #565 (npm 4.66.0's and py 0.35.0's vector): one order, both kinds; the cursor is opaque
+            // npm 4.66.0's and py 0.35.0's vector: one order, both kinds; the cursor is opaque
             // (`<microseconds>.<id>` today), never the last row's id.
             var opaque = "1761202800000000." + NewEl;
             var t = new FakeTransport
@@ -268,7 +268,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [Test]
         public async Task AProposalRow_ReadsItsKindAndOmitted_AndARowWithNoKindIsAProposal()
         {
-            // keel #565: an upsert's proposal names the fields it would empty.
+            // An upsert's proposal names the fields it would empty.
             var row = (JObject)Proposal.DeepClone();
             row["omitted"] = new JArray("supertype", "location");
             var t = new FakeTransport { Status = 201, ResponseBody = Proposed(row) };
@@ -277,7 +277,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsFalse(read.IsNewElement);
             CollectionAssert.AreEqual(new[] { "supertype", "location" }, read.Omitted);
 
-            // A row from a server before #565 carries no kind and is a proposal.
+            // A row from an older server carries no kind and is a proposal.
             row.Remove("kind");
             t.ResponseBody = Proposed(row);
             var old = await Make(t).ProposeAsync("location", El, new JObject { ["name"] = "H" }, "x");
@@ -285,7 +285,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsFalse(old.IsNewElement);
         }
 
-        // -- a new element written as proposed (keel #565) --------------------
+        // -- a new element written as proposed ------------------------------
 
         [Test]
         public async Task ReviewNewElement_Accept_PostsTheDecision_WithThePinAndXOWClient_AndReturnsTheElement()
@@ -598,7 +598,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("IsStaleProposal", 409, "invalid_request", "stale_proposal", e => e.IsStaleProposal),
             ("IsProposedOnly", 403, "permission_error", "proposed_only", e => e.IsProposedOnly),
             ("IsOwnProposal", 403, "permission_error", "own_proposal", e => e.IsOwnProposal),
-            ("IsNotProposed", 422, "invalid_request", "not_proposed", e => e.IsNotProposed), // keel #565: a review of an unmarked element
+            ("IsNotProposed", 422, "invalid_request", "not_proposed", e => e.IsNotProposed), // a review of an unmarked element
         };
 
         [Test]

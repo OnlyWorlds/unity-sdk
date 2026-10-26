@@ -237,7 +237,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [Test]
         public void WorldForDisk_KeepsTheWorldsExtensionStore_AndAnOriginOfNulls()
         {
-            // The World's own extension keys (keel #571) sit at the top level of its body, beside origin; both ride along.
+            // The World's own extension keys sit at the top level of its body, beside origin; both ride along.
             var disk = OWFolderExport.WorldForDisk(OWFolderWriter.Parse(
                 "{\"id\":\"w\",\"name\":\"n\",\"origin\":{\"source\":null,\"producer\":null},"
                 + "\"x_names\":{\"version\":1},\"atlas_c\":1,\"shadow_s\":[1]}"));

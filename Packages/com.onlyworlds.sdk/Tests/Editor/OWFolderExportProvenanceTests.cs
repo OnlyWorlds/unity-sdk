@@ -162,7 +162,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [Test]
         public async Task AnExportIsABirth_SoItsLinesAreItsOwn_WhereTheBodyHadThem()
         {
-            // A GET /world body carrying another folder's lines (keel keeps them at a folder upload, #477): they name the
+            // A GET /world body carrying another folder's lines (keel keeps them at a folder upload): they name the
             // maker of THAT folder, so this folder's own are written, as for source. The package's vector.
             var transport = new RouteTransport
             {

@@ -142,7 +142,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [Test]
         public async Task ApiPin_TenDigitLegacyKeyWithAPin_OnEveryRequest_ReadsIncluded()
         {
-            // keel #421: a legacy key needs it on reads of a world with a PIN (v1 parity).
+            // A legacy key needs it on reads of a world with a PIN (v1 parity).
             foreach (var (name, _, sent) in await PinSweep("0123456789", "1234"))
             {
                 Assert.AreEqual("0123456789", sent.Headers["API-Key"], name);
@@ -388,7 +388,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             StringAssert.DoesNotContain("cursor=", t.Last.Url);
         }
 
-        // -- The agent door (keel #299) ----------------------------------------
+        // -- The agent door ------------------------------------------------
 
         private static OWClient MakeAgent(FakeTransport t, bool agent)
             => new OWClient(new OWClientConfig
@@ -480,7 +480,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsTrue(OWWriteDoor.IsAgent(page.Changes[0].DeletedVia));
         }
 
-        // -- The client's name (keel #520: X-OW-Client; npm 4.56.0's vector) --
+        // -- The client's name (X-OW-Client; npm 4.56.0's vector) --
 
         private static OWClient MakeNamed(FakeTransport t, string client)
             => new OWClient(new OWClientConfig
@@ -597,7 +597,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsNull(page.Changes[1].ChangedVia);
         }
 
-        // -- Delete takes ifMatch (keel #563; npm 4.61.0's vector) -----------
+        // -- Delete takes ifMatch (npm 4.61.0's vector) -----------
 
         private const string Fix412 = @"{""error"":{""type"":""invalid_request"",""code"":""precondition_failed"",
             ""message"":""The element has changed since change_seq 41 (now 44)."",""param"":""If-Match"",
@@ -618,7 +618,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsFalse(t.Last.Headers.ContainsKey("If-Match"));
         }
 
-        // keel #688: a Character someone plays on the roster is never deleted (keel's test_character_played).
+        // A Character someone plays on the roster is never deleted (keel's test_character_played).
 
         [Test]
         public void Delete_APlayedCharacter_IsCharacterPlayed_OnlyAsA422()
@@ -638,7 +638,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsFalse(other.IsCharacterPlayed, "the code on another status is not it");
         }
 
-        // keel #210: the PATCH and link-write precondition (npm c1d5d2a's vectors).
+        // The PATCH and link-write precondition (npm c1d5d2a's vectors).
 
         [Test]
         public async Task Patch_WithIfMatch_SendsIfMatchAsAQuotedChangeSeq_WithoutIt_NoHeader()
@@ -723,7 +723,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsNull(Assert.ThrowsAsync<OWApiError>(() => Make(html).DeleteAsync("character", "x", ifMatch: 1)).Current);
         }
 
-        // -- The front door on /me (keel #558) --------------------------------
+        // -- The front door on /me ----------------------------------------
 
         [Test]
         public async Task Me_ReadsTheFrontDoor()
@@ -1084,7 +1084,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             StringAssert.Contains("limit=1000", t.Last.Url);
         }
 
-        // -- The conditional head poll (keel #518: ETag "<head>:<epoch>", If-None-Match, 304; npm 4.57.0's vector) --
+        // -- The conditional head poll (ETag "<head>:<epoch>", If-None-Match, 304; npm 4.57.0's vector) --
 
         private static string HeadBody(long head, string epoch = "null")
             => $@"{{""cursor"":{head},""changes"":[],""has_more"":false,""head"":{head},""epoch"":{epoch}}}";
@@ -1211,7 +1211,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsFalse(page.Unchanged);
         }
 
-        // -- Why the epoch moved (keel #421: epoch_reason, a 409's reason; npm's vectors) --
+        // -- Why the epoch moved (epoch_reason, a 409's reason; npm's vectors) --
 
         [Test]
         public async Task EpochReason_PassesThroughWhenKeelSendsIt()
@@ -1283,7 +1283,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             }
         }
 
-        // -- World settings: PATCH /world (keel #571; npm 4.65.0's and Python 0.34.0's vectors) ------------
+        // -- World settings: PATCH /world (npm 4.65.0's and Python 0.34.0's vectors) ------------
 
         private static readonly JObject Origin = JObject.Parse(
             @"{""source"":{""server"":""https://www.onlyworlds.com"",""world"":""0f1e2d3c-4b5a-4968-8776-655443322110"",""at"":""2026-10-23T05:00:00Z""},
@@ -1291,7 +1291,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
         private static readonly JObject XNames = JObject.Parse(@"{""version"":1,""types"":{""character"":{""one"":""Soul"",""many"":""Souls""}}}");
 
-        /// <summary>A GET /world body as keel serves it since keel #571: every World key, the origin and an extension key.</summary>
+        /// <summary>A GET /world body as keel serves it: every World key, the origin and an extension key.</summary>
         private static JObject WorldBody() => new JObject
         {
             ["id"] = "w", ["name"] = "V", ["description"] = "", ["image_url"] = "",
