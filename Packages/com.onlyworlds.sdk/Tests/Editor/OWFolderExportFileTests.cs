@@ -121,7 +121,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public async Task TheFilesOrigin_AndExtensionStore_AreCarriedVerbatim()
         {
             // Folder spec §4.2 (v0.3.16): keel's download writes origin, the world's first import, beside its own lines,
-            // and the World's extension keys at the top level (keel #571). The folder keeps both as the file has them.
+            // and the World's extension keys at the top level. The folder keeps both as the file has them.
             var world = @"{""id"":""w1"",""name"":""W"",
                 ""origin"":{""source"":{""server"":""https://www.onlyworlds.com"",""world"":""w0"",""at"":""2026-10-18T09:00:00+00:00""},
                     ""producer"":{""tool"":""atlas"",""input"":""server"",""version"":""1.19.0""}},

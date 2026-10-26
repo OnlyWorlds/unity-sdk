@@ -48,7 +48,7 @@ namespace OnlyWorlds.Sdk
     }
 
     /// <summary>
-    /// A world's front door for one key (keel #558, D152): who you are here, who answers for you, and the house
+    /// A world's front door for one key: who you are here, who answers for you, and the house
     /// rules. On <c>GET /me</c> (<see cref="Of"/> reads it from <see cref="OWClient.GetMeAsync"/>'s answer) and on an
     /// agent's join answer (<see cref="OWJoined.FrontDoor"/>); npm's <c>OwFrontDoor</c>.
     /// </summary>
@@ -75,7 +75,7 @@ namespace OnlyWorlds.Sdk
         public string MyCharacter;
 
         /// <summary>
-        /// The live AI and player seats the key's person answers for, agent seats first (keel #704): how a tool on a
+        /// The live AI and player seats the key's person answers for, agent seats first: how a tool on a
         /// person's key tells which Character is that person's AI. Empty for a seat's own key, for anyone who answers
         /// for none, and on a keel from before it; a seat made from a link for an email address is never listed.
         /// </summary>
@@ -95,7 +95,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// The front door in a <c>GET /me</c> answer (<see cref="OWClient.GetMeAsync"/>), or null when it carries
-        /// none (a keel from before #558).
+        /// none (an older keel).
         /// </summary>
         public static OWFrontDoor Of(JObject me)
         {

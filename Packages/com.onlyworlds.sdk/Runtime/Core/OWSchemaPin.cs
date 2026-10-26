@@ -102,7 +102,7 @@ namespace OnlyWorlds.Sdk
         /// </para>
         /// <para>
         /// <b>33 -> 35 (2026-10-20)</b>: canonical unchanged. <c>example/world-export.json</c>, the portal's download,
-        /// carries the provenance lines (<c>world.source</c>, <c>world.exported_as</c>; keel PR 133), vendored for
+        /// carries the provenance lines (<c>world.source</c>, <c>world.exported_as</c>), vendored for
         /// <c>OWEnvelopeReaderTests</c>; <c>walk/lint_folder.py</c> reads known-of stubs and never reads
         /// <c>records/</c> (34). <c>presentation.json</c>, <c>schema_walk.py</c> and <c>rulings.yaml</c> are
         /// byte-identical; the generated models changed only in their serial.
@@ -143,7 +143,7 @@ namespace OnlyWorlds.Sdk
         /// <b>44 -> 48 (2026-10-22)</b>: canonical unchanged, no schema file moved. The room profile gained its mark,
         /// <c>x_room_of</c> (45: the pair and the mark together make a room element), and defines "trimmed and without
         /// regard to case" once for every profile (47). Element bodies carry <c>changed_client</c> beside
-        /// <c>changed_by</c> and <c>changed_via</c> (46, keel #520): the example export and the folder lint's body keys
+        /// <c>changed_by</c> and <c>changed_via</c> (46): the example export and the folder lint's body keys
         /// say so, and the export is re-vendored for <c>OWEnvelopeReaderTests</c>. Two profiles joined: <c>checks</c>
         /// (47, <c>x_checks_rules</c> on a work world's Charter), which this SDK does not read, and <c>names</c> (48,
         /// <c>x_names</c> on the World, a world's own words for the types), read by <see cref="OWNames"/>, its fixture
@@ -166,7 +166,7 @@ namespace OnlyWorlds.Sdk
         /// </para>
         /// <para>
         /// <b>51 -> 52 (2026-10-23)</b>: canonical unchanged, no schema file moved. Only <c>profiles/review.md</c> moved: the
-        /// reader rule (keel #580). A reader that hands a world on leaves elements whose <c>x_review_proposed</c> is an
+        /// reader rule. A reader that hands a world on leaves elements whose <c>x_review_proposed</c> is an
         /// object out unless asked, counts them and labels a kept one "proposed, not yet reviewed"; a reader that shows
         /// a world to its people shows the mark. The SDK parses no profile file; the generated models changed only in
         /// their serial stamp.

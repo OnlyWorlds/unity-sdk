@@ -87,12 +87,12 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("change_seq")]
         [SerializeField] private long _changeSeq;
 
-        // keel D72 (2026-09-28): the membership that created the element on a shared world, or null
+        // Since 2026-09-28: the membership that created the element on a shared world, or null
         // (the owner, and all history before membership). Server-managed and not in the standard.
         [JsonProperty("created_by")]
         [SerializeField] private string _createdBy;
 
-        // keel #299 (D104, 2026-10-15): the membership whose write last changed the element (null for
+        // The membership whose write last changed the element (null for
         // the owner) and the door that write came through. Null for anything last changed before
         // writes recorded them. Server-managed: keel drops both from a write body.
         [JsonProperty("changed_by")]
@@ -101,7 +101,7 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("changed_via")]
         [SerializeField] private string _changedVia;
 
-        // keel #520 (schema-dist serial 46): the name the client gave in its X-OW-Client header on the last
+        // From schema-dist serial 46: the name the client gave in its X-OW-Client header on the last
         // write. Server-managed: keel ignores it in a write body.
         [JsonProperty("changed_client")]
         [SerializeField] private string _changedClient;
@@ -188,7 +188,7 @@ namespace OnlyWorlds.Sdk
                && OWPayload.IsHiddenMark(mark);
 
         /// <summary>
-        /// True for a proposed element (<c>x_review_proposed</c> an object, keel #565): not canon until a keeper settles
+        /// True for a proposed element (<c>x_review_proposed</c> an object): not canon until a keeper settles
         /// it. The queue's and a viewer's rule (<see cref="OWPayload.IsProposed"/>); the mark stays in the extensions bag.
         /// </summary>
         public bool IsProposed

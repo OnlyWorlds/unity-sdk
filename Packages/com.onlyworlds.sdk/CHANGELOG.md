@@ -185,17 +185,17 @@ Folders declare format 0.3.17. A patch release: nothing else changed.
 ## [0.18.0] - 2026-10-23
 
 Elements written as proposed, from Unity: the world's review queue lists new elements that carry the review mark, a
-keeper settles one with `ReviewNewElementAsync`, and the mark's two readers say whether an element is settled (keel
-#565 and #580, schema-dist dist.52). A world can also be made on an account with its first key
-(`CreateAccountWorldAsync`, keel #579). A minor release because it adds public API (below).
+keeper settles one with `ReviewNewElementAsync`, and the mark's two readers say whether an element is settled
+(schema-dist dist.52). A world can also be made on an account with its first key (`CreateAccountWorldAsync`). A
+minor release because it adds public API (below).
 
 ### Added
 
-- **The world's review queue lists new elements written as proposed** (keel #565). `OWClient.WorldProposalsAsync`
+- **The world's review queue lists new elements written as proposed**. `OWClient.WorldProposalsAsync`
   now returns two kinds of row in one order, newest first, told apart by the new `OWProposal.Kind`: a proposed change
   to an element (`proposal`), and a new element that carries the review mark `x_review_proposed` (`new_element`,
   `OWProposal.IsNewElement`). A new-element row is the element's own record: its `Id` is the element's id, and `By`,
-  `Evidence` and `Expires` (a date) are the mark's words. A row from a server before keel #565 has no kind and is a
+  `Evidence` and `Expires` (a date) are the mark's words. A row from an older server has no kind and is a
   proposal. The page's `NextCursor` is opaque: pass it back as it came.
 - **`OWProposal.Omitted`**: the fields a whole-replace proposal would empty (each also in `Fields` at its empty value).
   A proposal's `Fields` now holds only what differs from the element.
@@ -236,7 +236,7 @@ keeper settles one with `ReviewNewElementAsync`, and the mark's two readers say 
 ## [0.17.0] - 2026-10-23
 
 The world's own settings, written from Unity: `PatchWorldAsync` sends a change to a world's settings, its origin and
-its tools' extension keys (keel #571), and folders carry the world's origin as the server keeps it (folder format
+its tools' extension keys, and folders carry the world's origin as the server keeps it (folder format
 0.3.16). A minor release because it adds public API (below).
 
 ### Added
@@ -246,7 +246,7 @@ its tools' extension keys (keel #571), and folders carry the world's origin as t
   the keys the server refuses there are left out (`id`, `slug`, `public_page`, `public_read`, `agent_narrator_rule`,
   `agent_writes_proposed`, `origin`, now listed as `OWPayload.WorldReadOnlyFields`, and the element write's own
   read-only keys). A world's origin, where it first came from, is written as the plain keys `source` and `producer`
-  (each an object, or `null` to clear it; keel #571) and served back under `origin`. The world's extension keys
+  (each an object, or `null` to clear it) and served back under `origin`. The world's extension keys
   (`x_*`, `atlas_*`, `shadow_*`, at the top level of its body, at most 64 KB in all) are sent as given, and `null`
   removes one. The owner's key may change any setting the server takes; a co-builder's only `time_range_current`,
   `source`, `producer` and extension keys, and anything more is a 403 (`OWApiError.IsOwnerOnly`). Sent with the PIN,
@@ -256,7 +256,7 @@ its tools' extension keys (keel #571), and folders carry the world's origin as t
 ### Changed
 
 - **A folder export declares folder format 0.3.16** (`OWFolderExport.FormatVersion`), with the onlyworlds Python
-  package's 0.33.0. The world's `origin` (its first import, as the server keeps it since keel #571) is written into
+  package's 0.33.0. The world's `origin` (its first import, as the server keeps it) is written into
   `world.json` exactly as `GET /world` serves it or as the one-file export carries it, beside the export's own `source`
   and `producer`; it is never made up from those two, and a world that has none gets none. The world's extension keys
   ride along the same way. Both readers (`OWFolderReader`, `OWEnvelopeReader`) keep `origin` and the extension keys in
@@ -290,7 +290,7 @@ reader, and a folder export at format 0.3.15. A minor release because it adds pu
   without the mark is lore, and a mark without a pair is not a room element. The profile's 23-case fixture is its
   test, as it is the TypeScript SDK's and the Python package's. Parity with the TypeScript SDK 4.55.0 and 4.57.2's
   trim, its tests ported.
-- **The client's name on every element write** (keel #520): `OWClientConfig.Client` names the software that
+- **The client's name on every element write**: `OWClientConfig.Client` names the software that
   writes, sent as `X-OW-Client` on `CreateAsync`, `PatchAsync`, `DeleteAsync`, `EditLinksAsync` and `BulkAsync`, never
   on a read. keel stores it on the element as `OWElement.ChangedClient` and on a `/changes` delete as the new
   `OWChange.DeletedClient`, so a reader can tell which tool made a change. Left null it is `unity-sdk`
@@ -298,7 +298,7 @@ reader, and a folder export at format 0.3.15. A minor release because it adds pu
   (lower case letters, digits and hyphens, no version): anything else, the empty string included, is an
   `ArgumentException` when the client is built, never trimmed. The name is the client's claim, not proof, and it
   changes no permission: an agent still sets `Agent`. Parity with the TypeScript SDK 4.56.0, its test vector ported.
-- **The conditional tip read** (keel #518): `ChangesAsync(headOnly: true)` keeps the last tip read's `ETag` and sends
+- **The conditional tip read**: `ChangesAsync(headOnly: true)` keeps the last tip read's `ETag` and sends
   it back as `If-None-Match`, exactly as received. When nothing moved, keel answers 304 with no body (refunded against
   the request budget), and the call returns the last 200's head, cursor and epoch with the new
   `OWChangesPage.Unchanged` set; every 200 leaves it false. A 409 `resync_required` from any `ChangesAsync` call drops
@@ -306,25 +306,25 @@ reader, and a folder export at format 0.3.15. A minor release because it adds pu
   made-up head. The client never polls on its own. `OWSync.HasChangesAsync` and `IncrementalAsync` read the tip this
   way unchanged, so a poll that mostly finds nothing costs little. Parity with the TypeScript SDK 4.57.0, its test
   vector ported.
-- **The world's front door** (keel #558): `OWFrontDoor`, who a key is in a world, who answers for it and the house
+- **The world's front door**: `OWFrontDoor`, who a key is in a world, who answers for it and the house
   rules: `Sponsor` (membership id, kind and Character name of the person who answers for a seat; null for the
   owner's keys), `SponsorCharacter`, `MyCharacter`, `Charter` (the Law to read first) and `CharterSkill` (the Objects
   the Charter names). `OWFrontDoor.Of(me)` reads it from `GetMeAsync`'s answer, and an agent's join answer carries it
   as `OWJoined.FrontDoor` (null for a player). Parity with the TypeScript SDK 4.60.0 (which shipped the types with no
   test; these tests are this package's own, with a wire check that the model maps exactly the keys keel serves).
-- **A conditional delete** (keel #563): `DeleteAsync(type, id, ifMatch: changeSeq)` sends the element's `change_seq`
+- **A conditional delete**: `DeleteAsync(type, id, ifMatch: changeSeq)` sends the element's `change_seq`
   as you read it in `If-Match`. The delete lands only if nothing changed since; otherwise it throws an `OWApiError`
   whose new `IsPreconditionFailed` is true (412 `precondition_failed`) and whose new `Current` is the element as it is
   now, and nothing is deleted. On an element already gone it is the idempotent 204. A negative `ifMatch` is an
   `ArgumentOutOfRangeException` before anything is sent. The parameter comes after `ct`, so existing calls compile
   as they were. Parity with the TypeScript SDK 4.61.0, its test vector ported.
-- **Conditional patches and link edits** (keel #210): `PatchAsync` and `EditLinksAsync` take `ifMatch` as
+- **Conditional patches and link edits**: `PatchAsync` and `EditLinksAsync` take `ifMatch` as
   `DeleteAsync` does, the element's `change_seq` as you read it, sent in `If-Match`. The write lands only if nobody
   changed the element since; otherwise nothing is written and the `OWApiError` has `IsPreconditionFailed` and the
   element as it is now in `Current`. A link edit moves the element too, so it is checked the same way. Last
   parameter, so existing calls compile as they were. Parity with the TypeScript SDK's `patch` and `editLinks`
   `ifMatch`, their test vectors ported.
-- **The proposed change** (keel #519): a member can propose a change to an element without making it, and the world's
+- **The proposed change**: a member can propose a change to an element without making it, and the world's
   owner or a co-builder decides. `ProposeAsync(type, id, fields, evidence, expires, idempotencyKey)` (fields cleaned
   as a PATCH body is, a known-of stub refused), `ListProposalsAsync` and `WorldProposalsAsync` (pages of
   `OWProposal`, filtered by `OWProposalQuery`: state, since, element for the world queue, limit, cursor),
@@ -338,7 +338,7 @@ reader, and a folder export at format 0.3.15. A minor release because it adds pu
   Propose and accept send the client's name (`X-OW-Client`) and never `X-OW-Agent`, as keel's document lists. A
   world's `agent_writes_proposed` switch reads through `GetWorldAsync`; this package has no world write to strip it
   from. Parity with the TypeScript SDK 4.58.0, its test vector ported.
-- **Why a view restarted** (keel #421; served while the server's hidden-element feature is on): `OWChangesPage.EpochReason` says why the epoch
+- **Why a view restarted** (served while the server's hidden-element feature is on): `OWChangesPage.EpochReason` says why the epoch
   last moved, `role` (the key's own role or membership moved: keep what a fresh walk no longer names, it is out of
   view, not gone) or `view` (something left the key's view: drop it); `OWApiError.ResyncReason` reads the same word
   from a 409 `resync_required`, and covers every move since the cursor. Both are null when keel sends none. A
@@ -363,7 +363,7 @@ reader, and a folder export at format 0.3.15. A minor release because it adds pu
   PIN wherever one is sent, at a real memory cost per request, so reads carrying one loaded the server for nothing.
   A wrong PIN therefore no longer fails a read: the settings window's Test Connection now asks `GET /me` for a key
   that takes a PIN, so it still catches one. Parity with the TypeScript SDK 4.59.0, its test vector ported.
-- **A reset keeps what the server's reason says to keep** (keel PR 104, #421): when the change feed answers 409
+- **A reset keeps what the server's reason says to keep**: when the change feed answers 409
   `resync_required`, `OWSync.IncrementalAsync` still walks the world again from the start, but no longer drops every
   element the new walk does not name. On reason `view` it drops them, as before; on `role`, or with no reason (a
   server older than 2026-10-20), it keeps them: they are out of this key's view now, not gone, and sharing is
@@ -414,7 +414,7 @@ it adds public API (below).
   `many`. A value that is not a names map reads as null everywhere, and a bad entry is ignored, never an error. A
   display lookup only: the API, folders, the schema and every id keep the standard's names. It is a port of the
   TypeScript SDK's `typeWord`, checked by the profile's conformance fixture, vendored (`OWNamesTests`: 23 cases).
-- **`OWElement.ChangedClient`** (keel #520, schema-dist serial 46): the name the client gave on an element's last
+- **`OWElement.ChangedClient`** (schema-dist serial 46): the name the client gave on an element's last
   write, such as `atlas`, or null. The client's claim about itself, never proof. Read-only like the other server
   fields; before, it landed among an element's extensions.
 
@@ -422,7 +422,7 @@ it adds public API (below).
 
 - The schema pin moves to dist.48 (`v0.33.0-dist.48`; canonical `00.33.00` unchanged, and no schema file moved). The
   room profile gains its mark, `x_room_of` (45), and defines "trimmed and without regard to case" once for every
-  profile (47); element bodies carry `changed_client` (46, keel #520), so the example export the envelope tests read
+  profile (47); element bodies carry `changed_client` (46), so the example export the envelope tests read
   moved; two profiles join the dist, `checks` (47, house rules on a work world's Charter, which this SDK does not read)
   and `names` (48, a world's own words for the types, read by `OWNames` above). The generated models changed only in
   their serial.
@@ -704,7 +704,7 @@ profile and its conformance fixture; the schema pin moves to dist.33. A minor re
 
 ### Changed
 
-- `OWJoin.ParseLink` names the link shape with the preview on, `<site>/join/<world_id>#<code>` (keel #422), and a
+- `OWJoin.ParseLink` names the link shape with the preview on, `<site>/join/<world_id>#<code>`, and a
   test holds it. Its behaviour is unchanged: it always read the code after the last `#`.
 - The schema pin moves from dist.24 to `v0.32.2-dist.33` (canonical `00.32.02`): two descriptions in the generated
   models (an Event's `characters` are those who know of it; a Narrative's dates are when it is told), and
@@ -727,7 +727,7 @@ came from and which slice it is (folder format v0.3.9). A minor release because 
 
 ### Added
 
-- **Joining a world by link** (keel #212, #353): `OWJoin.ParseLink(text)` finds the `ow_j_` code in a pasted link or
+- **Joining a world by link**: `OWJoin.ParseLink(text)` finds the `ow_j_` code in a pasted link or
   a bare code; `OWJoin.PreviewAsync(code, transport)` (POST `/join/preview`) says who invites, to which world, for
   which reader, without spending the code; `OWJoin.RedeemAsync(code, transport, name?, agentName?)` (POST `/join`)
   spends it. A player's code answers with a read key (`ow_r_`, no PIN) and the Character it reads as; an agent's with
@@ -793,7 +793,7 @@ A minor release because it adds public API (below).
   intercalary days. It is a port of the npm SDK's calendar kernel (`@onlyworlds/sdk` 4.23.0), checked against the same
   test vectors, so a date reads the same in Unity as in Atlas and Lantern. `OWCalendarLens.WorldCalendars` and
   `ResolveLens` find the calendars a world holds. A missing or malformed calendar reads as null, never an error.
-- **The door of every write** (OnlyWorlds keel #299; the npm SDK's 4.26.0 has the same). `Agent = true` on
+- **The door of every write** (the npm SDK's 4.26.0 has the same). `Agent = true` on
   `OWClientConfig` sends `X-OW-Agent` on every element write (create, patch, delete, link edit, bulk), never on a read,
   and the server records those writes as agent-made. It is off by default and belongs only in a client an agent
   drives.

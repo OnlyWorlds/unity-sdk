@@ -175,7 +175,7 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("env")]
         public string Env;
 
-        /// <summary>An agent's: the world's front door for the new seat, its sponsor, its Character and the Charter to read first (keel #558); null for a player.</summary>
+        /// <summary>An agent's: the world's front door for the new seat, its sponsor, its Character and the Charter to read first; null for a player.</summary>
         [JsonProperty("front_door")]
         public OWFrontDoor FrontDoor;
 
@@ -187,8 +187,8 @@ namespace OnlyWorlds.Sdk
     }
 
     /// <summary>
-    /// Joining a world by link, with no account: a player's code (a friend reading as one Character,
-    /// keel #353) or an AI agent's (keel #212). Sends no credential.
+    /// Joining a world by link, with no account: a player's code (a friend reading as one Character)
+    /// or an AI agent's. Sends no credential.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -199,7 +199,7 @@ namespace OnlyWorlds.Sdk
     /// </para>
     /// <para>
     /// A link is <c>&lt;site&gt;/join#&lt;code&gt;</c>, or <c>&lt;site&gt;/join/&lt;world_id&gt;#&lt;code&gt;</c> when
-    /// its owner turned the preview on (keel #422): the code sits after <c>#</c>, so it never reaches a
+    /// its owner turned the preview on: the code sits after <c>#</c>, so it never reaches a
     /// server log. Every bad code (unknown, used, revoked, expired, or for another reader) is the same
     /// 404 <c>not_found</c>, byte for byte: <see cref="OWApiError.IsNotFound"/>.
     /// </para>

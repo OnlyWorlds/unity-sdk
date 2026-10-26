@@ -114,7 +114,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             });
 
             await c.GetWorldAsync();
-            // The world's origin written as its two plain keys, and an extension key (keel #571).
+            // The world's origin written as its two plain keys, and an extension key.
             await c.PatchWorldAsync(new JObject
             {
                 ["name"] = "W", ["source"] = new JObject { ["world"] = "w0" }, ["producer"] = new JObject { ["tool"] = "t" },
@@ -144,7 +144,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             await c.ChangesAsync(headOnly: true); // sends If-None-Match
             t.ResponseHeaders = new Dictionary<string, string>();
 
-            // The proposed change (keel #519), every option given, so each query key, body key and header is checked.
+            // The proposed change, every option given, so each query key, body key and header is checked.
             t.ResponseBody = "{}";
             var at = new DateTimeOffset(2026, 11, 1, 0, 0, 0, TimeSpan.Zero);
             await c.ProposeAsync("character", "c1", new JObject { ["name"] = "P" }, "seen", expires: at, idempotencyKey: "k");
@@ -153,12 +153,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             await c.AcceptProposalAsync("character", "c1", "p1");
             await c.DeclineProposalAsync("character", "c1", "p1", "not canon");
             await c.WithdrawProposalAsync("character", "c1", "p1");
-            // A new element written as proposed (keel #565): each decision, the decline with its reason.
+            // A new element written as proposed: each decision, the decline with its reason.
             t.ResponseBody = @"{""element"":{},""deleted"":""c1""}";
             await c.ReviewNewElementAsync("character", "c1", OWReviewed.Accept);
             await c.ReviewNewElementAsync("character", "c1", OWReviewed.Decline, "not canon");
 
-            // The account's world create (keel #579) takes an account token: every member given, on the same transport.
+            // The account's world create takes an account token: every member given, on the same transport.
             var account = new OWClient(new OWClientConfig { ApiKey = "ow_a_test", ApiPin = "0000", Transport = t, BaseUrl = Base, Agent = true });
             t.ResponseBody = @"{""id"":""w1"",""name"":""W"",""role"":""owner"",""public_read"":false,""keys"":[],""key"":""ow_w_x""}";
             await account.CreateAccountWorldAsync(new OWAccountWorldCreate
@@ -451,7 +451,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [TestCase("/api/v2/join", "POST")]
         public void EveryFrontDoorKey_IsOneKeelServes_AndEveryOneItServesIsRead(string path, string method)
         {
-            // keel #558: front_door on /me and on an agent's join. GetMeAsync answers a JObject, so the model is checked here.
+            // front_door on /me and on an agent's join. GetMeAsync answers a JObject, so the model is checked here.
             var served = Wire["paths"][path][method]["response"].Values<string>()
                 .Where(k => k.StartsWith("front_door.")).ToList();
             var mapped = MappedKeys(typeof(OWFrontDoor), false).Select(k => "front_door." + k).ToList();

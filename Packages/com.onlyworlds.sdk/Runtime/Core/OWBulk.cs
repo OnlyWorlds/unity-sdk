@@ -49,7 +49,7 @@ namespace OnlyWorlds.Sdk
         public OWApiErrorBody Error;
 
         /// <summary>
-        /// Only on a 202 slot (keel #519): the proposal the write became. A world that takes an agent seat's writes as
+        /// Only on a 202 slot: the proposal the write became. A world that takes an agent seat's writes as
         /// proposals answers its item on an existing element this way, and the element did not change.
         /// </summary>
         [JsonProperty("proposal")]

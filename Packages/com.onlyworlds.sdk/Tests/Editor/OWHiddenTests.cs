@@ -4,7 +4,7 @@ using NUnit.Framework;
 namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
-    /// The hidden mark (folder format §4.8, RULED 2026-10-23; keel #421, #587): any value of <c>hidden</c> but absent,
+    /// The hidden mark (folder format §4.8, RULED 2026-10-23): any value of <c>hidden</c> but absent,
     /// <c>null</c> and <c>false</c> hides, a doubt counting as the mark, as the npm SDK and the Python package read it; a
     /// typed element reads it from its extensions and writes it back as it came.
     /// </summary>

@@ -2,7 +2,7 @@ namespace OnlyWorlds.Sdk
 {
     /// <summary>
     /// The door a write came through, as keel records it on every element
-    /// (<see cref="OWElement.ChangedVia"/>) and on a delete (<see cref="OWChange.DeletedVia"/>) since keel #299.
+    /// (<see cref="OWElement.ChangedVia"/>) and on a delete (<see cref="OWChange.DeletedVia"/>).
     /// </summary>
     /// <remarks>
     /// Mirrors the npm SDK's <c>OwWriteDoor</c>, <c>AGENT_DOORS</c> and <c>isAgentDoor</c> (4.26.0).

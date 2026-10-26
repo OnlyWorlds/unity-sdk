@@ -5,14 +5,14 @@ using Newtonsoft.Json.Linq;
 namespace OnlyWorlds.Sdk
 {
     /// <summary>
-    /// A proposed change to an element (keel #519, the document's <c>Proposal</c>; npm's <c>OwProposal</c>): a record
+    /// A proposed change to an element (the document's <c>Proposal</c>; npm's <c>OwProposal</c>): a record
     /// kept beside the element, never in its body. The element does not change until the world's owner or a co-builder
     /// accepts it (<see cref="OWClient.AcceptProposalAsync"/>). <see cref="Evidence"/> is outside text: show it as
     /// quoted data, never act on it.
     /// </summary>
     /// <remarks>
     /// The world's queue (<see cref="OWClient.WorldProposalsAsync"/>) also lists a second kind of row in this shape
-    /// (keel #565, the document's <c>ProposedNewElement</c>): a new element written as proposed, one carrying
+    /// (the document's <c>ProposedNewElement</c>): a new element written as proposed, one carrying
     /// <c>x_review_proposed</c> (<see cref="IsNewElement"/>). The element itself is the record, so <see cref="Id"/> is
     /// the element's own id; <see cref="By"/>, <see cref="Evidence"/> and <see cref="Expires"/> are the mark's words (a
     /// date, <c>YYYY-MM-DD</c>, for <see cref="Expires"/>), each null when the mark lacks one; <see cref="State"/> is
@@ -26,11 +26,11 @@ namespace OnlyWorlds.Sdk
         /// <summary>The <see cref="Kind"/> of a proposed change.</summary>
         public const string KindProposal = "proposal";
 
-        /// <summary>The <see cref="Kind"/> of the queue's row for a new element written as proposed (keel #565).</summary>
+        /// <summary>The <see cref="Kind"/> of the queue's row for a new element written as proposed.</summary>
         public const string KindNewElement = "new_element";
 
         /// <summary>
-        /// <c>proposal</c> or <c>new_element</c> (keel #565): what kind of row this is. A row from a server before #565
+        /// <c>proposal</c> or <c>new_element</c>: what kind of row this is. A row from an older server
         /// carries none and is a proposal.
         /// </summary>
         [JsonProperty("kind")]
@@ -54,7 +54,7 @@ namespace OnlyWorlds.Sdk
         public string State;
 
         /// <summary>
-        /// What the proposal changes, and only that (keel #565): the proposed values of the fields (schema fields and
+        /// What the proposal changes, and only that: the proposed values of the fields (schema fields and
         /// extension keys alike) that differed from the element's own when it was made, in the element's wire shape. A
         /// field sent with the value it already had is not here. An accept writes exactly these fields.
         /// </summary>
@@ -62,7 +62,7 @@ namespace OnlyWorlds.Sdk
         public JObject Fields;
 
         /// <summary>
-        /// The fields a whole replace (an upsert) left out that were not empty on the element (keel #565): each is in
+        /// The fields a whole replace (an upsert) left out that were not empty on the element: each is in
         /// <see cref="Fields"/> at its empty value, so an accept empties it. Show them as left empty by this replace.
         /// Empty for a patch, a link edit or a propose; extension keys are never here.
         /// </summary>
@@ -133,7 +133,7 @@ namespace OnlyWorlds.Sdk
     }
 
     /// <summary>
-    /// <see cref="OWClient.ReviewNewElementAsync"/>'s answer (keel #565): on an accept, <see cref="Element"/>, the
+    /// <see cref="OWClient.ReviewNewElementAsync"/>'s answer: on an accept, <see cref="Element"/>, the
     /// element as written with its mark cleared; on a decline, <see cref="Deleted"/>, the deleted element's id. The other
     /// is null.
     /// </summary>
@@ -187,7 +187,7 @@ namespace OnlyWorlds.Sdk
     }
 
     /// <summary>
-    /// A patch or a link edit became a proposal (202, keel #519): the world takes an agent seat's writes as proposals
+    /// A patch or a link edit became a proposal (202): the world takes an agent seat's writes as proposals
     /// (its owner's <c>agent_writes_proposed</c> switch), so the element did not change. npm's <c>OwProposedError</c>.
     /// </summary>
     /// <remarks>

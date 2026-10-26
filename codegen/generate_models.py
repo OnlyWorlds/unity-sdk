@@ -328,12 +328,12 @@ def _chunk(items: list[str], size: int):
 # The fields that exist on every wire body and in no element YAML. They are
 # server-managed and read-only on OWElement; the schema has no place to declare
 # them, so they are the emitter's one legitimate literal. `created_by` joined on
-# 2026-09-29: keel D72 put it on every v2 body (the membership that created the
+# 2026-09-29: keel put it on every v2 body (the membership that created the
 # element, or null), folder spec section 5 calls it server-managed and not part
 # of the standard, and the live world has carried it since b9e68b080.
-# `changed_by` and `changed_via` joined on 2026-10-16: keel #299 (D104) stamps
+# `changed_by` and `changed_via` joined on 2026-10-16: keel stamps
 # the membership and the door of every write, and schema-dist serial 24 names
-# both as server-set body keys. `changed_client` joined on 2026-10-22: keel #520
+# both as server-set body keys. `changed_client` joined on 2026-10-22: keel
 # stamps the name a client gave in X-OW-Client, and schema-dist serial 46 names
 # it beside the other two.
 SERVER_MANAGED_FIELDS = [

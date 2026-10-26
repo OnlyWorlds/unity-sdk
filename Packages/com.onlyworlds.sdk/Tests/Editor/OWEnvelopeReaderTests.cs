@@ -72,14 +72,14 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(1, byType["trait"]);
             Assert.IsTrue(read.Elements.All(e => !e.TypeInferred));
 
-            // Keel's download says where it came from and as whom (keel PR 133, folder spec §4.2), and the world keeps both.
+            // Keel's download says where it came from and as whom (folder spec §4.2), and the world keeps both.
             Assert.AreEqual("https://www.onlyworlds.com", (string)read.World["source"]["server"]);
             Assert.AreEqual(WorldId, (string)read.World["source"]["world"]);
             Assert.AreEqual("owner", (string)read.World["exported_as"]["kind"]);
             Assert.AreEqual(JTokenType.Null, read.World["exported_as"]["character"].Type);
 
             // The world block is the World whole (dist.50), with the world's first import and its extension store at the
-            // top level (dist.51, keel #571, folder spec v0.3.16): kept as the file gives them, never read into a shape.
+            // top level (dist.51, folder spec v0.3.16): kept as the file gives them, never read into a shape.
             Assert.AreEqual("atlas", (string)read.World["origin"]["producer"]["tool"]);
             Assert.AreEqual("01999999-0000-7000-8000-000000000419", (string)read.World["origin"]["source"]["world"]);
             Assert.AreEqual("Villager", (string)read.World["x_names"]["types"]["character"]["one"]);
@@ -186,7 +186,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [Test]
         public void TheWorldBlock_KeepsOriginAndTheExtensionStore_AsGiven()
         {
-            // keel #571: the download's world block carries origin and the World's top-level x_, atlas_ and shadow_ keys.
+            // The download's world block carries origin and the World's top-level x_, atlas_ and shadow_ keys.
             // The reader tolerates them and keeps them whole; it reads none of them into a shape.
             var world = @"{""id"":""w1"",""name"":""W"",
                 ""origin"":{""source"":null,""producer"":{""tool"":""atlas"",""version"":""1.19.0"",""input"":""server""}},

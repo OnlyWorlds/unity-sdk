@@ -144,7 +144,7 @@ namespace OnlyWorlds.Sdk.Editor
             _testResult = "Testing...";
             Repaint();
 
-            // A key that takes a PIN is tested through GET /me, the one read the client sends the PIN on (keel #314):
+            // A key that takes a PIN is tested through GET /me, the one read the client sends the PIN on:
             // a world read goes without it now, and would report a wrong PIN as connected.
             var viaMe = OWKey.RequiresPin(client.KeyKind);
 

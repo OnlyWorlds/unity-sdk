@@ -10,7 +10,7 @@ namespace OnlyWorlds.Sdk
     /// <para>
     /// A read body carries the first five. Round-tripping one straight back into a PUT or PATCH is
     /// the natural thing to write and it is wrong: <c>world</c> alone returns 422, because world
-    /// identity comes from the API key, not the payload. The sixth, <c>known_of</c> (keel PR 113),
+    /// identity comes from the API key, not the payload. The sixth, <c>known_of</c>,
     /// marks a stub (<see cref="IsKnownOf"/>); keel's write path refuses it at any value, <c>false</c>
     /// included (422 <c>known_of_not_writable</c>), so a stray one is stripped like the rest, and a
     /// body where it is <c>true</c> is refused before anything is sent.
@@ -38,9 +38,9 @@ namespace OnlyWorlds.Sdk
         /// <see cref="OWClient.PatchWorldAsync"/> on top of <see cref="ReadOnlyFields"/> so a read body can be sent back.
         /// </summary>
         /// <remarks>
-        /// <c>id</c> (keel's World marks it read-only); <c>slug</c> and <c>public_page</c> (keel #471) and the owner's
-        /// switches <c>public_read</c>, <c>agent_narrator_rule</c> and <c>agent_writes_proposed</c> (keel #519), each set on
-        /// the world page; and <c>origin</c> (keel #571), the world's first import, which is written as the plain keys
+        /// <c>id</c> (keel's World marks it read-only); <c>slug</c> and <c>public_page</c> and the owner's
+        /// switches <c>public_read</c>, <c>agent_narrator_rule</c> and <c>agent_writes_proposed</c>, each set on
+        /// the world page; and <c>origin</c>, the world's first import, which is written as the plain keys
         /// <c>source</c> and <c>producer</c> and never as itself; and <c>counts</c> (read-only in keel's World), the element
         /// counts a keyless read serves, absent with a key. <c>owner_character</c> is not here: PATCH takes it. The same
         /// list as the npm SDK's <c>WORLD_READ_ONLY_FIELDS</c> (4.65.0) and the Python package's (0.34.0), plus
@@ -59,7 +59,7 @@ namespace OnlyWorlds.Sdk
             "counts",
         };
 
-        /// <summary>The stub marker's key (folder format §4.4, v0.3.10; keel PR 113).</summary>
+        /// <summary>The stub marker's key (folder format §4.4, v0.3.10).</summary>
         public const string KnownOf = "known_of";
 
         public static bool IsReadOnly(string fieldName)
@@ -90,7 +90,7 @@ namespace OnlyWorlds.Sdk
             return marker != null && marker.Type == JTokenType.Boolean && (bool)marker;
         }
 
-        /// <summary>The hidden mark on an element (folder format §4.8; keel #421, #587).</summary>
+        /// <summary>The hidden mark on an element (folder format §4.8).</summary>
         public const string Hidden = "hidden";
 
         /// <summary>
@@ -113,7 +113,7 @@ namespace OnlyWorlds.Sdk
         internal static bool IsHiddenMark(JToken mark)
             => mark != null && mark.Type != JTokenType.Null && !(mark.Type == JTokenType.Boolean && !(bool)mark);
 
-        /// <summary>The review profile's mark on a new element written as proposed (schema-dist <c>profiles/review.md</c>; keel #565).</summary>
+        /// <summary>The review profile's mark on a new element written as proposed (schema-dist <c>profiles/review.md</c>).</summary>
         public const string ReviewProposed = "x_review_proposed";
 
         /// <summary>
@@ -134,7 +134,7 @@ namespace OnlyWorlds.Sdk
         /// unless asked, so a doubt never reaches an AI as canon.
         /// </summary>
         /// <remarks>
-        /// keel's <c>doubt_or_mark</c> (<c>proposals/marked.py</c>; keel #580 amendment A, Kael, 2026-10-23), which its
+        /// keel's <c>doubt_or_mark</c> (<c>proposals/marked.py</c>, as amended on 2026-10-23), which its
         /// draught and MCP reads use, and the Python package's <c>pack.is_proposed</c> (0.36.0). Wider than
         /// <see cref="IsProposed"/>, which the queue and the review route keep.
         /// </remarks>

@@ -99,7 +99,7 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("element")]
         public JObject Element;
 
-        /// <summary>On a delete: the membership whose write deleted it; null for the owner (keel #299).</summary>
+        /// <summary>On a delete: the membership whose write deleted it; null for the owner.</summary>
         [JsonProperty("deleted_by")]
         public string DeletedBy;
 
@@ -108,7 +108,7 @@ namespace OnlyWorlds.Sdk
         public string DeletedVia;
 
         /// <summary>
-        /// On a delete: the name the deleting client gave in its <c>X-OW-Client</c> header (keel #520), as an
+        /// On a delete: the name the deleting client gave in its <c>X-OW-Client</c> header, as an
         /// element's <see cref="OWElement.ChangedClient"/>: the client's claim, never proof. Null when none was
         /// recorded, and on a <c>hidden</c> row.
         /// </summary>
@@ -157,7 +157,7 @@ namespace OnlyWorlds.Sdk
         public long? Epoch;
 
         /// <summary>
-        /// Why <see cref="Epoch"/> last moved (keel #421, only while keel's hidden mark is on; null when the epoch is null,
+        /// Why <see cref="Epoch"/> last moved (only while keel's hidden mark is on; null when the epoch is null,
         /// and on an <see cref="Unchanged"/> tip read): <c>role</c> (this key's own role or membership moved: keep what
         /// the local copy holds that a walk from the start no longer names) or <c>view</c> (something left its view:
         /// drop it; also <c>view</c> for an epoch that never moved). It names the last move only: when the epoch moved

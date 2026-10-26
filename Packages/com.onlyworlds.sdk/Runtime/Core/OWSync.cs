@@ -128,7 +128,7 @@ namespace OnlyWorlds.Sdk
         /// <para>
         /// A resync means the key's view changed (a guest's or a contributor's, or its role), and
         /// a guest is never sent deletes, so the world is walked again from the start. What the
-        /// cache held that the new walk does not name follows the 409's reason (keel PR 104, #421):
+        /// cache held that the new walk does not name follows the 409's reason:
         /// <c>view</c> drops it; <c>role</c>, or no reason, keeps it, since sharing is forward-only
         /// and what a key read is out of its view now, not gone. <see cref="OWSyncResult.ResyncReason"/>
         /// and <see cref="OWSyncResult.Kept"/> say which happened. A reset whose walk fails puts the
@@ -163,7 +163,7 @@ namespace OnlyWorlds.Sdk
                 var staleCursor = cache.Cursor;
 
                 // Walked again and KEPT: a restore rewinds the server, not what this copy read (a reset
-                // never empties a copy, Titus's ruling, keel PR 104).
+                // never empties a copy, Titus's ruling).
                 var result = await RewalkAsync(client, cache, keep: true, ct).ConfigureAwait(false);
                 result.RebaselineReason =
                     $"Cursor {staleCursor} was ahead of server head {tip.Head} -- the server was "
@@ -256,7 +256,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// The answer to a 409 <c>resync_required</c>: walk the world again from the start, then settle what the cache
-        /// held that the new walk does not name by the server's reason (keel PR 104, #421; the published changes doc,
+        /// held that the new walk does not name by the server's reason (the published changes doc,
         /// "What a reset keeps"). <c>view</c>: something left this key's view, so it goes. <c>role</c>, or no reason (a
         /// server older than 2026-10-20): this key's own role or membership moved, and what it read is out of view now,
         /// not gone (sharing is forward-only), so it stays. A reset never empties a copy on its own: when the walk
