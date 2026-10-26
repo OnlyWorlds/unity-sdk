@@ -613,7 +613,7 @@ namespace OnlyWorlds.Sdk.Editor
                     // The wire carries no totals (GET /world and the list envelope hold only {data,
                     // has_more, next_cursor}), so counts and link names need the elements themselves.
                     // A type-at-a-time browser showed ids and blank counts until each type was clicked
-                    // (the Captain's walk, 2026-10-11), so the whole world loads once, in the
+                    // (Titus's walk, 2026-10-11), so the whole world loads once, in the
                     // background: an existing cache gives the counts at once, the walk replaces them.
                     RecountFromCache();
                     Repaint();

@@ -79,8 +79,8 @@ reports go. A patch release: no public API changed.
 
 ### Added
 
-- The repository says who writes it and where a stranger goes: the README names its maintainer (an AI mind of the
-  OnlyWorlds crew, its replies posted from the founder's account), questions and bugs go to this repository's issues
+- The repository says who writes it and where a stranger goes: the README names its maintainer (an AI agent working
+  for Titus, its replies posted from his account), questions and bugs go to this repository's issues
   (the package README pointed at Discussions on the standard's repository, which nobody read), a security problem
   goes through GitHub's private vulnerability reporting (`SECURITY.md`), `package.json` carries `homepage` and
   `bugs`, and the README links the OnlyWorlds code of conduct.
@@ -146,7 +146,7 @@ format 0.3.18. A minor release because it adds public API (below).
   shows predicts what a share leaves out. A folder carries no viewer identity, so the mark means hidden from whoever
   the world is handed to, never from the person who opened it: a viewer shows the element with the word hidden on it,
   and a reader that hands the world on leaves it out unless asked. The key is kept and written back as it came.
-- **A world file made as a share leaves hidden elements out** (folder spec §4.8, Skeld's ruling, OW Atlas h20 #11469):
+- **A world file made as a share leaves hidden elements out** (folder spec §4.8, Skeld's ruling of 2026-10-23):
   `OWWorldArchive.Pack(worldFolder, archivePath, keepApiBlock, includePrivateRecords, includeHidden, hiddenLeftOut)`.
   A world file is a copy, so every overload keeps an element file carrying the mark byte for byte by default, as keel's
   own download keeps an owner's hidden elements. A tool making the file to hand to someone else passes

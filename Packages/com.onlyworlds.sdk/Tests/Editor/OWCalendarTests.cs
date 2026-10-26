@@ -514,7 +514,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [Test]
         public void Parser_AMidYearDownPivotRoundTrips_EveryStep()
         {
-            // npm 4.42.3's parity vector (sdk 67df160, Kael h58 #9273): formatStep then parseDate gives the step back on both
+            // npm 4.42.3's parity vector (sdk 67df160): formatStep then parseDate gives the step back on both
             // sides of a down era's pivot, at the year's start and mid-year, for every step from -55 to 65.
             foreach (var pivot in new[] { 0, 5 })
             {
@@ -534,7 +534,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [Test]
         public void Parser_ADateTheTypedEraDoesNotHold_IsRefused()
         {
-            // npm 4.42.4's vector (sdk a119342, Kael h58 #9314, from Temper #9304): a typed era names the date's era.
+            // npm 4.42.4's vector (sdk a119342, from Temper's case): a typed era names the date's era.
             var cfg = Read(@"{ version: 1, grain: 'day', bundles: { months: { names: ['Frost', 'Thaw'], lengths: [10, 10] } },
                 eras: [ { name: 'Before Gate', abbrev: 'BG', start: 5, direction: 'down' }, { name: 'After Gate', abbrev: 'AG', start: 5 } ] }");
             // year 1 BG holds 1 to 5 Frost only; the absolute reading landed in AG (step 39) before
@@ -758,7 +758,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [Test]
         public void Profile_AtEqualStarts_TheLaterOfOneDirectionWins()
         {
-            // TS 4.42.2 (Kael h58 #8957): latest start, then up over down, then the later in the list. "Down" is exactly
+            // TS 4.42.2: latest start, then up over down, then the later in the list. "Down" is exactly
             // "down": a missing, null or other-spelled direction counts up.
             foreach (var b in new[] { @"""direction"": ""up""", @"""direction"": ""Up""", @"""direction"": null", @"""x"": 0" })
             {

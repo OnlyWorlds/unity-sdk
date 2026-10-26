@@ -7,7 +7,7 @@ using UnityEngine;
 namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
-    /// The folder reader against the Forge's committed conformance fixture.
+    /// The folder reader against Atlas's committed conformance fixture.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -26,7 +26,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     public class OWFolderConformanceTests
     {
         /// <summary>
-        /// Where the Forge's conformance fixture lives, if it is on this machine.
+        /// Where Atlas's conformance fixture lives, if it is on this machine.
         /// </summary>
         /// <remarks>
         /// Set <c>OW_CONFORMANCE_FIXTURE</c> to point at a checkout of it. The default is the

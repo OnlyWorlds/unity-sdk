@@ -472,7 +472,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             // A cursor ahead of head means the server was restored from a backup: our cursor points
             // at changes that no longer exist, so every future incremental would skip real data. The
             // world is walked again, and what the copy holds that the walk does not name is kept: a
-            // reset never empties a copy (the Captain's ruling, keel PR 104; the room feed's "a head
+            // reset never empties a copy (Titus's ruling, keel PR 104; the room feed's "a head
             // below ours walks again from zero and keeps what it no longer names", parlor/feed.test.ts).
             _cache.Upsert("stale", "character", @"{""id"":""stale"",""name"":""Old""}");
             _cache.SetCursor(9999, "t");

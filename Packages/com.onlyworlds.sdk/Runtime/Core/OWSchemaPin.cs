@@ -130,8 +130,8 @@ namespace OnlyWorlds.Sdk
         /// </para>
         /// <para>
         /// <b>42 -> 43 (2026-10-22)</b>: canonical <c>00.33.00</c>, a MINOR step. Zone gains <c>shape</c>, a string in
-        /// Scope (polygon or line, lowercase; empty, absent or any other value means not stated; OW Council #362, the
-        /// Captain's word, h58 #10069). <c>OWZone.Shape</c> is generated from it. The example export moved only its
+        /// Scope (polygon or line, lowercase; empty, absent or any other value means not stated; Titus's word,
+        /// 2026-10-22). <c>OWZone.Shape</c> is generated from it. The example export moved only its
         /// <c>schema_version</c>; the conformance set did not move. <c>presentation.json</c> is byte-identical.
         /// </para>
         /// <para>

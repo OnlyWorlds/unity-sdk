@@ -10,8 +10,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// Where a deflate stream ends (<see cref="OWDeflateEnd"/>), and the reader refusing an entry whose stream does
-    /// not end in the last byte of the compressed size it declares (folder spec §4.7's size bullet, OW-14; Skeld h58
-    /// #11968).
+    /// not end in the last byte of the compressed size it declares (folder spec §4.7's size bullet, OW-14; Skeld,
+    /// 2026-10-24).
     /// </summary>
     /// <remarks>
     /// Most streams here are written bit by bit, so each test holds exactly the block it names; each valid one is also

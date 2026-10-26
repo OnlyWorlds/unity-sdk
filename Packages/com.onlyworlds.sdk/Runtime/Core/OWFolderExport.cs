@@ -436,7 +436,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// The <c>exported_as</c> line (§4.2, v0.3.9) for a <c>GET /me</c> answer, or null: write none. The spec owner's
-        /// table (Skeld h50 #7910), as the package's <c>exported_as</c> maps it, rule for rule:
+        /// table (Skeld, 2026-10-19), as the package's <c>exported_as</c> maps it, rule for rule:
         /// </summary>
         /// <remarks>
         /// <c>kind: owner</c> (an owner-minted or classic key) is the owner, role owner, no Character. A member with role

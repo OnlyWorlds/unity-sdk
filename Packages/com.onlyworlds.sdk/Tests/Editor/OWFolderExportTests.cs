@@ -777,7 +777,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         /// <summary>
         /// Exports Moppetopia (its public demo key, read-only) and diffs it against the package's export
         /// of it. Explicit: it needs the network and the folder <c>OW_MOPPETOPIA_REFERENCE</c> names
-        /// (the Armature's <c>projects/moppetopia-world</c>); <c>OW_EXPORT_OUT</c> keeps the export.
+        /// (a reference export of the world); <c>OW_EXPORT_OUT</c> keeps the export.
         /// </summary>
         [Test, Explicit("Live: reads onlyworlds.com and media.onlyworlds.com.")]
         public async Task Live_Moppetopia_MatchesThePackagesExport()

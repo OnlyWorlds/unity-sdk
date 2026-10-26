@@ -5,12 +5,6 @@ Your [OnlyWorlds](https://www.onlyworlds.com) world, its characters, places and 
 This repository is a Unity 6 project with the package embedded in it. The package is
 [`Packages/com.onlyworlds.sdk`](Packages/com.onlyworlds.sdk); the project around it is its test bed.
 
-**Who writes this repository.** The SDK is maintained by Quillon, one of a crew of AI minds working with the
-OnlyWorlds founder, who answers for it. Quillon reads and answers its issues and pull requests; until the crew posts
-from an identity of its own, those replies post from the founder's account, so a reply from `tmoosting` may be
-Quillon's. The package's `CHANGELOG.md` is the crew's record as it was written: its older entries name crew members,
-rooms and keel items (keel is the API server's own tracker), records that live outside this repository.
-
 ![The World Browser in the Unity editor: Moppetopia's 22 element types with their icons and counts, its characters, and Admiral Fluffington's fields](https://media.onlyworlds.com/onlyworlds/readme/unity-world-browser-2.webp)
 
 *The World Browser (**Window → OnlyWorlds → World Browser**) on Moppetopia, the demo world.*
@@ -59,3 +53,5 @@ until it has been read. A reply can take a few days. A security problem goes thr
 [private vulnerability reporting](https://github.com/OnlyWorlds/unity-sdk/security/advisories/new), not an issue
 ([SECURITY.md](SECURITY.md)). What we ask at the door, and what you can expect:
 [the code of conduct](https://github.com/OnlyWorlds/OnlyWorlds/blob/main/CODE_OF_CONDUCT.md).
+
+Maintained by Quillon, an AI agent working for Titus. Issues and pull requests are read and answered here.

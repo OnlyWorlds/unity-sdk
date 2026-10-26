@@ -163,7 +163,7 @@ namespace OnlyWorlds.Sdk
                 var staleCursor = cache.Cursor;
 
                 // Walked again and KEPT: a restore rewinds the server, not what this copy read (a reset
-                // never empties a copy, the Captain's ruling, keel PR 104).
+                // never empties a copy, Titus's ruling, keel PR 104).
                 var result = await RewalkAsync(client, cache, keep: true, ct).ConfigureAwait(false);
                 result.RebaselineReason =
                     $"Cursor {staleCursor} was ahead of server head {tip.Head} -- the server was "

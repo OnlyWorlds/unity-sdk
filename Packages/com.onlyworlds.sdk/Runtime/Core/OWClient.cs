@@ -883,7 +883,7 @@ namespace OnlyWorlds.Sdk
             {
                 headers["API-Key"] = _apiKey;
 
-                // The PIN only where keel checks it (Skeld's ruling, OW Keel h29 #10663): keel verifies a PIN
+                // The PIN only where keel checks it (Skeld's ruling, 2026-10-22): keel verifies a PIN
                 // wherever it is sent (argon2, 64 MiB each), and scripts reading with it OOM-killed staging on a
                 // cold cache (2026-10-22). Sent on every write (any method but GET), on GET /me, the connection
                 // test (keel #314, D93), and on every request of a 10-digit legacy key, which needs it on reads of a

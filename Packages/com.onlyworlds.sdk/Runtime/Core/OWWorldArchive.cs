@@ -1115,7 +1115,7 @@ namespace OnlyWorlds.Sdk
         /// copies the bytes, one table lookup a byte, and compared with the central directory's.
         /// </para>
         /// <para>
-        /// The size bullet speaks of the compressed size too (Skeld h58 #11968): a deflated entry's stream must end in
+        /// The size bullet speaks of the compressed size too (Skeld, 2026-10-24): a deflated entry's stream must end in
         /// the last byte of the compressed size it declares. Mono's inflater stops at a stream's end and ignores what
         /// follows, and at the end of its input it stops as if the stream were whole, so neither a stream ending early
         /// nor one that never ends is an error to it. <see cref="EndsWhereItDeclares"/> walks the raw bytes to find
