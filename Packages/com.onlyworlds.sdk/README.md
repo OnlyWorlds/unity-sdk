@@ -1,6 +1,6 @@
 # OnlyWorlds Unity SDK
 
-Your [OnlyWorlds](https://www.onlyworlds.com) world, its characters, places and laws, as objects in your Unity game.
+Your [OnlyWorlds](https://www.onlyworlds.com) world, its characters, locations and laws, as objects in your Unity game.
 
 It reads and writes worlds through the OnlyWorlds API, with typed C# models for all 22 element types and a world
 cache you can browse in the Editor.
