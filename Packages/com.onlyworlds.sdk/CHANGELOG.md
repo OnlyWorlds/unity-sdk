@@ -6,6 +6,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-10-26
+
+Messages between a world's members: `OWMessage` reads who a message is addressed to, whether its sender is proved
+against the members list, a reader's read mark and unread messages, and a thread, held to the shared message
+fixture's 55 cases. `OWFrontDoor.MySeats` lists the AI and player seats a key's person answers for, and
+`OWApiError.IsCharacterPlayed` names a refused delete of a Character someone plays. A minor release because it adds
+public API (below). The schema pin moves to dist.75.
+
 ### Added
 
 - `OWApiError.IsCharacterPlayed`: a delete that names a Character someone plays on the world's roster (the owner's
