@@ -75,7 +75,8 @@ await client.PatchAsync<OWCharacter>("character", made.Id, new { description = "
 ```
 
 `PatchAsync` sends only the fields you pass; `DeleteAsync("character", id)` removes one. Keep write keys out of
-builds you ship.
+builds you ship. A key or PIN typed into a serialized field in the Inspector is saved in the scene and travels inside
+the build, where anyone with the build can read it (with Mono or IL2CPP alike), so read write credentials at runtime.
 
 **A player link** (`https://www.onlyworlds.com/join#ow_j_…`, made by a world's owner for one Character) needs no
 account. Redeem it once for that player's read key; the server then shows the key only what that Character may see.
