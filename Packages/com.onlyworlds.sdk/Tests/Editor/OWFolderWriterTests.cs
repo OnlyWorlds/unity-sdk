@@ -218,17 +218,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 + "must not drop, reorder or respell anything else.");
         }
 
-        /// <summary>The real world folder, if this machine has one.</summary>
+        /// <summary>The real world folder from <c>OW_WORLD_FOLDER</c>, or null when it is unset or not a world folder.</summary>
         private static string RealWorldPath()
         {
-            var candidates = new[]
-            {
-                Environment.GetEnvironmentVariable("OW_WORLD_FOLDER"),
-                @"C:\Users\Titus\Development\OnlyWorlds\sikelia-world",
-            };
-
-            return candidates.FirstOrDefault(c =>
-                !string.IsNullOrEmpty(c) && Directory.Exists(Path.Combine(c ?? "", "elements")));
+            var path = Environment.GetEnvironmentVariable("OW_WORLD_FOLDER");
+            return !string.IsNullOrEmpty(path) && Directory.Exists(Path.Combine(path, "elements")) ? path : null;
         }
 
         // -- The bytes themselves ---------------------------------------------

@@ -31,16 +31,14 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         /// Where the Sikelia world folder lives, if it is on this machine.
         /// </summary>
         /// <remarks>
-        /// Override with <c>OW_SIKELIA_WORLD</c>. The default is the author's local path, which is
-        /// useless elsewhere -- deliberately, because the alternative is vendoring a copy of a
-        /// live world into a package repository.
+        /// Set <c>OW_SIKELIA_WORLD</c> to a checkout of it; without it these tests are skipped. It is not
+        /// vendored, deliberately: a copy of a live world does not belong in a package repository.
         /// </remarks>
         private static string WorldRoot =>
-            Environment.GetEnvironmentVariable("OW_SIKELIA_WORLD")
-            ?? @"C:\Users\Titus\Development\OnlyWorlds\sikelia-world";
+            Environment.GetEnvironmentVariable("OW_SIKELIA_WORLD") ?? "";
 
         private static bool WorldAvailable =>
-            Directory.Exists(WorldRoot) && File.Exists(Path.Combine(WorldRoot, "world.json"));
+            WorldRoot.Length > 0 && Directory.Exists(WorldRoot) && File.Exists(Path.Combine(WorldRoot, "world.json"));
 
         private static void RequireWorld()
         {

@@ -1,7 +1,8 @@
 # The SDK's EditMode suite on a Linux runner, started by hand (Actions tab, "gate", Run workflow).
 # It needs three repository secrets: UNITY_LICENSE (the contents of a Unity Personal .ulf file),
 # UNITY_EMAIL and UNITY_PASSWORD (https://game.ci/docs/github/activation/).
-# The folder-conformance tests need OW_CONFORMANCE_FIXTURE, which this runner does not set, so they skip.
+# Tests that need a fixture or world outside this repo (OW_CONFORMANCE_FIXTURE, OW_SIKELIA_WORLD, OW_WORLD_FOLDER)
+# skip here, as do the live test and the Windows path-limit tests: 24 skipped of 1078 on its first run.
 name: gate
 
 on:
@@ -9,6 +10,7 @@ on:
 
 permissions:
   contents: read
+  checks: write # the test runner posts its results as a check on the commit
 
 jobs:
   editmode:
