@@ -36,9 +36,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   moved). At serial 69 the calendar fixture's Gregorian case gains twelve steps around Leap Day in 1900, 2000 and
   2100, as a LegendKeeper export of a user's own world held them on 2026-10-25, so a reader whose year layout ignores
   `except` while its year count keeps it now fails the shared fixture; this SDK reads all 198 steps, and its fixture
-  test now counts the steps and refusals as well as the cases. At serial 71 the room profile says "trimmed" means Unicode White_Space at both ends, with three
-  new cases (a tab and an ideographic space are trimmed; a leading byte order mark and a trailing U+001C are not);
-  `OWRoom` already read all 28. Serial 70 is skipped: its manifest was superseded by 71's.
+  test now counts the steps and refusals as well as the cases. At serial 71 the room profile says "trimmed" means
+  Unicode White_Space at both ends, with three new cases (a tab and an ideographic space are trimmed; a leading byte
+  order mark and a trailing U+001C are not); `OWRoom` already read all 28. Serial 70 is skipped: its manifest was superseded by 71's.
 - The schema pin moves to dist.74 (`v0.33.0-dist.74`): serials 72 and 73 add the message profile (`profiles/message.md`
   and its fixture of 43 cases), vendored with the distribution; 74 changes only the text of the README and six
   profile pages. No generated model changed; `OWMessage` reads the message profile (above).
