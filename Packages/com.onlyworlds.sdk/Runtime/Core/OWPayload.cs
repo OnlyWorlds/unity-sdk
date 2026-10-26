@@ -99,7 +99,7 @@ namespace OnlyWorlds.Sdk
         /// a doubt is never handed on. Absent, <c>null</c> and <c>false</c> are not hidden.
         /// </summary>
         /// <remarks>
-        /// Folder format §4.8 (RULED 2026-10-23, Skeld h58 #11461): a folder carries no viewer identity, so the mark means
+        /// Folder format §4.8 (RULED 2026-10-23, Skeld): a folder carries no viewer identity, so the mark means
         /// hidden from whoever the world is handed to, never from the person who opened it. A reader that shows a world to
         /// its holder (a viewer, this SDK's folder readers handing elements to their own caller) shows the element with
         /// the word hidden on it; a reader that hands a world on (a pack, a context packet, a share) leaves it out unless
@@ -134,7 +134,7 @@ namespace OnlyWorlds.Sdk
         /// unless asked, so a doubt never reaches an AI as canon.
         /// </summary>
         /// <remarks>
-        /// keel's <c>doubt_or_mark</c> (<c>proposals/marked.py</c>; keel #580 amendment A, Kael h29 #11132), which its
+        /// keel's <c>doubt_or_mark</c> (<c>proposals/marked.py</c>; keel #580 amendment A, Kael, 2026-10-23), which its
         /// draught and MCP reads use, and the Python package's <c>pack.is_proposed</c> (0.36.0). Wider than
         /// <see cref="IsProposed"/>, which the queue and the review route keep.
         /// </remarks>

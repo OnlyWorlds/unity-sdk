@@ -11,7 +11,7 @@ namespace OnlyWorlds.Sdk
     /// <para>
     /// Mono's <see cref="System.IO.Compression.DeflateStream"/> says neither where a stream ended nor whether it ended
     /// at all: given the bytes of an entry it stops at the stream's end and ignores what follows, and at the end of
-    /// its input it stops as if the stream were whole. Folder spec §4.7's size bullet (OW-14, Skeld h58 #11968)
+    /// its input it stops as if the stream were whole. Folder spec §4.7's size bullet (OW-14, Skeld, 2026-10-24)
     /// speaks of every size an entry declares, compressed and uncompressed alike: a reader refuses an archive whose
     /// stream it cannot read to its declared end. <see cref="OWWorldArchive"/> runs this walk over each deflated
     /// entry's raw bytes, after the inflater has read it and its size and CRC-32 hold.

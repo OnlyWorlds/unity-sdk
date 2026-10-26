@@ -198,7 +198,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [Test]
         public void Pin_MaplessIsLegal()
         {
-            // Wire-probed 2026-07-28: the API accepts this (201). Captain ruled mapless pins a
+            // Wire-probed 2026-07-28: the API accepts this (201). Titus ruled mapless pins a
             // legitimate app pattern, so the model must not reject one.
             var p = OWJson.Deserialize<OWPin>(@"{""name"":""floating"",""map"":null,""x"":null,""y"":null}");
 

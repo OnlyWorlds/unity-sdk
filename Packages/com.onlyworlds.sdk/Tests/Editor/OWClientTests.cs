@@ -73,14 +73,14 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             await c.GetWorldAsync();
 
             Assert.AreEqual("ow_w_test", t.Last.Headers["API-Key"]);
-            Assert.IsFalse(t.Last.Headers.ContainsKey("API-Pin"), "a read (h29 #10663)");
+            Assert.IsFalse(t.Last.Headers.ContainsKey("API-Pin"), "a read");
             Assert.IsFalse(t.Last.Headers.ContainsKey("Authorization"));
 
             await c.PatchAsync<JObject>("character", "c1", new JObject { ["name"] = "M" });
             Assert.AreEqual("0000", t.Last.Headers["API-Pin"]);
         }
 
-        // -- API-Pin only where keel checks it (Skeld's ruling, OW Keel h29 #10663; npm 4.59.0's vector) --
+        // -- API-Pin only where keel checks it (Skeld's ruling, 2026-10-22; npm 4.59.0's vector) --
         //
         // keel verifies a PIN wherever it is sent (argon2, 64 MiB each), and reads sent with one OOM-killed
         // staging on a cold cache (2026-10-22). Each call states its own expectation for a prefixed key, so the
@@ -335,7 +335,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public async Task Create_WithAKey_DerivesTheIdSoARetrySendsTheSameBody()
         {
             // A fresh id per call made a keyed retry a second body, and keel answers that with 409
-            // idempotency_error, not the replay (Kael, h37 #5777; npm 4.27.1 and Python derive it the same way).
+            // idempotency_error, not the replay (Kael; npm 4.27.1 and Python derive it the same way).
             var t = new FakeTransport();
             var client = Make(t);
             await client.CreateAsync<JObject>("character", new JObject { ["name"] = "New" }, idempotencyKey: "retry-1");

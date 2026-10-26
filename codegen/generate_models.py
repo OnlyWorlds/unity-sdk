@@ -20,7 +20,7 @@ WHAT THE RULING TABLE BINDS HERE (walk/rulings.yaml, read the row not the key):
   nullable-by-default  -- ONLY `name` is required. Every scalar int is emitted as
       SerializableNullable<int>, never int. No `required:` list is enforced in
       construction; pin/marker's lists are schema intent, not wire enforcement,
-      and Captain ruled them dropped from canonical.
+      and Titus ruled them dropped from canonical.
   string-empty-is-unset -- strings are plain `string`. "" IS the wire's unset;
       keel stores them blank=True and never nullable, so there is no third state
       and the emitter must not invent one by making strings nullable. Scalar

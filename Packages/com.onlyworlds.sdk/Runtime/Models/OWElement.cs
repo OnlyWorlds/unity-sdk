@@ -16,7 +16,7 @@ namespace OnlyWorlds.Sdk
     /// wholesale when the C# emitter lands. Do not grow it.
     /// </para>
     /// <para>
-    /// Only <c>name</c> is required (Captain's ruling, 2026-07-28). Everything else is optional and
+    /// Only <c>name</c> is required (Titus's ruling, 2026-07-28). Everything else is optional and
     /// nullable on the wire.
     /// </para>
     /// </remarks>

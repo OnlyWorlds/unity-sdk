@@ -181,7 +181,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 ["state"] = "all", ["since"] = "2026-10-22T00:00:00Z", ["limit"] = "5", ["cursor"] = "c1",
             }, QueryOf(t.Last));
             Assert.IsNull(t.Last.Body);
-            CollectionAssert.AreEqual(new[] { "API-Key" }, HeaderNames(t.Last), "a read: no PIN (h29 #10663)");
+            CollectionAssert.AreEqual(new[] { "API-Key" }, HeaderNames(t.Last), "a read: no PIN");
         }
 
         [Test]
