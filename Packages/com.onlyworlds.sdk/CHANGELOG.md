@@ -12,6 +12,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   Character or a member's) is refused as 422 `character_played`, param `id`, and nothing is deleted. Re-point that
   member to another Character, or remove the member, then delete. The wire fixture is refreshed from the API's
   document (this code, and a public counts route this SDK does not call).
+- `OWFrontDoor.MySeats`: the live AI and player seats the key's person answers for, agent seats first, each an
+  `OWFrontDoorSeat` (`Id` the membership id, `Kind` agent or player, `Name`, `Character` the Character it plays or
+  null). This is how a tool on a person's key tells which Character is that person's AI. The list is empty for a seat's
+  own key, for anyone who answers for none, and on an API from before it. On `GET /me` and an agent's join answer. The
+  wire fixture is refreshed (this key, and an account route this SDK does not call).
 
 ### Changed
 

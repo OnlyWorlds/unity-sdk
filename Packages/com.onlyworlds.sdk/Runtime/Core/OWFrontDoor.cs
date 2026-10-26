@@ -25,6 +25,29 @@ namespace OnlyWorlds.Sdk
     }
 
     /// <summary>
+    /// A live AI or player seat the key's person answers for, from <see cref="OWFrontDoor.MySeats"/>.
+    /// </summary>
+    [Serializable]
+    public class OWFrontDoorSeat
+    {
+        /// <summary>The seat's membership id, as <c>GET /members</c> lists it.</summary>
+        [JsonProperty("id")]
+        public string Id;
+
+        /// <summary><c>agent</c> or <c>player</c>.</summary>
+        [JsonProperty("kind")]
+        public string Kind;
+
+        /// <summary>The seat's name; null when it has none.</summary>
+        [JsonProperty("name")]
+        public string Name;
+
+        /// <summary>The Character the seat plays; null when it plays none this key can read.</summary>
+        [JsonProperty("character")]
+        public string Character;
+    }
+
+    /// <summary>
     /// A world's front door for one key (keel #558, D152): who you are here, who answers for you, and the house
     /// rules. On <c>GET /me</c> (<see cref="Of"/> reads it from <see cref="OWClient.GetMeAsync"/>'s answer) and on an
     /// agent's join answer (<see cref="OWJoined.FrontDoor"/>); npm's <c>OwFrontDoor</c>.
@@ -50,6 +73,14 @@ namespace OnlyWorlds.Sdk
         /// <summary>Your own Character (the owner's: the world's <c>owner_character</c>), or null.</summary>
         [JsonProperty("my_character")]
         public string MyCharacter;
+
+        /// <summary>
+        /// The live AI and player seats the key's person answers for, agent seats first (keel #704): how a tool on a
+        /// person's key tells which Character is that person's AI. Empty for a seat's own key, for anyone who answers
+        /// for none, and on a keel from before it; a seat made from a link for an email address is never listed.
+        /// </summary>
+        [JsonProperty("my_seats")]
+        public List<OWFrontDoorSeat> MySeats = new List<OWFrontDoorSeat>();
 
         /// <summary>
         /// The world's Charter: the newest Law with supertype Charter made by the owner or a co-builder, or null.

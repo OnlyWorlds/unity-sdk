@@ -5,7 +5,7 @@
     "X-Session-Token",
     "Authorization"
   ],
-  "document_sha256": "f5f21996681ebcc207ac324bb1c2f0ade900af1344d43912deabb660aefb710a",
+  "document_sha256": "a0cd804ce90a05e11de1b94fbb8c980a01cbb1e7c3d2ee3aec31397b637cfe79",
   "error_codes": {
     "already_member": 409,
     "already_reported": 409,
@@ -72,7 +72,7 @@
     "world_full": 422,
     "write_failed": 502
   },
-  "fetched": "2026-10-25T20:57+01:00",
+  "fetched": "2026-10-26T15:01+01:00",
   "openapi_version": "2.0",
   "paths": {
     "/api/v2/ability": {
@@ -752,6 +752,16 @@
           "usage",
           "usage.input_tokens",
           "usage.output_tokens"
+        ]
+      }
+    },
+    "/api/v2/account/clients/{client_id}": {
+      "DELETE": {
+        "header": [],
+        "query": [],
+        "response": [
+          "client_id",
+          "tokens_revoked"
         ]
       }
     },
@@ -6223,6 +6233,7 @@
           "front_door.charter",
           "front_door.charter_skill",
           "front_door.my_character",
+          "front_door.my_seats",
           "front_door.sponsor",
           "front_door.sponsor_character",
           "key",
@@ -9469,6 +9480,7 @@
           "front_door.charter",
           "front_door.charter_skill",
           "front_door.my_character",
+          "front_door.my_seats",
           "front_door.sponsor",
           "front_door.sponsor_character",
           "kind",
@@ -9495,6 +9507,7 @@
           "front_door.charter",
           "front_door.charter_skill",
           "front_door.my_character",
+          "front_door.my_seats",
           "front_door.sponsor",
           "front_door.sponsor_character",
           "kind",

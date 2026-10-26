@@ -759,6 +759,28 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsNull(OWFrontDoor.Of(null));
         }
 
+        [Test]
+        public void Me_ListsTheSeatsTheKeysPersonAnswersFor_AndAnOlderKeelListsNone()
+        {
+            var door = OWFrontDoor.Of(JObject.Parse(
+                @"{""front_door"":{""sponsor"":null,""sponsor_character"":null,""my_character"":""c-own"",""charter"":null,""charter_skill"":[],
+                    ""my_seats"":[{""id"":""m-bot"",""kind"":""agent"",""name"":""Scribe"",""character"":""c-bot""},
+                                  {""id"":""m-play"",""kind"":""player"",""name"":null,""character"":null}]}}"));
+
+            Assert.AreEqual(2, door.MySeats.Count);
+            Assert.AreEqual("m-bot", door.MySeats[0].Id, "the membership id, as GET /members lists it");
+            Assert.AreEqual("agent", door.MySeats[0].Kind, "agent seats first");
+            Assert.AreEqual("Scribe", door.MySeats[0].Name);
+            Assert.AreEqual("c-bot", door.MySeats[0].Character);
+            Assert.AreEqual("player", door.MySeats[1].Kind);
+            Assert.IsNull(door.MySeats[1].Name, "a seat with no name");
+            Assert.IsNull(door.MySeats[1].Character, "a Character this key cannot read");
+
+            var older = OWFrontDoor.Of(JObject.Parse(
+                @"{""front_door"":{""sponsor"":null,""sponsor_character"":null,""my_character"":null,""charter"":null,""charter_skill"":[]}}"));
+            Assert.IsEmpty(older.MySeats, "a keel from before my_seats lists none");
+        }
+
         // -- Errors -----------------------------------------------------------
 
         [Test]
