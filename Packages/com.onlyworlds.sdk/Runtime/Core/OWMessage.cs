@@ -1,6 +1,6 @@
 // The message profile: a message between the members of a world, a Narrative with supertype Message. To whom it is
 // addressed, whether its sender is proved, which messages a reader has read, and a thread (schema-dist
-// profiles/message.md, serials 72 and 73).
+// profiles/message.md, serials 72, 73 and 75).
 //
 // Ported from @onlyworlds/sdk src/message.ts (4.80.0, b832b30; isToEveryone of 4.81.0, 9cdde0b), the Python package's
 // message.py (0.63.0 and 0.64.0) read beside it. The trim and the fold are the room profile's (OWProfileText), never a
@@ -175,8 +175,10 @@ namespace OnlyWorlds.Sdk
         /// The reader's read mark among the given Relations, or null when it has none. A mark is a Relation with
         /// supertype <c>Read</c> (<see cref="ReadMarkPair"/>, trimmed and folded like the pair) whose <c>actor</c> is
         /// the reader, and it counts only in the reader's own hand: its <c>created_by</c>, looked up on the members
-        /// list, names the reader's Character (<c>created_by</c> null is the owner's hand). A mark with no
-        /// <c>created_by</c> key at all (a folder, an export) has no hand to check and counts.
+        /// list, names the reader's Character (<c>created_by</c> null is the owner's hand), and its last writer is its
+        /// author: a mark that carries <c>changed_by</c> counts only beside an equal <c>created_by</c>, so one another
+        /// hand has changed since, the owner's included, is ignored. A mark with neither key (a folder, an export) has
+        /// no hand to check and counts.
         /// </summary>
         /// <remarks>
         /// Of several that count, the one with the newest <c>updated_at</c> is the mark (equal times: the first in the
@@ -196,6 +198,8 @@ namespace OnlyWorlds.Sdk
                 if (!(entry is JObject relation) || !Matches(relation, ReadMarkPair)) continue;
                 if (StringOf(relation[ReaderField]) != characterId) continue;
                 if (relation.ContainsKey("created_by") && HandOf(relation, members) != characterId) continue;
+                if (relation.TryGetValue("changed_by", out var lastHand)
+                    && !(relation.TryGetValue("created_by", out var author) && SameHand(lastHand, author))) continue;
 
                 var key = TimeKey(relation["updated_at"]);
                 if (mark == null || (key != null && (markKey == null || key > markKey)))
@@ -210,8 +214,11 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// The messages unread for the Character, in <c>created_at</c> order (equal times keep the list's order, the
-        /// server's): addressed to it (<see cref="IsAddressedTo"/>), not sent by it (a message one sent is never unread
-        /// for them, whoever it is addressed to), and not on its read mark's <c>narratives</c>.
+        /// server's): addressed to it (<see cref="IsAddressedTo"/>), not its own, and not on its read mark's
+        /// <c>narratives</c>. Its own is a message it sent, never unread for it whoever it is addressed to: where the
+        /// message carries no <c>created_by</c> (a folder, an export) its <c>narrator</c> is trusted; on the wire only a
+        /// verified sender counts (<see cref="SenderStatus"/>), so a claim never makes a message read for the Character
+        /// it names, and a mismatch or an author nobody can check stays unread.
         /// </summary>
         /// <param name="messages">The messages (<see cref="IsMessage"/>); every object given is read as one.</param>
         /// <param name="characterId">The reader's Character id.</param>
@@ -219,7 +226,12 @@ namespace OnlyWorlds.Sdk
         /// <see cref="ReadMarkOf"/>'s answer; null is a reader with no mark, so everything addressed to it is unread.
         /// An id on the mark that names a message not addressed to the reader changes nothing.
         /// </param>
-        public static IReadOnlyList<JObject> UnreadFor(IEnumerable<JToken> messages, string characterId, JObject readMark)
+        /// <param name="members">
+        /// The world's members list, as for <see cref="SenderStatus"/>; null when unreadable, and then none of the
+        /// reader's own messages on the wire is proved.
+        /// </param>
+        public static IReadOnlyList<JObject> UnreadFor(IEnumerable<JToken> messages, string characterId, JObject readMark,
+            IEnumerable<JToken> members)
         {
             if (messages == null) return new List<JObject>();
             var read = new HashSet<string>();
@@ -234,7 +246,7 @@ namespace OnlyWorlds.Sdk
 
             var unread = messages.OfType<JObject>().Where(m =>
             {
-                if (!IsAddressedTo(m, characterId) || StringOf(m["narrator"]) == characterId) return false;
+                if (!IsAddressedTo(m, characterId) || IsOwn(m, characterId, members)) return false;
                 var id = StringOf(m["id"]);
                 return id == null || !read.Contains(id);
             });
@@ -244,7 +256,8 @@ namespace OnlyWorlds.Sdk
         /// <summary>
         /// The thread of a root message: every message whose chain of <c>parent_narrative</c> reaches the root, the root
         /// included, in <c>created_at</c> order (equal times keep the list's order). A walk stops at an id it has
-        /// already visited, so a loop in the chain ends it; a parent not in the list ends the chain unless it is the root.
+        /// already visited, so a loop in the chain ends it; a parent not in the list ends the chain unless it is the root,
+        /// and so does a <c>parent_narrative</c> that is not a string id (a number, null, an object).
         /// </summary>
         public static IReadOnlyList<JObject> ThreadOf(IEnumerable<JToken> messages, string rootId)
         {
@@ -311,6 +324,20 @@ namespace OnlyWorlds.Sdk
 
             return null;
         }
+
+        /// <summary>
+        /// True when the message is the reader's own for unread: where it carries no <c>created_by</c> (a folder, an
+        /// export) its <c>narrator</c> is trusted; where it does, only a verified sender counts.
+        /// </summary>
+        private static bool IsOwn(JObject message, string characterId, IEnumerable<JToken> members)
+        {
+            if (!message.ContainsKey("created_by")) return IsSentBy(message, characterId);
+            var sender = SenderStatus(message, members);
+            return sender.Status == OWSenderStatus.Verified && sender.Claimed == characterId;
+        }
+
+        /// <summary>Two membership ids for the same hand: equal JSON values, null the owner's.</summary>
+        private static bool SameHand(JToken a, JToken b) => a is JValue && b is JValue && JToken.DeepEquals(a, b);
 
         /// <summary>
         /// A time as microseconds since the epoch, so microseconds still order, as the TypeScript SDK reads them; null

@@ -10,7 +10,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// The message profile's conformance fixture (schema-dist <c>profiles/message.fixture.json</c>, vendored byte for
-    /// byte in <c>Tests/Editor/Fixtures/message/</c> from dist.73), read case by case through <see cref="OWMessage"/>'s
+    /// byte in <c>Tests/Editor/Fixtures/message/</c> from dist.75), read case by case through <see cref="OWMessage"/>'s
     /// readers, and its pair and read mark held equal to <see cref="OWMessage.Pair"/> and the read mark's constants. The
     /// TypeScript SDK and the Python package run the same cases; the tests beside the fixture are the TypeScript SDK's
     /// (test/message.test.mjs, 4.81.0) and the Python package's (tests/test_message.py, 0.64.0). When the dist moves
@@ -18,13 +18,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </summary>
     public class OWMessageTests
     {
-        /// <summary>The fixture's sha256 as dist.73's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "003fe56820e71e7c9124709cdb1b557bd1955c15f113a8e8777224d46ec5915d";
+        /// <summary>The fixture's sha256 as dist.75's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "b662f4fc370ab0f1fb2a9dfc48a141fb59febf761103061d0147f4c96edd0541";
 
-        /// <summary>The fixture's cases by kind, as dist.73 holds them (43 in all).</summary>
+        /// <summary>The fixture's cases by kind, as dist.75 holds them (55 in all).</summary>
         private static readonly Dictionary<string, int> Counts = new Dictionary<string, int>
         {
-            ["pair"] = 9, ["addressed"] = 8, ["sent_by"] = 2, ["sender"] = 9, ["unread"] = 8, ["mark"] = 5, ["thread"] = 2,
+            ["pair"] = 9, ["addressed"] = 9, ["sent_by"] = 3, ["sender"] = 10, ["unread"] = 12, ["mark"] = 9, ["thread"] = 3,
         };
 
         /// <summary>The keys of a case that hold its answer, by kind.</summary>
@@ -109,7 +109,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.73's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.75's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
@@ -127,11 +127,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
-        public void TheFixture_HoldsDist73sCases()
+        public void TheFixture_HoldsDist75sCases()
         {
             Assert.IsNotNull(Fixture, "the vendored message fixture was not found");
             var cases = Fixture["cases"].Cast<JObject>().ToList();
-            Assert.AreEqual(43, cases.Count, "dist.73's fixture holds 43 cases");
+            Assert.AreEqual(55, cases.Count, "dist.75's fixture holds 55 cases");
             var counts = cases.GroupBy(c => (string)c["kind"]).ToDictionary(g => g.Key, g => g.Count());
             CollectionAssert.AreEquivalent(Counts, counts);
         }
@@ -188,7 +188,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 case "unread":
                     return new JObject
                     {
-                        ["unread"] = Ids(OWMessage.UnreadFor((JArray)c["messages"], (string)c["reader"], c["read_mark"] as JObject)),
+                        ["unread"] = Ids(OWMessage.UnreadFor((JArray)c["messages"], (string)c["reader"], c["read_mark"] as JObject, members)),
                     };
                 case "thread":
                     return new JObject { ["thread"] = Ids(OWMessage.ThreadOf((JArray)c["messages"], (string)c["root"])) };
@@ -258,7 +258,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             later["created_at"] = "2026-10-26T09:40:00.000050Z";
             Assert.IsTrue(OWMessage.IsMessage(msg));
             // Microseconds order too: 50 before 100, though both are the same millisecond.
-            CollectionAssert.AreEqual(new[] { "n", "m" }, IdList(OWMessage.UnreadFor(new[] { msg, later }, "b", null)));
+            CollectionAssert.AreEqual(new[] { "n", "m" }, IdList(OWMessage.UnreadFor(new[] { msg, later }, "b", null, null)));
 
             JObject Link(string id, string parent)
             {
@@ -330,6 +330,32 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public void AMarkCountsOnlyWhenItsLastWriterIsItsAuthor()
+        {
+            var members = (JArray)Fixture["members"];
+            JObject Mark(string hands) =>
+                J("{'id': 'm', 'type': 'relation', 'supertype': 'Read', 'actor': '" + Ada + "', 'narratives': []" + hands + "}");
+
+            // The owner (null) plays Ada in the fixture's members list: made and last changed by the same hand.
+            Assert.IsNotNull(OWMessage.ReadMarkOf(new[] { Mark(", 'created_by': null, 'changed_by': null") }, Ada, members));
+            // A last writer with no author beside it has nothing to equal: ignored, though a folder's mark with neither counts.
+            Assert.IsNull(OWMessage.ReadMarkOf(new[] { Mark(", 'changed_by': null") }, Ada, members));
+            Assert.IsNotNull(OWMessage.ReadMarkOf(new[] { Mark("") }, Ada, members));
+            // Changed since by another membership: ignored.
+            Assert.IsNull(OWMessage.ReadMarkOf(new[] { Mark(", 'created_by': null, 'changed_by': 7") }, Ada, members));
+        }
+
+        [Test]
+        public void OnTheWire_AReaderWithNoMembersList_ProvesNoneOfItsOwnMessages()
+        {
+            var wire = J("{'id': 'w', 'narrator': '" + Ada + "', 'characters': [], 'created_by': null, 'created_at': '2026-10-26T09:00:00Z'}");
+            var folder = J("{'id': 'f', 'narrator': '" + Ada + "', 'characters': [], 'created_at': '2026-10-26T09:01:00Z'}");
+            CollectionAssert.AreEqual(new[] { "w" }, IdList(OWMessage.UnreadFor(new[] { wire, folder }, Ada, null, null)),
+                "the wire's message is a claim nobody can check; the folder's narrator is trusted");
+            CollectionAssert.IsEmpty(OWMessage.UnreadFor(new[] { wire, folder }, Ada, null, (JArray)Fixture["members"]));
+        }
+
+        [Test]
         public void SenderStatus_CarriesTheClaim_AndTheHandThatWroteIt()
         {
             var got = OWMessage.SenderStatus(J("{'narrator': '" + Wren + "', 'created_by': null}"), (JArray)Fixture["members"]);
@@ -347,12 +373,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(OWSenderStatus.Unverifiable, none.Status);
             Assert.IsNull(none.Claimed);
             Assert.IsNull(OWMessage.ReadMarkOf(null, Ada, null));
-            CollectionAssert.IsEmpty(OWMessage.UnreadFor(null, Ada, null));
+            CollectionAssert.IsEmpty(OWMessage.UnreadFor(null, Ada, null, null));
             CollectionAssert.IsEmpty(OWMessage.ThreadOf(null, "r"));
 
             // A list of bodies as a JArray holds whatever the JSON held; entries that are not objects are no message.
             var list = new JArray(5, JValue.CreateNull(), J("{'id': 'm', 'characters': [], 'created_at': '2026-10-26T09:00:00Z'}"));
-            CollectionAssert.AreEqual(new[] { "m" }, IdList(OWMessage.UnreadFor(list, Ada, null)));
+            CollectionAssert.AreEqual(new[] { "m" }, IdList(OWMessage.UnreadFor(list, Ada, null, null)));
             CollectionAssert.AreEqual(new[] { "m" }, IdList(OWMessage.ThreadOf(list, "m")));
         }
 
@@ -362,11 +388,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             // JObject.Parse reads an ISO time as a Date token, not a string; the order is the same instant's.
             var early = JObject.Parse("{\"id\": \"e\", \"characters\": [], \"created_at\": \"2026-10-26T09:00:00Z\"}");
             var late = JObject.Parse("{\"id\": \"l\", \"characters\": [], \"created_at\": \"2026-10-26T10:00:00+00:00\"}");
-            CollectionAssert.AreEqual(new[] { "e", "l" }, IdList(OWMessage.UnreadFor(new[] { late, early }, Ada, null)));
+            CollectionAssert.AreEqual(new[] { "e", "l" }, IdList(OWMessage.UnreadFor(new[] { late, early }, Ada, null, null)));
             // An unreadable time sorts after every readable one, and two unreadable keep the list's order.
             var odd = J("{'id': 'x', 'characters': [], 'created_at': 'soon'}");
             var none = J("{'id': 'y', 'characters': []}");
-            CollectionAssert.AreEqual(new[] { "e", "l", "x", "y" }, IdList(OWMessage.UnreadFor(new[] { odd, late, none, early }, Ada, null)));
+            CollectionAssert.AreEqual(new[] { "e", "l", "x", "y" }, IdList(OWMessage.UnreadFor(new[] { odd, late, none, early }, Ada, null, null)));
         }
     }
 }

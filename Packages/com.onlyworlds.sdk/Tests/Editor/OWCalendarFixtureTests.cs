@@ -8,14 +8,14 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// The <c>atlas_calendar</c> profile's conformance fixture (schema-dist <c>profiles/calendar.fixture.json</c>, tag
-    /// <c>v0.33.0-dist.69</c>, the profile's version 2: 64 cases, 34 of them refusals), vendored byte for byte. It is
+    /// <c>v0.33.0-dist.75</c>, the profile's version 2: 64 cases, 34 of them refusals; the cases as at dist.69, two notes reworded at 75), vendored byte for byte. It is
     /// generated from the TypeScript SDK's kernel (4.76.0) against the profile page: every reader refuses the same values and reads the same words, or one tool
     /// shows a calendar where another shows numbers. When the dist moves it, re-vendor and update the hash below.
     /// </summary>
     public class OWCalendarFixtureTests
     {
-        /// <summary>The fixture's sha256 as dist.69's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "768318b7406099b0870d530e2409214145d9e4cd09a06299590056f2e95ce8d8";
+        /// <summary>The fixture's sha256 as dist.75's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "5c50ad60cfd5e0320dab9c709588ddb139b8b22f8320c2d40647940c6e8e321a";
 
         /// <summary>
         /// The package's own resolved path; outside the Editor (no package manager to ask), the working directory's
@@ -55,7 +55,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = System.BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(FixturePath))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.69's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.75's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
@@ -105,11 +105,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 }
             }
 
-            Assert.AreEqual(64, refusals + calendars, "the dist.69 fixture holds 64 cases");
-            Assert.AreEqual(34, refusals, "the dist.69 fixture holds 34 refusals");
+            Assert.AreEqual(64, refusals + calendars, "the dist.75 fixture holds 64 cases");
+            Assert.AreEqual(34, refusals, "the dist.75 fixture holds 34 refusals");
             // The steps counted too, as the TypeScript SDK's fixture test does since 4.76.1: a dropped step reads green
             // under a case count alone.
-            Assert.AreEqual(198, steps, "the dist.69 fixture's calendars read 198 steps");
+            Assert.AreEqual(198, steps, "the dist.75 fixture's calendars read 198 steps");
             Assert.IsEmpty(misses, $"{refusals} refusals, {calendars} calendars, {steps} steps:\n" + string.Join("\n", misses));
         }
     }

@@ -17,18 +17,23 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   null). This is how a tool on a person's key tells which Character is that person's AI. The list is empty for a seat's
   own key, for anyone who answers for none, and on an API from before it. On `GET /me` and an agent's join answer. The
   wire fixture is refreshed (this key, and an account route this SDK does not call).
-- **`OWMessage`, the message profile's readers** (schema-dist `profiles/message.md`, serials 72 and 73): a message
+- **`OWMessage`, the message profile's readers** (schema-dist `profiles/message.md`, serials 72, 73 and 75): a message
   between a world's members is a Narrative with supertype `Message` (`OWMessage.Pair`, one of the room profile's
   pairs; a world's own message needs no `x_room_of`). `IsMessage` matches it trimmed and case-blind; `RecipientsOf`,
   `IsAddressedTo` and `IsToEveryone` read `characters` (empty, absent or null is everyone; a list of no valid id is
   nobody); `IsSentBy` reads `narrator`, the claim. `SenderStatus(message, members)` proves the claim against the
   membership in `created_by` on the world's members list and answers an `OWSender`: `Verified`, `Mismatch` (with
   `WrittenBy`, the author's Character) or `Unverifiable`; show anything but verified as a claim. `ReadMarkOf` finds a
-  reader's read mark (a Relation with supertype `Read`, the reader as `actor`) counted only in the reader's own hand,
-  the newest `updated_at` among several; `UnreadFor` and `ThreadOf` list messages in `created_at` order, equal times
-  keeping the list's order. Bodies are `JObject`s, lists any sequence of them. The profile's 43-case fixture is its
-  test, as it is the TypeScript SDK's and the Python package's. Parity with the TypeScript SDK 4.81.0 and the Python
-  package 0.64.0.
+  reader's read mark (a Relation with supertype `Read`, the reader as `actor`) counted only when every write on it was
+  the reader's own hand (its `created_by` plays the reader, and a `changed_by` equals that `created_by`), the newest
+  `updated_at` among several wherever it stands in the list. `UnreadFor(messages, characterId, readMark, members)`
+  leaves out the reader's own messages: in a folder, where nothing carries `created_by`, those whose `narrator` is the
+  reader; on the wire only those the members list proves the reader sent, so a claim never marks a message read.
+  `UnreadFor` and `ThreadOf` list messages in `created_at` order, equal times keeping the list's order; a thread's walk
+  stops at a `parent_narrative` that is not a string id. An empty Character id is addressed by nothing and has no mark.
+  Bodies are `JObject`s, lists any sequence of them. The profile's 55-case fixture is its test, as it is the
+  TypeScript SDK's and the Python package's. Parity with the TypeScript SDK 4.81.0 and the Python package 0.64.0 for
+  serials 72 and 73.
 
 ### Changed
 
@@ -40,9 +45,10 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   Unicode White_Space at both ends, with three new cases (a tab and an ideographic space are trimmed; a leading byte
   order mark and a trailing U+001C are not); `OWRoom` already read all 28. Serial 70 is skipped: its manifest was
   superseded by 71's.
-- The schema pin moves to dist.74 (`v0.33.0-dist.74`): serials 72 and 73 add the message profile (`profiles/message.md`
+- The schema pin moves to dist.75 (`v0.33.0-dist.75`): serials 72 and 73 add the message profile (`profiles/message.md`
   and its fixture of 43 cases), vendored with the distribution; 74 changes only the text of the README and six
-  profile pages. No generated model changed; `OWMessage` reads the message profile (above).
+  profile pages; 75 rules who proves a reader's own message and mark (the fixture grows to 55 cases) and rewords the
+  calendar fixture's two LegendKeeper notes. No generated model changed; `OWMessage` reads the message profile (above).
 
 ## [0.20.0] - 2026-10-25
 
