@@ -34,7 +34,7 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 - The schema pin moves to dist.71 (`v0.33.0-dist.71`; only the calendar and room profiles' fixtures and pages
   moved). At serial 69 the calendar fixture's Gregorian case gains twelve steps around Leap Day in 1900, 2000 and
-  2100, as a LegendKeeper export of a user's own world held them on 2026-10-25, so a reader whose year layout ignores
+  2100, as LegendKeeper's API gave them for a user's own project on 2026-10-25, so a reader whose year layout ignores
   `except` while its year count keeps it now fails the shared fixture; this SDK reads all 198 steps, and its fixture
   test now counts the steps and refusals as well as the cases. At serial 71 the room profile says "trimmed" means
   Unicode White_Space at both ends, with three new cases (a tab and an ideographic space are trimmed; a leading byte
@@ -47,8 +47,8 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 ## [0.20.0] - 2026-10-25
 
 Calendar version 2: a festival day's leap rule can now say "every 4 years, not every 100, yet every 400" and count
-from a calendar with no year 0, so the Gregorian calendar and Harptos read exact, day for day, matching what a
-LegendKeeper export of a user's own world held on 2026-10-25. An era with no end now runs to the next counting-up
+from a calendar with no year 0, so the Gregorian calendar and Harptos read exact, day for day, matching what
+LegendKeeper's API answered for a user's own project on 2026-10-25. An era with no end now runs to the next counting-up
 era whatever order the eras are listed in. The change feed says who hid or unhid an element, when, and through which
 door, and the room profile counts a member's take on a work item. A minor release because it adds public API
 (below). The schema pin moves to dist.68.
@@ -73,7 +73,7 @@ door, and the room profile counts a member's take on a work item. A minor releas
   calendar. `CalendarIntercalary.Except` and `Offset` hold them, `OWCalendar.IntercalaryInYear` says whether an entry
   falls in a year, and `Validate` names a bad chain and the keys on a version-1 config. Year starts, lengths, the year
   search, weekdays and month starts all follow the rule. Parity with the TypeScript SDK 4.76.0: its LegendKeeper
-  vector (466 days on five preset calendars, as a LegendKeeper export of a user's own world held them on 2026-10-25)
+  vector (466 days on five preset calendars, as LegendKeeper's API gave them for a user's own project on 2026-10-25)
   runs here as tests, and Gregorian and Harptos now read exact.
 
 ### Changed
