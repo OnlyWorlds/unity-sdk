@@ -29,20 +29,18 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         /// Where Atlas's conformance fixture lives, if it is on this machine.
         /// </summary>
         /// <remarks>
-        /// Set <c>OW_CONFORMANCE_FIXTURE</c> to point at a checkout of it. The default is the
-        /// author's local path, which is useless on anyone else's machine -- deliberately, because
-        /// the alternative is vendoring a copy of somebody else's answer key into this repo, and a
-        /// vendored copy of a fixture is a fixture that silently stops matching the implementation
-        /// it was written to check.
+        /// Set <c>OW_CONFORMANCE_FIXTURE</c> to point at a checkout of it; without it these tests are
+        /// skipped. It is not vendored, deliberately: a vendored copy of somebody else's answer key
+        /// is a fixture that silently stops matching the implementation it was written to check.
         /// </remarks>
         private static string FixtureRoot =>
-            System.Environment.GetEnvironmentVariable("OW_CONFORMANCE_FIXTURE")
-            ?? @"C:\Users\Titus\Carrier\Forge\tools\atlas\tests\fixtures\folder-conformance";
+            System.Environment.GetEnvironmentVariable("OW_CONFORMANCE_FIXTURE") ?? "";
 
         private static string WorldPath => Path.Combine(FixtureRoot, "world");
         private static string ExpectedPath => Path.Combine(FixtureRoot, "expected.json");
 
-        private static bool FixtureAvailable => Directory.Exists(WorldPath) && File.Exists(ExpectedPath);
+        private static bool FixtureAvailable =>
+            FixtureRoot.Length > 0 && Directory.Exists(WorldPath) && File.Exists(ExpectedPath);
 
         private static void RequireFixture()
         {
