@@ -6,6 +6,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- `OWMessage.IsReadMark`: whether an element is a read mark (type `relation`, supertype `Read`, trimmed and folded as
+  `IsMessage` reads a message), whoever's mark it is. A reader that weighs elements by their links can leave a read
+  mark out by it: a mark lists every message its reader has read, which is bookkeeping, not part of the world.
+
 ## [0.21.0] - 2026-10-26
 
 Messages between a world's members: `OWMessage` reads who a message is addressed to, whether its sender is proved

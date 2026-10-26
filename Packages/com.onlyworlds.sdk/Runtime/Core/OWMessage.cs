@@ -86,6 +86,15 @@ namespace OnlyWorlds.Sdk
         public static bool IsMessage(JObject element) => Matches(element, Pair);
 
         /// <summary>
+        /// True when the element is a read mark: its <c>type</c> and <c>supertype</c>, trimmed and folded as
+        /// <see cref="IsMessage"/> reads them, are <see cref="ReadMarkPair"/>, whoever's mark it is. A mark is a reader's
+        /// bookkeeping, not part of the world's story: a reader that weighs elements by their links (a graph's hubs) can
+        /// leave it out by this.
+        /// </summary>
+        /// <param name="element">An element body that names its <c>type</c> (a slug); null is no element.</param>
+        public static bool IsReadMark(JObject element) => Matches(element, ReadMarkPair);
+
+        /// <summary>
         /// The message's recipients: the Character ids in its <c>characters</c>, in the field's order, entries that are
         /// not ids left out. An empty <c>characters</c> (absent, null or <c>[]</c>) is addressed to every member of the
         /// world; ask <see cref="IsAddressedTo"/> whether it is for one Character, and <see cref="IsToEveryone"/>

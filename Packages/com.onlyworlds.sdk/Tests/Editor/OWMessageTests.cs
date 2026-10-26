@@ -299,6 +299,20 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public void AReadMark_IsTheReadPair_TrimmedAndFoldedAsTheRoomProfile()
+        {
+            Assert.IsTrue(OWMessage.IsReadMark(J("{'type': 'relation', 'supertype': 'Read', 'actor': 'a', 'narratives': []}")));
+            Assert.IsTrue(OWMessage.IsReadMark(new JObject { ["type"] = "Relation", ["supertype"] = " READ\t" }));
+            // A whole-word match on both: a reading list is not a mark, a message is not one, and a mark needs both keys.
+            Assert.IsFalse(OWMessage.IsReadMark(new JObject { ["type"] = "relation", ["supertype"] = "Reads" }));
+            Assert.IsFalse(OWMessage.IsReadMark(new JObject { ["type"] = "narrative", ["supertype"] = "Read" }));
+            Assert.IsFalse(OWMessage.IsReadMark(new JObject { ["type"] = "relation", ["supertype"] = null }));
+            Assert.IsFalse(OWMessage.IsReadMark(new JObject { ["supertype"] = "Read" }));
+            Assert.IsFalse(OWMessage.IsReadMark(J("{'type': 'narrative', 'supertype': 'Message'}")));
+            Assert.IsFalse(OWMessage.IsReadMark(null));
+        }
+
+        [Test]
         public void TheReadMarkSupertypeIsFolded_AndAMarkWithNoMembersListHasNoHand()
         {
             var members = (JArray)Fixture["members"];
