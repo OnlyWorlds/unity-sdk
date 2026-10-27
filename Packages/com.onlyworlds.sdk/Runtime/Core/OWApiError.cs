@@ -88,15 +88,6 @@ namespace OnlyWorlds.Sdk
         public bool IsKnownOfNotWritable => StatusCode == 422 && Code == "known_of_not_writable";
 
         /// <summary>
-        /// An element write carried <c>x_served_trimmed</c> (422 <c>served_trimmed_not_writable</c>), the server's mark
-        /// on a body it served with ids the reader's key may not see left out. The mark is never written. This client
-        /// never sends it (<see cref="OWPayload.ReadOnlyFields"/> strips it), so it reaches you only from a body sent
-        /// some other way. Send the body without the mark: a trimmed list sent back loses nobody, because the server
-        /// keeps the ids the writer cannot see.
-        /// </summary>
-        public bool IsServedTrimmedNotWritable => StatusCode == 422 && Code == "served_trimmed_not_writable";
-
-        /// <summary>
         /// A contributor or guest key changed, relinked or deleted an element someone else created
         /// (403 <c>not_author</c>). Retrying will not help.
         /// </summary>

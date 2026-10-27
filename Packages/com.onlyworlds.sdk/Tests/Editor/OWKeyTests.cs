@@ -59,17 +59,14 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [Test]
         public void ReadOnlyFields_MatchTheWireContract()
         {
-            // Mirrors READ_ONLY_FIELDS in the npm SDK (4.42.3), plus the server's served-trimmed mark (the message
-            // profile, serial 76: 422 served_trimmed_not_writable). A divergence means one client gets 422s the other
-            // does not.
+            // Mirrors READ_ONLY_FIELDS in the npm SDK (4.42.3). A divergence means one client gets
+            // 422s the other does not.
             CollectionAssert.AreEquivalent(
-                new[] { "world", "type", "created_at", "updated_at", "change_seq", "known_of", "x_served_trimmed" },
+                new[] { "world", "type", "created_at", "updated_at", "change_seq", "known_of" },
                 OWPayload.ReadOnlyFields);
 
             Assert.IsTrue(OWPayload.IsReadOnly("world"));
             Assert.IsTrue(OWPayload.IsReadOnly("known_of"));
-            Assert.IsTrue(OWPayload.IsReadOnly("x_served_trimmed"));
-            Assert.IsFalse(OWPayload.IsReadOnly("x_review_proposed"), "only the server's own x_ key is stripped");
             Assert.IsFalse(OWPayload.IsReadOnly("name"));
         }
     }

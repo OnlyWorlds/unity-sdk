@@ -21,16 +21,8 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   members)`: a Note (a Narrative with supertype `Note`) is a member's own line in the world, never a message, and
   `NoteOf` gives a Character's newest Note in its own hand (on the wire, a verified sender; in a folder, its
   `narrator`), neither hidden nor proposed. The profile's fixture, now 81 cases, is the test.
-- `OWApiError.IsServedTrimmedNotWritable`: an element write that carried `x_served_trimmed` is refused as 422
-  `served_trimmed_not_writable`. This client never sends it (below), so it reaches you only from a body sent some
-  other way.
 
 ### Changed
-
-- Element writes (create, PATCH, bulk, a proposal's fields) never send `x_served_trimmed`: it joins
-  `OWPayload.ReadOnlyFields` (seven now, `OWPayload.ServedTrimmed`), the one `x_` key stripped by name; every other
-  extension key still passes through. A message read with the mark can be sent back as it is: the server keeps the
-  ids the writer cannot see, so a trimmed list sent back loses nobody.
 
 - `OWMessage.IsToEveryone` takes `keyless` (false by default): a body read with no credential is never "to everyone",
   because the server leaves hidden recipients out of it and does not mark it. An empty `characters` with the trimmed
