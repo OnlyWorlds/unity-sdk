@@ -140,13 +140,17 @@ namespace OnlyWorlds.Sdk
             var filename = ResolveFilename(directory, id, name);
             var path = Path.Combine(directory, filename);
 
+            // A rename moves this element to a new path. §4's writer note (clarified in v0.3.19): the new body goes
+            // into the file it holds first, so an interrupted rename leaves one body under two names at worst, never
+            // two different bodies for the reader's first-by-name to choose between.
+            var others = OtherFilesFor(directory, id, filename);
+            foreach (var other in others) WriteJsonFile(other, body);
+
             WriteJsonFile(path, body);
 
-            // A rename moved this element to a new path. Its old file still holds the same id, and
-            // leaving it there forks one element into two -- the reader would ingest both and serve
-            // whichever it saw last. Removed AFTER the new file lands, so an interrupted write
-            // leaves a duplicate rather than nothing.
-            RemoveOtherFilesFor(directory, id, filename);
+            // The old file still holds the same id, and leaving it there forks one element into two files. Removed
+            // AFTER the new file lands, so an interrupted write leaves a duplicate rather than nothing.
+            foreach (var other in others) File.Delete(other);
 
             return path;
         }
@@ -463,18 +467,21 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
-        /// Deletes files in this directory that hold <paramref name="id"/> and are not
+        /// The files in this directory that hold <paramref name="id"/> and are not
         /// <paramref name="keep"/>.
         /// </summary>
-        private static void RemoveOtherFilesFor(string directory, string id, string keep)
+        private static List<string> OtherFilesFor(string directory, string id, string keep)
         {
+            var others = new List<string>();
             foreach (var file in FilesHoldingId(directory, id))
             {
                 // Case-insensitive, because NTFS and APFS resolve two spellings to one entry: on
-                // those filesystems, deleting "the other" file would delete the one just written.
+                // those filesystems, "the other" file would be the one about to be written.
                 if (string.Equals(Path.GetFileName(file), keep, StringComparison.OrdinalIgnoreCase)) continue;
-                File.Delete(file);
+                others.Add(file);
             }
+
+            return others;
         }
 
         /// <summary>The id inside a file, or null if it has none or cannot be read.</summary>

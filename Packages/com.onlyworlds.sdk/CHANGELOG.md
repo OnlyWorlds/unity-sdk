@@ -92,6 +92,10 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   order (case-blind on NTFS, so `a.json` came before `B.json` on Windows), and the in-memory read compared UTF-16 code
   units. Within a layout a repeated id now keeps its first file and lists each later one in `Skipped`. It had served
   every copy, so the cache kept the last one. Only a folder that breaks the one-id-one-file rule is affected.
+- `OWFolderWriter.WriteElement` writes a renamed element's new body into the file it holds before it writes the
+  new-named file, then removes the old file (folder format §4's writer note, clarified in v0.3.19). It had written the
+  new file first, so an interrupted rename left two different bodies for one id. Under first-by-name, a new name
+  that sorts after the old one would then have served the old body.
 - The message profile's shared edge cases, the file the TypeScript SDK 4.89.1 and the Python package both hold (26 cases:
   what a Note is to every reader, the `created_at` order, an edit, a Character's line), now replay here, and the
   readings they caught are fixed. `HasUnseenRecipients` is false for a Note, keyless or not. `ThreadOf` walks a chain

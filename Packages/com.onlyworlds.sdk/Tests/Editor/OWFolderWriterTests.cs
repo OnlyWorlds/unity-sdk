@@ -484,6 +484,29 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(1, Directory.GetFiles(Path.Combine(_temp, "elements", "character")).Length);
         }
 
+        /// <summary>
+        /// §4's writer note (clarified in v0.3.19): a rename writes the new body into the file it holds before it
+        /// writes the new-named file, so an interrupted rename never leaves two different bodies for the reader's
+        /// first-by-name to choose between. Here the second write fails (a directory stands at the new path),
+        /// as a crash between the two writes would.
+        /// </summary>
+        [Test]
+        public void Rename_InterruptedBeforeTheNewFile_LeavesTheEditInTheOldFile()
+        {
+            const string id = "11111111-2222-4333-8444-555555555509";
+
+            var first = OWFolderWriter.WriteElement(_temp, Body(id, "character", "Finn"));
+            var name = Path.GetFileName(first);
+            StringAssert.StartsWith("finn--", name, "the short name this test builds on");
+            var blocked = Path.Combine(Path.GetDirectoryName(first), "finnegan--" + name.Substring("finn--".Length));
+            Directory.CreateDirectory(blocked);
+
+            Assert.Catch(() => OWFolderWriter.WriteElement(_temp, Body(id, "character", "Finnegan")));
+
+            StringAssert.Contains("Finnegan", File.ReadAllText(first),
+                "the old file already holds the edit, so a reader serves it whichever name sorts first");
+        }
+
         [Test]
         public void RewritingUnderTheSameName_IsNotTreatedAsACollision()
         {
