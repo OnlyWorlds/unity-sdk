@@ -100,6 +100,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 ["x_names"] = new JObject { ["version"] = 1 },
             });
             await c.GetMeAsync();
+            // The lens routes: the holder's choice (PUT, a body) and the world's lenses with both options.
+            await c.SetMyLensesAsync(new[] { "l1", "l2" });
+            await c.WorldLensesAsync("w1", resolve: true, readAs: "guest");
             t.ResponseBody = @"{""data"":[],""has_more"":false}";
             await c.ListAsync<JObject>("character", new OWListParams
             {
@@ -365,6 +368,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.That(checkedOps, Does.Contain("POST /api/v2/join").And.Contain("POST /api/v2/join/preview"));
             Assert.That(checkedOps, Does.Contain("PATCH /api/v2/world"));
             Assert.That(checkedOps, Does.Contain("POST /api/v2/account/worlds"));
+            Assert.That(checkedOps, Does.Contain("PUT /api/v2/me/lenses"));
         }
 
         /// <summary>
@@ -457,6 +461,16 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             CollectionAssert.AreEquivalent(served, mapped);
         }
 
+        [TestCase("/api/v2/me", "GET")]
+        [TestCase("/api/v2/me/lenses", "PUT")]
+        public void TheMeAnswer_ServesLenses(string path, string method)
+        {
+            // GetMeAsync and SetMyLensesAsync answer a JObject, so no model maps the key; their docs say it is there.
+            var served = Wire["paths"]?[path]?[method]?["response"]?.Values<string>().ToList();
+            Assert.IsNotNull(served, $"{method} {path} declares no JSON answer in the fixture");
+            CollectionAssert.Contains(served, "lenses");
+        }
+
         [Test]
         public void EveryErrorCodeAHelperNames_IsOneKeelLists()
         {
@@ -500,7 +514,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             // An empty recording would pass the checks above with nothing checked.
             var calls = await RecordEveryCall();
-            Assert.AreEqual(33, calls.Count);
+            Assert.AreEqual(35, calls.Count);
+
+            // The lens routes are on the wire here, so the checks above saw them.
+            Assert.That(calls.Any(c => c.Method == "PUT" && new Uri(c.Url).AbsolutePath.EndsWith("/me/lenses")), "PUT /me/lenses is recorded");
+            Assert.That(calls.Any(c => c.Method == "GET" && new Uri(c.Url).AbsolutePath.EndsWith("/world/w1/lenses")
+                && new Uri(c.Url).Query.Contains("read_as=")), "GET /world/{world_id}/lenses with its options is recorded");
 
             // The world reads of an account token and of no key, so the query check above saw world=.
             Assert.AreEqual(6, calls.Count(c => new Uri(c.Url).Query.Contains("world=")), "the world reads are recorded");

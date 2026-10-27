@@ -255,6 +255,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 ["GetWorldAsync"] = (Does.Read, c => c.GetWorldAsync()),
                 ["PatchWorldAsync"] = (Does.Refused, c => c.PatchWorldAsync(new JObject { ["name"] = "W" })),
                 ["GetMeAsync"] = (Does.Refused, c => c.GetMeAsync()),
+                ["SetMyLensesAsync"] = (Does.Refused, c => c.SetMyLensesAsync(new string[0])),
+                ["WorldLensesAsync"] = (Does.Refused, c => c.WorldLensesAsync(W)),
                 ["ListAsync"] = (Does.Read, c => c.ListAsync<JObject>("location")),
                 ["ListAllAsync"] = (Does.Read, c => c.ListAllAsync<JObject>("location")),
                 ["GetAsync"] = (Does.Read, c => c.GetAsync<JObject>("location", El)),

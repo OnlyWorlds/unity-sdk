@@ -62,6 +62,20 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   from the request: an `/account` route, or a GET marked as a world read. The server serves search with `world=` too;
   the client has no search call. `OWFolderExport.ExportAsync` exports through such a client: it asks no `/me`, and
   the folder's `world.json` carries no `exported_as` (the slice is unknown). Parity with the TypeScript SDK 4.88.0.
+- **The server's lens routes.** `OWClient.SetMyLensesAsync(lensIds)`: `PUT /me/lenses`, the lenses this key's holder
+  starts with, lens ids in order (0 to 20, repeats dropped by the server; an empty list is a choice, not an absence),
+  sent as `{"lenses": [...]}` with the key's PIN and without `X-OW-Agent` or `X-OW-Client`, which the server's document
+  declares on neither; it answers GET /me's body as a `JObject`. Any write key of the world sets its own holder's list;
+  the server refuses a read key (403), a lens the key cannot see (404) and a lens that is not one, a template or a
+  hidden one (422 `not_a_lens`, `lens_is_template`, `lens_hidden`). A null list is an `ArgumentNullException` before
+  anything is sent. `OWClient.WorldLensesAsync(worldId, resolve, readAs)`: `GET /world/{world_id}/lenses`, every lens
+  in the world this key can see, each with its recipe echoed, the Titles it is the default for and whether this key
+  chose it, answered whole as a `JObject` (`{data, read_as}`); `resolve` (`bool?`, sent as `true` or `false` when
+  given) adds each lens's `reading`, and `readAs` (the owner only, with `resolve`; sent as `read_as`, escaped) reads as
+  another reader. A read, so no PIN. Both are a world key's calls: on an account token, with `World` or without, or on
+  a keyless client, each is an `InvalidOperationException` and nothing is sent. `GetMeAsync`'s answer now carries
+  `lenses`, the holder's choice in order, which `OWLens.LensesFor` takes as the membership's. Parity with the
+  TypeScript SDK 4.92.0, its test vectors ported.
 
 ### Changed
 
@@ -121,6 +135,15 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   a string that is not `YYYY-MM-DDTHH:MM:SS` with an optional fraction and zone sorts last). `NoteOf` passes over a
   Note without a string id. A Note's hidden mark is the one every reader reads (`OWPayload.IsHidden`: anything but
   absent, `null` or `false`; ruled 2026-10-27).
+
+### Not added
+
+- The TypeScript SDK 4.92.0's `draught(characterId, { lens })` and the frames it answers: this SDK has no client for
+  the draught (`GET /character/{id}/context`), so it has no `lens` option either.
+- `lenses` on a member row (the TypeScript SDK's `OwMember.lenses`), and the `lenses` key that
+  `PATCH /account/worlds/{world_id}/members/{member_id}` now takes: this SDK has no members call.
+- No typed `/me` or lens-list model: `GetMeAsync`, `SetMyLensesAsync` and `WorldLensesAsync` answer the body as
+  served (`JObject`), as `GetMeAsync` always has.
 
 ## [0.23.0] - 2026-10-27
 

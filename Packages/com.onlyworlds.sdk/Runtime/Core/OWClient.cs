@@ -263,13 +263,83 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
-        /// GET /me -- who this key is: <c>{world, scope, kind, role, membership, character, name?}</c>. <c>kind</c> is
+        /// GET /me -- who this key is: <c>{world, scope, kind, role, membership, character, lenses, name?}</c>. <c>kind</c> is
         /// <c>owner</c> for an owner-minted or classic key, else the membership's (<c>person</c>, <c>agent</c>,
         /// <c>player</c>); <c>role</c> is <c>owner</c>, <c>co_builder</c>, <c>contributor</c> or <c>guest</c>;
-        /// <c>character</c> is the Character id the key acts as, or null (also when it is hidden from this key).
+        /// <c>character</c> is the Character id the key acts as, or null (also when it is hidden from this key);
+        /// <c>lenses</c> is the lens ids its holder chose (<see cref="SetMyLensesAsync"/>), in order, empty for none, which
+        /// is a choice (<see cref="OWLens.LensesFor"/> takes it as the membership's).
         /// </summary>
         public Task<JObject> GetMeAsync(CancellationToken ct = default)
             => RequestAsync<JObject>("GET", "/me/", ct: ct);
+
+        // -- Lenses -----------------------------------------------------------
+        //
+        // A lens is a Construct with supertype Lens (OWLens reads one). These are the server's own lens routes: the
+        // lenses a key's holder starts with, and the world's lenses as this key sees them. Mirrors the TypeScript SDK's
+        // setMyLenses and worldLenses (4.92.0).
+
+        /// <summary>
+        /// PUT /me/lenses -- choose the lenses this key's holder starts with: lens ids in order, 0 to 20, repeats dropped
+        /// by the server; an empty list is a choice too. Answers GET /me's body (<see cref="GetMeAsync"/>), its
+        /// <c>lenses</c> the list as kept.
+        /// </summary>
+        /// <param name="lensIds">The lens ids, in the order the holder reads them; empty for none.</param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <remarks>
+        /// Any write key of the world, with its PIN, sets its own holder's list: a person member's, an agent seat's, or on
+        /// the owner's keys the owner's own. A read key is a 403. The server refuses a lens this key cannot see (404) and
+        /// answers 422 <c>not_a_lens</c>, <c>lens_is_template</c> or <c>lens_hidden</c> (<c>param</c> <c>lenses</c>). A lens
+        /// only narrows what its holder may already read. Sent without <c>X-OW-Agent</c> or <c>X-OW-Client</c>, which the
+        /// server's document declares on neither. A world key's call: on an account token or a keyless client it is an
+        /// <see cref="InvalidOperationException"/>, and nothing is sent.
+        /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="lensIds"/> is null; nothing was sent.</exception>
+        public Task<JObject> SetMyLensesAsync(IEnumerable<string> lensIds, CancellationToken ct = default)
+        {
+            if (lensIds == null)
+            {
+                throw new ArgumentNullException(nameof(lensIds),
+                    "SetMyLensesAsync: lensIds is a list of lens ids (empty for none). Nothing was sent.");
+            }
+
+            var body = new JObject { ["lenses"] = new JArray(lensIds) };
+            return RequestAsync<JObject>("PUT", "/me/lenses", body: body, ct: ct);
+        }
+
+        /// <summary>
+        /// GET /world/{world_id}/lenses -- every lens in the world this key can see, templates included and marked:
+        /// <c>{data, read_as}</c>, each row its <c>id</c>, <c>name</c>, the lens <c>element</c> as this key is served it,
+        /// <c>template</c>, <c>retired</c>, the recipe echoed with its defaults filled in (<c>x_lens</c>, null for an
+        /// unreadable one, which then carries <c>unreadable</c>), the Titles it is the default for (<c>titles</c>) and
+        /// whether this key chose it (<c>chosen</c>). The answer is the body as served.
+        /// </summary>
+        /// <param name="worldId">The key's own world (another is a 404). Escaped.</param>
+        /// <param name="resolve">
+        /// <c>true</c> adds each lens's <c>reading</c> for this key: the kept rows, the cut by reason, the mail part. Sent as
+        /// given, <c>false</c> too; null sends nothing.
+        /// </param>
+        /// <param name="readAs">
+        /// With <paramref name="resolve"/>, the owner reads as another reader: <c>guest</c>, <c>contributor</c>,
+        /// <c>co-builder</c>, <c>public</c>, or a membership id of this world. Sent as <c>read_as</c>, escaped; the server
+        /// answers 403 <c>read_as_owner_only</c> from any other key, and 422 without <c>resolve</c>. Null or empty sends nothing.
+        /// </param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <remarks>
+        /// The owner's rows also carry <c>chosen_by</c> and <c>health</c>. A read, so the key goes without its PIN. A world
+        /// key's call: on an account token or a keyless client it is an <see cref="InvalidOperationException"/>, and nothing
+        /// is sent. Served <c>Cache-Control: private, no-store</c>.
+        /// </remarks>
+        public Task<JObject> WorldLensesAsync(
+            string worldId, bool? resolve = null, string readAs = null, CancellationToken ct = default)
+        {
+            var query = new List<string>();
+            if (resolve.HasValue) query.Add("resolve=" + (resolve.Value ? "true" : "false"));
+            if (!string.IsNullOrEmpty(readAs)) query.Add("read_as=" + Uri.EscapeDataString(readAs));
+
+            return RequestAsync<JObject>("GET", $"/world/{Uri.EscapeDataString(worldId)}/lenses",
+                query: string.Join("&", query), ct: ct);
+        }
 
         // -- Element reads ----------------------------------------------------
 

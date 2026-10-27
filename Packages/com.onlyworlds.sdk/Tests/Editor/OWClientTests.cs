@@ -97,6 +97,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("changes", "GET", false, false, c => c.ChangesAsync()),
             ("changes head", "GET", false, false, c => c.ChangesAsync(headOnly: true)),
             ("world", "GET", false, true, c => c.GetWorldAsync()),
+            ("world lenses", "GET", false, false, c => c.WorldLensesAsync("w1", resolve: true)),
             // the one read keel checks a PIN on
             ("me", "GET", true, false, c => c.GetMeAsync()),
             // writes, each verb
@@ -106,6 +107,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("links", "POST", true, false, c => c.EditLinksAsync<JObject>("location", "l1", "zones", add: new[] { "z1" })),
             ("bulk", "POST", true, false, c => c.BulkAsync(new[] { new OWBulkItem { Type = "location", Element = new JObject { ["name"] = "B" } } })),
             ("patch world", "PATCH", true, false, c => c.PatchWorldAsync(new JObject { ["name"] = "W" })),
+            ("set my lenses", "PUT", true, false, c => c.SetMyLensesAsync(new[] { "l1" })),
         };
 
         /// <summary>
