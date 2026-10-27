@@ -70,6 +70,20 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   `OWGraphRefusedException` naming the flag (`Flag`) before the world is read; the owner reading as another reader is
   judged by that reader's rung. Parity with the TypeScript SDK 4.93.0, its test vectors and the fixture's graph cases:
   the 34 cases replay with the section's invariants checked on every answer.
+- **`OWGraph.DegreeOf(graph)`**: each node's degree in a graph `OWGraph.Read` answered, its edges in or out, each
+  counted once for every node it touches (a mirror pair counts 2 at each end, a link to itself once), every node a key
+  with 0 included, enumerated in the graph's node order. It is "most linked" as a finder ranks it: the reader's own
+  count, since what the reading left out has no edge. A null graph is an `ArgumentNullException`. Parity with the
+  TypeScript SDK 4.95.0 (`degreeOf`) and the Python package 0.78.0 (`degree_of`), the TypeScript SDK's test vectors
+  ported: its own graph, and every fixture graph case's answer against a direct count of its edges.
+- **`OWLens.DateOf(element)`**: an element's date as the lens profile's date table (`OWLens.DateFields`) reads it,
+  the whole number in its type's date field, or null for a timeless type, a body with no known `type` (trimmed and
+  folded), a date field that is absent, null or not a whole number, and anything that is not an element body
+  (`JObject`). It reads the body it is given, so a known-of stub reads null. A timeline or a horizon can now date
+  elements exactly as the lens reader's fence does, from one table. `OWLens.DateFields` is now read-only also through
+  a cast. Parity with the TypeScript SDK 4.96.0 (`DATE_FIELD`, `dateOf`) and the Python package 0.79.0 (`DATE_FIELD`,
+  `date_of`), the TypeScript SDK's test vectors ported (the table against the fixture's `date_table`, every type dated
+  or timeless, each date field an integer field of the generated model).
 - **`OWClientConfig.World`: an account token, or no key, reads the world it names.** A client built with an account
   token (`ow_a_`) and `World = <world id>` sends `world=<id>` (escaped, beside the call's own parameters, on every page
   of `ListAllAsync`) with its Bearer and no `API-Key` or `API-Pin` on `ListAsync`, `ListAllAsync`, `GetAsync` and
@@ -96,10 +110,24 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   in the world this key can see, each with its recipe echoed, the Titles it is the default for and whether this key
   chose it, answered whole as a `JObject` (`{data, read_as}`); `resolve` (`bool?`, sent as `true` or `false` when
   given) adds each lens's `reading`, and `readAs` (the owner only, with `resolve`; sent as `read_as`, escaped) reads as
-  another reader. A read, so no PIN. Both are a world key's calls: on an account token, with `World` or without, or on
-  a keyless client, each is an `InvalidOperationException` and nothing is sent. `GetMeAsync`'s answer now carries
+  another reader. A read, so no PIN. Both take a world key, and an account token as the next entry says; on a keyless
+  client each is an `InvalidOperationException` and nothing is sent. `GetMeAsync`'s answer now carries
   `lenses`, the holder's choice in order, which `OWLens.LensesFor` takes as the membership's. Parity with the
   TypeScript SDK 4.92.0, its test vectors ported.
+- **The lens routes on an account token, and a row's lenses.** `WorldLensesAsync(worldId)` on an `ow_a_` token sends
+  its Bearer alone, the world in the path and no `world=`, with `World` set or not. `SetMyLensesAsync(lensIds)` on an
+  account token sets the account's own list in the world `World` names, sending `world=<id>` and the Bearer, never a
+  PIN; an account client without `World` is an `InvalidOperationException` before sending. On a world key both send
+  as before. `OWClient.SetMemberLensesAsync(worldId, memberId, lensIds)`:
+  `PATCH /account/worlds/{world_id}/members/{member_id}` with `{"lenses": [...]}` alone (never a role, Character or
+  sponsor), both ids escaped, `memberId` a membership id or `owner` for the owner's own list; it answers the row as
+  served, a `JObject` (`{id, role, kind, lenses}`, and `x_served_trimmed` naming `lenses` when the list keeps a lens
+  you cannot see). A member sets its own row, a seat it answers for, or any seat as a co-builder; the owner any seat.
+  An account token's call: any other key, or no key, is an `InvalidOperationException` and a null list an
+  `ArgumentNullException`, each before anything is sent. The server's codes are those of `SetMyLensesAsync`, and a 422
+  when the owner names a person's row. The client's one request rule now reads a third mark beside the `/account`
+  routes and the world reads: a route the server's document declares the account token on. Parity with the TypeScript
+  SDK 4.94.0, its test vectors ported.
 
 ### Changed
 
@@ -134,9 +162,17 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   window without a now, a `to` after `as_of`, the fence on anchors, the members list in the mail rule, a message
   not repeated among the kept, the thirty days' edge, ties by id), now replay here against `OWLens`, the file's
   sha256 pinned to the release.
+- A lens a guest knows only as a stub reads as nothing when it is named by its id, in `OWLens.Resolve` and so in
+  `OWGraph.Read` (`LensId`), as the server's own reader answers it: a stub serves no links and no recipe, so the
+  stored body's anchors are never followed. This SDK already looked a lens id up only among the elements the reader is
+  served whole, so nothing moved; the TypeScript SDK 4.93.1's test vector (the Python package 0.77.1 holds the same)
+  is ported and now holds it.
 
 ### Fixed
 
+- `OWLens` reads a JSON number with no fraction as whole, as the TypeScript SDK and the Python package do: a date of
+  `7.0` reads as 7 (it read as undated), and a lens's `depth`, `window`, `from`, `to` or `budget` written as `2.0`
+  is legal. A fraction, NaN or a number past 64 bits is still not whole.
 - `OWLens.Resolve` reads three rules as the lens profile and both reference readers (the TypeScript SDK and the Python
   package) read them. An element whose `x_review_proposed` holds any value but null, a doubt as well as a mark, is in
   no reader's view (the review profile's rule for a reader that hands a world on); it had left out only an object. An
@@ -175,10 +211,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 - The TypeScript SDK 4.92.0's `draught(characterId, { lens })` and the frames it answers: this SDK has no client for
   the draught (`GET /character/{id}/context`), so it has no `lens` option either.
-- `lenses` on a member row (the TypeScript SDK's `OwMember.lenses`), and the `lenses` key that
-  `PATCH /account/worlds/{world_id}/members/{member_id}` now takes: this SDK has no members call.
-- No typed `/me` or lens-list model: `GetMeAsync`, `SetMyLensesAsync` and `WorldLensesAsync` answer the body as
-  served (`JObject`), as `GetMeAsync` always has.
+- `lenses` on a member row (the TypeScript SDK's `OwMember.lenses`): this SDK has no members list. The `lenses` key
+  that `PATCH /account/worlds/{world_id}/members/{member_id}` takes is sent by `SetMemberLensesAsync`; the route's other
+  keys (role, Character, sponsor) have no call here.
+- The TypeScript SDK 4.94.0's `expiresAt` on `completeSignIn`'s result: this SDK has no sign-in exchange
+  (`POST /auth/token`), so there is no result to carry it.
+- No typed `/me`, lens-list or member-lenses model (the TypeScript SDK's `OwMemberLenses`): `GetMeAsync`,
+  `SetMyLensesAsync`, `WorldLensesAsync` and `SetMemberLensesAsync` answer the body as served (`JObject`), as
+  `GetMeAsync` always has.
 
 ## [0.23.0] - 2026-10-27
 

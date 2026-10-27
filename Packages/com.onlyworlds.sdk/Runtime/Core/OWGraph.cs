@@ -481,6 +481,64 @@ namespace OnlyWorlds.Sdk
             if (o.MapSpace) throw new OWGraphRefusedException("map_space", "OWGraph.Read: a public reader takes no flag; it asked map_space.");
         }
 
+        /// <summary>
+        /// Each node's degree in a graph <see cref="Read"/> answered: the number of its edges, in or out, each edge counted
+        /// once for every node it touches (a mirror pair is two edges, so each end counts 2; a link to itself counts once).
+        /// Every node is a key, 0 included, enumerated in the graph's node order.
+        /// </summary>
+        /// <remarks>
+        /// Edges join nodes only, so the count is the reader's: what the reading left out (hidden, room, proposed, map
+        /// space, past a lens) is never counted. This is "most linked" for a finder: rank by it, highest first. Mirrors the
+        /// TypeScript SDK's <c>degreeOf</c> (4.95.0) and the Python package's <c>degree_of</c> (0.78.0).
+        /// </remarks>
+        /// <exception cref="ArgumentNullException">No graph.</exception>
+        public static IReadOnlyDictionary<string, int> DegreeOf(OWWorldGraph graph)
+        {
+            if (graph == null) throw new ArgumentNullException(nameof(graph), "OWGraph.DegreeOf: graph is what OWGraph.Read answers.");
+            var degree = new NodeCounts(graph.Nodes.Select(n => n.Id));
+            foreach (var e in graph.Edges)
+            {
+                degree.Add(e.Source);
+                if (e.Target != e.Source) degree.Add(e.Target);
+            }
+
+            return degree;
+        }
+
+        /// <summary>A count per node id, enumerated in the order the ids were given; an id not given is never added.</summary>
+        private sealed class NodeCounts : IReadOnlyDictionary<string, int>
+        {
+            private readonly List<string> _order = new List<string>();
+            private readonly Dictionary<string, int> _counts = new Dictionary<string, int>();
+
+            public NodeCounts(IEnumerable<string> ids)
+            {
+                foreach (var id in ids)
+                {
+                    if (id == null || _counts.ContainsKey(id)) continue;
+                    _order.Add(id);
+                    _counts[id] = 0;
+                }
+            }
+
+            public void Add(string id)
+            {
+                if (id != null && _counts.TryGetValue(id, out var n)) _counts[id] = n + 1;
+            }
+
+            public int this[string key] => _counts[key];
+            public IEnumerable<string> Keys => _order;
+            public IEnumerable<int> Values => _order.Select(k => _counts[k]);
+            public int Count => _order.Count;
+            public bool ContainsKey(string key) => _counts.ContainsKey(key);
+            public bool TryGetValue(string key, out int value) => _counts.TryGetValue(key, out value);
+
+            public IEnumerator<KeyValuePair<string, int>> GetEnumerator() =>
+                _order.Select(k => new KeyValuePair<string, int>(k, _counts[k])).GetEnumerator();
+
+            System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+        }
+
         private static string Word(OWLensRung rung) => rung.ToString().ToLowerInvariant();
 
         /// <summary>Counts in <see cref="OWGraphCut.All"/>'s order, a reason with no count left out, the owner's reasons kept for the owner.</summary>

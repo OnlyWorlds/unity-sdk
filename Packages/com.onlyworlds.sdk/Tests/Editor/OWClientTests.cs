@@ -87,7 +87,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         // staging on a cold cache (2026-10-22). Each call states its own expectation for a prefixed key, so the
         // test does not re-derive the rule from the method it checks.
 
-        // `Any`: an account token with World set sends it too (the world reads); every other call is a world key's.
+        // `Any`: an account token with World set sends it too (the world reads, and the two lens routes it also sends since
+        // the TypeScript SDK 4.94.0); every other call is a world key's.
         private static readonly (string Name, string Verb, bool Pin, bool Any, System.Func<OWClient, Task> Run)[] PinCalls =
         {
             // reads
@@ -97,7 +98,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("changes", "GET", false, false, c => c.ChangesAsync()),
             ("changes head", "GET", false, false, c => c.ChangesAsync(headOnly: true)),
             ("world", "GET", false, true, c => c.GetWorldAsync()),
-            ("world lenses", "GET", false, false, c => c.WorldLensesAsync("w1", resolve: true)),
+            ("world lenses", "GET", false, true, c => c.WorldLensesAsync("w1", resolve: true)),
             // the one read keel checks a PIN on
             ("me", "GET", true, false, c => c.GetMeAsync()),
             // writes, each verb
@@ -107,7 +108,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("links", "POST", true, false, c => c.EditLinksAsync<JObject>("location", "l1", "zones", add: new[] { "z1" })),
             ("bulk", "POST", true, false, c => c.BulkAsync(new[] { new OWBulkItem { Type = "location", Element = new JObject { ["name"] = "B" } } })),
             ("patch world", "PATCH", true, false, c => c.PatchWorldAsync(new JObject { ["name"] = "W" })),
-            ("set my lenses", "PUT", true, false, c => c.SetMyLensesAsync(new[] { "l1" })),
+            ("set my lenses", "PUT", true, true, c => c.SetMyLensesAsync(new[] { "l1" })),
         };
 
         /// <summary>
@@ -179,7 +180,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public async Task ApiPin_AccountToken_Never_EvenWithAPinConfigured_BearerAndNoApiKey()
         {
             var all = await PinSweep("ow_a_acct", "1234", "w1");
-            Assert.AreEqual(4, all.Count, "the four world reads sent");
+            Assert.AreEqual(6, all.Count, "the four world reads and the two lens routes sent");
             foreach (var (name, _, sent) in all)
             {
                 Assert.AreEqual("Bearer ow_a_acct", sent.Headers["Authorization"], name);
