@@ -11,6 +11,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Numerics;
 using Newtonsoft.Json.Linq;
 
 namespace OnlyWorlds.Sdk
@@ -195,8 +196,11 @@ namespace OnlyWorlds.Sdk
         /// <summary>
         /// The address for parts given as JSON, in the shape the TypeScript SDK and the Python package take and the
         /// fixture writes: <c>form</c>, <c>world</c>, <c>type</c>, <c>id</c>, <c>lens</c>, <c>moment</c>. A moment
-        /// that is not a JSON integer within the 32-bit range (a fraction, a string, a boolean) is refused as
-        /// <see cref="OWAddressRefusal.BadMoment"/>; a JSON null or a missing key is absent.
+        /// that is not a whole JSON number within the 32-bit range (a fraction, a string, a boolean) is refused as
+        /// <see cref="OWAddressRefusal.BadMoment"/>; <c>3.0</c> is the step 3. Only a JSON null or a missing key is
+        /// absent: an empty string is present and refuses as that part would (<c>world: ""</c> as
+        /// <see cref="OWAddressRefusal.BadWorld"/>). Refusals come in the writer's order: <c>bad_form</c>,
+        /// <c>segments</c>, <c>no_world</c>, then the reader's.
         /// </summary>
         /// <exception cref="OWAddressException">The parts are refused.</exception>
         public static string ElementAddress(JObject address)
@@ -213,10 +217,8 @@ namespace OnlyWorlds.Sdk
             string momentRefusal = null;
             if (address.TryGetValue("moment", out var m) && m.Type != JTokenType.Null)
             {
-                if (m.Type == JTokenType.Integer && m.Value<long>() >= int.MinValue && m.Value<long>() <= int.MaxValue)
-                    moment = (int)m.Value<long>();
-                else
-                    momentRefusal = OWAddressRefusal.BadMoment;
+                if (TryJsonStep(m, out var step)) moment = step;
+                else momentRefusal = OWAddressRefusal.BadMoment;
             }
 
             var refusal = Write(form, world, type, id, lens, moment, out var written, momentRefusal);
@@ -380,9 +382,8 @@ namespace OnlyWorlds.Sdk
         {
             written = null;
             if (form != Human && form != Text) return OWAddressRefusal.BadForm;
-            if (form == Human && world == null) return OWAddressRefusal.NoWorld;
             if (type == null != (id == null)) return OWAddressRefusal.Segments;
-            if (type == null && world == null) return OWAddressRefusal.NoWorld;
+            if (world == null && (form == Human || type == null)) return OWAddressRefusal.NoWorld;
             if (world != null && !IsUuid(world)) return OWAddressRefusal.BadWorld;
             if (type != null)
             {
@@ -409,13 +410,43 @@ namespace OnlyWorlds.Sdk
             return null;
         }
 
-        /// <summary>A part of a JSON address: a string, or null when missing, null or empty (the wire's unset).</summary>
+        /// <summary>
+        /// A part of a JSON address: a string, or null when missing or JSON null. An empty string is present, and
+        /// refuses as that part would.
+        /// </summary>
         private static string Part(JObject address, string key)
         {
             if (!address.TryGetValue(key, out var token) || token.Type == JTokenType.Null) return null;
             if (token.Type != JTokenType.String) return key == "form" ? string.Empty : token.ToString();
-            var value = (string)token;
-            return value.Length == 0 && key != "form" ? null : value;
+            return (string)token;
+        }
+
+        /// <summary>
+        /// A JSON moment as a step: an integer, or a number with a zero fraction (<c>3.0</c>, as JavaScript has one
+        /// number), within the 32-bit range.
+        /// </summary>
+        private static bool TryJsonStep(JToken token, out int step)
+        {
+            step = 0;
+            decimal n;
+            if (token.Type == JTokenType.Integer)
+            {
+                var raw = ((JValue)token).Value;
+                if (raw is BigInteger) return false; // past 64 bits, so past 32
+                n = Convert.ToDecimal(raw, CultureInfo.InvariantCulture);
+            }
+            else if (token.Type == JTokenType.Float)
+            {
+                var d = token.Value<double>();
+                if (double.IsNaN(d) || double.IsInfinity(d) || Math.Floor(d) != d || d < int.MinValue || d > int.MaxValue)
+                    return false;
+                n = (decimal)d;
+            }
+            else return false;
+
+            if (n < int.MinValue || n > int.MaxValue) return false;
+            step = (int)n;
+            return true;
         }
 
         // -- The grammar's pieces ---------------------------------------------------------------

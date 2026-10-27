@@ -229,5 +229,70 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsFalse(element.IsWorld);
             Assert.IsNull(element.World);
         }
+
+        // -- Where the reference packages agree beyond the fixture ----------------------------------
+        // The TypeScript SDK (4.89.1) and the Python package (0.73.1) answer these alike; the fixture does not hold them.
+
+        private static string Refusal(string json)
+            => Assert.Throws<OWAddressException>(() => OWAddress.ElementAddress(JObject.Parse(json)), json).Reason;
+
+        [Test]
+        public void TheWriter_RefusesAFormFirst_ThenSegments_ThenNoWorld()
+        {
+            // A type without an id and no world: segments before no_world.
+            Assert.AreEqual(OWAddressRefusal.Segments, Refusal("{\"form\": \"human\", \"type\": \"pin\"}"));
+            Assert.AreEqual(OWAddressRefusal.Segments, Refusal($"{{\"form\": \"human\", \"id\": \"{Element}\"}}"));
+            Assert.AreEqual(OWAddressRefusal.Segments,
+                Assert.Throws<OWAddressException>(() => OWAddress.ElementAddress(OWAddress.Human, null, "character")).Reason);
+
+            // A form it does not know before either.
+            Assert.AreEqual(OWAddressRefusal.BadForm, Refusal("{\"form\": \"url\", \"type\": \"pin\"}"));
+            Assert.AreEqual(OWAddressRefusal.BadForm, Refusal("{\"type\": \"pin\"}"));
+
+            // With a whole triple, or nothing, the missing world is what refuses.
+            Assert.AreEqual(OWAddressRefusal.NoWorld, Refusal($"{{\"form\": \"human\", \"type\": \"pin\", \"id\": \"{Element}\"}}"));
+            Assert.AreEqual(OWAddressRefusal.NoWorld, Refusal("{\"form\": \"text\"}"));
+
+            // Then the reader's order: the world before the type, the type before the id.
+            Assert.AreEqual(OWAddressRefusal.BadWorld, Refusal("{\"form\": \"text\", \"world\": \"hyperion\", \"type\": \"dragon\", \"id\": 7}"));
+            Assert.AreEqual(OWAddressRefusal.UnknownType, Refusal($"{{\"form\": \"text\", \"world\": \"{World}\", \"type\": \"dragon\", \"id\": 7}}"));
+        }
+
+        [Test]
+        public void AMomentWithAZeroFraction_IsAWholeStep()
+        {
+            Assert.AreEqual($"ow://character/{Element}@3",
+                OWAddress.ElementAddress(JObject.Parse($"{{\"form\": \"text\", \"type\": \"character\", \"id\": \"{Element}\", \"moment\": 3.0}}")));
+            Assert.AreEqual($"ow://{World}@0",
+                OWAddress.ElementAddress(JObject.Parse($"{{\"form\": \"text\", \"world\": \"{World}\", \"moment\": -0.0}}")));
+            Assert.AreEqual($"ow://{World}@-2147483648",
+                OWAddress.ElementAddress(JObject.Parse($"{{\"form\": \"text\", \"world\": \"{World}\", \"moment\": -2147483648.0}}")));
+
+            // A fraction, a whole number past the 32-bit range (as a float, or as an integer past 64 bits), refuses.
+            Assert.AreEqual(OWAddressRefusal.BadMoment, Refusal($"{{\"form\": \"text\", \"world\": \"{World}\", \"moment\": 1.5}}"));
+            Assert.AreEqual(OWAddressRefusal.BadMoment, Refusal($"{{\"form\": \"text\", \"world\": \"{World}\", \"moment\": 2147483648.0}}"));
+            Assert.AreEqual(OWAddressRefusal.BadMoment, Refusal($"{{\"form\": \"text\", \"world\": \"{World}\", \"moment\": 1e20}}"));
+            Assert.AreEqual(OWAddressRefusal.BadMoment,
+                Refusal($"{{\"form\": \"text\", \"world\": \"{World}\", \"moment\": 1000000000000000000000000000000}}"));
+
+            // A refusal before the moment still names itself, whatever the moment holds.
+            Assert.AreEqual(OWAddressRefusal.NoWorld, Refusal("{\"form\": \"human\", \"moment\": 1000000000000000000000000000000}"));
+        }
+
+        [Test]
+        public void AnEmptyString_IsPresent_OnlyNullOrAMissingKeyIsAbsent()
+        {
+            Assert.AreEqual(OWAddressRefusal.BadWorld, Refusal($"{{\"form\": \"text\", \"world\": \"\", \"type\": \"character\", \"id\": \"{Element}\"}}"));
+            Assert.AreEqual(OWAddressRefusal.BadWorld, Refusal("{\"form\": \"human\", \"world\": \"\"}"));
+            Assert.AreEqual(OWAddressRefusal.BadLens, Refusal($"{{\"form\": \"text\", \"world\": \"{World}\", \"lens\": \"\"}}"));
+            Assert.AreEqual(OWAddressRefusal.UnknownType, Refusal($"{{\"form\": \"text\", \"world\": \"{World}\", \"type\": \"\", \"id\": \"\"}}"));
+            Assert.AreEqual(OWAddressRefusal.UnknownType, Refusal($"{{\"form\": \"text\", \"type\": \"\", \"id\": \"{Element}\"}}"));
+            Assert.AreEqual(OWAddressRefusal.BadId, Refusal("{\"form\": \"text\", \"type\": \"character\", \"id\": \"\"}"));
+            Assert.AreEqual(OWAddressRefusal.Segments, Refusal($"{{\"form\": \"text\", \"world\": \"{World}\", \"type\": \"\"}}"));
+
+            // null and a missing key are the same absence.
+            Assert.AreEqual($"ow://{World}",
+                OWAddress.ElementAddress(JObject.Parse($"{{\"form\": \"text\", \"world\": \"{World}\", \"type\": null, \"id\": null, \"lens\": null, \"moment\": null}}")));
+        }
     }
 }

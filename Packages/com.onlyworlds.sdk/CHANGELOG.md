@@ -52,6 +52,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 - The schema pin moves to dist.78 (`v0.33.0-dist.78`). Serial 77 adds the address profile (`profiles/address.md` and
   its 133-case fixture); serial 78 adds the lens profile (`profiles/lens.md` and its 84-case fixture). Nothing else
   moved, and no generated model changed.
+- `OWAddress.ElementAddress` reads three things as the TypeScript SDK 4.89.1 and the Python package 0.73.1 do, where
+  the profile's fixture is silent and the two packages agree. When several parts are wrong, the writer names
+  `bad_form` first, then `segments`, then `no_world`, then the reader's order (a type with no id and no world is
+  `segments`, no longer `no_world`). A JSON moment with a zero fraction is a whole step (`3.0` writes `@3`), and one
+  past 64 bits refuses as `bad_moment` instead of throwing. An empty string is present, not absent: only a JSON null or
+  a missing key is absent, so `world: ""` refuses as `bad_world`, `lens: ""` as `bad_lens`, and `type: ""` with
+  `id: ""` as `unknown_type`.
 
 ### Fixed
 
