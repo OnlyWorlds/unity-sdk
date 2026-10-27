@@ -2,7 +2,7 @@
 // Regenerate: python codegen/generate_models.py   (drift guard: codegen/check_drift.py)
 //
 // canonical: 00.33.00
-// serial: 80
+// serial: 81
 // published: 2026-10-27
 
 using System;
