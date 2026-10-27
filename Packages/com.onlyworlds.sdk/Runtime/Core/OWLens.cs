@@ -11,6 +11,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using Newtonsoft.Json;
@@ -1186,10 +1187,22 @@ namespace OnlyWorlds.Sdk
 
         // -- Small readers ---------------------------------------------------------------
 
-        /// <summary>A JSON integer as a long; a boolean, a float, a string or an integer past 64 bits is not a whole number.</summary>
+        /// <summary>
+        /// A JSON number with no fraction as a long (<c>7</c> and <c>7.0</c> alike, as the TypeScript SDK and the Python
+        /// package read it); a boolean, a string, a fraction, NaN or a number past 64 bits is not a whole number.
+        /// </summary>
         private static bool Whole(JToken token, out long value)
         {
             value = 0;
+            if (token is JValue f && f.Type == JTokenType.Float)
+            {
+                var d = f.Value is decimal m ? (double)m : Convert.ToDouble(f.Value, CultureInfo.InvariantCulture);
+                if (double.IsNaN(d) || double.IsInfinity(d) || Math.Floor(d) != d) return false;
+                if (d < -9223372036854775808.0 || d >= 9223372036854775808.0) return false;
+                value = (long)d;
+                return true;
+            }
+
             if (!(token is JValue v) || v.Type != JTokenType.Integer) return false;
             switch (v.Value)
             {

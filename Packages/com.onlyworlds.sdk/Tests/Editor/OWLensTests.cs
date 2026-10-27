@@ -451,6 +451,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             Assert.AreEqual(7, OWLens.DateOf(JObject.Parse(@"{""type"":"" Event "",""start_date"":7}")), "the type is trimmed and folded");
             Assert.AreEqual(7, OWLens.DateOf(JObject.Parse(@"{""type"":""EVENT"",""start_date"":7}")));
+            // A number with no fraction is whole, as the Python package 0.79.0 tests it (date_of(start_date 7.0) == 7)
+            // and as JavaScript reads it (7.0 is 7).
+            Assert.AreEqual(7, OWLens.DateOf(OWJson.ParseObject(@"{""type"":""event"",""start_date"":7.0}")), "7.0 is whole");
+            Assert.AreEqual(-40, OWLens.DateOf(new JObject { ["type"] = "event", ["start_date"] = -40.0 }), "-40.0 is whole");
         }
 
         /// <summary>
