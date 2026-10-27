@@ -25,6 +25,15 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   and any other host are not addresses. A field that holds an address is public text: never resolve it on a server.
   The type words are the generated list. The profile's fixture, 133 cases, is the test.
 
+### Fixed
+
+- The message profile's shared edge cases, the file the TypeScript SDK 4.88.0 and the Python package both hold (26 cases:
+  what a Note is to every reader, the `created_at` order, an edit, a Character's line), now replay here, and the five
+  readings they caught are fixed. `HasUnseenRecipients` is false for a Note, keyless or not. `ThreadOf` walks a chain
+  through a Note without listing it. A `created_at` is read by the profile's strict RFC 3339 rule (no lenient parse:
+  a string that is not `YYYY-MM-DDTHH:MM:SS` with an optional fraction and zone sorts last). `NoteOf` counts a Note as
+  hidden only when `hidden` is the boolean true, and passes over a Note without a string id.
+
 ### Changed
 
 - The schema pin moves to dist.77 (`v0.33.0-dist.77`): serial 77 adds the address profile (`profiles/address.md` and
