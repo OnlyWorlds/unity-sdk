@@ -530,5 +530,16 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var none = J("{'id': 'y', 'characters': []}");
             CollectionAssert.AreEqual(new[] { "e", "l", "x", "y" }, IdList(OWMessage.UnreadFor(new[] { odd, late, none, early }, Ada, null, null)));
         }
+
+        [Test]
+        public void ADateToken_AndAString_OrderOnOneClock()
+        {
+            // A body read with dates as tokens and one read as text, in one list: one instant scale for both.
+            var token = JObject.Parse("{\"id\": \"t\", \"characters\": [], \"created_at\": \"2026-10-26T09:00:00Z\"}");
+            var text = J("{'id': 's', 'characters': [], 'created_at': '2026-10-26T10:00:00Z'}");
+            Assert.AreEqual(JTokenType.Date, token["created_at"].Type, "the parse leaves a Date token");
+            Assert.AreEqual(JTokenType.String, text["created_at"].Type, "the house parse leaves a string");
+            CollectionAssert.AreEqual(new[] { "t", "s" }, IdList(OWMessage.UnreadFor(new[] { text, token }, Ada, null, null)));
+        }
     }
 }

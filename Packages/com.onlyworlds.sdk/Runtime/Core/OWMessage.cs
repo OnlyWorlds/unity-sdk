@@ -506,7 +506,9 @@ namespace OnlyWorlds.Sdk
             switch (value.Value)
             {
                 case string text:
-                    return InstantOf(text);
+                    // InstantOf counts from 1970; every key here counts as UtcTicks / 10 does, from 0001-01-01 UTC.
+                    var instant = InstantOf(text);
+                    return instant.HasValue ? instant + UnixEpochMicros : null;
                 case DateTimeOffset offset:
                     at = offset;
                     break;
@@ -521,6 +523,9 @@ namespace OnlyWorlds.Sdk
 
             return at.UtcTicks / 10;
         }
+
+        /// <summary>1970-01-01 UTC in <see cref="TimeKey"/>'s unit: microseconds from 0001-01-01 UTC.</summary>
+        private const long UnixEpochMicros = 62135596800L * 1000000L;
 
         /// <summary>
         /// An RFC 3339 date-time as microseconds since the epoch, or null when unreadable: <c>YYYY-MM-DDTHH:MM:SS</c>, an
