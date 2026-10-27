@@ -82,7 +82,8 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// Ids of the known-of stubs among <see cref="Elements"/> and <see cref="LegacyElements"/> (§4.4,
-        /// <c>known_of: true</c>), sorted ordinally: elements this folder knows of but does not hold whole.
+        /// <c>known_of: true</c>), id-ascending by Unicode code point (<see cref="OWCodePointComparer"/>, as the reference
+        /// readers sort): elements this folder knows of but does not hold whole.
         /// </summary>
         /// <remarks>
         /// A stub's absent fields are unknown, not empty: never read them as values or as a deletion, and never
@@ -93,7 +94,7 @@ namespace OnlyWorlds.Sdk
             get
             {
                 var ids = Elements.Concat(LegacyElements).Where(e => e.KnownOf).Select(e => e.Id).ToList();
-                ids.Sort(StringComparer.Ordinal);
+                ids.Sort(OWCodePointComparer.Instance);
                 return ids;
             }
         }

@@ -404,6 +404,31 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public async Task Export_CollisionRule_IdAscendingByCodePoint_AboveTheBasicPlane()
+        {
+            // Two Anns share a tail. U+1F600 is a surrogate pair (D83D DE00), which UTF-16 code-unit order puts below
+            // U+E000; by code point it is above, so the private-use id is the lowest and keeps the short form. It
+            // arrives second, so a writer that settles by arrival names them wrong too.
+            const string astral = "\U0001F600-0000-7000-8000-00000000abcd";
+            const string privateUse = "-0000-7000-8000-00000000abcd";
+            var transport = new RouteTransport { World = "{\"id\":\"w\",\"name\":\"n\"}" }.Type("character", Page(
+                new JObject { ["id"] = astral, ["name"] = "Ann" }.ToString(Newtonsoft.Json.Formatting.None),
+                new JObject { ["id"] = privateUse, ["name"] = "Ann" }.ToString(Newtonsoft.Json.Formatting.None)));
+
+            await OWFolderExport.ExportAsync(Client(transport), _folder, NoMedia);
+
+            var expected = new Dictionary<string, string>
+            {
+                { privateUse, "ann--0000abcd.json" },
+                { astral, "ann--" + astral + ".json" },
+            };
+            var directory = Path.Combine(_folder, "elements", "character");
+            var actual = Directory.GetFiles(directory).ToDictionary(
+                f => (string)OWFolderWriter.ReadJsonFile(f)["id"], Path.GetFileName);
+            CollectionAssert.AreEquivalent(expected, actual);
+        }
+
+        [Test]
         public async Task Export_AnIdServedTwice_KeepsItsLastBody()
         {
             // A page walk that met a write serves the element again on a later page, newer.

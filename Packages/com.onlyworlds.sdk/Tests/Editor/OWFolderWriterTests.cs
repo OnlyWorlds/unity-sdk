@@ -566,6 +566,20 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public void Write_SettlesACollision_IdAscendingByCodePoint_AboveTheBasicPlane()
+        {
+            // U+1F600 is a surrogate pair (D83D DE00), which UTF-16 code-unit order puts below U+E000; by code point it is
+            // above, so the private-use id is the lowest and keeps the short form, though it arrives second.
+            const string astral = "\U0001F600-2222-4333-8444-5555deadbeef";
+            const string privateUse = "-2222-4333-8444-5555deadbeef";
+
+            var paths = OWFolderWriter.Write(_temp, new[] { Body(astral, "character", "Twin"), Body(privateUse, "character", "Twin") });
+
+            Assert.AreEqual("twin--" + astral + ".json", Path.GetFileName(paths[0]));
+            Assert.AreEqual("twin--deadbeef.json", Path.GetFileName(paths[1]), "The lower id by code point keeps the short form.");
+        }
+
+        [Test]
         public void Write_ARepeatedId_KeepsItsLastBody()
         {
             const string id = "11111111-2222-4333-8444-555555555501";

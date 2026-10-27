@@ -80,6 +80,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   do (the TypeScript SDK and the Python package). It had compared ids by UTF-16 code unit, which diverges only for ids
   with a character outside the Basic Multilingual Plane (a surrogate pair sorted below U+FFFF, not above it); the hex
   ids a world holds are ASCII and were never affected.
+- The folder writers settle a filename collision id-ascending by Unicode code point, as the folder format's tie-break
+  and the reference writers do (§3.2: the lowest id keeps the short name), and `OWFolderReadResult.KnownOf` lists its
+  ids in the same order. `OWFolderExport` and `OWFolderWriter.Write` had compared ids by UTF-16 code unit, so an id
+  with a character above U+FFFF sorted below one with a character in U+E000 to U+FFFF and could take the other's short
+  name; ASCII ids, which every id a world mints is, were never affected. One comparer now serves the folder code and
+  `OWLens`, whose order is unchanged.
 - The message profile's shared edge cases, the file the TypeScript SDK 4.89.1 and the Python package both hold (26 cases:
   what a Note is to every reader, the `created_at` order, an edit, a Character's line), now replay here, and the
   readings they caught are fixed. `HasUnseenRecipients` is false for a Note, keyless or not. `ThreadOf` walks a chain
