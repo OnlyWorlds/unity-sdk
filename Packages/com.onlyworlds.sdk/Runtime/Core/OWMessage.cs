@@ -194,7 +194,8 @@ namespace OnlyWorlds.Sdk
         /// <summary>
         /// Whether someone this reader cannot see is a recipient: true when the body's <c>x_served_trimmed</c> names
         /// <c>characters</c> (the server left their ids out), whatever is left in the list. It never says who or how
-        /// many. False for a body without the mark, and for null.
+        /// many. False for a body without the mark, for null, and for a Note (it has no recipients, so nobody is unseen,
+        /// keyless or not).
         /// </summary>
         /// <param name="message">The message's body.</param>
         /// <param name="keyless">
@@ -202,7 +203,7 @@ namespace OnlyWorlds.Sdk
         /// </param>
         public static bool? HasUnseenRecipients(JObject message, bool keyless = false)
         {
-            if (message == null) return false;
+            if (message == null || IsNote(message)) return false;
             if (keyless) return null;
             return Trimmed(message, "characters");
         }
@@ -370,13 +371,14 @@ namespace OnlyWorlds.Sdk
         /// The thread of a root message: every message whose chain of <c>parent_narrative</c> reaches the root, the root
         /// included, in <c>created_at</c> order (equal times keep the list's order). A walk stops at an id it has
         /// already visited, so a loop in the chain ends it; a parent not in the list ends the chain unless it is the root,
-        /// and so does a <c>parent_narrative</c> that is not a string id (a number, null, an object). A Note is never in
-        /// a thread: it is passed by as if it were not in the list.
+        /// and so does a <c>parent_narrative</c> that is not a string id (a number, null, an object). A Note is in no
+        /// thread: it is never listed, though a chain walks through its <c>parent_narrative</c> like any other (a reply
+        /// to a Note that answers the root is in the thread).
         /// </summary>
         public static IReadOnlyList<JObject> ThreadOf(IEnumerable<JToken> messages, string rootId)
         {
             if (messages == null || string.IsNullOrEmpty(rootId)) return new List<JObject>();
-            var listed = messages.OfType<JObject>().Where(m => !IsNote(m)).ToList();
+            var listed = messages.OfType<JObject>().ToList();
             var byId = new Dictionary<string, JObject>();
             foreach (var m in listed)
             {
@@ -401,13 +403,14 @@ namespace OnlyWorlds.Sdk
                 return false;
             }
 
-            return InCreatedOrder(listed.Where(Reaches));
+            return InCreatedOrder(listed.Where(m => !IsNote(m) && Reaches(m)));
         }
 
         /// <summary>
         /// The Character's line: the id of its newest Note in its own hand, or null when it has none. A Note
-        /// (<see cref="IsNote"/>) whose <c>narrator</c> is the Character, neither hidden (<see cref="OWPayload.IsHidden"/>)
-        /// nor proposed (<see cref="OWPayload.IsProposed"/>), and in its author's hand: where it carries no
+        /// (<see cref="IsNote"/>) with a string id, whose <c>narrator</c> is the Character, neither hidden
+        /// (<see cref="OWPayload.IsHidden"/>, the one hidden mark every reader reads, ruled 2026-10-27) nor proposed (<see cref="OWPayload.IsProposed"/>:
+        /// <c>x_review_proposed</c> an object), and in its author's hand: where it carries no
         /// <c>created_by</c> (a folder, an export) its <c>narrator</c> is trusted; on the wire only a verified sender
         /// counts (<see cref="SenderStatus"/>), so a mismatch or an unverifiable Note is nobody's line. The newest is the
         /// last in <c>created_at</c> order whose time can be read, or the last in the list when none can. A message is
@@ -420,8 +423,8 @@ namespace OnlyWorlds.Sdk
         {
             if (narratives == null || string.IsNullOrEmpty(characterId)) return null;
             var own = narratives.OfType<JObject>()
-                .Where(n => IsNote(n) && IsSentBy(n, characterId) && !OWPayload.IsHidden(n) && !OWPayload.IsProposed(n)
-                            && IsOwn(n, characterId, members))
+                .Where(n => IsNote(n) && !string.IsNullOrEmpty(StringOf(n["id"])) && IsSentBy(n, characterId)
+                            && !OWPayload.IsHidden(n) && !OWPayload.IsProposed(n) && IsOwn(n, characterId, members))
                 .ToList();
             if (own.Count == 0) return null;
             var dated = own.Where(n => TimeKey(n["created_at"]) != null).ToList();
@@ -493,8 +496,8 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// A time as microseconds since the epoch, so microseconds still order, as the TypeScript SDK reads them; null
-        /// when unreadable. A string is parsed (no offset is read as UTC); a Date token, as <c>JObject.Parse</c> leaves
-        /// one, is read as its instant.
+        /// when unreadable. A string is read by the profile's rule (<see cref="InstantOf"/>); a Date token, as
+        /// <c>JObject.Parse</c> leaves one, is read as its instant.
         /// </summary>
         private static long? TimeKey(JToken token)
         {
@@ -503,9 +506,7 @@ namespace OnlyWorlds.Sdk
             switch (value.Value)
             {
                 case string text:
-                    if (!DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture,
-                            DateTimeStyles.AssumeUniversal | DateTimeStyles.AllowWhiteSpaces, out at)) return null;
-                    break;
+                    return InstantOf(text);
                 case DateTimeOffset offset:
                     at = offset;
                     break;
@@ -520,6 +521,52 @@ namespace OnlyWorlds.Sdk
 
             return at.UtcTicks / 10;
         }
+
+        /// <summary>
+        /// An RFC 3339 date-time as microseconds since the epoch, or null when unreadable: <c>YYYY-MM-DDTHH:MM:SS</c>, an
+        /// optional fraction of a second after <c>.</c> (microseconds kept, the rest dropped), then <c>Z</c> or
+        /// <c>+HH:MM</c> / <c>-HH:MM</c> (<c>T</c> and <c>Z</c> in either case), or no zone, read as UTC. The date must
+        /// exist (Gregorian, leap years), hours 00-23, minutes and seconds 00-59, an offset 00-23 hours and 00-59 minutes.
+        /// ASCII digits only, the whole string, nothing trimmed: the TypeScript SDK's rule, so every package orders alike.
+        /// </summary>
+        private static long? InstantOf(string text)
+        {
+            const string D = "[0-9]";
+            var m = System.Text.RegularExpressions.Regex.Match(text,
+                "^(" + D + "{4})-(" + D + "{2})-(" + D + "{2})[Tt](" + D + "{2}):(" + D + "{2}):(" + D + "{2})"
+                + "(?:\\.(" + D + "+))?(?:[Zz]|([+-])(" + D + "{2}):(" + D + "{2}))?\\z",
+                System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+            if (!m.Success) return null;
+            int Part(int group) => int.Parse(m.Groups[group].Value, CultureInfo.InvariantCulture);
+            int year = Part(1), month = Part(2), day = Part(3), hour = Part(4), minute = Part(5), second = Part(6);
+            var leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+            var monthLength = month == 2 ? (leap ? 29 : 28) : (month == 4 || month == 6 || month == 9 || month == 11 ? 30 : 31);
+            if (month < 1 || month > 12 || day < 1 || day > monthLength || hour > 23 || minute > 59 || second > 59) return null;
+            long offset = 0;
+            if (m.Groups[8].Success)
+            {
+                int offsetHours = Part(9), offsetMinutes = Part(10);
+                if (offsetHours > 23 || offsetMinutes > 59) return null;
+                offset = (offsetHours * 3600L + offsetMinutes * 60L) * (m.Groups[8].Value == "-" ? -1 : 1);
+            }
+
+            long micros = 0;
+            if (m.Groups[7].Success) micros = long.Parse((m.Groups[7].Value + "000000").Substring(0, 6), CultureInfo.InvariantCulture);
+            var days = DaysFromCivil(year, month, day);
+            return (days * 86400L + hour * 3600L + minute * 60L + second - offset) * 1000000L + micros;
+        }
+
+        /// <summary>Days from 1970-01-01 to a proleptic Gregorian date (exact integer arithmetic, years 0000-9999).</summary>
+        private static long DaysFromCivil(int year, int month, int day)
+        {
+            long y = month <= 2 ? year - 1 : year;
+            long era = (y >= 0 ? y : y - 399) / 400;
+            long yoe = y - era * 400;
+            long doy = (153 * (month + (month > 2 ? -3 : 9)) + 2) / 5 + day - 1;
+            long doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+            return era * 146097 + doe - 719468;
+        }
+
 
         /// <summary>By <c>created_at</c>; equal times keep the input's order (the server's list order); unreadable times last. Never by id.</summary>
         private static IReadOnlyList<JObject> InCreatedOrder(IEnumerable<JObject> items)
