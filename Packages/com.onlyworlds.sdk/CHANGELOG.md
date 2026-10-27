@@ -70,6 +70,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   `OWGraphRefusedException` naming the flag (`Flag`) before the world is read; the owner reading as another reader is
   judged by that reader's rung. Parity with the TypeScript SDK 4.93.0, its test vectors and the fixture's graph cases:
   the 34 cases replay with the section's invariants checked on every answer.
+- **`OWGraph.DegreeOf(graph)`**: each node's degree in a graph `OWGraph.Read` answered, its edges in or out, each
+  counted once for every node it touches (a mirror pair counts 2 at each end, a link to itself once), every node a key
+  with 0 included, enumerated in the graph's node order. It is "most linked" as a finder ranks it: the reader's own
+  count, since what the reading left out has no edge. A null graph is an `ArgumentNullException`. Parity with the
+  TypeScript SDK 4.95.0 (`degreeOf`) and the Python package 0.78.0 (`degree_of`), the TypeScript SDK's test vectors
+  ported: its own graph, and every fixture graph case's answer against a direct count of its edges.
 - **`OWClientConfig.World`: an account token, or no key, reads the world it names.** A client built with an account
   token (`ow_a_`) and `World = <world id>` sends `world=<id>` (escaped, beside the call's own parameters, on every page
   of `ListAllAsync`) with its Bearer and no `API-Key` or `API-Pin` on `ListAsync`, `ListAllAsync`, `GetAsync` and
