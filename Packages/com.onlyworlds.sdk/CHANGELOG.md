@@ -6,6 +6,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-10-27
+
+The message profile's serial 76 in `OWMessage`: a reader can tell a message with recipients it cannot see, a body
+read with no key, a sender it cannot see, an edit by another hand, and a member's own Note, which is never a
+message. The pin moves to dist.76. A minor release because it adds public API (below).
+
 ### Added
 
 - **`OWMessage`, serial 76 of the message profile** (schema-dist `profiles/message.md`, rulings of 2026-10-26).
