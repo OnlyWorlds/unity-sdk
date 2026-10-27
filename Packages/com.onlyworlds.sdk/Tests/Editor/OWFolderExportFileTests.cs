@@ -35,9 +35,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             get
             {
-                var package = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(OWFolderExportFileTests).Assembly);
-                Assert.IsNotNull(package, "the package's own path is how the fixture is found");
-                return Path.Combine(package.resolvedPath, "Tests", "Editor", "Fixtures", "envelope", "world-export.json");
+                var root = TestPackage.Root();
+                Assert.IsNotNull(root, "the package's own path is how the fixture is found");
+                return Path.Combine(root, "Tests", "Editor", "Fixtures", "envelope", "world-export.json");
             }
         }
 

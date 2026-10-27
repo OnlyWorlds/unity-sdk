@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -20,32 +19,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     {
         private static JObject _lk;
 
-        /// <summary>
-        /// The package's own resolved path; outside the Editor (no package manager to ask), the working directory's
-        /// <c>Packages/com.onlyworlds.sdk</c>, as <c>OWRoomTests</c> finds its fixture.
-        /// </summary>
-        private static string PackageRoot()
-        {
-            try
-            {
-                var package = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(OWCalendarV2Tests).Assembly);
-                if (package != null) return package.resolvedPath;
-            }
-            catch (Exception)
-            {
-                // No Editor behind the call; try the working directory below.
-            }
-
-            var local = Path.Combine(Directory.GetCurrentDirectory(), "Packages", "com.onlyworlds.sdk");
-            return Directory.Exists(local) ? local : null;
-        }
-
         private static JObject LegendKeeper
         {
             get
             {
                 if (_lk != null) return _lk;
-                var root = PackageRoot();
+                var root = TestPackage.Root();
                 Assert.IsNotNull(root, "the package's own path is how the fixture is found");
                 var path = Path.Combine(root, "Tests", "Editor", "Fixtures", "calendar", "legendkeeper-calendars.json");
                 Assert.IsTrue(File.Exists(path), path);

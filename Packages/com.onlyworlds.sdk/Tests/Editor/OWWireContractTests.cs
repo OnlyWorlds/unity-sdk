@@ -67,7 +67,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             {
                 if (_wire != null) return _wire;
 
-                var root = PackageRoot();
+                var root = TestPackage.Root();
                 var path = root == null ? null : Path.Combine(root, "Tests", "Editor", "Fixtures", "wire", "keel-wire.json");
                 if (path == null || !File.Exists(path))
                 {
@@ -77,27 +77,6 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
                 return _wire = JObject.Parse(File.ReadAllText(path));
             }
-        }
-
-        /// <summary>
-        /// The package's own resolved path, as the folder writer's fixture is found. Outside the Editor (a compile
-        /// and test run with no engine, where the package manager cannot be asked) the working directory's
-        /// <c>Packages/com.onlyworlds.sdk</c>, when it is there.
-        /// </summary>
-        private static string PackageRoot()
-        {
-            try
-            {
-                var package = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(OWWireContractTests).Assembly);
-                if (package != null) return package.resolvedPath;
-            }
-            catch (Exception)
-            {
-                // No Editor behind the call; try the working directory below.
-            }
-
-            var local = Path.Combine(Directory.GetCurrentDirectory(), "Packages", "com.onlyworlds.sdk");
-            return Directory.Exists(local) ? local : null;
         }
 
         /// <summary>Every public call on the client, recorded through a fake transport.</summary>
@@ -468,7 +447,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             // The helpers' own text: every `Code == "x"` and `case "x":` in OWApiError, so a helper added later is
             // checked unasked. Reflection cannot see a property's body, so the source is read instead.
-            var root = PackageRoot();
+            var root = TestPackage.Root();
             var file = root == null ? null : Path.Combine(root, "Runtime", "Core", "OWApiError.cs");
             if (file == null || !File.Exists(file)) Assert.Ignore("OWApiError.cs not found: unmeasured, not passing.");
             var source = File.ReadAllText(file);

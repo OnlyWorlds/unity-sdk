@@ -12,6 +12,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   `IsMessage` reads a message), whoever's mark it is. A reader that weighs elements by their links can leave a read
   mark out by it: a mark lists every message its reader has read, which is bookkeeping, not part of the world.
 
+### Changed
+
+- The Editor tests find the package's own files through one helper (`TestPackage.Root()`) instead of thirteen copies
+  of it; outside the Editor, four more test classes now find their fixtures. The host project no longer carries the
+  Unity template's readme (`Assets/Readme.asset`, `Assets/TutorialInfo/`).
+
 ## [0.21.0] - 2026-10-26
 
 Messages between a world's members: `OWMessage` reads who a message is addressed to, whether its sender is proved

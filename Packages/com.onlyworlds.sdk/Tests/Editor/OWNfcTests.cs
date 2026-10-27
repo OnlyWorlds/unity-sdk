@@ -68,18 +68,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         /// <summary>The vendored test file, or null (the test is then ignored, saying where it looked).</summary>
         private static string TestFilePath(out string looked)
         {
-            string root = null;
-            try
-            {
-                var package = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(OWNfcTests).Assembly);
-                if (package != null) root = package.resolvedPath;
-            }
-            catch (Exception)
-            {
-                // No Editor behind the call; the working directory below.
-            }
-
-            root ??= Path.Combine(Directory.GetCurrentDirectory(), "Packages", "com.onlyworlds.sdk");
+            var root = TestPackage.Root() ?? Path.Combine(Directory.GetCurrentDirectory(), "Packages", "com.onlyworlds.sdk");
             looked = Path.Combine(root, "Tests", "Editor", "Fixtures", "unicode~", TestFile);
             return File.Exists(looked) ? looked : null;
         }

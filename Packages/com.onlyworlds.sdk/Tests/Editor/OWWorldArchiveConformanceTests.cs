@@ -59,7 +59,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 var env = Environment.GetEnvironmentVariable("OW_OWWORLD_FIXTURES");
                 if (!string.IsNullOrEmpty(env) && File.Exists(Path.Combine(env, "verdicts.json"))) return _dir = env;
 
-                var root = PackageRoot();
+                var root = TestPackage.Root();
                 var own = root == null ? null : Path.Combine(root, "Tests", "Editor", "Fixtures", FolderName);
                 if (own != null && File.Exists(Path.Combine(own, "verdicts.json")))
                 {
@@ -69,27 +69,6 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
                 return _dir.Length == 0 ? null : _dir;
             }
-        }
-
-        /// <summary>
-        /// The package's own resolved path; outside the Editor (no package manager to ask), the working directory's
-        /// <c>Packages/com.onlyworlds.sdk</c>, as <c>OWWireContractTests</c> finds its fixture.
-        /// </summary>
-        private static string PackageRoot()
-        {
-            try
-            {
-                var package = UnityEditor.PackageManager.PackageInfo.FindForAssembly(
-                    typeof(OWWorldArchiveConformanceTests).Assembly);
-                if (package != null) return package.resolvedPath;
-            }
-            catch (Exception)
-            {
-                // No Editor behind the call; try the working directory below.
-            }
-
-            var local = Path.Combine(Directory.GetCurrentDirectory(), "Packages", "com.onlyworlds.sdk");
-            return Directory.Exists(local) ? local : null;
         }
 
         private static JObject Verdicts

@@ -218,18 +218,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         /// <summary>The package's own <c>package.json</c>: through the package manager, else the working directory's package.</summary>
         private static string PackageJson()
         {
-            try
-            {
-                var info = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(OWFolderExportProvenanceTests).Assembly);
-                if (info != null) return Path.Combine(info.resolvedPath, "package.json");
-            }
-            catch (Exception)
-            {
-                // No Editor behind the call; try the working directory below.
-            }
+            var root = TestPackage.Root();
+            if (root == null) return null;
 
-            var local = Path.Combine(Directory.GetCurrentDirectory(), "Packages", "com.onlyworlds.sdk", "package.json");
-            return File.Exists(local) ? local : null;
+            var json = Path.Combine(root, "package.json");
+            return File.Exists(json) ? json : null;
         }
 
         [Test]

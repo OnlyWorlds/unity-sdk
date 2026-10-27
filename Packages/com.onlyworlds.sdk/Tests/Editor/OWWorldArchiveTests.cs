@@ -57,16 +57,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 if (_fixtureRoot != null) return _fixtureRoot.Length == 0 ? null : _fixtureRoot;
                 _fixtureRoot = string.Empty;
 
-                try
+                var package = TestPackage.Root();
+                if (package != null)
                 {
-                    var package = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(OWWorldArchiveTests).Assembly);
-                    if (package != null)
-                    {
-                        var own = Path.Combine(package.resolvedPath, "Tests", "Editor", "Fixtures", "folder-write");
-                        if (File.Exists(Path.Combine(own, "world.json"))) return _fixtureRoot = own;
-                    }
+                    var own = Path.Combine(package, "Tests", "Editor", "Fixtures", "folder-write");
+                    if (File.Exists(Path.Combine(own, "world.json"))) return _fixtureRoot = own;
                 }
-                catch (Exception) { }
 
                 string projectRoot = null;
                 try { projectRoot = Directory.GetParent(UnityEngine.Application.dataPath)?.FullName; }

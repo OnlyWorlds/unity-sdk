@@ -43,10 +43,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
                 _fixtureRoot = string.Empty;
 
-                var package = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(OWFolderWriterTests).Assembly);
+                var package = TestPackage.Root();
                 if (package != null)
                 {
-                    var own = Path.Combine(package.resolvedPath, "Tests", "Editor", "Fixtures", "folder-write");
+                    var own = Path.Combine(package, "Tests", "Editor", "Fixtures", "folder-write");
                     if (File.Exists(Path.Combine(own, "world.json"))) return _fixtureRoot = own;
                 }
 

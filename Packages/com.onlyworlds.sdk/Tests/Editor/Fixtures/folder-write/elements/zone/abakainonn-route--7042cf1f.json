@@ -2,7 +2,7 @@
   "type": "zone",
   "id": "e88c1467-c388-4f68-a4cc-d0a87042cf1f",
   "name": "AbakainonN (route)",
-  "description": "A route segment of ancient Sicily as Captain drew it: 5 hand-placed points from the Fury scene (marker family RT, id 106, label AbakainonN), in travel order. Reconstructed: the line is Captain's drawing over the relief; terrain difficulty per segment is his rating (1 easy … 5 mountain), carried on each marker. Named historical roads are separate Zones linked from their segments.",
+  "description": "A route segment of ancient Sicily as Titus drew it: 5 hand-placed points from the Fury scene (marker family RT, id 106, label AbakainonN), in travel order. Reconstructed: the line is Titus's drawing over the relief; terrain difficulty per segment is his rating (1 easy … 5 mountain), carried on each marker. Named historical roads are separate Zones linked from their segments.",
   "supertype": "Line",
   "subtype": "Route",
   "image_url": "",
