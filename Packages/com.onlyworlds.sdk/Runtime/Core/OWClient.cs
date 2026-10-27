@@ -391,7 +391,7 @@ namespace OnlyWorlds.Sdk
         /// caller can act on.
         /// </para>
         /// <para>
-        /// Each element is sanitized exactly as a single write is -- the six read-only fields
+        /// Each element is sanitized exactly as a single write is -- the seven read-only fields
         /// are stripped from every item, and a null scalar string is sent as <c>""</c> -- and each
         /// gets a client-minted UUID when it has none. Under a key that id is derived from the key and
         /// the item's position (<see cref="OWId.Keyed"/>), so a retry sends the same body and replays,
@@ -1050,7 +1050,7 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
-        /// Removes the six read-only fields (<see cref="OWPayload.ReadOnlyFields"/>), and sends a null scalar string as <c>""</c>.
+        /// Removes the seven read-only fields (<see cref="OWPayload.ReadOnlyFields"/>), and sends a null scalar string as <c>""</c>.
         /// </summary>
         /// <param name="payload">The body about to be sent. Changed in place.</param>
         /// <param name="type">The element type slug, which says which keys are scalar strings.</param>
@@ -1060,6 +1060,7 @@ namespace OnlyWorlds.Sdk
         /// become a whitelist. Namespaced extension fields (<c>x_*</c>) MUST pass through writes
         /// untouched -- every tool that round-trips its own state through other tools depends on it.
         /// A whitelist would silently strip them and corrupt cross-tool state.
+        /// One <c>x_</c> key is the server's own, never a tool's: <c>x_served_trimmed</c>, named in the list and stripped by name.
         /// </para>
         /// <para>
         /// rulings.yaml <c>string-empty-is-unset</c>: for a scalar string, <c>""</c> IS the wire's

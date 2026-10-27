@@ -13,12 +13,17 @@ namespace OnlyWorlds.Sdk
     /// identity comes from the API key, not the payload. The sixth, <c>known_of</c>,
     /// marks a stub (<see cref="IsKnownOf"/>); keel's write path refuses it at any value, <c>false</c>
     /// included (422 <c>known_of_not_writable</c>), so a stray one is stripped like the rest, and a
-    /// body where it is <c>true</c> is refused before anything is sent.
+    /// body where it is <c>true</c> is refused before anything is sent. The seventh,
+    /// <c>x_served_trimmed</c>, is the server's mark on a body it served with ids the reader's key may
+    /// not see left out (the message profile, schema-dist serial 76); a write that carries it is refused
+    /// (422 <c>served_trimmed_not_writable</c>), and the trimmed list it describes can be sent back
+    /// without it: the server keeps the ids the writer cannot see.
     /// </para>
     /// <para>
-    /// Mirrors <c>READ_ONLY_FIELDS</c> in the npm SDK's <c>client.ts</c> exactly, as of 4.42.3. If that
-    /// list ever grows, this one has to grow with it -- the two clients are speaking the same wire and a
-    /// divergence here means one of them starts getting 422s the other does not.
+    /// Mirrors <c>READ_ONLY_FIELDS</c> in the npm SDK's <c>client.ts</c> as of 4.42.3, plus
+    /// <c>x_served_trimmed</c> (2026-10-27), which the Python package's folder push also never sends. If
+    /// that list ever grows, this one has to grow with it -- the two clients are speaking the same wire and
+    /// a divergence here means one of them starts getting 422s the other does not.
     /// </para>
     /// </remarks>
     public static class OWPayload
@@ -31,7 +36,14 @@ namespace OnlyWorlds.Sdk
             "updated_at",
             "change_seq",
             KnownOf,
+            ServedTrimmed,
         };
+
+        /// <summary>
+        /// The server's mark on a body served with ids the reader's key may not see left out: a list of the fields that
+        /// lost one (<see cref="OWMessage.ServedTrimmedKey"/>). Read, kept in a folder as served, never written.
+        /// </summary>
+        public const string ServedTrimmed = OWMessage.ServedTrimmedKey;
 
         /// <summary>
         /// The world's own keys <c>GET /world</c> serves and <c>PATCH /world</c> refuses (a 422 for each), stripped by

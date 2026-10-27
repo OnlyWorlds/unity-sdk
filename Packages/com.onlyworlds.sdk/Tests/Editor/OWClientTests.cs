@@ -194,7 +194,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         // -- The six read-only fields ----------------------------------------
 
         [Test]
-        public async Task Patch_StripsAllSixReadOnlyFields()
+        public async Task Patch_StripsAllSevenReadOnlyFields()
         {
             var t = new FakeTransport();
             await Make(t).PatchAsync<JObject>("character", "x", new JObject
@@ -207,10 +207,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 ["updated_at"] = "2026-01-02T00:00:00Z",
                 ["change_seq"] = 42,
                 ["known_of"] = false,
+                ["x_served_trimmed"] = new JArray("characters"),
             });
 
             var sent = t.LastBody;
-            foreach (var f in new[] { "world", "type", "created_at", "updated_at", "change_seq", "known_of" })
+            foreach (var f in new[] { "world", "type", "created_at", "updated_at", "change_seq", "known_of", "x_served_trimmed" })
             {
                 Assert.IsFalse(sent.ContainsKey(f), $"{f} must be stripped -- the server 422s on it.");
             }
@@ -636,6 +637,41 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             t.Status = 409;
             var other = Assert.ThrowsAsync<OWApiError>(() => Make(t).DeleteAsync("character", "x"));
             Assert.IsFalse(other.IsCharacterPlayed, "the code on another status is not it");
+        }
+
+        // The served-trimmed mark (schema-dist message profile, serial 76): read, never written.
+
+        [Test]
+        public async Task AMessageReadTrimmed_IsSentBackWithoutTheMark_ItsOtherExtensionKeysKept()
+        {
+            // A typed body read from the wire keeps the mark in its extension bag; every write path strips it by name.
+            var read = OWJson.Deserialize<OWNarrative>(
+                @"{""id"":""m"",""name"":""Hello"",""supertype"":""Message"",""narrator"":null,""characters"":[],
+                  ""x_served_trimmed"":[""characters"",""narrator""],""x_room_of"":""r""}");
+            var t = new FakeTransport();
+            await Make(t).PatchAsync<JObject>("narrative", "m", read);
+            Assert.IsFalse(t.LastBody.ContainsKey("x_served_trimmed"), "the server refuses the mark: 422 served_trimmed_not_writable");
+            Assert.AreEqual("r", (string)t.LastBody["x_room_of"], "another x_ key is a tool's and passes");
+
+            await Make(t).CreateAsync<JObject>("narrative", read);
+            Assert.IsFalse(t.LastBody.ContainsKey("x_served_trimmed"));
+        }
+
+        [Test]
+        public void AWriteCarryingTheMark_IsServedTrimmedNotWritable_OnlyAsA422()
+        {
+            var t = new FakeTransport
+            {
+                Status = 422,
+                ResponseBody = @"{""error"":{""type"":""invalid_request"",""code"":""served_trimmed_not_writable"",""param"":""x_served_trimmed"",
+                    ""message"":""x_served_trimmed is set by the server and is never written.""}}",
+            };
+            var e = Assert.ThrowsAsync<OWApiError>(() => Make(t).GetWorldAsync());
+            Assert.AreEqual((true, false), (e.IsServedTrimmedNotWritable, e.IsKnownOfNotWritable));
+
+            t.Status = 400;
+            Assert.IsFalse(Assert.ThrowsAsync<OWApiError>(() => Make(t).GetWorldAsync()).IsServedTrimmedNotWritable,
+                "the code on another status is not it");
         }
 
         // The PATCH and link-write precondition (npm c1d5d2a's vectors).
