@@ -60,7 +60,8 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   an `InvalidOperationException`, where the server answered 401 before; on an account client without `World`, the four
   reads are one too; on a keyless client, everything but the four reads. One rule in the request path decides it, read
   from the request: an `/account` route, or a GET marked as a world read. The server serves search with `world=` too;
-  the client has no search call. Parity with the TypeScript SDK 4.88.0.
+  the client has no search call. `OWFolderExport.ExportAsync` exports through such a client: it asks no `/me`, and
+  the folder's `world.json` carries no `exported_as` (the slice is unknown). Parity with the TypeScript SDK 4.88.0.
 
 ### Changed
 
