@@ -12,7 +12,28 @@ namespace OnlyWorlds.Sdk
     /// <summary>Construction options for <see cref="OWClient"/>.</summary>
     public class OWClientConfig
     {
+        /// <summary>
+        /// The key: an <c>ow_w_</c> (write) or <c>ow_r_</c> (read) world key, an <c>ow_a_</c> account token (sent as a
+        /// Bearer, for the <c>/account</c> routes, and with <see cref="World"/> set for that world's reads), or a
+        /// 10-digit legacy key. Empty only with <see cref="World"/> set: a keyless reader of a public world.
+        /// </summary>
         public string ApiKey;
+
+        /// <summary>
+        /// A world's id, for a client that holds an account token (<c>ow_a_</c>) or no key. <see cref="OWClient.ListAsync{T}"/>,
+        /// <see cref="OWClient.ListAllAsync{T}"/> (every page), <see cref="OWClient.GetAsync{T}"/> and
+        /// <see cref="OWClient.GetWorldAsync"/> then read that world, sending <c>world=&lt;id&gt;</c>: an account token
+        /// reads it as that account's own access there (the owner the whole world, a member its member key's view,
+        /// anyone else the public view, and a world not open to the public is a 404), and no key reads it as the public
+        /// does. Null by default.
+        /// </summary>
+        /// <remarks>
+        /// Read only: on such a client every other world call is an <see cref="InvalidOperationException"/> before
+        /// anything is sent, and an account token's <c>/account</c> calls work as without it. Given with a world key,
+        /// or empty or white space, it is an <see cref="ArgumentException"/> when the client is built. Mirrors the
+        /// TypeScript SDK's <c>world</c> option (4.88.0).
+        /// </remarks>
+        public string World;
 
         /// <summary>
         /// The PIN (or an agent seat's <c>ow_s_</c> secret), needed for writes when the world has one, and for a
@@ -78,33 +99,81 @@ namespace OnlyWorlds.Sdk
         private readonly IOWTransport _transport;
         private readonly bool _agent;
 
+        /// <summary>True for a client built with no key: a keyless reader of the world <see cref="World"/> names.</summary>
+        private readonly bool _keyless;
+
         /// <summary>The name sent as <c>X-OW-Client</c> when <see cref="OWClientConfig.Client"/> is null.</summary>
         public const string DefaultClientName = "unity-sdk";
+
+        /// <summary>The reads that send <c>world=&lt;id&gt;</c>, as the refusals name them.</summary>
+        private const string WorldReads = "ListAsync, ListAllAsync, GetAsync and GetWorldAsync";
 
         public string BaseUrl { get; }
 
         /// <summary>The name this client sends as <c>X-OW-Client</c> on element writes.</summary>
         public string ClientName { get; }
         public int PageSize { get; }
+
+        /// <summary>The key's kind; <see cref="OWKeyKind.Unknown"/> on a keyless client.</summary>
         public OWKeyKind KeyKind { get; }
+
+        /// <summary>
+        /// The world an account token or a keyless client reads (<see cref="OWClientConfig.World"/>), or null.
+        /// </summary>
+        public string World { get; }
 
         public OWClient(OWClientConfig config)
         {
             if (config == null) throw new ArgumentNullException(nameof(config));
-            if (string.IsNullOrEmpty(config.ApiKey))
-                throw new ArgumentException("An API key is required.", nameof(config));
+
+            _keyless = string.IsNullOrEmpty(config.ApiKey);
+            KeyKind = OWKey.DetectKind(config.ApiKey);
+            World = WorldOf(config.World, _keyless, KeyKind);
+
+            if (_keyless && World == null)
+            {
+                throw new ArgumentException(
+                    "An API key is required, or World for a keyless reader of a public world.", nameof(config));
+            }
+
             if (config.Transport == null)
                 throw new ArgumentException("A transport is required.", nameof(config));
 
-            _apiKey = config.ApiKey;
+            _apiKey = _keyless ? null : config.ApiKey;
             _apiPin = string.IsNullOrEmpty(config.ApiPin) ? null : config.ApiPin;
             _transport = config.Transport;
             _agent = config.Agent;
 
             BaseUrl = (config.BaseUrl ?? "https://www.onlyworlds.com/api/v2").TrimEnd('/');
             PageSize = config.PageSize > 0 ? config.PageSize : 100;
-            KeyKind = OWKey.DetectKind(config.ApiKey);
             ClientName = ClientNameOf(config.Client);
+        }
+
+        /// <summary>
+        /// <see cref="OWClientConfig.World"/>, checked when the client is built: a world's id that is not empty or white
+        /// space, on a client with an account token or no key. A world key reads its own world and takes none.
+        /// </summary>
+        private static string WorldOf(string value, bool keyless, OWKeyKind kind)
+        {
+            if (value == null) return null;
+
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                throw new ArgumentException(
+                    $"World is a world's id, not empty or white space; got \"{value}\". With it, an account token or no "
+                    + $"key reads that world through {WorldReads}.",
+                    "config");
+            }
+
+            if (!keyless && kind != OWKeyKind.Account)
+            {
+                throw new ArgumentException(
+                    "A world key reads its own world; World is for an account token (ow_a_) or no key, which read the "
+                    + $"world it names through {WorldReads}.",
+                    "config");
+            }
+
+            return value;
         }
 
         /// <summary>
@@ -141,10 +210,11 @@ namespace OnlyWorlds.Sdk
         /// <remarks>
         /// World-meta edits do NOT appear in <c>/changes</c> and do not bump <c>change_seq</c>.
         /// Freshness of world meta is only knowable by polling this and comparing
-        /// <c>updated_at</c>.
+        /// <c>updated_at</c>. On a client with <see cref="World"/> set (an account token or no key), it reads that
+        /// world, sending <c>world=&lt;id&gt;</c>.
         /// </remarks>
         public Task<JObject> GetWorldAsync(CancellationToken ct = default)
-            => RequestAsync<JObject>("GET", "/world/", ct: ct);
+            => RequestAsync<JObject>("GET", "/world/", ct: ct, worldRead: true);
 
         /// <summary>
         /// PATCH /world -- changes the world's own settings: only the keys sent. Returns the world as the server
@@ -203,7 +273,10 @@ namespace OnlyWorlds.Sdk
 
         // -- Element reads ----------------------------------------------------
 
-        /// <summary>GET /{type}/ -- one cursor page.</summary>
+        /// <summary>
+        /// GET /{type}/ -- one cursor page. On a client with <see cref="World"/> set (an account token or no key), it
+        /// reads that world, sending <c>world=&lt;id&gt;</c> beside the page's own parameters.
+        /// </summary>
         public Task<OWPage<T>> ListAsync<T>(string type, OWListParams p = default, CancellationToken ct = default)
         {
             var query = new List<string>
@@ -220,7 +293,7 @@ namespace OnlyWorlds.Sdk
             if (!string.IsNullOrEmpty(p.Supertype)) query.Add("supertype=" + Uri.EscapeDataString(p.Supertype));
             if (!string.IsNullOrEmpty(p.Subtype)) query.Add("subtype=" + Uri.EscapeDataString(p.Subtype));
 
-            return RequestAsync<OWPage<T>>("GET", $"/{type}/", query: string.Join("&", query), ct: ct);
+            return RequestAsync<OWPage<T>>("GET", $"/{type}/", query: string.Join("&", query), ct: ct, worldRead: true);
         }
 
         /// <summary>
@@ -228,7 +301,8 @@ namespace OnlyWorlds.Sdk
         /// </summary>
         /// <remarks>
         /// The server silently clamps limit at 1000, so a page shorter than requested is NOT a
-        /// signal that iteration is done. Treating it as one loses elements with no error.
+        /// signal that iteration is done. Treating it as one loses elements with no error. On a client
+        /// with <see cref="World"/> set, every page is read from that world, as <see cref="ListAsync{T}"/> reads it.
         /// </remarks>
         public async Task<List<T>> ListAllAsync<T>(
             string type, OWListParams p = default, CancellationToken ct = default,
@@ -263,9 +337,12 @@ namespace OnlyWorlds.Sdk
             return all;
         }
 
-        /// <summary>GET /{type}/{id}/</summary>
+        /// <summary>
+        /// GET /{type}/{id}/. On a client with <see cref="World"/> set (an account token or no key), it reads that
+        /// world, sending <c>world=&lt;id&gt;</c>.
+        /// </summary>
         public Task<T> GetAsync<T>(string type, string id, CancellationToken ct = default)
-            => RequestAsync<T>("GET", $"/{type}/{id}/", ct: ct);
+            => RequestAsync<T>("GET", $"/{type}/{id}/", ct: ct, worldRead: true);
 
         // -- Element writes ---------------------------------------------------
 
@@ -714,8 +791,8 @@ namespace OnlyWorlds.Sdk
             if (KeyKind != OWKeyKind.Account)
             {
                 throw new InvalidOperationException(
-                    "CreateAccountWorldAsync needs an account token (ow_a_); this client holds a "
-                    + $"{KeyKind.ToString().ToLowerInvariant()} key. Nothing was sent.");
+                    "CreateAccountWorldAsync needs an account token (ow_a_); this client holds "
+                    + (_keyless ? "none" : $"a {KeyKind.ToString().ToLowerInvariant()} key") + ". Nothing was sent.");
             }
 
             if (world == null) throw new ArgumentNullException(nameof(world));
@@ -838,11 +915,11 @@ namespace OnlyWorlds.Sdk
             string method, string path,
             string query = null, JObject body = null, string idempotencyKey = null,
             bool allowEmpty = false, bool write = false, CancellationToken ct = default, long? ifMatch = null,
-            bool named = false, bool proposable = false)
+            bool named = false, bool proposable = false, bool worldRead = false)
         {
             var result = await RequestWithResponseAsync<T>(
                 method, path, query, body, idempotencyKey, allowEmpty, write, ct,
-                ifMatch: ifMatch, named: named, proposable: proposable).ConfigureAwait(false);
+                ifMatch: ifMatch, named: named, proposable: proposable, worldRead: worldRead).ConfigureAwait(false);
 
             return result.Value;
         }
@@ -863,19 +940,63 @@ namespace OnlyWorlds.Sdk
         /// A write keel may answer 202 with <c>{proposal}</c> (a patch, a link edit): a 202 then throws an
         /// <see cref="OWProposedError"/> instead of returning a body that is not the element.
         /// </param>
+        /// <param name="worldRead">
+        /// A GET keel serves an account token, or no key, with <c>world=&lt;id&gt;</c> (element list and get, the world
+        /// GET). On a client with <see cref="World"/> set, <c>world=&lt;id&gt;</c> is added to the query.
+        /// </param>
         private async Task<(T Value, OWResponse Response)> RequestWithResponseAsync<T>(
             string method, string path,
             string query = null, JObject body = null, string idempotencyKey = null,
             bool allowEmpty = false, bool write = false, CancellationToken ct = default,
             string ifNoneMatch = null, bool notModified = false, long? ifMatch = null,
-            bool named = false, bool proposable = false)
+            bool named = false, bool proposable = false, bool worldRead = false)
         {
+            // The one rule for what an account token or no key may send, read from the request itself (keel's
+            // account reads, ruled 2026-10-26): an /account route, or a GET marked as a world read. Anything else
+            // keel answers such a client with a 401, so it is refused here and nothing is sent. Mirrors the
+            // TypeScript SDK's request() (4.88.0).
+            var reads = worldRead && string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase);
+
+            if (_keyless && !(reads && World != null))
+            {
+                throw new InvalidOperationException(
+                    $"{method} {path} needs a key, and this client holds none: without one it reads the world World "
+                    + $"names through {WorldReads} only. Nothing was sent.");
+            }
+
+            if (KeyKind == OWKeyKind.Account && !IsAccountRoute(path))
+            {
+                if (!reads)
+                {
+                    throw new InvalidOperationException(
+                        $"{method} {path} needs a world key: an account token sends the /account routes, and with World "
+                        + $"set reads a world through {WorldReads} only. Nothing was sent.");
+                }
+
+                if (World == null)
+                {
+                    throw new InvalidOperationException(
+                        $"{method} {path}: an account token reads a world only with World set "
+                        + $"(new OWClientConfig {{ ApiKey, World }}), through {WorldReads}. Nothing was sent.");
+                }
+            }
+
+            if (reads && World != null)
+            {
+                var world = "world=" + Uri.EscapeDataString(World);
+                query = string.IsNullOrEmpty(query) ? world : query + "&" + world;
+            }
+
             var url = BaseUrl + path;
             if (!string.IsNullOrEmpty(query)) url += "?" + query;
 
             var headers = new Dictionary<string, string>();
 
-            if (OWKey.UsesBearer(KeyKind))
+            if (_keyless)
+            {
+                // A keyless client reaches here only for a world read with World set: no credential at all.
+            }
+            else if (OWKey.UsesBearer(KeyKind))
             {
                 headers["Authorization"] = "Bearer " + _apiKey;
             }
@@ -947,6 +1068,14 @@ namespace OnlyWorlds.Sdk
 
             return (OWJson.Deserialize<T>(response.Body), response);
         }
+
+        /// <summary>
+        /// The account routes, <c>/account</c> and everything under it, which an account token sends with or without
+        /// <see cref="World"/>. A path that only starts with the word (<c>/accounts</c>) is not one.
+        /// </summary>
+        private static bool IsAccountRoute(string path)
+            => path == "/account" || path.StartsWith("/account/", StringComparison.Ordinal)
+               || path.StartsWith("/account?", StringComparison.Ordinal);
 
         /// <summary>
         /// A 202 on a write that may become a proposal: an <see cref="OWProposedError"/> carrying the row. A

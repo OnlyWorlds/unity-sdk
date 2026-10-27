@@ -46,6 +46,22 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   `IsTemplate`, `CheckKeys(xLens)` (the first key refused, or null) and `LensesFor(membership, characterUses)` (the
   membership's choice wins, an empty choice is a choice). The hop reads the generated models' link fields in the
   schema's order. The profile's fixture, 84 cases, is the test.
+- **`OWClientConfig.World`: an account token, or no key, reads the world it names.** A client built with an account
+  token (`ow_a_`) and `World = <world id>` sends `world=<id>` (escaped, beside the call's own parameters, on every page
+  of `ListAllAsync`) with its Bearer and no `API-Key` or `API-Pin` on `ListAsync`, `ListAllAsync`, `GetAsync` and
+  `GetWorldAsync`, and the server answers as that account's own access in the world: the owner reads it whole, a
+  member as its member key reads, any other account as the public reads (a world not open to the public is a 404). A
+  client built with no key and `World` set sends the same four reads with no credential at all, the public reader;
+  until now a client always needed a key. `OWClient.World` says which world. The account calls
+  (`CreateAccountWorldAsync`) work on the same client as before. Refused before anything is sent: `World` with a world
+  key (`ow_w_`, `ow_r_`, a seat's key, a 10-digit key) or empty or white space is an `ArgumentException` when the
+  client is built, and a client with no key and no `World` is refused as before; on an account client, every call that
+  needs a world key (element writes, bulk, link edits, the change feed, `GetMeAsync`, `PatchWorldAsync`, proposals) is
+  an `InvalidOperationException`, where the server answered 401 before; on an account client without `World`, the four
+  reads are one too; on a keyless client, everything but the four reads. One rule in the request path decides it, read
+  from the request: an `/account` route, or a GET marked as a world read. The server serves search with `world=` too;
+  the client has no search call. `OWFolderExport.ExportAsync` exports through such a client: it asks no `/me`, and
+  the folder's `world.json` carries no `exported_as` (the slice is unknown). Parity with the TypeScript SDK 4.88.0.
 
 ### Changed
 

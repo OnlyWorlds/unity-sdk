@@ -126,6 +126,22 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsTrue(world.ContainsKey("source"));
         }
 
+        [TestCase("ow_a_test")]
+        [TestCase("")]
+        public async Task AReaderThatNamesItsWorld_AsksNoMe_WritesNoExportedAs_AndTheExportStands(string key)
+        {
+            var transport = Moor("{\"kind\":\"owner\",\"role\":\"owner\",\"character\":null}");
+            await OWFolderExport.ExportAsync(new OWClient(new OWClientConfig
+            {
+                ApiKey = key, World = "w-1", Transport = transport, BaseUrl = "https://www.onlyworlds.com/api/v2",
+            }), _folder, Options);
+            var world = OWFolderWriter.Parse(File.ReadAllText(Path.Combine(_folder, "world.json")));
+
+            Assert.IsFalse(world.ContainsKey("exported_as"), "an account token or no key has no /me: the slice is unknown");
+            Assert.AreEqual("w-1", (string)world["source"]["world"]);
+            Assert.IsFalse(transport.Calls.Any(c => c.Url.Contains("/me")), "no /me was asked");
+        }
+
         [Test]
         public async Task AGuestWhoseCharacterCannotBeRead_WritesNoExportedAs()
         {

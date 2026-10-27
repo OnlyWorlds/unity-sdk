@@ -474,6 +474,11 @@ namespace OnlyWorlds.Sdk
         private static async Task<JObject> ExportedAsAsync(OWClient client, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
+
+            // An account token or a keyless reader names its world (OWClient.World) and holds no world key, so it has no
+            // /me to ask, and the client refuses the call before sending: the slice is unknown, the export stands.
+            if (client.World != null) return null;
+
             JObject me;
             try { me = await client.GetMeAsync(ct).ConfigureAwait(false); }
             catch (Exception e) when (Unavailable(e)) { return null; }
