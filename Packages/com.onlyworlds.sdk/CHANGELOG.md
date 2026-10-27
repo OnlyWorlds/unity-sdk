@@ -58,7 +58,8 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   `segments`, no longer `no_world`). A JSON moment with a zero fraction is a whole step (`3.0` writes `@3`), and one
   past 64 bits refuses as `bad_moment` instead of throwing. An empty string is present, not absent: only a JSON null or
   a missing key is absent, so `world: ""` refuses as `bad_world`, `lens: ""` as `bad_lens`, and `type: ""` with
-  `id: ""` as `unknown_type`.
+  `id: ""` as `unknown_type`. The JSON overload throws `ArgumentException` for a key the shape does not hold (`wrold`,
+  `Type`), as the packages throw a `TypeError`; a reading's `world_is_slug` and `canonical` are keys of it, ignored.
 
 ### Fixed
 

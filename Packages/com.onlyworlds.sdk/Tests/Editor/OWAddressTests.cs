@@ -294,5 +294,20 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual($"ow://{World}",
                 OWAddress.ElementAddress(JObject.Parse($"{{\"form\": \"text\", \"world\": \"{World}\", \"type\": null, \"id\": null, \"lens\": null, \"moment\": null}}")));
         }
+
+        [Test]
+        public void AKeyTheShapeDoesNotHold_IsAnArgumentError_NotARefusal()
+        {
+            foreach (var key in new[] { "wrold", "Type", "ID", "x" })
+            {
+                var json = $"{{\"form\": \"text\", \"world\": \"{World}\", \"{key}\": null}}";
+                var e = Assert.Throws<ArgumentException>(() => OWAddress.ElementAddress(JObject.Parse(json)), json);
+                StringAssert.Contains("'" + key + "'", e.Message);
+            }
+
+            // A reading's two flags are keys of the shape, and ignored.
+            Assert.AreEqual($"ow://{World}",
+                OWAddress.ElementAddress(JObject.Parse($"{{\"form\": \"text\", \"world\": \"{World}\", \"world_is_slug\": true, \"canonical\": \"no\"}}")));
+        }
     }
 }

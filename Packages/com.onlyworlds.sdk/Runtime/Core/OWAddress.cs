@@ -159,6 +159,9 @@ namespace OnlyWorlds.Sdk
         /// <summary>The one query key the profile reads.</summary>
         public const string LensKey = "lens";
 
+        /// <summary>The keys of an address as JSON: its parts, and a reading's two flags.</summary>
+        private static readonly string[] JsonKeys = { "form", "world", "type", "id", "lens", "moment", "world_is_slug", "canonical" };
+
         /// <summary>The reading of <paramref name="text"/>, or null when the profile refuses it.</summary>
         public static OWAddressReading ParseLink(string text) => TryParseLink(text, out var reading, out _) ? reading : null;
 
@@ -200,12 +203,20 @@ namespace OnlyWorlds.Sdk
         /// <see cref="OWAddressRefusal.BadMoment"/>; <c>3.0</c> is the step 3. Only a JSON null or a missing key is
         /// absent: an empty string is present and refuses as that part would (<c>world: ""</c> as
         /// <see cref="OWAddressRefusal.BadWorld"/>). Refusals come in the writer's order: <c>bad_form</c>,
-        /// <c>segments</c>, <c>no_world</c>, then the reader's.
+        /// <c>segments</c>, <c>no_world</c>, then the reader's. A key outside those six (and a reading's
+        /// <c>world_is_slug</c> and <c>canonical</c>, which are ignored) is not an address's part.
         /// </summary>
         /// <exception cref="OWAddressException">The parts are refused.</exception>
+        /// <exception cref="ArgumentException">A key the shape does not hold (a misspelling, another case).</exception>
         public static string ElementAddress(JObject address)
         {
             if (address == null) throw new ArgumentNullException(nameof(address));
+            foreach (var property in address.Properties())
+            {
+                if (Array.IndexOf(JsonKeys, property.Name) < 0)
+                    throw new ArgumentException("Not a key of an address: '" + property.Name + "'. The keys are "
+                                                + string.Join(", ", JsonKeys) + ".", nameof(address));
+            }
 
             var form = Part(address, "form");
             var world = Part(address, "world");
