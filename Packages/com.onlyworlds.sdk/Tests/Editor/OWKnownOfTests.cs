@@ -154,7 +154,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public void TheKeptKeys_AreKeels_AndTheVersionIs0316()
         {
             CollectionAssert.AreEquivalent(Kept, OWFolderExport.KnownOfKeeps);
-            Assert.AreEqual("0.3.18", OWFolderExport.FormatVersion);
+            Assert.AreEqual("0.3.19", OWFolderExport.FormatVersion);
         }
 
         [Test]
@@ -279,6 +279,20 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsFalse(dev.Body.ContainsKey("physicality"));
             Assert.IsFalse(dev.Body.ContainsKey("friends"));
             Assert.IsFalse(read.Elements.Single(e => e.Id == Mara).KnownOf);
+        }
+
+        [Test]
+        public async Task TheReader_ListsTheStubs_IdAscendingByCodePoint()
+        {
+            // U+1F600 is a surrogate pair (D83D DE00), which UTF-16 code-unit order puts below U+E000; by code point it is
+            // above. The two orders agree on ASCII ids, so only ids like these tell them apart.
+            const string astral = "\U0001F600-0000-7000-8000-00000000000d";
+            const string privateUse = "-0000-7000-8000-00000000000a";
+            var read = OWFolderReader.Read(await Export("w",
+                With(StubDev(), new[] { ("id", (JToken)astral), ("name", (JToken)"Ann") }),
+                With(StubDev(), new[] { ("id", (JToken)privateUse), ("name", (JToken)"Bob") })));
+
+            CollectionAssert.AreEqual(new[] { privateUse, astral }, read.KnownOf);
         }
 
         [Test]

@@ -108,7 +108,7 @@ namespace OnlyWorlds.Sdk
     public static class OWFolderExport
     {
         /// <summary>The OW Folder Format version an export declares in <c>world.json</c>.</summary>
-        public const string FormatVersion = "0.3.18";
+        public const string FormatVersion = "0.3.19";
 
         /// <summary>The name this package publishes under: the <c>tool</c> of the <c>producer</c> line it writes.</summary>
         public const string ProducerTool = "com.onlyworlds.sdk";
@@ -716,8 +716,9 @@ namespace OnlyWorlds.Sdk
         /// </summary>
         /// <remarks>
         /// Two elements whose short names land on one path, compared case-folded because NTFS and APFS
-        /// resolve them to one file, are settled id-ascending: the lowest id keeps the short form, every
-        /// other takes the full id. Whatever order the pages came in, every writer and every re-run picks
+        /// resolve them to one file, are settled id-ascending by Unicode code point (<see cref="OWCodePointComparer"/>,
+        /// as the reference writers sort; UTF-16 code-unit order disagrees above U+FFFF): the lowest id keeps the short
+        /// form, every other takes the full id. Whatever order the pages came in, every writer and every re-run picks
         /// the same names. <see cref="OWFolderWriter.WriteElement"/> is not used here: it settles a
         /// collision by which element was written first, and it rereads the whole directory per element.
         /// </remarks>
@@ -737,7 +738,7 @@ namespace OnlyWorlds.Sdk
             var filenames = new Dictionary<string, string>(StringComparer.Ordinal);
             foreach (var ids in buckets.Values)
             {
-                ids.Sort(StringComparer.Ordinal);
+                ids.Sort(OWCodePointComparer.Instance);
                 for (var i = 0; i < ids.Count; i++)
                 {
                     filenames[ids[i]] = i == 0

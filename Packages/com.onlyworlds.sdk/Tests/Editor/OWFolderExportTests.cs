@@ -65,7 +65,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// <c>world_for_disk</c>: only <c>format_version</c> changed, and the three <c>origin</c> cases below are its output
     /// too; v0.3.17 with the package's 0.38.0, the four world cases re-run 2026-10-23: only <c>format_version</c>
     /// changed; v0.3.18 with the package's 0.42.0, the same four the same day: only <c>format_version</c>
-    /// changed), not what this SDK happens to write. Its known-of stubs (v0.3.10) are <see cref="OWKnownOfTests"/>.
+    /// changed; v0.3.19, the six world cases re-run 2026-10-27 against the package's <c>world_for_disk</c> at
+    /// <c>FORMAT_VERSION</c> 0.3.19: only <c>format_version</c> changed), not what this SDK happens to write. Its known-of stubs (v0.3.10) are <see cref="OWKnownOfTests"/>.
     /// </summary>
     public class OWFolderExportTests
     {
@@ -121,10 +122,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             var disk = OWFolderExport.WorldForDisk(wire);
 
-            // package: {'id': 'w', 'name': 'n', 'time_current': 3, 'x': 1, 'format_version': '0.3.18'}
+            // package: {'id': 'w', 'name': 'n', 'time_current': 3, 'x': 1, 'format_version': '0.3.19'}
             CollectionAssert.AreEqual(new[] { "id", "name", "time_current", "x", "format_version" }, Keys(disk));
             Assert.AreEqual(3, (int)disk["time_current"]);
-            Assert.AreEqual("0.3.18", (string)disk["format_version"]);
+            Assert.AreEqual("0.3.19", (string)disk["format_version"]);
         }
 
         [Test]
@@ -134,7 +135,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             var disk = OWFolderExport.WorldForDisk(wire);
 
-            // package: {'id': 'w', 'name': '', 'time_range_current': 3, 'time_current': 4, 'format_version': '0.3.18'}
+            // package: {'id': 'w', 'name': '', 'time_range_current': 3, 'time_current': 4, 'format_version': '0.3.19'}
             CollectionAssert.AreEqual(new[] { "id", "name", "time_range_current", "time_current", "format_version" }, Keys(disk));
             Assert.AreEqual(3, (int)disk["time_range_current"]);
             Assert.AreEqual(4, (int)disk["time_current"]);
@@ -166,7 +167,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 JObject.Parse("{\"id\":\"w\",\"name\":\"n\",\"snapshot_of\":\"o\",\"snapshot_counts\":{\"a\":9}}"),
                 new Dictionary<string, int> { { "character", 2 }, { "map", 0 } });
 
-            // package: {..., 'snapshot_of': 'o', 'snapshot_counts': {'character': 2}, 'format_version': '0.3.18'}
+            // package: {..., 'snapshot_of': 'o', 'snapshot_counts': {'character': 2}, 'format_version': '0.3.19'}
             CollectionAssert.AreEqual(new[] { "id", "name", "snapshot_of", "snapshot_counts", "format_version" }, Keys(disk));
             Assert.AreEqual("{\"character\":2}", disk["snapshot_counts"].ToString(Newtonsoft.Json.Formatting.None));
         }
@@ -217,7 +218,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var disk = OWFolderExport.WorldForDisk(OWFolderWriter.Parse(
                 "{\"id\":\"w\",\"name\":\"n\",\"origin\":" + FirstImport + ",\"source\":" + ThisFoldersSource + "}"));
 
-            // package: {'id': 'w', 'name': 'n', 'origin': first, 'source': src, 'format_version': '0.3.18'}
+            // package: {'id': 'w', 'name': 'n', 'origin': first, 'source': src, 'format_version': '0.3.19'}
             CollectionAssert.AreEqual(new[] { "id", "name", "origin", "source", "format_version" }, Keys(disk));
             Assert.IsTrue(JToken.DeepEquals(OWFolderWriter.Parse(FirstImport), disk["origin"]), "the first import, as given");
             Assert.IsTrue(JToken.DeepEquals(OWFolderWriter.Parse(ThisFoldersSource), disk["source"]), "beside this folder's own line");
@@ -230,7 +231,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 "{\"id\":\"w\",\"name\":\"n\",\"source\":" + ThisFoldersSource
                 + ",\"producer\":{\"tool\":\"atlas\",\"version\":\"1.82.0\",\"input\":\"bare\"}}"));
 
-            // package: {'id': 'w', 'name': 'n', 'source': src, 'producer': {...}, 'format_version': '0.3.18'}
+            // package: {'id': 'w', 'name': 'n', 'source': src, 'producer': {...}, 'format_version': '0.3.19'}
             CollectionAssert.AreEqual(new[] { "id", "name", "source", "producer", "format_version" }, Keys(disk));
         }
 
@@ -243,7 +244,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 + "\"x_names\":{\"version\":1},\"atlas_c\":1,\"shadow_s\":[1]}"));
 
             // package: {'id': 'w', 'name': 'n', 'origin': {'source': None, 'producer': None}, 'x_names': {'version': 1},
-            //           'atlas_c': 1, 'shadow_s': [1], 'format_version': '0.3.18'}
+            //           'atlas_c': 1, 'shadow_s': [1], 'format_version': '0.3.19'}
             CollectionAssert.AreEqual(new[] { "id", "name", "origin", "x_names", "atlas_c", "shadow_s", "format_version" }, Keys(disk));
             Assert.AreEqual("{\"source\":null,\"producer\":null}", disk["origin"].ToString(Newtonsoft.Json.Formatting.None));
             Assert.AreEqual("{\"version\":1}", disk["x_names"].ToString(Newtonsoft.Json.Formatting.None));
@@ -308,7 +309,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 + "    \"world\": \"0695db52-0000-7000-8000-000000000001\",\n    \"at\": \"2026-10-19T21:00:00.005Z\"\n  },\n"
                 + "  \"producer\": {\n    \"tool\": \"com.onlyworlds.sdk\",\n    \"version\": \"" + OWFolderExport.ProducerVersion + "\",\n"
                 + "    \"input\": \"server\"\n  },\n"
-                + "  \"format_version\": \"0.3.18\"\n}\n",
+                + "  \"format_version\": \"0.3.19\"\n}\n",
                 Text(Path.Combine(_folder, "world.json")));
 
             Assert.AreEqual(
@@ -328,6 +329,25 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             CollectionAssert.AreEquivalent(new[] { "elements", "world.json" }, Directory.GetFileSystemEntries(_folder).Select(Path.GetFileName));
             CollectionAssert.AreEquivalent(new[] { "character", "map" }, Directory.GetDirectories(Path.Combine(_folder, "elements")).Select(Path.GetFileName));
             CollectionAssert.AreEqual(new[] { "world" }, Leftovers());
+        }
+
+        // -- The served-trimmed mark (§4.4 rule 6, v0.3.19): kept exactly as served, read back as trimmed ----
+
+        [Test]
+        public async Task Export_KeepsTheServedTrimmedMarkAsServed_AndTheFolderReadsItBackAsTrimmed()
+        {
+            const string trimmed =
+                "{\"id\":\"019a3b10-0000-7000-8000-000000000c01\",\"type\":\"narrative\",\"name\":\"Hello\","
+                + "\"supertype\":\"Message\",\"narrator\":null,\"characters\":[],"
+                + "\"x_served_trimmed\":[\"characters\",\"narrator\"]}";
+            await OWFolderExport.ExportAsync(Client(Testmoor().Type("narrative", Page(trimmed))), _folder, NoMedia);
+
+            var file = Text(Path.Combine(_folder, "elements", "narrative", "hello--00000c01.json"));
+            StringAssert.Contains("  \"x_served_trimmed\": [\n    \"characters\",\n    \"narrator\"\n  ]\n", file);
+
+            var body = OWFolderReader.Read(_folder).Elements.Single(e => e.Type == "narrative").Body;
+            Assert.AreEqual("[\"characters\",\"narrator\"]", body["x_served_trimmed"].ToString(Newtonsoft.Json.Formatting.None));
+            Assert.AreEqual(true, OWMessage.HasUnseenRecipients(body), "a field the mark names reads as trimmed, never as empty");
         }
 
         [Test]
@@ -376,6 +396,31 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 { "22222222-0000-7000-8000-00000000ABCD", "ann--22222222-0000-7000-8000-00000000ABCD.json" },
                 { "33333333-0000-7000-8000-000000000001", "33333333-0000-7000-8000-000000000001.json" },
                 { "44444444-0000-7000-8000-000000000002", "44444444-0000-7000-8000-000000000002.json" },
+            };
+            var directory = Path.Combine(_folder, "elements", "character");
+            var actual = Directory.GetFiles(directory).ToDictionary(
+                f => (string)OWFolderWriter.ReadJsonFile(f)["id"], Path.GetFileName);
+            CollectionAssert.AreEquivalent(expected, actual);
+        }
+
+        [Test]
+        public async Task Export_CollisionRule_IdAscendingByCodePoint_AboveTheBasicPlane()
+        {
+            // Two Anns share a tail. U+1F600 is a surrogate pair (D83D DE00), which UTF-16 code-unit order puts below
+            // U+E000; by code point it is above, so the private-use id is the lowest and keeps the short form. It
+            // arrives second, so a writer that settles by arrival names them wrong too.
+            const string astral = "\U0001F600-0000-7000-8000-00000000abcd";
+            const string privateUse = "-0000-7000-8000-00000000abcd";
+            var transport = new RouteTransport { World = "{\"id\":\"w\",\"name\":\"n\"}" }.Type("character", Page(
+                new JObject { ["id"] = astral, ["name"] = "Ann" }.ToString(Newtonsoft.Json.Formatting.None),
+                new JObject { ["id"] = privateUse, ["name"] = "Ann" }.ToString(Newtonsoft.Json.Formatting.None)));
+
+            await OWFolderExport.ExportAsync(Client(transport), _folder, NoMedia);
+
+            var expected = new Dictionary<string, string>
+            {
+                { privateUse, "ann--0000abcd.json" },
+                { astral, "ann--" + astral + ".json" },
             };
             var directory = Path.Combine(_folder, "elements", "character");
             var actual = Directory.GetFiles(directory).ToDictionary(

@@ -49,9 +49,17 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
-- The schema pin moves to dist.78 (`v0.33.0-dist.78`). Serial 77 adds the address profile (`profiles/address.md` and
-  its 133-case fixture); serial 78 adds the lens profile (`profiles/lens.md` and its 84-case fixture). Nothing else
-  moved, and no generated model changed.
+- The schema pin moves to dist.79 (`v0.33.0-dist.79`). Serial 77 adds the address profile (`profiles/address.md` and
+  its 133-case fixture); serial 78 adds the lens profile (`profiles/lens.md` and its 84-case fixture); serial 79 adds
+  four Note cases to the message profile's fixture (81 to 85: a Note has no recipients and is never unread even when
+  its `characters` names the reader, is never in a thread, and a hidden mark that is not a boolean hides it like
+  `true`), which `OWMessage` already answered, and moves the folder check to format 0.3.19. The fixture's test copy is
+  re-vendored. No schema file moved, and no generated model changed.
+- Folders declare format 0.3.19. The version rules the served-trimmed mark in a folder (§4.4 rule 6): a file keeps
+  `x_served_trimmed` exactly as the server served it, a reader reads a field the mark names as trimmed, never as
+  empty, and a writer never sends the mark up. This SDK already kept the mark byte for byte on export and on read
+  (`OWMessage.HasUnseenRecipients` reads it), and it has no push from a folder, so nothing else moved; a test now
+  holds the export and the read-back to it.
 - `OWAddress.ElementAddress` reads three things as the TypeScript SDK 4.89.1 and the Python package 0.73.1 do, where
   the profile's fixture is silent and the two packages agree. When several parts are wrong, the writer names
   `bad_form` first, then `segments`, then `no_world`, then the reader's order (a type with no id and no world is
@@ -72,6 +80,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   do (the TypeScript SDK and the Python package). It had compared ids by UTF-16 code unit, which diverges only for ids
   with a character outside the Basic Multilingual Plane (a surrogate pair sorted below U+FFFF, not above it); the hex
   ids a world holds are ASCII and were never affected.
+- The folder writers settle a filename collision id-ascending by Unicode code point, as the folder format's tie-break
+  and the reference writers do (§3.2: the lowest id keeps the short name), and `OWFolderReadResult.KnownOf` lists its
+  ids in the same order. `OWFolderExport` and `OWFolderWriter.Write` had compared ids by UTF-16 code unit, so an id
+  with a character above U+FFFF sorted below one with a character in U+E000 to U+FFFF and could take the other's short
+  name; ASCII ids, which every id a world mints is, were never affected. One comparer now serves the folder code and
+  `OWLens`, whose order is unchanged.
 - The message profile's shared edge cases, the file the TypeScript SDK 4.89.1 and the Python package both hold (26 cases:
   what a Note is to every reader, the `created_at` order, an edit, a Character's line), now replay here, and the
   readings they caught are fixed. `HasUnseenRecipients` is false for a Note, keyless or not. `ThreadOf` walks a chain

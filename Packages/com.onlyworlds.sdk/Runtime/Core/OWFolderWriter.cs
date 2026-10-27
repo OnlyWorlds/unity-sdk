@@ -165,7 +165,8 @@ namespace OnlyWorlds.Sdk
         /// <remarks>
         /// <para>
         /// §3.2 (MUST, v0.3.3): two elements whose short names land on one path are settled
-        /// id-ascending -- the lowest id keeps the short form, every other takes the full id -- so
+        /// id-ascending by Unicode code point (<see cref="OWCodePointComparer"/>) -- the lowest id keeps the
+        /// short form, every other takes the full id -- so
         /// every writer and every re-run picks the same names, whatever order the elements came in.
         /// Written lowest id first, each element meets only lower ids already in place, and that is
         /// the rule. Into an empty folder this names files exactly as the onlyworlds package's
@@ -197,7 +198,7 @@ namespace OnlyWorlds.Sdk
             var order = Enumerable.Range(0, list.Count).ToList();
             order.Sort((x, y) =>
             {
-                var c = string.CompareOrdinal(ids[x], ids[y]);
+                var c = OWCodePointComparer.Instance.Compare(ids[x], ids[y]);
                 return c != 0 ? c : x.CompareTo(y);
             });
 
