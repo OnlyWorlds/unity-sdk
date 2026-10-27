@@ -21,6 +21,10 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   members)`: a Note (a Narrative with supertype `Note`) is a member's own line in the world, never a message, and
   `NoteOf` gives a Character's newest Note in its own hand (on the wire, a verified sender; in a folder, its
   `narrator`), neither hidden nor proposed. The profile's fixture, now 81 cases, is the test.
+- `OWApiError.IsServedTrimmedNotWritable`: an element write that carried `x_served_trimmed` is refused as 422
+  `served_trimmed_not_writable`. The client sends a body as it was read and leaves the refusal to the server (ruled
+  2026-10-27, one rule for every package), so the refusal is the signal that a trimmed body is being written back:
+  drop the mark and send again, and the trimmed list loses nobody.
 
 ### Changed
 

@@ -88,6 +88,15 @@ namespace OnlyWorlds.Sdk
         public bool IsKnownOfNotWritable => StatusCode == 422 && Code == "known_of_not_writable";
 
         /// <summary>
+        /// An element write carried <c>x_served_trimmed</c> (422 <c>served_trimmed_not_writable</c>), the server's mark
+        /// on a body it served with ids the reader's key may not see left out. The mark is never written, and this
+        /// client sends a body as it was read, so the refusal is the signal that a trimmed body is being written back.
+        /// Drop the mark and send again: a trimmed list sent back loses nobody, because the server keeps the ids the
+        /// writer cannot see.
+        /// </summary>
+        public bool IsServedTrimmedNotWritable => StatusCode == 422 && Code == "served_trimmed_not_writable";
+
+        /// <summary>
         /// A contributor or guest key changed, relinked or deleted an element someone else created
         /// (403 <c>not_author</c>). Retrying will not help.
         /// </summary>

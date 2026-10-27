@@ -638,6 +638,38 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsFalse(other.IsCharacterPlayed, "the code on another status is not it");
         }
 
+        // The served-trimmed mark (schema-dist message profile, serial 76): the client leaves it in, keel refuses it by
+        // name (ruled 2026-10-27, one rule for every package).
+
+        [Test]
+        public async Task AMessageReadTrimmed_IsSentBackAsRead_TheMarkLeftForTheServerToRefuse()
+        {
+            var read = OWJson.Deserialize<OWNarrative>(
+                @"{""id"":""m"",""name"":""Hello"",""supertype"":""Message"",""narrator"":null,""characters"":[],
+                  ""x_served_trimmed"":[""characters"",""narrator""],""x_room_of"":""r""}");
+            var t = new FakeTransport();
+            await Make(t).PatchAsync<JObject>("narrative", "m", read);
+            Assert.IsTrue(t.LastBody.ContainsKey("x_served_trimmed"), "the client never strips an x_ key; keel refuses this one");
+            Assert.AreEqual("r", (string)t.LastBody["x_room_of"]);
+        }
+
+        [Test]
+        public void AWriteCarryingTheMark_IsServedTrimmedNotWritable_OnlyAsA422()
+        {
+            var t = new FakeTransport
+            {
+                Status = 422,
+                ResponseBody = @"{""error"":{""type"":""invalid_request"",""code"":""served_trimmed_not_writable"",""param"":""x_served_trimmed"",
+                    ""message"":""x_served_trimmed is set by the server and is never written.""}}",
+            };
+            var e = Assert.ThrowsAsync<OWApiError>(() => Make(t).GetWorldAsync());
+            Assert.AreEqual((true, false), (e.IsServedTrimmedNotWritable, e.IsKnownOfNotWritable));
+
+            t.Status = 400;
+            Assert.IsFalse(Assert.ThrowsAsync<OWApiError>(() => Make(t).GetWorldAsync()).IsServedTrimmedNotWritable,
+                "the code on another status is not it");
+        }
+
         // The PATCH and link-write precondition (npm c1d5d2a's vectors).
 
         [Test]
