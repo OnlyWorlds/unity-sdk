@@ -5,7 +5,7 @@
     "X-Session-Token",
     "Authorization"
   ],
-  "document_sha256": "a340e7637a865af13817c9f36224197f3f9d5393299eafe3d8446286be52ae6f",
+  "document_sha256": "dfe7098647570ac3d4d5778f3de25b6d8987c038d62c3bc4bbe6443b390bf9a0",
   "error_codes": {
     "already_member": 409,
     "already_reported": 409,
@@ -79,7 +79,7 @@
     "world_full": 422,
     "write_failed": 502
   },
-  "fetched": "2026-10-27T15:55+01:00",
+  "fetched": "2026-10-27T17:55+01:00",
   "openapi_version": "2.0",
   "paths": {
     "/api/v2/ability": {
@@ -1077,7 +1077,8 @@
           "members[].role",
           "members[].roster_character",
           "members[].sponsor",
-          "members[].username"
+          "members[].username",
+          "members[].x_served_trimmed"
         ]
       }
     },
@@ -1108,7 +1109,8 @@
           "role",
           "roster_character",
           "sponsor",
-          "username"
+          "username",
+          "x_served_trimmed"
         ]
       }
     },
@@ -6420,6 +6422,7 @@
           "members[].name",
           "members[].role",
           "members[].status",
+          "members[].x_served_trimmed",
           "next",
           "pin",
           "role",
@@ -9683,7 +9686,8 @@
           "scope",
           "world",
           "world.id",
-          "world.name"
+          "world.name",
+          "x_served_trimmed"
         ]
       }
     },
@@ -9711,7 +9715,8 @@
           "scope",
           "world",
           "world.id",
-          "world.name"
+          "world.name",
+          "x_served_trimmed"
         ]
       }
     },
@@ -9721,7 +9726,9 @@
           "lenses"
         ],
         "header": [],
-        "query": [],
+        "query": [
+          "world"
+        ],
         "response": [
           "character",
           "front_door",
@@ -9739,7 +9746,8 @@
           "scope",
           "world",
           "world.id",
-          "world.name"
+          "world.name",
+          "x_served_trimmed"
         ]
       }
     },
@@ -9788,7 +9796,8 @@
           "data[].lenses",
           "data[].name",
           "data[].role",
-          "data[].status"
+          "data[].status",
+          "data[].x_served_trimmed"
         ]
       }
     },
