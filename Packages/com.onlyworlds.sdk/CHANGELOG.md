@@ -6,12 +6,6 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
-## [0.23.0] - 2026-10-27
-
-The message profile's serial 76 in `OWMessage`: a reader can tell a message with recipients it cannot see, a body
-read with no key, a sender it cannot see, an edit by another hand, and a member's own Note, which is never a
-message. The pin moves to dist.76. A minor release because it adds public API (below).
-
 ### Added
 
 - **`OWAddress`, the address profile** (schema-dist `profiles/address.md`, serial 77, ruled 2026-10-26): one element
@@ -30,6 +24,20 @@ message. The pin moves to dist.76. A minor release because it adds public API (b
   take (`elementAddress`, `parseOwLink`). Only `https` on `www.onlyworlds.com` is the human form: `http`, the bare host
   and any other host are not addresses. A field that holds an address is public text: never resolve it on a server.
   The type words are the generated list. The profile's fixture, 133 cases, is the test.
+
+### Changed
+
+- The schema pin moves to dist.77 (`v0.33.0-dist.77`): serial 77 adds the address profile (`profiles/address.md` and
+  its 133-case fixture) and nothing else. No generated model changed.
+
+## [0.23.0] - 2026-10-27
+
+The message profile's serial 76 in `OWMessage`: a reader can tell a message with recipients it cannot see, a body
+read with no key, a sender it cannot see, an edit by another hand, and a member's own Note, which is never a
+message. The pin moves to dist.76. A minor release because it adds public API (below).
+
+### Added
+
 - **`OWMessage`, serial 76 of the message profile** (schema-dist `profiles/message.md`, rulings of 2026-10-26).
   `HasUnseenRecipients(message, keyless)` reads the server's served-trimmed mark (`x_served_trimmed`,
   `OWMessage.ServedTrimmedKey`, set on a body served to a key that may not see every Character, with those ids left
@@ -55,9 +63,8 @@ message. The pin moves to dist.76. A minor release because it adds public API (b
   mark is not to everyone either: `IsAddressedTo` reads it as addressed to no Character the reader is given, and a
   list that still holds ids beside the mark is addressed to those ids. A Note is addressed to nobody, never unread and
   never in a thread, whatever its `characters` holds (`RecipientsOf` gives none for it).
-- The schema pin moves to dist.77 (`v0.33.0-dist.77`). Serial 76 moved only the message profile, its page and its
-  fixture (55 cases to 81); serial 77 adds the address profile (`profiles/address.md` and its 133-case fixture) and
-  nothing else. No generated model changed.
+- The schema pin moves to dist.76 (`v0.33.0-dist.76`): only the message profile moved, its page and its fixture (55
+  cases to 81). No generated model changed.
 
 ## [0.22.0] - 2026-10-27
 
