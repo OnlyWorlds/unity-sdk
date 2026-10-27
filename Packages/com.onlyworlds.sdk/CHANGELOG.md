@@ -46,6 +46,30 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   `IsTemplate`, `CheckKeys(xLens)` (the first key refused, or null) and `LensesFor(membership, characterUses)` (the
   membership's choice wins, an empty choice is a choice). The hop reads the generated models' link fields in the
   schema's order. The profile's fixture, 84 cases, is the test.
+- **`OWGraph`, the lens profile's graph reader** (schema-dist `profiles/lens.md`, serial 81, the graph section):
+  `OWGraph.Read(world, reader, options)` is the profile's `worldGraph(world, reader, options)`, one pure function over
+  the same world and the same `OWLensReader` as `OWLens.Resolve`, that reads the world as nodes and edges for that
+  reader and returns an `OWWorldGraph` (`Nodes`, `Edges`, `EdgesCut`, `Cut`, `RefusedKey` for the profile's
+  `unreadable`, and `ToJson()` in the profile's words); nothing is stored or written. A node (`OWGraphNode`) is the
+  element's `Id`, `Type`, `Name`, and its type's `Family` and `Icon` from the presentation sidecar, with `Marks`
+  (`room`, `hidden`, `proposed`) on an element a flag brought back and `KnownOf` on a guest's known-of stub, which has
+  no edges out. An edge (`OWGraphEdge`) is one `Source`, `Field`, `Target` and `Index`, one per element, field and
+  target, from the schema's link fields and the two declared extension links (`x_lens_leads_to`,
+  `x_spine_depends_on`); `Index` is the target's place in the list as the reader is served it, and a link held on both
+  ends is two edges. Nodes sort by id and edges by source, field and index, each by code point. Without a lens the
+  nodes are every element the reader sees less room elements, hidden ones, proposed ones and map space (Map, Pin,
+  Marker, Zone); `OWGraphOptions.Rooms`, `Hidden`, `Proposed` and `MapSpace` bring each back, and `Cut` counts what
+  stayed out. With a lens (`Lens`, a body, or `LensId`, one the reader is served whole) the nodes are exactly the
+  lens's kept, its cut rides along unchanged, and no flag adds to it; a lens whose `x_lens` cannot be read gives an
+  empty graph naming the key. A link to an element that is not a node is counted in `EdgesCut` by its target's reason
+  (`OWGraphCut`: the lens's cut reason, which wins over `not_visible`; with a lens, `outside_lens` for one the reader
+  sees that the lens neither kept nor cut, counted for every reader; without one, the first of the four kinds not
+  brought back; `not_visible` for one the reader does not see), and a reader that is not the owner never carries
+  `anchor_not_visible`, `not_visible`, `hidden` or `proposed`; a link to an id not in the world is not counted.
+  `Hidden` or `Proposed` from a reader that is not the owner, or any flag from the public reader, throws
+  `OWGraphRefusedException` naming the flag (`Flag`) before the world is read; the owner reading as another reader is
+  judged by that reader's rung. Parity with the TypeScript SDK 4.93.0, its test vectors and the fixture's graph cases:
+  the 34 cases replay with the section's invariants checked on every answer.
 - **`OWClientConfig.World`: an account token, or no key, reads the world it names.** A client built with an account
   token (`ow_a_`) and `World = <world id>` sends `world=<id>` (escaped, beside the call's own parameters, on every page
   of `ListAllAsync`) with its Bearer and no `API-Key` or `API-Pin` on `ListAsync`, `ListAllAsync`, `GetAsync` and
@@ -113,6 +137,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Fixed
 
+- `OWLens.Resolve` reads three rules as the lens profile and both reference readers (the TypeScript SDK and the Python
+  package) read them. An element whose `x_review_proposed` holds any value but null, a doubt as well as a mark, is in
+  no reader's view (the review profile's rule for a reader that hands a world on); it had left out only an object. An
+  entry whose type is not one of the standard's is not in the world; a filter lens had kept it. An element that is not
+  a lens resolves to nothing, its `x_lens` unread; it had been read as a lens. The fixture's cases did not reach any of
+  the three.
 - `OWLens.Resolve` now breaks the kept elements' id tie by Unicode code point, as the lens profile's reference readers
   do (the TypeScript SDK and the Python package). It had compared ids by UTF-16 code unit, which diverges only for ids
   with a character outside the Basic Multilingual Plane (a surrogate pair sorted below U+FFFF, not above it); the hex

@@ -249,8 +249,8 @@ namespace OnlyWorlds.Sdk
     /// recipe is legal (<see cref="CheckKeys"/>), what it keeps for a reader
     /// (<see cref="Resolve(IEnumerable{JToken}, JObject, OWLensReader, OWLensOptions)"/>), and which lenses a seat reads
     /// (<see cref="LensesFor"/>). Element bodies are <see cref="JObject"/>s as the API or a world folder gives them; a world
-    /// is any sequence of them (a <see cref="JArray"/> too), and an entry that is not an object with a string id is passed
-    /// by.
+    /// is any sequence of them (a <see cref="JArray"/> too), and an entry that is not an object with a string id and one of
+    /// the standard's types is passed by.
     /// </summary>
     /// <remarks>
     /// A lens only narrows: it is read inside what its reader may already see, never past it. The reader is pure: it
@@ -439,7 +439,7 @@ namespace OnlyWorlds.Sdk
         {
             if (reader == null) throw new ArgumentNullException(nameof(reader));
             var view = new View(world, reader);
-            return Finish(new Reading(view, options), lens);
+            return Finish(new Reading(view, options), lens, out _);
         }
 
         /// <summary>
@@ -452,7 +452,7 @@ namespace OnlyWorlds.Sdk
             if (reader == null) throw new ArgumentNullException(nameof(reader));
             var view = new View(world, reader);
             var lens = lensId != null && view.Whole.Contains(lensId) ? view.Els[lensId] : null;
-            return Finish(new Reading(view, options), lens);
+            return Finish(new Reading(view, options), lens, out _);
         }
 
         /// <summary>The bodies a reader is served, in the world's order: stubs as stubs, links to what it cannot see left out.</summary>
@@ -470,10 +470,17 @@ namespace OnlyWorlds.Sdk
 
         // -- Resolution ----------------------------------------------------------------
 
-        private static OWLensResult Finish(Reading reading, JObject lens)
+        /// <summary>
+        /// A lens read over one reading's world: the result <see cref="Resolve(IEnumerable{JToken}, JObject, OWLensReader, OWLensOptions)"/>
+        /// answers, and <paramref name="cutById"/>, the reason each element it left out was cut, by id, before the counts
+        /// drop the owner's two (the graph reader counts a link by its target's reason). An element that is not a lens
+        /// resolves to nothing, its <c>x_lens</c> unread.
+        /// </summary>
+        internal static OWLensResult Finish(Reading reading, JObject lens, out IReadOnlyDictionary<string, string> cutById)
         {
             var empty = new OWLensResult(new List<string>(), new List<JObject>(), new Dictionary<string, int>(), 0, null, null);
-            if (lens == null) return empty;
+            cutById = new Dictionary<string, string>();
+            if (lens == null || !IsLens(lens)) return empty;
             var bad = CheckKeys(lens[Field]);
             if (bad != null)
                 return new OWLensResult(new List<string>(), new List<JObject>(), new Dictionary<string, int>(), 0, null, bad);
@@ -488,6 +495,7 @@ namespace OnlyWorlds.Sdk
             }
 
             var rows = part.Kept.Select(i => Row(view, i, part.Recipe)).ToList();
+            cutById = part.Cut;
             return new OWLensResult(part.Kept, rows, counts, part.NotesIgnored, part.Mail, null);
         }
 
@@ -840,16 +848,27 @@ namespace OnlyWorlds.Sdk
 
         // -- The pieces ------------------------------------------------------------------
 
-        /// <summary>What one reader is served of a world: whole bodies, known-of stubs, the links between them.</summary>
-        private sealed class View
+        /// <summary>
+        /// What one reader is served of a world: whole bodies, known-of stubs, the links between them. An entry whose
+        /// type, trimmed and folded, is not one of the standard's is not in the world (the TypeScript SDK's and the
+        /// Python package's readers pass it by too).
+        /// </summary>
+        internal sealed class View
         {
             public readonly Dictionary<string, JObject> Els = new Dictionary<string, JObject>();
             public readonly List<string> Order = new List<string>();
             public readonly HashSet<string> Whole = new HashSet<string>();
             public readonly HashSet<string> KnownOf = new HashSet<string>();
+
+            /// <summary>The ids written as proposed (a mark or a doubt): in no reader's view, the owner's included.</summary>
+            public readonly HashSet<string> Proposed = new HashSet<string>();
+
             public readonly List<string> WholeSorted;
             public readonly bool OwnerCounts;
             public readonly string Character;
+
+            /// <summary>The rung the view is built from: the reader's own, or on the owner reading as another, that reader's.</summary>
+            public readonly OWLensRung Rung;
 
             private readonly Dictionary<string, List<string>> _links = new Dictionary<string, List<string>>();
             private readonly Dictionary<string, List<string>> _fromWhole = new Dictionary<string, List<string>>();
@@ -860,11 +879,14 @@ namespace OnlyWorlds.Sdk
             {
                 OwnerCounts = reader.OwnerCounts;
                 Character = reader.Character;
+                Rung = reader.Rung;
                 foreach (var entry in world ?? Enumerable.Empty<JToken>())
                 {
                     if (!(entry is JObject e)) continue;
                     var id = StringOf(e["id"]);
                     if (string.IsNullOrEmpty(id) || Els.ContainsKey(id)) continue;
+                    var type = StringOf(e["type"]);
+                    if (type == null || Array.IndexOf(OWElementTypes.Slugs, OWProfileText.Fold(type)) < 0) continue;
                     Els[id] = e;
                     Order.Add(id);
                 }
@@ -872,7 +894,13 @@ namespace OnlyWorlds.Sdk
                 foreach (var id in Order)
                 {
                     var e = Els[id];
-                    if (OWPayload.IsProposed(e)) continue;
+                    // The review profile's rule for a reader that hands a world on: a mark or a doubt, any value but null.
+                    if (OWPayload.IsProposedOrInDoubt(e))
+                    {
+                        Proposed.Add(id);
+                        continue;
+                    }
+
                     switch (reader.Rung)
                     {
                         case OWLensRung.Owner:
@@ -1027,7 +1055,7 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>One reading's moment and the world's facts, shared by an umbrella and its children.</summary>
-        private sealed class Reading
+        internal sealed class Reading
         {
             public Reading(View view, OWLensOptions options)
             {

@@ -186,5 +186,19 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Forces a reload. For tests and for a re-vendored sidecar.</summary>
         public static void Reload() => _loaded = false;
+
+        /// <summary>
+        /// Reads the sidecar from its text, as the resource is read: for a test run outside the Editor, where
+        /// <c>Resources</c> loads nothing. The type table is read first; the colours need the engine's parser.
+        /// </summary>
+        internal static void LoadText(string json)
+        {
+            _loaded = true;
+            _familyByType = new Dictionary<string, string>();
+            _iconByType = new Dictionary<string, string>();
+            _colorByFamily = new Dictionary<string, OWFamilyColor>();
+            _familyOrder = Array.Empty<string>();
+            Parse(JObject.Parse(json));
+        }
     }
 }

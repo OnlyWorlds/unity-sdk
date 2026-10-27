@@ -259,6 +259,61 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(2, got.Cut[OWLensCut.Window], "the First Lamp (1150) and the year before the edge");
         }
 
+        /// <summary>
+        /// A proposed element is in no reader's view when its <c>x_review_proposed</c> holds any value but null: a doubt
+        /// (a string here) as well as a mark, the review profile's rule for a reader that hands a world on, as the lens
+        /// profile names it and the TypeScript SDK and the Python package read it.
+        /// </summary>
+        [Test]
+        public void AProposedDoubt_IsInNoView()
+        {
+            var world = new List<JObject>
+            {
+                new JObject { ["id"] = "c1", ["type"] = "character", ["name"] = "Ada", ["location"] = "p1" },
+                new JObject { ["id"] = "p1", ["type"] = "location", ["name"] = "Doubtful Keep", [OWPayload.ReviewProposed] = "unsure" },
+            };
+            var lens = new JObject { ["id"] = "L", ["type"] = "construct", ["supertype"] = "Lens", ["characters"] = new JArray("c1") };
+            var got = OWLens.Resolve(world, lens, OWLensReader.Owner());
+            CollectionAssert.AreEqual(new[] { "c1" }, got.Kept, "a doubt is not there to hop to");
+            Assert.AreEqual(1, got.Cut.TryGetValue(OWLensCut.NotVisible, out var n) ? n : 0, "the owner counts it as not visible");
+        }
+
+        /// <summary>An entry whose type is not one of the standard's is not in the world: a filter lens never keeps it.</summary>
+        [Test]
+        public void AnElementOfNoStandardType_IsNotInTheWorld()
+        {
+            var world = new List<JObject>
+            {
+                new JObject { ["id"] = "c1", ["type"] = "character", ["name"] = "Ada" },
+                new JObject { ["id"] = "w1", ["type"] = "widget", ["name"] = "Gadget" },
+                new JObject { ["id"] = "n1", ["name"] = "No type" },
+            };
+            var filter = new JObject { ["id"] = "L", ["type"] = "construct", ["supertype"] = "Lens" };
+            var got = OWLens.Resolve(world, filter, OWLensReader.Owner());
+            CollectionAssert.AreEqual(new[] { "c1" }, got.Kept);
+        }
+
+        /// <summary>An element that is not a lens resolves to nothing, its <c>x_lens</c> unread: no keys refused, nothing kept.</summary>
+        [Test]
+        public void AnElementThatIsNotALens_ResolvesToNothing()
+        {
+            var world = new List<JObject>
+            {
+                new JObject { ["id"] = "c1", ["type"] = "character", ["name"] = "Ada" },
+                new JObject { ["id"] = "c2", ["type"] = "character", ["name"] = "Brin" },
+            };
+            var notALens = new JObject
+            {
+                ["id"] = "k1", ["type"] = "construct", ["supertype"] = "Charter", ["characters"] = new JArray("c1"),
+                ["x_lens"] = new JObject { ["depth"] = 9 },
+            };
+            var got = OWLens.Resolve(world, notALens, OWLensReader.Owner());
+            Assert.IsTrue(got.IsReadable, "refused " + got.RefusedKey);
+            Assert.IsEmpty(got.Kept);
+            notALens.Remove("x_lens");
+            Assert.IsEmpty(OWLens.Resolve(world, notALens, OWLensReader.Owner()).Kept, "a Construct that is not a lens keeps nothing");
+        }
+
         // -- The replay ------------------------------------------------------------------
 
         private static void Resolves(JObject c)
