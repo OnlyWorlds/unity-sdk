@@ -49,9 +49,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
-- The schema pin moves to dist.78 (`v0.33.0-dist.78`). Serial 77 adds the address profile (`profiles/address.md` and
-  its 133-case fixture); serial 78 adds the lens profile (`profiles/lens.md` and its 84-case fixture). Nothing else
-  moved, and no generated model changed.
+- The schema pin moves to dist.79 (`v0.33.0-dist.79`). Serial 77 adds the address profile (`profiles/address.md` and
+  its 133-case fixture); serial 78 adds the lens profile (`profiles/lens.md` and its 84-case fixture); serial 79 adds
+  four Note cases to the message profile's fixture (81 to 85: a Note has no recipients and is never unread even when
+  its `characters` names the reader, is never in a thread, and a hidden mark that is not a boolean hides it like
+  `true`), which `OWMessage` already answered, and moves the folder check to format 0.3.19. The fixture's test copy is
+  re-vendored. No schema file moved, and no generated model changed.
 - `OWAddress.ElementAddress` reads three things as the TypeScript SDK 4.89.1 and the Python package 0.73.1 do, where
   the profile's fixture is silent and the two packages agree. When several parts are wrong, the writer names
   `bad_form` first, then `segments`, then `no_world`, then the reader's order (a type with no id and no world is
