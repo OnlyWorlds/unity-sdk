@@ -24,6 +24,28 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   take (`elementAddress`, `parseOwLink`). Only `https` on `www.onlyworlds.com` is the human form: `http`, the bare host
   and any other host are not addresses. A field that holds an address is public text: never resolve it on a server.
   The type words are the generated list. The profile's fixture, 133 cases, is the test.
+- **`OWLens`, the lens profile** (schema-dist `profiles/lens.md`, serial 78, ruled 2026-10-26): a saved way of reading
+  a world, a Construct with supertype `Lens` whose links are its anchors and whose `x_lens` recipe says what to read
+  (`depth`, `types`, `window`, `from`, `to`, `undated`, `show`, `budget`, `mail`, `notes`).
+  `OWLens.Resolve(world, lens, reader, options)` is the profile's `resolveLens(world, lens, reader)`: one pure function
+  over a world snapshot that returns an `OWLensResult` (`Kept`, the ids in the budget's order; `Rows`, as `show` makes
+  them; `Cut`, the cut counted by reason; `NotesIgnored`; `Mail`, the mail part; `RefusedKey` for an unreadable
+  recipe), and never writes. An overload takes the lens's id in the world. The reader is an `OWLensReader`
+  (`Owner`, `Contributor`, `Guest(whole, knownOf)`, `Public`, `Served` for a key's own served bodies, and
+  `WithOwnerCounts()` for the owner reading as another reader); `OWLensOptions` carries the reading's `AsOf`, the
+  world's `Now`, the mail rule's `Clock` and the members list. The ten resolution rules as the profile writes them:
+  visibility before resolution (hidden, proposed, room elements for the public reader), a hop both ways, a Relation
+  as an edge to its own parties in the same hop, the umbrella's children each once, a hop that never crosses a room
+  element, the budget's order (anchors in link order, then by type in the schema's order, newest first, then by id),
+  an anchor the reader cannot see skipped and counted only for the owner, a filter lens and a template, the `as_of`
+  fence on each element's own date (never a stub's missing one), and the mail rule read through `OWMessage` (unread
+  by the reader's own read mark, the sender verified, thirty days, the newest kept). The cut reasons are one closed
+  list, `OWLensCut` (`budget`, `types`, `window`, `undated`, `after_as_of`, `anchor_not_visible`, `not_visible`,
+  `hops_not_served`); a reader that is not the owner never carries `anchor_not_visible` or `not_visible`, not even as
+  zero. Beside it `IsLens`,
+  `IsTemplate`, `CheckKeys(xLens)` (the first key refused, or null) and `LensesFor(membership, characterUses)` (the
+  membership's choice wins, an empty choice is a choice). The hop reads the generated models' link fields in the
+  schema's order. The profile's fixture, 84 cases, is the test.
 
 ### Fixed
 
@@ -38,8 +60,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
-- The schema pin moves to dist.77 (`v0.33.0-dist.77`): serial 77 adds the address profile (`profiles/address.md` and
-  its 133-case fixture) and nothing else. No generated model changed.
+- The schema pin moves to dist.78 (`v0.33.0-dist.78`). Serial 77 adds the address profile (`profiles/address.md` and
+  its 133-case fixture); serial 78 adds the lens profile (`profiles/lens.md` and its 84-case fixture). Nothing else
+  moved, and no generated model changed.
 
 ## [0.23.0] - 2026-10-27
 
