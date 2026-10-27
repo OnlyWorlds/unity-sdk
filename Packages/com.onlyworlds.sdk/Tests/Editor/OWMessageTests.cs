@@ -177,7 +177,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 case "note":
                 {
                     var line = OWMessage.NoteOf((JArray)c["notes"], (string)c["character"], members);
-                    return new JObject { ["line"] = Str(line) };
+                    return new JObject { ["line"] = line == null ? JValue.CreateNull() : line["id"].DeepClone() };
                 }
                 case "sent_by":
                     // Sent by X is the claim: narrator, which SenderStatus hands back as Claimed.
@@ -505,9 +505,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var late = Note("late", "2026-10-26T10:00:00Z");
             var odd = Note("odd", "09:61");
             var none = Note("none", null);
-            Assert.AreEqual("late", OWMessage.NoteOf(new[] { late, odd, early, none }, Ada, null),
+            Assert.AreEqual("late", (string)OWMessage.NoteOf(new[] { late, odd, early, none }, Ada, null)["id"],
                 "an unreadable time is never the newest");
-            Assert.AreEqual("none", OWMessage.NoteOf(new[] { odd, none }, Ada, null), "none readable: the last in the list");
+            Assert.AreEqual("none", (string)OWMessage.NoteOf(new[] { odd, none }, Ada, null)["id"], "none readable: the last in the list");
             Assert.IsNull(OWMessage.NoteOf(new[] { late }, Mara, null));
             Assert.IsNull(OWMessage.NoteOf(new[] { late }, "", null));
             Assert.IsNull(OWMessage.NoteOf(null, Ada, null));
@@ -515,7 +515,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var wire = Note("wire", "2026-10-26T09:00:00Z");
             wire["created_by"] = JValue.CreateNull();
             Assert.IsNull(OWMessage.NoteOf(new[] { wire }, Ada, null));
-            Assert.AreEqual("wire", OWMessage.NoteOf(new[] { wire }, Ada, (JArray)Fixture["members"]));
+            Assert.AreSame(wire, OWMessage.NoteOf(new[] { wire }, Ada, (JArray)Fixture["members"]));
         }
 
         [Test]

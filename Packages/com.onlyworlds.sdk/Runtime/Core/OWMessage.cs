@@ -405,7 +405,7 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
-        /// The Character's line: the id of its newest Note in its own hand, or null when it has none. A Note
+        /// The Character's line: its newest Note in its own hand, or null when it has none. A Note
         /// (<see cref="IsNote"/>) whose <c>narrator</c> is the Character, neither hidden (<see cref="OWPayload.IsHidden"/>)
         /// nor proposed (<see cref="OWPayload.IsProposed"/>), and in its author's hand: where it carries no
         /// <c>created_by</c> (a folder, an export) its <c>narrator</c> is trusted; on the wire only a verified sender
@@ -416,7 +416,7 @@ namespace OnlyWorlds.Sdk
         /// <param name="narratives">Narratives, the Notes among them; anything else given is passed by.</param>
         /// <param name="characterId">The Character id; an empty id has no line.</param>
         /// <param name="members">The world's members list, as for <see cref="SenderStatus"/>; null when unreadable.</param>
-        public static string NoteOf(IEnumerable<JToken> narratives, string characterId, IEnumerable<JToken> members)
+        public static JObject NoteOf(IEnumerable<JToken> narratives, string characterId, IEnumerable<JToken> members)
         {
             if (narratives == null || string.IsNullOrEmpty(characterId)) return null;
             var own = narratives.OfType<JObject>()
@@ -425,7 +425,7 @@ namespace OnlyWorlds.Sdk
                 .ToList();
             if (own.Count == 0) return null;
             var dated = own.Where(n => TimeKey(n["created_at"]) != null).ToList();
-            return StringOf((dated.Count > 0 ? InCreatedOrder(dated).Last() : own.Last())["id"]);
+            return dated.Count > 0 ? InCreatedOrder(dated).Last() : own.Last();
         }
 
         // -- The profile's comparisons ---------------------------------------------
