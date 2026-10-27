@@ -154,7 +154,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public void TheKeptKeys_AreKeels_AndTheVersionIs0316()
         {
             CollectionAssert.AreEquivalent(Kept, OWFolderExport.KnownOfKeeps);
-            Assert.AreEqual("0.3.18", OWFolderExport.FormatVersion);
+            Assert.AreEqual("0.3.19", OWFolderExport.FormatVersion);
         }
 
         [Test]

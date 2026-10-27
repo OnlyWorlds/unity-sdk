@@ -142,8 +142,10 @@ namespace OnlyWorlds.Sdk
     /// declares. Since v0.3.8 those that reach a reader: the world's provenance keys (<c>source</c>, <c>exported_as</c>,
     /// <c>producer</c>, <c>origin</c>: v0.3.9, v0.3.14, v0.3.16) kept as written, a known-of stub read as one (v0.3.10),
     /// <c>records/</c> left to the producers that know it (v0.3.12); the archive is <see cref="OWWorldArchive"/>'s
-    /// (v0.3.13); a producer's <c>input</c> word it does not know never refused (v0.3.17, v0.3.18, which only grew the list). The
-    /// rest (v0.3.11, v0.3.15) bind writers. The rules that shape this code, all of which are easy to
+    /// (v0.3.13); a producer's <c>input</c> word it does not know never refused (v0.3.17, v0.3.18, which only grew the list);
+    /// the served-trimmed mark, <c>x_served_trimmed</c>, kept exactly as served and read as trimmed, never as empty (v0.3.19,
+    /// §4.4 rule 6; <see cref="OWMessage.HasUnseenRecipients"/> reads it for a message). The rest (v0.3.11, v0.3.15) bind
+    /// writers. The rules that shape this code, all of which are easy to
     /// violate by accident:
     /// </para>
     /// <list type="bullet">
