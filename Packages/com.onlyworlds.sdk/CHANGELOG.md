@@ -6,6 +6,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-10-27
+
+A read mark, named: `OWMessage.IsReadMark` says whether an element is a read mark, so a reader that weighs elements
+by their links can leave one out. The Editor tests find the package's files through one helper. A minor release
+because it adds public API (below).
+
 ### Added
 
 - `OWMessage.IsReadMark`: whether an element is a read mark (type `relation`, supertype `Read`, trimmed and folded as
