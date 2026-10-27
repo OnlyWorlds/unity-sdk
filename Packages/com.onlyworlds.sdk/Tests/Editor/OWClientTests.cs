@@ -54,13 +54,14 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
     public class OWClientTests
     {
-        private static OWClient Make(FakeTransport t, string key = "ow_w_test", string pin = "0000")
+        private static OWClient Make(FakeTransport t, string key = "ow_w_test", string pin = "0000", string world = null)
             => new OWClient(new OWClientConfig
             {
                 ApiKey = key,
                 ApiPin = pin,
                 Transport = t,
                 BaseUrl = "https://example.test/api/v2",
+                World = world,
             });
 
         // -- Auth shape -------------------------------------------------------
@@ -86,28 +87,32 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         // staging on a cold cache (2026-10-22). Each call states its own expectation for a prefixed key, so the
         // test does not re-derive the rule from the method it checks.
 
-        private static readonly (string Name, string Verb, bool Pin, System.Func<OWClient, Task> Run)[] PinCalls =
+        // `Any`: an account token with World set sends it too (the world reads); every other call is a world key's.
+        private static readonly (string Name, string Verb, bool Pin, bool Any, System.Func<OWClient, Task> Run)[] PinCalls =
         {
             // reads
-            ("list", "GET", false, c => c.ListAsync<JObject>("location")),
-            ("list (name search)", "GET", false, c => c.ListAsync<JObject>("location", new OWListParams { NameContains = "harb" })),
-            ("get", "GET", false, c => c.GetAsync<JObject>("location", "l1")),
-            ("changes", "GET", false, c => c.ChangesAsync()),
-            ("changes head", "GET", false, c => c.ChangesAsync(headOnly: true)),
-            ("world", "GET", false, c => c.GetWorldAsync()),
+            ("list", "GET", false, true, c => c.ListAsync<JObject>("location")),
+            ("list (name search)", "GET", false, true, c => c.ListAsync<JObject>("location", new OWListParams { NameContains = "harb" })),
+            ("get", "GET", false, true, c => c.GetAsync<JObject>("location", "l1")),
+            ("changes", "GET", false, false, c => c.ChangesAsync()),
+            ("changes head", "GET", false, false, c => c.ChangesAsync(headOnly: true)),
+            ("world", "GET", false, true, c => c.GetWorldAsync()),
             // the one read keel checks a PIN on
-            ("me", "GET", true, c => c.GetMeAsync()),
+            ("me", "GET", true, false, c => c.GetMeAsync()),
             // writes, each verb
-            ("create", "POST", true, c => c.CreateAsync<JObject>("location", new JObject { ["name"] = "Harbour" })),
-            ("patch", "PATCH", true, c => c.PatchAsync<JObject>("location", "l1", new JObject { ["description"] = "x" })),
-            ("delete", "DELETE", true, c => c.DeleteAsync("location", "l1")),
-            ("links", "POST", true, c => c.EditLinksAsync<JObject>("location", "l1", "zones", add: new[] { "z1" })),
-            ("bulk", "POST", true, c => c.BulkAsync(new[] { new OWBulkItem { Type = "location", Element = new JObject { ["name"] = "B" } } })),
-            ("patch world", "PATCH", true, c => c.PatchWorldAsync(new JObject { ["name"] = "W" })),
+            ("create", "POST", true, false, c => c.CreateAsync<JObject>("location", new JObject { ["name"] = "Harbour" })),
+            ("patch", "PATCH", true, false, c => c.PatchAsync<JObject>("location", "l1", new JObject { ["description"] = "x" })),
+            ("delete", "DELETE", true, false, c => c.DeleteAsync("location", "l1")),
+            ("links", "POST", true, false, c => c.EditLinksAsync<JObject>("location", "l1", "zones", add: new[] { "z1" })),
+            ("bulk", "POST", true, false, c => c.BulkAsync(new[] { new OWBulkItem { Type = "location", Element = new JObject { ["name"] = "B" } } })),
+            ("patch world", "PATCH", true, false, c => c.PatchWorldAsync(new JObject { ["name"] = "W" })),
         };
 
-        /// <summary>Every call the client may make, each through its own client; the request each sent.</summary>
-        private static async Task<List<(string Name, bool Pin, OWRequest Sent)>> PinSweep(string key, string pin)
+        /// <summary>
+        /// Every call the client may make, each through its own client; the request each sent. With a world (an account
+        /// token's), only the calls such a client sends; each of the others is refused with nothing sent.
+        /// </summary>
+        private static async Task<List<(string Name, bool Pin, OWRequest Sent)>> PinSweep(string key, string pin, string world = null)
         {
             var sent = new List<(string, bool, OWRequest)>();
             foreach (var call in PinCalls)
@@ -116,7 +121,15 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 {
                     ResponseBody = @"{""data"":[],""has_more"":false,""changes"":[],""head"":0,""cursor"":""0"",""results"":[]}",
                 };
-                await call.Run(Make(t, key, pin));
+
+                if (world != null && !call.Any)
+                {
+                    Assert.ThrowsAsync<System.InvalidOperationException>(() => call.Run(Make(t, key, pin, world)), call.Name);
+                    Assert.IsEmpty(t.Calls, $"{call.Name}: nothing sent");
+                    continue;
+                }
+
+                await call.Run(Make(t, key, pin, world));
 
                 Assert.AreEqual(1, t.Calls.Count, $"{call.Name}: one request");
                 Assert.AreEqual(call.Verb, t.Last.Method, $"{call.Name}: sent as {call.Verb}");
@@ -163,7 +176,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [Test]
         public async Task ApiPin_AccountToken_Never_EvenWithAPinConfigured_BearerAndNoApiKey()
         {
-            foreach (var (name, _, sent) in await PinSweep("ow_a_acct", "1234"))
+            var all = await PinSweep("ow_a_acct", "1234", "w1");
+            Assert.AreEqual(4, all.Count, "the four world reads sent");
+            foreach (var (name, _, sent) in all)
             {
                 Assert.AreEqual("Bearer ow_a_acct", sent.Headers["Authorization"], name);
                 Assert.IsFalse(sent.Headers.ContainsKey("API-Pin"), name);
@@ -175,7 +190,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public async Task AccountKey_UsesBearer()
         {
             var t = new FakeTransport();
-            await Make(t, "ow_a_tok", null).GetWorldAsync();
+            await Make(t, "ow_a_tok", null, "w1").GetWorldAsync();
 
             Assert.AreEqual("Bearer ow_a_tok", t.Last.Headers["Authorization"]);
             Assert.IsFalse(t.Last.Headers.ContainsKey("API-Key"));

@@ -146,6 +146,24 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 Source = new JObject { ["world"] = "w0" }, Producer = new JObject { ["tool"] = "t" },
             });
 
+            // The world reads an account token, or no key, sends with World set: world= beside each read's own query.
+            foreach (var reader in new[]
+            {
+                new OWClient(new OWClientConfig { ApiKey = "ow_a_test", World = "w1", Transport = t, BaseUrl = Base }),
+                new OWClient(new OWClientConfig { World = "w1", Transport = t, BaseUrl = Base }),
+            })
+            {
+                t.ResponseBody = "{}";
+                await reader.GetWorldAsync();
+                await reader.GetAsync<JObject>("character", "c1");
+                t.ResponseBody = @"{""data"":[],""has_more"":false}";
+                await reader.ListAsync<JObject>("character", new OWListParams
+                {
+                    Limit = 5, Cursor = "c", Fields = new[] { "name" }, Name = "n", NameContains = "m",
+                    Supertype = "s", Subtype = "u",
+                });
+            }
+
             // Joining is keyless, so it is not on the client; the same transport records it. The redeem passes every
             // option at once (no real code takes all three) so each key it can put in the body is on the wire here.
             t.ResponseBody = @"{""reader"":""player"",""world"":{""name"":""W"",""description"":""""}}";
@@ -482,7 +500,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             // An empty recording would pass the checks above with nothing checked.
             var calls = await RecordEveryCall();
-            Assert.AreEqual(27, calls.Count);
+            Assert.AreEqual(33, calls.Count);
+
+            // The world reads of an account token and of no key, so the query check above saw world=.
+            Assert.AreEqual(6, calls.Count(c => new Uri(c.Url).Query.Contains("world=")), "the world reads are recorded");
 
             // The conditional headers are on the wire here, so the header check above saw them.
             Assert.That(calls.Any(c => c.Headers.ContainsKey("If-Match")), "a delete with ifMatch is recorded");
