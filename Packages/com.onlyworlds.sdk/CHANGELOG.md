@@ -47,6 +47,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   membership's choice wins, an empty choice is a choice). The hop reads the generated models' link fields in the
   schema's order. The profile's fixture, 84 cases, is the test.
 
+### Changed
+
+- The schema pin moves to dist.78 (`v0.33.0-dist.78`). Serial 77 adds the address profile (`profiles/address.md` and
+  its 133-case fixture); serial 78 adds the lens profile (`profiles/lens.md` and its 84-case fixture). Nothing else
+  moved, and no generated model changed.
+
 ### Fixed
 
 - The message profile's shared edge cases, the file the TypeScript SDK 4.88.0 and the Python package both hold (26 cases:
@@ -57,12 +63,6 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   Note without a string id. A Note's hidden mark is the one every reader reads (`OWPayload.IsHidden`: anything but
   absent, `null` or `false`; ruled 2026-10-27), so the one edge case that reads only the boolean `true` is skipped
   by name until the edge file changes.
-
-### Changed
-
-- The schema pin moves to dist.78 (`v0.33.0-dist.78`). Serial 77 adds the address profile (`profiles/address.md` and
-  its 133-case fixture); serial 78 adds the lens profile (`profiles/lens.md` and its 84-case fixture). Nothing else
-  moved, and no generated model changed.
 
 ## [0.23.0] - 2026-10-27
 
