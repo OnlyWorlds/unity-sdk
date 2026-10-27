@@ -8,6 +8,22 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Added
 
+- **`OWAddress`, the address profile** (schema-dist `profiles/address.md`, serial 77, ruled 2026-10-26): one element
+  named by one triple, the world's id, the type word and the element's id, in three spellings. The human address
+  `https://www.onlyworlds.com/w/<world id>/<type>/<id>`, `ow://<type>/<id>` inside a world and
+  `ow://<world id>/<type>/<id>` across worlds; a world alone is `https://www.onlyworlds.com/w/<world id>` or
+  `ow://<world id>`. Any of them may carry a moment (`@<step>`, a whole number in the world's time line, at the end of
+  the last path segment) and a lens (`?lens=<id>`), the moment first. `OWAddress.ParseLink(text)` reads a string to an
+  `OWAddressReading` (`Form`, `World`, `WorldIsSlug`, `Type`, `Id`, `Lens`, `Moment`, `Canonical`, `IsWorld`), or null;
+  `TryParseLink(text, out reading, out refusal)` also says why a string is refused, by the profile's own words
+  (`OWAddressRefusal`: `not_an_address`, `uppercase`, `segments`, `bad_world`, `unknown_type`, `bad_id`, `bad_moment`,
+  `bad_lens`), checked in the profile's order so every reader refuses a string for the same reason.
+  `OWAddress.ElementAddress(form, world, type, id, lens, moment)` writes the canonical string (lowercase, the world's
+  id and never its slug, nothing else) and throws `OWAddressException` with the `Reason` (also `no_world` and
+  `bad_form`); overloads take a reading, or the parts as JSON in the shape the TypeScript SDK and the Python package
+  take (`elementAddress`, `parseOwLink`). Only `https` on `www.onlyworlds.com` is the human form: `http`, the bare host
+  and any other host are not addresses. A field that holds an address is public text: never resolve it on a server.
+  The type words are the generated list. The profile's fixture, 133 cases, is the test.
 - **`OWMessage`, serial 76 of the message profile** (schema-dist `profiles/message.md`, rulings of 2026-10-26).
   `HasUnseenRecipients(message, keyless)` reads the server's served-trimmed mark (`x_served_trimmed`,
   `OWMessage.ServedTrimmedKey`, set on a body served to a key that may not see every Character, with those ids left
