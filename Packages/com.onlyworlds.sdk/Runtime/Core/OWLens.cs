@@ -283,15 +283,37 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// The date table, a type slug to its date field. The ten types not in it are timeless and never fenced. The
-        /// fence, <c>undated</c>, <c>window</c>, <c>from</c> and <c>to</c> all read it.
+        /// fence, <c>undated</c>, <c>window</c>, <c>from</c> and <c>to</c> all read it, and so does <see cref="DateOf"/>.
+        /// Read-only, also through a cast: a caller cannot change it under the fence.
         /// </summary>
-        public static readonly IReadOnlyDictionary<string, string> DateFields = new Dictionary<string, string>
+        public static readonly IReadOnlyDictionary<string, string> DateFields =
+            new System.Collections.ObjectModel.ReadOnlyDictionary<string, string>(new Dictionary<string, string>
+            {
+                ["character"] = "birth_date", ["creature"] = "birth_date", ["institution"] = "founding_date",
+                ["location"] = "founding_date", ["collective"] = "formation_date", ["law"] = "date", ["title"] = "grant_date",
+                ["construct"] = "start_date", ["event"] = "start_date", ["narrative"] = "start_date",
+                ["relation"] = "start_date", ["zone"] = "start_date",
+            });
+
+        /// <summary>
+        /// An element's date as the lens profile reads it: the whole number in its type's date field
+        /// (<see cref="DateFields"/>), in the world's own time unit. Null for a timeless type, a body with no known
+        /// <c>type</c> (trimmed and folded, as the reader reads it), a date field that is absent, null or not a whole
+        /// number, and anything that is not an element body.
+        /// </summary>
+        /// <remarks>
+        /// It reads the body it is given: a known-of stub serves no date, so it reads null, whatever the element's own
+        /// date is. A timeline or a horizon that dates elements can read this instead of copying the table, and dates them
+        /// exactly as the reader's fence does. Mirrors the TypeScript SDK's <c>dateOf</c> (4.96.0) and the Python
+        /// package's <c>date_of</c> (0.79.0).
+        /// </remarks>
+        public static long? DateOf(JToken element)
         {
-            ["character"] = "birth_date", ["creature"] = "birth_date", ["institution"] = "founding_date",
-            ["location"] = "founding_date", ["collective"] = "formation_date", ["law"] = "date", ["title"] = "grant_date",
-            ["construct"] = "start_date", ["event"] = "start_date", ["narrative"] = "start_date",
-            ["relation"] = "start_date", ["zone"] = "start_date",
-        };
+            if (!(element is JObject body)) return null;
+            var type = StringOf(body["type"]);
+            if (type == null || !DateFields.TryGetValue(OWProfileText.Fold(type), out var field)) return null;
+            return Whole(body[field], out var date) ? date : (long?)null;
+        }
 
         /// <summary><c>depth</c>'s default: the anchors and what links to or from them.</summary>
         public const int DefaultDepth = 1;

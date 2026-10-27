@@ -76,6 +76,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   count, since what the reading left out has no edge. A null graph is an `ArgumentNullException`. Parity with the
   TypeScript SDK 4.95.0 (`degreeOf`) and the Python package 0.78.0 (`degree_of`), the TypeScript SDK's test vectors
   ported: its own graph, and every fixture graph case's answer against a direct count of its edges.
+- **`OWLens.DateOf(element)`**: an element's date as the lens profile's date table (`OWLens.DateFields`) reads it,
+  the whole number in its type's date field, or null for a timeless type, a body with no known `type` (trimmed and
+  folded), a date field that is absent, null or not a whole number, and anything that is not an element body
+  (`JObject`). It reads the body it is given, so a known-of stub reads null. A timeline or a horizon can now date
+  elements exactly as the lens reader's fence does, from one table. `OWLens.DateFields` is now read-only also through
+  a cast. Parity with the TypeScript SDK 4.96.0 (`DATE_FIELD`, `dateOf`) and the Python package 0.79.0 (`DATE_FIELD`,
+  `date_of`), the TypeScript SDK's test vectors ported (the table against the fixture's `date_table`, every type dated
+  or timeless, each date field an integer field of the generated model).
 - **`OWClientConfig.World`: an account token, or no key, reads the world it names.** A client built with an account
   token (`ow_a_`) and `World = <world id>` sends `world=<id>` (escaped, beside the call's own parameters, on every page
   of `ListAllAsync`) with its Bearer and no `API-Key` or `API-Pin` on `ListAsync`, `ListAllAsync`, `GetAsync` and

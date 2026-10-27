@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Security.Cryptography;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -398,6 +399,92 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 default:
                     Assert.Fail($"{name}: a claim of unknown kind {c["claim"]}");
                     return;
+            }
+        }
+
+        // -- The date table and DateOf (the TypeScript SDK 4.96.0's DATE_FIELD and dateOf, the Python package 0.79.0's
+        // DATE_FIELD and date_of) ------------------------------------------------------------------------------------
+
+        /// <summary>
+        /// The TypeScript SDK 4.96.0's vector (<c>test/date.test.mjs</c>): the table is the fixture's <c>date_table</c>, every
+        /// type of the standard is either dated (12) or timeless (10), each date field is an integer field of its type, and
+        /// the table cannot be written to. (The prose table of <c>profiles/lens.md</c> is not vendored in the package; the
+        /// fixture's table is its machine copy.) Kills: a table a caller can change under the fence, a field that is not a
+        /// whole number in the generated model, a type in neither half.
+        /// </summary>
+        [Test]
+        public void DateFields_IsTheFixturesTable_EveryTypeDatedOrTimeless_EachFieldAnInteger_AndReadOnly()
+        {
+            Assert.IsNotNull(Fixture, "the vendored lens fixture was not found");
+            var dates = ((JObject)Fixture["date_table"]).Properties().ToDictionary(p => p.Name, p => (string)p.Value);
+            CollectionAssert.AreEquivalent(dates, OWLens.DateFields);
+            Assert.AreEqual(12, OWLens.DateFields.Count);
+            Assert.AreEqual(10, OWElementTypes.Slugs.Count(s => !OWLens.DateFields.ContainsKey(s)), "the ten timeless types");
+            CollectionAssert.IsSubsetOf(OWLens.DateFields.Keys, OWElementTypes.Slugs);
+
+            foreach (var pair in OWLens.DateFields)
+            {
+                var field = OWElementTypes.TypeFor(pair.Key)
+                    .GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
+                    .SingleOrDefault(f => f.GetCustomAttribute<JsonPropertyAttribute>()?.PropertyName == pair.Value);
+                Assert.IsNotNull(field, $"{pair.Key}.{pair.Value} is a field of the generated model");
+                Assert.AreEqual(typeof(SerializableNullable<int>), field.FieldType, $"{pair.Key}.{pair.Value} is an integer field");
+            }
+
+            var asDictionary = OWLens.DateFields as IDictionary<string, string>;
+            Assert.IsTrue(asDictionary == null || asDictionary.IsReadOnly, "the table cannot be written to, not even through a cast");
+        }
+
+        /// <summary>
+        /// The TypeScript SDK 4.96.0's vector: the whole number in the type's date field, 0 and a date before 0 included,
+        /// the type trimmed and folded. Kills: 0 read as no date, a negative date dropped, a type compared as written.
+        /// </summary>
+        [Test]
+        public void DateOf_ReadsTheWholeNumber_InTheTypesDateField_ZeroIncluded()
+        {
+            foreach (var pair in OWLens.DateFields)
+            {
+                Assert.AreEqual(1204, OWLens.DateOf(new JObject { ["type"] = pair.Key, [pair.Value] = 1204 }), pair.Key);
+                Assert.AreEqual(0, OWLens.DateOf(new JObject { ["type"] = pair.Key, [pair.Value] = 0 }), pair.Key + " at 0");
+                Assert.AreEqual(-40, OWLens.DateOf(new JObject { ["type"] = pair.Key, [pair.Value] = -40 }), pair.Key + " before 0");
+            }
+
+            Assert.AreEqual(7, OWLens.DateOf(JObject.Parse(@"{""type"":"" Event "",""start_date"":7}")), "the type is trimmed and folded");
+            Assert.AreEqual(7, OWLens.DateOf(JObject.Parse(@"{""type"":""EVENT"",""start_date"":7}")));
+        }
+
+        /// <summary>
+        /// The TypeScript SDK 4.96.0's vector: null for a timeless type, another type's field, a value that is not a whole
+        /// number, an absent field, no type, a type that is no type, a known-of stub (it serves no date), and anything that
+        /// is not an element body. Kills: a timeless type read by a field it does not have, a string or a fraction read as
+        /// a date, a stub dated by a field it was never served.
+        /// </summary>
+        [Test]
+        public void DateOf_IsNull_ForTheTimeless_TheUntyped_AndWhatIsNotADate()
+        {
+            foreach (var type in OWElementTypes.Slugs.Where(s => !OWLens.DateFields.ContainsKey(s)))
+            {
+                Assert.IsNull(OWLens.DateOf(new JObject { ["type"] = type, ["start_date"] = 5, ["birth_date"] = 5, ["date"] = 5 }), type);
+            }
+
+            Assert.IsNull(OWLens.DateOf(JObject.Parse(@"{""type"":""event"",""birth_date"":5}")), "another type's field");
+            foreach (var v in new JToken[]
+            {
+                JValue.CreateNull(), new JValue("12"), new JValue(1.5), new JValue(true), new JValue(double.NaN),
+                new JArray(3), new JObject { ["year"] = 3 },
+            })
+            {
+                Assert.IsNull(OWLens.DateOf(new JObject { ["type"] = "event", ["start_date"] = v }), v.ToString(Formatting.None));
+            }
+
+            Assert.IsNull(OWLens.DateOf(JObject.Parse(@"{""type"":""event""}")), "absent");
+            Assert.IsNull(OWLens.DateOf(JObject.Parse(@"{""start_date"":5}")), "no type");
+            Assert.IsNull(OWLens.DateOf(JObject.Parse(@"{""type"":3,""start_date"":5}")), "a type that is not text");
+            Assert.IsNull(OWLens.DateOf(JObject.Parse(@"{""type"":""constructor"",""constructor"":5}")), "a word that is no type");
+            Assert.IsNull(OWLens.DateOf(JObject.Parse(@"{""type"":""event"",""known_of"":true,""name"":""A stub""}")), "a stub serves no date");
+            foreach (var v in new JToken[] { null, JValue.CreateNull(), new JValue("event"), new JValue(3), JArray.Parse(@"[{""type"":""event"",""start_date"":1}]") })
+            {
+                Assert.IsNull(OWLens.DateOf(v), v == null ? "null" : v.ToString(Formatting.None));
             }
         }
 
