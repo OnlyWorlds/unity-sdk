@@ -24,6 +24,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
         private const int EdgeCount = 26;
 
+        /// <summary>The one case this reader answers differently until the next edge file (see the test).</summary>
+        private const string HiddenTrueOnly = "hidden-must-be-true-and-proposed-an-object";
+
         private static JArray _edges;
 
         private static string EdgesPath
@@ -89,6 +92,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             var edge = Edges.Cast<JObject>().FirstOrDefault(e => (string)e["name"] == name);
             Assert.IsNotNull(edge, "no edge case named " + name);
+            if (name == HiddenTrueOnly)
+                Assert.Ignore(name + " reads hidden as the boolean true only; ruled 2026-10-27 that a Note takes the one hidden "
+                              + "mark (anything but absent, null or false), so this case changes in the next edge file. Re-vendor then.");
             var got = Answer(edge);
             Assert.IsTrue(JToken.DeepEquals(edge["want"], got),
                 name + ": gave " + got.ToString(Formatting.None) + ", want " + edge["want"].ToString(Formatting.None));

@@ -408,8 +408,8 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// The Character's line: the id of its newest Note in its own hand, or null when it has none. A Note
-        /// (<see cref="IsNote"/>) with a string id, whose <c>narrator</c> is the Character, neither hidden (<c>hidden</c>
-        /// is the boolean true; any other value is not hidden here) nor proposed (<see cref="OWPayload.IsProposed"/>:
+        /// (<see cref="IsNote"/>) with a string id, whose <c>narrator</c> is the Character, neither hidden
+        /// (<see cref="OWPayload.IsHidden"/>, the one hidden mark every reader reads, ruled 2026-10-27) nor proposed (<see cref="OWPayload.IsProposed"/>:
         /// <c>x_review_proposed</c> an object), and in its author's hand: where it carries no
         /// <c>created_by</c> (a folder, an export) its <c>narrator</c> is trusted; on the wire only a verified sender
         /// counts (<see cref="SenderStatus"/>), so a mismatch or an unverifiable Note is nobody's line. The newest is the
@@ -424,7 +424,7 @@ namespace OnlyWorlds.Sdk
             if (narratives == null || string.IsNullOrEmpty(characterId)) return null;
             var own = narratives.OfType<JObject>()
                 .Where(n => IsNote(n) && !string.IsNullOrEmpty(StringOf(n["id"])) && IsSentBy(n, characterId)
-                            && !IsHiddenTrue(n) && !OWPayload.IsProposed(n) && IsOwn(n, characterId, members))
+                            && !OWPayload.IsHidden(n) && !OWPayload.IsProposed(n) && IsOwn(n, characterId, members))
                 .ToList();
             if (own.Count == 0) return null;
             var dated = own.Where(n => TimeKey(n["created_at"]) != null).ToList();
@@ -567,9 +567,6 @@ namespace OnlyWorlds.Sdk
             return era * 146097 + doe - 719468;
         }
 
-        /// <summary>True when <c>hidden</c> is the boolean true; the Note reader counts no other value as hidden.</summary>
-        private static bool IsHiddenTrue(JObject body) =>
-            body?["hidden"] is JValue mark && mark.Type == JTokenType.Boolean && (bool)mark;
 
         /// <summary>By <c>created_at</c>; equal times keep the input's order (the server's list order); unreadable times last. Never by id.</summary>
         private static IReadOnlyList<JObject> InCreatedOrder(IEnumerable<JObject> items)
