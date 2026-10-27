@@ -6,8 +6,29 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **`OWMessage`, serial 76 of the message profile** (schema-dist `profiles/message.md`, rulings of 2026-10-26).
+  `HasUnseenRecipients(message, keyless)` reads the server's served-trimmed mark (`x_served_trimmed`,
+  `OWMessage.ServedTrimmedKey`, set on a body served to a key that may not see every Character, with those ids left
+  out): true when it names `characters`, so someone the reader cannot see is a recipient (never who, never how many);
+  null for a body read with no credential (`keyless: true`), which the server never marks. `OWSenderStatus.Unseen`: a
+  missing `narrator` beside a mark naming `narrator` is a sender the reader cannot see; show "from someone you cannot
+  see", never "from nobody". Without the mark it stays `Unverifiable`. `EditedBy(message, members)` answers an
+  `OWEditedBy`: `Edited` when the message's `changed_by` is not its `created_by`, `By` that hand's Character on the
+  members list, or null ("edited by another hand"); an edit never changes the sender's answer, and a body with no
+  `changed_by` (a folder, an export) says nothing of edits. `NotePair`, `IsNote` and `NoteOf(narratives, characterId,
+  members)`: a Note (a Narrative with supertype `Note`) is a member's own line in the world, never a message, and
+  `NoteOf` gives a Character's newest Note in its own hand (on the wire, a verified sender; in a folder, its
+  `narrator`), neither hidden nor proposed. The profile's fixture, now 81 cases, is the test.
+
 ### Changed
 
+- `OWMessage.IsToEveryone` takes `keyless` (false by default): a body read with no credential is never "to everyone",
+  because the server leaves hidden recipients out of it and does not mark it. An empty `characters` with the trimmed
+  mark is not to everyone either: `IsAddressedTo` reads it as addressed to no Character the reader is given, and a
+  list that still holds ids beside the mark is addressed to those ids. A Note is addressed to nobody, never unread and
+  never in a thread, whatever its `characters` holds (`RecipientsOf` gives none for it).
 - The schema pin moves to dist.76 (`v0.33.0-dist.76`): only the message profile moved, its page and its fixture (55
   cases to 81). No generated model changed.
 

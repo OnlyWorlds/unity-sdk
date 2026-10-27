@@ -10,7 +10,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// The message profile's conformance fixture (schema-dist <c>profiles/message.fixture.json</c>, vendored byte for
-    /// byte in <c>Tests/Editor/Fixtures/message/</c> from dist.75), read case by case through <see cref="OWMessage"/>'s
+    /// byte in <c>Tests/Editor/Fixtures/message/</c> from dist.76), read case by case through <see cref="OWMessage"/>'s
     /// readers, and its pair and read mark held equal to <see cref="OWMessage.Pair"/> and the read mark's constants. The
     /// TypeScript SDK and the Python package run the same cases; the tests beside the fixture are the TypeScript SDK's
     /// (test/message.test.mjs, 4.81.0) and the Python package's (tests/test_message.py, 0.64.0). When the dist moves
@@ -18,13 +18,14 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </summary>
     public class OWMessageTests
     {
-        /// <summary>The fixture's sha256 as dist.75's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "b662f4fc370ab0f1fb2a9dfc48a141fb59febf761103061d0147f4c96edd0541";
+        /// <summary>The fixture's sha256 as dist.76's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "c113db1197aa31d196e1b7936fae12e99a0e6e2e4d0c48e363c2e7ede46ffb4a";
 
-        /// <summary>The fixture's cases by kind, as dist.75 holds them (55 in all).</summary>
+        /// <summary>The fixture's cases by kind, as dist.76 holds them (81 in all).</summary>
         private static readonly Dictionary<string, int> Counts = new Dictionary<string, int>
         {
-            ["pair"] = 9, ["addressed"] = 9, ["sent_by"] = 3, ["sender"] = 10, ["unread"] = 12, ["mark"] = 9, ["thread"] = 3,
+            ["pair"] = 10, ["addressed"] = 10, ["unseen"] = 3, ["everyone"] = 3, ["sent_by"] = 3, ["sender"] = 14,
+            ["unread"] = 15, ["mark"] = 10, ["thread"] = 3, ["edited"] = 4, ["note"] = 6,
         };
 
         /// <summary>The keys of a case that hold its answer, by kind.</summary>
@@ -32,11 +33,15 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             ["pair"] = new[] { "is_message" },
             ["addressed"] = new[] { "addressed" },
+            ["unseen"] = new[] { "addressed", "unseen_recipients" },
+            ["everyone"] = new[] { "to_everyone", "unseen_recipients" },
             ["sent_by"] = new[] { "sent_by" },
             ["sender"] = new[] { "status", "claimed", "written_by" },
             ["mark"] = new[] { "mark" },
             ["unread"] = new[] { "unread" },
             ["thread"] = new[] { "thread" },
+            ["edited"] = new[] { "edited", "edited_by" },
+            ["note"] = new[] { "line" },
         };
 
         private const string Ada = "019a3b10-0000-7000-8000-0000000000a1";
@@ -89,7 +94,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.75's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.76's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
@@ -104,14 +109,17 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(((string)mark["type"], (string)mark["supertype"]), OWMessage.ReadMarkPair);
             Assert.AreEqual((string)mark["reader_field"], OWMessage.ReaderField);
             Assert.AreEqual((string)mark["messages_field"], OWMessage.MessagesField);
+
+            var note = Fixture["note_pair"];
+            Assert.AreEqual(((string)note["type"], (string)note["supertype"]), OWMessage.NotePair);
         }
 
         [Test]
-        public void TheFixture_HoldsDist75sCases()
+        public void TheFixture_HoldsDist76sCases()
         {
             Assert.IsNotNull(Fixture, "the vendored message fixture was not found");
             var cases = Fixture["cases"].Cast<JObject>().ToList();
-            Assert.AreEqual(55, cases.Count, "dist.75's fixture holds 55 cases");
+            Assert.AreEqual(81, cases.Count, "dist.76's fixture holds 81 cases");
             var counts = cases.GroupBy(c => (string)c["kind"]).ToDictionary(g => g.Key, g => g.Count());
             CollectionAssert.AreEquivalent(Counts, counts);
         }
@@ -145,6 +153,32 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                     return new JObject { ["is_message"] = OWMessage.IsMessage((JObject)c["element"]) };
                 case "addressed":
                     return new JObject { ["addressed"] = OWMessage.IsAddressedTo((JObject)c["message"], (string)c["character"]) };
+                case "unseen":
+                    // A case without keyless has a credential.
+                    return new JObject
+                    {
+                        ["addressed"] = OWMessage.IsAddressedTo((JObject)c["message"], (string)c["character"]),
+                        ["unseen_recipients"] = Maybe(OWMessage.HasUnseenRecipients((JObject)c["message"])),
+                    };
+                case "everyone":
+                {
+                    var keyless = (bool)c["keyless"];
+                    return new JObject
+                    {
+                        ["to_everyone"] = OWMessage.IsToEveryone((JObject)c["message"], keyless),
+                        ["unseen_recipients"] = Maybe(OWMessage.HasUnseenRecipients((JObject)c["message"], keyless)),
+                    };
+                }
+                case "edited":
+                {
+                    var e = OWMessage.EditedBy((JObject)c["message"], members);
+                    return new JObject { ["edited"] = e.Edited, ["edited_by"] = Str(e.By) };
+                }
+                case "note":
+                {
+                    var line = OWMessage.NoteOf((JArray)c["notes"], (string)c["character"], members);
+                    return new JObject { ["line"] = line == null ? JValue.CreateNull() : line["id"].DeepClone() };
+                }
                 case "sent_by":
                     // Sent by X is the claim: narrator, which SenderStatus hands back as Claimed.
                     return new JObject { ["sent_by"] = OWMessage.IsSentBy((JObject)c["message"], (string)c["character"]) };
@@ -178,6 +212,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         private static string Word(OWSenderStatus status) => status.ToString().ToLowerInvariant();
+
+        /// <summary>A nullable answer as the fixture writes it: null as JSON null.</summary>
+        private static JToken Maybe(bool? value) => value.HasValue ? new JValue(value.Value) : JValue.CreateNull();
+
+        /// <summary>A string answer as the fixture writes it: null as JSON null, not a string-typed null.</summary>
+        private static JToken Str(string value) => value == null ? JValue.CreateNull() : new JValue(value);
 
         private static JArray Ids(IEnumerable<JObject> list) => new JArray(list.Select(m => m["id"].DeepClone()));
 
@@ -374,6 +414,108 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var list = new JArray(5, JValue.CreateNull(), J("{'id': 'm', 'characters': [], 'created_at': '2026-10-26T09:00:00Z'}"));
             CollectionAssert.AreEqual(new[] { "m" }, IdList(OWMessage.UnreadFor(list, Ada, null, null)));
             CollectionAssert.AreEqual(new[] { "m" }, IdList(OWMessage.ThreadOf(list, "m")));
+        }
+
+        [Test]
+        public void TheTrimmedMark_IsAListThatNamesTheField_AndNothingElse()
+        {
+            // Only a list naming the field is the mark: a string, a list naming another field, or a folded spelling is not.
+            foreach (var mark in new JToken[] { "characters", new JArray("narrator"), new JArray(" Characters"), new JArray(), JValue.CreateNull() })
+            {
+                var m = To(new JArray());
+                m[OWMessage.ServedTrimmedKey] = mark;
+                Assert.AreEqual(false, OWMessage.HasUnseenRecipients(m), mark.ToString());
+                Assert.IsTrue(OWMessage.IsToEveryone(m), mark.ToString());
+            }
+
+            var trimmed = J("{'characters': null, 'x_served_trimmed': ['narrator', 'characters']}");
+            Assert.AreEqual(true, OWMessage.HasUnseenRecipients(trimmed));
+            Assert.IsFalse(OWMessage.IsToEveryone(trimmed));
+            Assert.IsFalse(OWMessage.IsAddressedTo(trimmed, Ada), "an empty trimmed list is to someone this reader cannot see");
+            Assert.AreEqual(false, OWMessage.HasUnseenRecipients(null));
+            Assert.AreEqual(false, OWMessage.HasUnseenRecipients(null, keyless: true));
+            Assert.IsNull(OWMessage.HasUnseenRecipients(trimmed, keyless: true), "keyless: unknown");
+            Assert.IsFalse(OWMessage.IsToEveryone(new JObject(), keyless: true));
+        }
+
+        [Test]
+        public void AnUnseenSender_IsAMissingNarratorBesideTheMark_DecidedBeforeTheHand()
+        {
+            var members = (JArray)Fixture["members"];
+            foreach (var narrator in new[] { "", "'narrator': null, ", "'narrator': '', " })
+            {
+                var m = J("{" + narrator + "'created_by': null, 'x_served_trimmed': ['narrator']}");
+                var s = OWMessage.SenderStatus(m, members);
+                Assert.AreEqual(OWSenderStatus.Unseen, s.Status, m.ToString());
+                Assert.IsNull(s.Claimed);
+                Assert.IsNull(s.WrittenBy);
+            }
+
+            // A narrator the reader can see beside the mark is read as ever: the mark names a field that lost an id.
+            var kept = J("{'narrator': '" + Ada + "', 'created_by': null, 'x_served_trimmed': ['narrator']}");
+            Assert.AreEqual(OWSenderStatus.Verified, OWMessage.SenderStatus(kept, members).Status);
+            var other = J("{'narrator': null, 'created_by': null, 'x_served_trimmed': ['characters']}");
+            Assert.AreEqual(OWSenderStatus.Unverifiable, OWMessage.SenderStatus(other, members).Status);
+        }
+
+        [Test]
+        public void EditedBy_ReadsTheLastHand_AndNeverChangesTheSender()
+        {
+            var members = (JArray)Fixture["members"];
+            Assert.IsFalse(OWMessage.EditedBy(null, members).Edited);
+            // A last hand with no first hand beside it is never equal: an edit, by the Character it plays.
+            var e = OWMessage.EditedBy(J("{'narrator': '" + Mara + "', 'changed_by': null}"), members);
+            Assert.AreEqual((true, Ada), (e.Edited, e.By));
+            // No members list: an edit by another hand, named by nobody.
+            var blind = OWMessage.EditedBy(J("{'created_by': null, 'changed_by': '019a3b10-0000-7000-8000-0000000000b2'}"), null);
+            Assert.AreEqual((true, (string)null), (blind.Edited, blind.By));
+            // Owner made it, owner changed it: no edit.
+            Assert.IsFalse(OWMessage.EditedBy(J("{'created_by': null, 'changed_by': null}"), members).Edited);
+
+            var edited = J("{'narrator': '" + Mara + "', 'created_by': '019a3b10-0000-7000-8000-0000000000b2', 'changed_by': null}");
+            Assert.AreEqual(OWSenderStatus.Verified, OWMessage.SenderStatus(edited, members).Status);
+        }
+
+        [Test]
+        public void ANote_IsNoMessage_InNoInboxOrThread()
+        {
+            var note = J("{'id': 'n', 'type': 'narrative', 'supertype': ' note ', 'narrator': '" + Ada + "', " +
+                         "'characters': ['" + Mara + "'], 'parent_narrative': 'r', 'created_at': '2026-10-26T09:00:00Z'}");
+            var root = J("{'id': 'r', 'type': 'narrative', 'supertype': 'Message', 'characters': [], 'created_at': '2026-10-26T08:00:00Z'}");
+            Assert.IsTrue(OWMessage.IsNote(note));
+            Assert.IsFalse(OWMessage.IsMessage(note));
+            Assert.IsFalse(OWMessage.IsNote(root));
+            Assert.IsFalse(OWMessage.IsNote(new JObject { ["type"] = "narrative", ["supertype"] = "Notes" }));
+            CollectionAssert.IsEmpty(OWMessage.RecipientsOf(note), "a Note has no recipients, whatever its characters holds");
+            Assert.IsFalse(OWMessage.IsAddressedTo(note, Mara));
+            Assert.IsFalse(OWMessage.IsToEveryone(note));
+            CollectionAssert.AreEqual(new[] { "r" }, IdList(OWMessage.ThreadOf(new[] { root, note }, "r")));
+            CollectionAssert.IsEmpty(OWMessage.ThreadOf(new[] { root, note }, "n"), "a Note is not even its own thread's root");
+            CollectionAssert.AreEqual(new[] { "r" }, IdList(OWMessage.UnreadFor(new[] { note, root }, Mara, null, null)));
+        }
+
+        [Test]
+        public void NoteOf_TakesTheNewestReadableTime_OrTheLastInTheList()
+        {
+            JObject Note(string id, string createdAt) =>
+                J("{'id': '" + id + "', 'type': 'narrative', 'supertype': 'Note', 'narrator': '" + Ada + "'" +
+                  (createdAt == null ? "" : ", 'created_at': '" + createdAt + "'") + "}");
+
+            var early = Note("early", "2026-10-26T09:00:00Z");
+            var late = Note("late", "2026-10-26T10:00:00Z");
+            var odd = Note("odd", "09:61");
+            var none = Note("none", null);
+            Assert.AreEqual("late", (string)OWMessage.NoteOf(new[] { late, odd, early, none }, Ada, null)["id"],
+                "an unreadable time is never the newest");
+            Assert.AreEqual("none", (string)OWMessage.NoteOf(new[] { odd, none }, Ada, null)["id"], "none readable: the last in the list");
+            Assert.IsNull(OWMessage.NoteOf(new[] { late }, Mara, null));
+            Assert.IsNull(OWMessage.NoteOf(new[] { late }, "", null));
+            Assert.IsNull(OWMessage.NoteOf(null, Ada, null));
+            // On the wire with no members list, nobody's hand is proved: no line.
+            var wire = Note("wire", "2026-10-26T09:00:00Z");
+            wire["created_by"] = JValue.CreateNull();
+            Assert.IsNull(OWMessage.NoteOf(new[] { wire }, Ada, null));
+            Assert.AreSame(wire, OWMessage.NoteOf(new[] { wire }, Ada, (JArray)Fixture["members"]));
         }
 
         [Test]

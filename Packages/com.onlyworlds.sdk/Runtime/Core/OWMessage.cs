@@ -1,12 +1,13 @@
 // The message profile: a message between the members of a world, a Narrative with supertype Message. To whom it is
-// addressed, whether its sender is proved, which messages a reader has read, and a thread (schema-dist
-// profiles/message.md, serials 72, 73 and 75).
+// addressed, whether its sender is proved, who edited it, which messages a reader has read, a thread, and the Note
+// beside it, which is not a message (schema-dist profiles/message.md, serials 72, 73, 75 and 76).
 //
 // Ported from @onlyworlds/sdk src/message.ts (4.80.0, b832b30; isToEveryone of 4.81.0, 9cdde0b), the Python package's
-// message.py (0.63.0 and 0.64.0) read beside it. The trim and the fold are the room profile's (OWProfileText), never a
-// second copy. The conformance fixture, profiles/message.fixture.json, is this file's own test (OWMessageTests), as it
-// is the TypeScript SDK's and the Python package's. The pair and the read mark are written here and held equal to the
-// fixture's by that test, where npm generates them.
+// message.py (0.63.0 and 0.64.0) read beside it. Serial 76's readings (the served-trimmed mark, keyless, the unseen
+// sender, editedBy, isNote and noteOf) are written from the profile and its fixture. The trim and the fold are the room
+// profile's (OWProfileText), never a second copy. The conformance fixture, profiles/message.fixture.json, is this file's
+// own test (OWMessageTests), as it is the TypeScript SDK's and the Python package's. The pairs and the read mark are
+// written here and held equal to the fixture's by that test, where npm generates them.
 
 using System;
 using System.Collections.Generic;
@@ -27,6 +28,13 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>No <c>narrator</c>, or nothing to check it against: show it as a claim.</summary>
         Unverifiable,
+
+        /// <summary>
+        /// The server left out a sender this reader may not see: <c>narrator</c> is null and the body's
+        /// <c>x_served_trimmed</c> names <c>narrator</c>. Show "from someone you cannot see", never "from nobody" and
+        /// never a name.
+        /// </summary>
+        Unseen,
     }
 
     /// <summary><see cref="OWMessage.SenderStatus"/>'s answer for one message.</summary>
@@ -39,20 +47,44 @@ namespace OnlyWorlds.Sdk
             WrittenBy = writtenBy;
         }
 
-        /// <summary>Verified, a mismatch, or unverifiable.</summary>
+        /// <summary>Verified, a mismatch, unverifiable, or unseen.</summary>
         public OWSenderStatus Status { get; }
 
-        /// <summary>The message's <c>narrator</c>: the Character it claims as its sender, or null (show it as from nobody).</summary>
+        /// <summary>
+        /// The message's <c>narrator</c>: the Character it claims as its sender, or null (show it as from nobody, or as
+        /// from someone you cannot see when <see cref="Status"/> is <see cref="OWSenderStatus.Unseen"/>).
+        /// </summary>
         public string Claimed { get; }
 
         /// <summary>On a mismatch, the Character of the membership that wrote it (from <c>created_by</c>); null otherwise.</summary>
         public string WrittenBy { get; }
     }
 
+    /// <summary><see cref="OWMessage.EditedBy"/>'s answer for one message: whether a later hand changed it, and whose.</summary>
+    public sealed class OWEditedBy
+    {
+        public OWEditedBy(bool edited, string by)
+        {
+            Edited = edited;
+            By = by;
+        }
+
+        /// <summary>True when the message carries <c>changed_by</c> and it is not its <c>created_by</c>.</summary>
+        public bool Edited { get; }
+
+        /// <summary>
+        /// The Character of the membership in <c>changed_by</c>, on the world's members list; null when that membership
+        /// plays no Character, is off the list, or there is no list (show "edited by another hand"), and null whenever
+        /// <see cref="Edited"/> is false.
+        /// </summary>
+        public string By { get; }
+    }
+
     /// <summary>
-    /// Reads a message between a world's members: its recipients, its sender and whether that sender is proved, a
-    /// reader's read mark and unread messages, and a thread. Element bodies are <see cref="JObject"/>s as the API or a
-    /// world folder gives them; lists are any sequence of them (a <see cref="JArray"/> too), and an entry that is not
+    /// Reads a message between a world's members: its recipients (and whether the server left some out for this
+    /// reader), its sender and whether that sender is proved, who edited it, a reader's read mark and unread messages,
+    /// a thread, and a Character's Note, which is not a message. Element bodies are <see cref="JObject"/>s as the API or
+    /// a world folder gives them; lists are any sequence of them (a <see cref="JArray"/> too), and an entry that is not
     /// an object is no message.
     /// </summary>
     /// <remarks>
@@ -77,6 +109,19 @@ namespace OnlyWorlds.Sdk
         public const string MessagesField = "narratives";
 
         /// <summary>
+        /// The pair a Note is: type <c>narrative</c>, supertype <c>Note</c>. A member's own line in the world, never a
+        /// message: addressed to nobody, never unread, never in a thread.
+        /// </summary>
+        public static readonly (string type, string supertype) NotePair = ("narrative", "Note");
+
+        /// <summary>
+        /// The key the server marks a body with when it left out ids the reader's key may not see: a list of the field
+        /// names that lost one (<c>characters</c>, <c>narrator</c> or both). The server sets it and a reader only reads
+        /// it; a folder keeps it as it was served, and a write never sends it (<see cref="OWPayload.ReadOnlyFields"/>).
+        /// </summary>
+        public const string ServedTrimmedKey = "x_served_trimmed";
+
+        /// <summary>
         /// True when the element is a message: its <c>type</c> and <c>supertype</c>, each trimmed and compared without
         /// regard to case as the room profile defines them, are <see cref="Pair"/>. The match is the whole word
         /// (<c>Messages</c> is not one), and a missing or null supertype is none. A parlor's line (one carrying
@@ -95,14 +140,25 @@ namespace OnlyWorlds.Sdk
         public static bool IsReadMark(JObject element) => Matches(element, ReadMarkPair);
 
         /// <summary>
+        /// True when the element is a Note: its <c>type</c> and <c>supertype</c>, trimmed and folded as
+        /// <see cref="IsMessage"/> reads them, are <see cref="NotePair"/>. A Note is a member's own line, never a
+        /// message: the addressing, unread and thread readers here pass it by, whatever its <c>characters</c> holds.
+        /// <see cref="NoteOf"/> finds a Character's line.
+        /// </summary>
+        /// <param name="element">An element body that names its <c>type</c> (a slug); null is no element.</param>
+        public static bool IsNote(JObject element) => Matches(element, NotePair);
+
+        /// <summary>
         /// The message's recipients: the Character ids in its <c>characters</c>, in the field's order, entries that are
         /// not ids left out. An empty <c>characters</c> (absent, null or <c>[]</c>) is addressed to every member of the
-        /// world; ask <see cref="IsAddressedTo"/> whether it is for one Character, and <see cref="IsToEveryone"/>
-        /// whether it is for all. No other field addresses a message.
+        /// world unless the server trimmed the list for this reader (<see cref="HasUnseenRecipients"/>); ask
+        /// <see cref="IsAddressedTo"/> whether it is for one Character, and <see cref="IsToEveryone"/> whether it is for
+        /// all. No other field addresses a message. A Note has none.
         /// </summary>
         public static IReadOnlyList<string> RecipientsOf(JObject message)
         {
             var list = new List<string>();
+            if (IsNote(message)) return list;
             if (message?["characters"] is JArray characters)
             {
                 foreach (var entry in characters)
@@ -116,25 +172,50 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
-        /// True when the message is addressed to every member: its <c>characters</c> is absent, null or <c>[]</c>. A
-        /// list that names no valid id (<c>[""]</c>) or a value that is not a list is addressed to nobody, so it is
-        /// false here, though <see cref="RecipientsOf"/> gives none for both.
+        /// True when the message is addressed to every member: its <c>characters</c> is absent, null or <c>[]</c>, the
+        /// server did not trim that list for this reader (<see cref="HasUnseenRecipients"/>), and the body came with a
+        /// credential. A list that names no valid id (<c>[""]</c>) or a value that is not a list is addressed to nobody,
+        /// so it is false here, though <see cref="RecipientsOf"/> gives none for both. An empty list with the trimmed
+        /// mark reads "to someone you cannot see". A Note is never to everyone.
         /// </summary>
-        public static bool IsToEveryone(JObject message)
+        /// <param name="message">The message's body.</param>
+        /// <param name="keyless">
+        /// True for a body read with no credential (the keyless public reader). The server leaves the ids that reader may
+        /// not see out of it and never marks it, so an empty list is "to everyone, or to someone you cannot see": false
+        /// here, always.
+        /// </param>
+        public static bool IsToEveryone(JObject message, bool keyless = false)
         {
-            if (message == null) return false;
+            if (message == null || keyless || IsNote(message) || Trimmed(message, "characters")) return false;
             if (!message.TryGetValue("characters", out var list)) return true;
             return list.Type == JTokenType.Null || (list is JArray array && array.Count == 0);
         }
 
         /// <summary>
+        /// Whether someone this reader cannot see is a recipient: true when the body's <c>x_served_trimmed</c> names
+        /// <c>characters</c> (the server left their ids out), whatever is left in the list. It never says who or how
+        /// many. False for a body without the mark, and for null.
+        /// </summary>
+        /// <param name="message">The message's body.</param>
+        /// <param name="keyless">
+        /// True for a body read with no credential: the server never marks it, so the answer is unknown, null.
+        /// </param>
+        public static bool? HasUnseenRecipients(JObject message, bool keyless = false)
+        {
+            if (message == null) return false;
+            if (keyless) return null;
+            return Trimmed(message, "characters");
+        }
+
+        /// <summary>
         /// True when the message is addressed to the Character: its id is in <c>characters</c>, or the message is to
-        /// everyone (<see cref="IsToEveryone"/>). Not <c>narrator</c>, not a name or an id in the text, not
-        /// <c>protagonist</c> or any other link: a sender is not addressed by sending.
+        /// everyone (<see cref="IsToEveryone"/>, which an empty list the server trimmed is not: it is addressed to no
+        /// Character this reader is given). Not <c>narrator</c>, not a name or an id in the text, not
+        /// <c>protagonist</c> or any other link: a sender is not addressed by sending. A Note is addressed to nobody.
         /// </summary>
         public static bool IsAddressedTo(JObject message, string characterId)
         {
-            if (message == null || string.IsNullOrEmpty(characterId)) return false;
+            if (message == null || string.IsNullOrEmpty(characterId) || IsNote(message)) return false;
             if (IsToEveryone(message)) return true;
             return message["characters"] is JArray list && list.Any(entry => StringOf(entry) == characterId);
         }
@@ -164,13 +245,18 @@ namespace OnlyWorlds.Sdk
         /// show "claims to be from &lt;claimed&gt;, written by &lt;written by&gt;'s key", never the plain sender.
         /// <see cref="OWSenderStatus.Unverifiable"/>: no narrator (show "from nobody", never "to everyone"), no
         /// <c>created_by</c> key at all (a folder, an export; null is the owner, not absent), no members list, the
-        /// author not on it, or its row naming no Character; show "claims to be from &lt;claimed&gt;". Never give an
-        /// unverified sender the verified look.
+        /// author not on it, or its row naming no Character; show "claims to be from &lt;claimed&gt;".
+        /// <see cref="OWSenderStatus.Unseen"/>: no narrator, and the body's <c>x_served_trimmed</c> names
+        /// <c>narrator</c>: the server left out a sender this reader may not see; show "from someone you cannot see".
+        /// Decided before the hand is checked. A body read with no credential is never marked, so its missing narrator
+        /// stays unverifiable. Never give an unverified sender the verified look. An edit never changes this answer
+        /// (<see cref="EditedBy"/>).
         /// </returns>
         public static OWSender SenderStatus(JObject message, IEnumerable<JToken> members)
         {
             var narrator = StringOf(message?["narrator"]);
             var claimed = string.IsNullOrEmpty(narrator) ? null : narrator;
+            if (claimed == null && Trimmed(message, "narrator")) return new OWSender(OWSenderStatus.Unseen, null, null);
             if (claimed == null) return new OWSender(OWSenderStatus.Unverifiable, null, null);
 
             var hand = HandOf(message, members);
@@ -178,6 +264,23 @@ namespace OnlyWorlds.Sdk
             return hand == claimed
                 ? new OWSender(OWSenderStatus.Verified, claimed, null)
                 : new OWSender(OWSenderStatus.Mismatch, claimed, hand);
+        }
+
+        /// <summary>
+        /// Whether a later hand changed the message, and whose. The proof of sending is the first write,
+        /// <c>created_by</c>; the last hand is <c>changed_by</c> (null for the owner, as <c>created_by</c> is). It is an
+        /// edit when the message carries <c>changed_by</c> and it is not its <c>created_by</c> (an absent
+        /// <c>created_by</c> is never equal). Show "edited by &lt;by&gt;" beside the sender's answer, or "edited by
+        /// another hand" when <see cref="OWEditedBy.By"/> is null. An edit never changes <see cref="SenderStatus"/>'s
+        /// answer. A message with no <c>changed_by</c> (a folder, an export) says nothing of edits.
+        /// </summary>
+        /// <param name="message">The message's body, as the server returns it.</param>
+        /// <param name="members">The world's members list, as for <see cref="SenderStatus"/>; null when unreadable.</param>
+        public static OWEditedBy EditedBy(JObject message, IEnumerable<JToken> members)
+        {
+            if (message == null || !message.TryGetValue("changed_by", out var editor)) return new OWEditedBy(false, null);
+            if (message.TryGetValue("created_by", out var author) && SameHand(editor, author)) return new OWEditedBy(false, null);
+            return new OWEditedBy(true, CharacterOf(editor, members));
         }
 
         /// <summary>
@@ -223,13 +326,14 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// The messages unread for the Character, in <c>created_at</c> order (equal times keep the list's order, the
-        /// server's): addressed to it (<see cref="IsAddressedTo"/>), not its own, and not on its read mark's
-        /// <c>narratives</c>. Its own is a message it sent, never unread for it whoever it is addressed to: where the
-        /// message carries no <c>created_by</c> (a folder, an export) its <c>narrator</c> is trusted; on the wire only a
-        /// verified sender counts (<see cref="SenderStatus"/>), so a claim never makes a message read for the Character
-        /// it names, and a mismatch or an author nobody can check stays unread.
+        /// server's; a time that cannot be read comes after every one that can, in the list's order): addressed to it
+        /// (<see cref="IsAddressedTo"/>), not its own, and not on its read mark's <c>narratives</c>. Its own is a message
+        /// it sent, never unread for it whoever it is addressed to: where the message carries no <c>created_by</c> (a
+        /// folder, an export) its <c>narrator</c> is trusted; on the wire only a verified sender counts
+        /// (<see cref="SenderStatus"/>), so a claim never makes a message read for the Character it names, and a
+        /// mismatch or an author nobody can check stays unread. A Note is never unread.
         /// </summary>
-        /// <param name="messages">The messages (<see cref="IsMessage"/>); every object given is read as one.</param>
+        /// <param name="messages">The messages (<see cref="IsMessage"/>); every object given but a Note is read as one.</param>
         /// <param name="characterId">The reader's Character id.</param>
         /// <param name="readMark">
         /// <see cref="ReadMarkOf"/>'s answer; null is a reader with no mark, so everything addressed to it is unread.
@@ -266,12 +370,13 @@ namespace OnlyWorlds.Sdk
         /// The thread of a root message: every message whose chain of <c>parent_narrative</c> reaches the root, the root
         /// included, in <c>created_at</c> order (equal times keep the list's order). A walk stops at an id it has
         /// already visited, so a loop in the chain ends it; a parent not in the list ends the chain unless it is the root,
-        /// and so does a <c>parent_narrative</c> that is not a string id (a number, null, an object).
+        /// and so does a <c>parent_narrative</c> that is not a string id (a number, null, an object). A Note is never in
+        /// a thread: it is passed by as if it were not in the list.
         /// </summary>
         public static IReadOnlyList<JObject> ThreadOf(IEnumerable<JToken> messages, string rootId)
         {
             if (messages == null || string.IsNullOrEmpty(rootId)) return new List<JObject>();
-            var listed = messages.OfType<JObject>().ToList();
+            var listed = messages.OfType<JObject>().Where(m => !IsNote(m)).ToList();
             var byId = new Dictionary<string, JObject>();
             foreach (var m in listed)
             {
@@ -299,7 +404,35 @@ namespace OnlyWorlds.Sdk
             return InCreatedOrder(listed.Where(Reaches));
         }
 
+        /// <summary>
+        /// The Character's line: its newest Note in its own hand, or null when it has none. A Note
+        /// (<see cref="IsNote"/>) whose <c>narrator</c> is the Character, neither hidden (<see cref="OWPayload.IsHidden"/>)
+        /// nor proposed (<see cref="OWPayload.IsProposed"/>), and in its author's hand: where it carries no
+        /// <c>created_by</c> (a folder, an export) its <c>narrator</c> is trusted; on the wire only a verified sender
+        /// counts (<see cref="SenderStatus"/>), so a mismatch or an unverifiable Note is nobody's line. The newest is the
+        /// last in <c>created_at</c> order whose time can be read, or the last in the list when none can. A message is
+        /// never the line.
+        /// </summary>
+        /// <param name="narratives">Narratives, the Notes among them; anything else given is passed by.</param>
+        /// <param name="characterId">The Character id; an empty id has no line.</param>
+        /// <param name="members">The world's members list, as for <see cref="SenderStatus"/>; null when unreadable.</param>
+        public static JObject NoteOf(IEnumerable<JToken> narratives, string characterId, IEnumerable<JToken> members)
+        {
+            if (narratives == null || string.IsNullOrEmpty(characterId)) return null;
+            var own = narratives.OfType<JObject>()
+                .Where(n => IsNote(n) && IsSentBy(n, characterId) && !OWPayload.IsHidden(n) && !OWPayload.IsProposed(n)
+                            && IsOwn(n, characterId, members))
+                .ToList();
+            if (own.Count == 0) return null;
+            var dated = own.Where(n => TimeKey(n["created_at"]) != null).ToList();
+            return dated.Count > 0 ? InCreatedOrder(dated).Last() : own.Last();
+        }
+
         // -- The profile's comparisons ---------------------------------------------
+
+        /// <summary>True when the body's <c>x_served_trimmed</c> is a list that names the field.</summary>
+        private static bool Trimmed(JObject body, string field) =>
+            body?[ServedTrimmedKey] is JArray fields && fields.Any(entry => StringOf(entry) == field);
 
         /// <summary>The type and supertype, each trimmed and folded as the room profile defines them, against one pair.</summary>
         private static bool Matches(JObject element, (string type, string supertype) pair)
@@ -322,11 +455,21 @@ namespace OnlyWorlds.Sdk
         /// </summary>
         private static string HandOf(JObject body, IEnumerable<JToken> members)
         {
-            if (body == null || members == null || !body.TryGetValue("created_by", out var author)) return null;
+            if (body == null || !body.TryGetValue("created_by", out var author)) return null;
+            return CharacterOf(author, members);
+        }
+
+        /// <summary>
+        /// The Character a membership plays: its row on the members list, by <c>id</c> (null the owner's row). Null when
+        /// there is no list, the membership is not on it, or its row names no Character.
+        /// </summary>
+        private static string CharacterOf(JToken membership, IEnumerable<JToken> members)
+        {
+            if (members == null || !(membership is JValue)) return null;
             foreach (var entry in members)
             {
                 if (!(entry is JObject row) || !row.TryGetValue("id", out var id)) continue;
-                if (!(id is JValue && author is JValue) || !JToken.DeepEquals(id, author)) continue;
+                if (!SameHand(id, membership)) continue;
                 var character = StringOf(row["character"]);
                 return string.IsNullOrEmpty(character) ? null : character;
             }
