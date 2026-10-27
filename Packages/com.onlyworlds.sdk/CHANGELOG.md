@@ -86,6 +86,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   with a character above U+FFFF sorted below one with a character in U+E000 to U+FFFF and could take the other's short
   name; ASCII ids, which every id a world mints is, were never affected. One comparer now serves the folder code and
   `OWLens`, whose order is unchanged.
+- `OWFolderReader` reads a folder in one order on every platform, and a repeated id serves the same file in every
+  reader (folder format §4, clarified in v0.3.19). It visits the element files type by type, then by name, and the
+  legacy `spatial/` lists, comparing names by Unicode code point. Before this, `Read` took the file system's listing
+  order (case-blind on NTFS, so `a.json` came before `B.json` on Windows), and the in-memory read compared UTF-16 code
+  units. Within a layout a repeated id now keeps its first file and lists each later one in `Skipped`. It had served
+  every copy, so the cache kept the last one. Only a folder that breaks the one-id-one-file rule is affected.
 - The message profile's shared edge cases, the file the TypeScript SDK 4.89.1 and the Python package both hold (26 cases:
   what a Note is to every reader, the `created_at` order, an edit, a Character's line), now replay here, and the
   readings they caught are fixed. `HasUnseenRecipients` is false for a Note, keyless or not. `ThreadOf` walks a chain

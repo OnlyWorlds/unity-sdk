@@ -203,17 +203,17 @@ namespace OnlyWorlds.Sdk
 
             var result = new OWFolderReadResult { World = ReadWorldJson(folderPath) };
 
-            // Every file is listed first, in the order the serial reader visited them, so the result's
-            // order and its skipped list are the same as they always were.
+            // Every file is listed first, in the order ReadEntries visits them: names by code point on every platform
+            // (§4), never the file system's listing order (NTFS lists case-blind, ext4 by hash).
             var files = new List<(string path, string type, bool legacy)>();
             var elementsRoot = Path.Combine(folderPath, "elements");
             if (Directory.Exists(elementsRoot))
             {
-                foreach (var typeDir in Directory.GetDirectories(elementsRoot))
+                foreach (var typeDir in ByName(Directory.GetDirectories(elementsRoot)))
                 {
                     var type = Path.GetFileName(typeDir);
                     if (IsDotPrefixed(type)) continue;
-                    foreach (var file in Directory.GetFiles(typeDir, "*.json")) files.Add((file, type, false));
+                    foreach (var file in ByName(Directory.GetFiles(typeDir, "*.json"))) files.Add((file, type, false));
                 }
             }
 
@@ -227,7 +227,7 @@ namespace OnlyWorlds.Sdk
                         var dir = Path.Combine(spatialRoot, type);
                         if (!Directory.Exists(dir)) continue;
 
-                        foreach (var file in Directory.GetFiles(dir, "*.json")) files.Add((file, type, true));
+                        foreach (var file in ByName(Directory.GetFiles(dir, "*.json"))) files.Add((file, type, true));
                     }
                 }
             }
@@ -305,18 +305,19 @@ namespace OnlyWorlds.Sdk
                 }
             }
 
-            // The folder form visits elements/ type by type, then spatial/ in LegacySpatialTypes' order.
+            // The folder form visits elements/ type by type, then spatial/ in LegacySpatialTypes' order. Names compare
+            // by code point on every platform (§4, v0.3.21), never UTF-16 order, which differs above U+FFFF.
             elements.Sort((a, b) =>
             {
-                var byType = string.CompareOrdinal(a.type, b.type);
-                return byType != 0 ? byType : string.CompareOrdinal(a.path, b.path);
+                var byType = OWCodePointComparer.Instance.Compare(a.type, b.type);
+                return byType != 0 ? byType : OWCodePointComparer.Instance.Compare(a.path, b.path);
             });
 
             var files = elements.Select(e => (e.path, e.type, false)).ToList();
             foreach (var type in LegacySpatialTypes)
             {
                 if (!legacy.TryGetValue(type, out var list)) continue;
-                list.Sort(StringComparer.Ordinal);
+                list.Sort(OWCodePointComparer.Instance);
                 files.AddRange(list.Select(p => (p, type, true)));
             }
 
@@ -337,6 +338,11 @@ namespace OnlyWorlds.Sdk
                 ReadElement(path, texts[i], type, legacy ? result.LegacyElements : result.Elements, result.Skipped);
             }
 
+            // §4 (clarified in v0.3.19): within a layout a repeated id keeps the first file in visit order, the later
+            // ones logged and never served, so one folder serves the same body in every reader.
+            KeepFirst(result.Elements, result.Skipped);
+            KeepFirst(result.LegacyElements, result.Skipped);
+
             // §4 (v0.3.8, one id, one file): an id in both layouts is served from elements/, and the spatial/ copy is
             // logged, never deleted (it is not ours to tidy).
             if (result.LegacyElements.Count > 0)
@@ -349,6 +355,25 @@ namespace OnlyWorlds.Sdk
                 }
                 result.LegacyElements.RemoveAll(e => current.Contains(e.Id));
             }
+        }
+
+        /// <summary>Paths in one directory, ordered by their names' code points.</summary>
+        private static string[] ByName(string[] paths)
+        {
+            Array.Sort(paths, (a, b) => OWCodePointComparer.Instance.Compare(Path.GetFileName(a), Path.GetFileName(b)));
+            return paths;
+        }
+
+        /// <summary>Keeps each id's first element, in list order, and moves the later ones to the skipped list.</summary>
+        private static void KeepFirst(List<OWFolderElement> elements, List<OWSkippedFile> skipped)
+        {
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            elements.RemoveAll(e =>
+            {
+                if (seen.Add(e.Id)) return false;
+                skipped.Add(new OWSkippedFile { Path = e.Path, Reason = "same id as an earlier file, which is served" });
+                return true;
+            });
         }
 
         /// <summary>The disk spellings a folder may use for a schema link, and the schema's name for each.</summary>

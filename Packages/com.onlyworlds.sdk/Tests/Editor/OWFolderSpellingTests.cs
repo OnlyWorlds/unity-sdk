@@ -249,5 +249,70 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual("real", (string)read.Elements[0].Body["name"]);
             CollectionAssert.AreEqual(new[] { "elements/character/.tmp-a.json" }, read.Skipped.ConvertAll(s => s.Path));
         }
+
+        /// <summary>
+        /// §4 (v0.3.21): a reader visits files by code point on every platform, in <c>elements/</c> and in the
+        /// legacy <c>spatial/</c> lists alike. A name in U+E000-U+FFFF comes before one above U+FFFF by code point;
+        /// UTF-16 order (C# ordinal) puts the surrogate pair first.
+        /// </summary>
+        [Test]
+        public void The_reader_visits_files_by_code_point_above_the_basic_plane()
+        {
+            const string privateUse = "";
+            const string astral = "\U0001F600";
+            var read = OWFolderReader.ReadEntries(new System.Collections.Generic.Dictionary<string, string>
+            {
+                ["world.json"] = "{\"id\": \"w\", \"name\": \"W\"}",
+                [$"elements/character/{astral}--0000c001.json"] = "{\"id\": \"c-astral\", \"name\": \"astral\"}",
+                [$"elements/character/{privateUse}--0000c002.json"] = "{\"id\": \"c-private\", \"name\": \"private\"}",
+                [$"spatial/pin/{astral}--0000p001.json"] = "{\"id\": \"p-astral\", \"name\": \"astral\"}",
+                [$"spatial/pin/{privateUse}--0000p002.json"] = "{\"id\": \"p-private\", \"name\": \"private\"}",
+            });
+
+            CollectionAssert.AreEqual(new[] { "c-private", "c-astral" }, read.Elements.ConvertAll(e => e.Id),
+                "elements/ by code point");
+            CollectionAssert.AreEqual(new[] { "p-private", "p-astral" }, read.LegacyElements.ConvertAll(e => e.Id),
+                "spatial/ by code point");
+        }
+
+        /// <summary>
+        /// §4 (clarified in v0.3.19): a repeated id keeps the first file in that order, and every later file of the id
+        /// is listed as skipped, never served.
+        /// </summary>
+        [Test]
+        public void A_repeated_id_keeps_the_first_file_by_code_point_and_skips_the_rest()
+        {
+            var read = OWFolderReader.ReadEntries(new System.Collections.Generic.Dictionary<string, string>
+            {
+                ["world.json"] = "{\"id\": \"w\", \"name\": \"W\"}",
+                ["elements/character/\U0001F600--0000c001.json"] = "{\"id\": \"c-twice\", \"name\": \"astral\"}",
+                ["elements/character/--0000c001.json"] = "{\"id\": \"c-twice\", \"name\": \"private\"}",
+            });
+
+            Assert.AreEqual(1, read.Elements.Count, "one id, one element");
+            Assert.AreEqual("private", (string)read.Elements[0].Body["name"], "the first by code point is served");
+            CollectionAssert.AreEqual(new[] { "elements/character/\U0001F600--0000c001.json" },
+                read.Skipped.ConvertAll(s => s.Path));
+        }
+
+        /// <summary>
+        /// The folder on disk by the same order, never the file system's: NTFS lists names case-blind (<c>a</c> before
+        /// <c>B</c>), code point puts <c>B</c> (U+0042) before <c>a</c> (U+0061), so a reader that takes the OS's order
+        /// serves <c>a.json</c> on Windows.
+        /// </summary>
+        [Test]
+        public void The_folder_on_disk_is_read_by_code_point_not_the_file_systems_order()
+        {
+            Write("world.json", "{\"id\": \"w\", \"name\": \"W\"}");
+            Write("elements/character/a.json", "{\"id\": \"c-twice\", \"name\": \"lower\"}");
+            Write("elements/character/B.json", "{\"id\": \"c-twice\", \"name\": \"upper\"}");
+
+            var read = OWFolderReader.Read(_root);
+
+            Assert.AreEqual(1, read.Elements.Count, "one id, one element");
+            Assert.AreEqual("upper", (string)read.Elements[0].Body["name"], "B.json is first by code point");
+            Assert.AreEqual(1, read.Skipped.Count);
+            StringAssert.EndsWith("a.json", read.Skipped[0].Path);
+        }
     }
 }
