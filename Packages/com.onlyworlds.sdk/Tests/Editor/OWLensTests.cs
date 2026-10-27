@@ -401,6 +401,33 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             }
         }
 
+        // The TypeScript SDK 4.93.1's vector (test/lens.test.mjs; the Python package 0.77.1 holds the same): a lens a guest
+        // knows only as a stub, named by its id, reads as nothing, as the server's own reader answers it. A stub serves no
+        // links and no recipe, so the stored body's anchors are never followed. Whole, the same lens reads. This SDK's
+        // Resolve already read only a lens served whole; the vector holds it there. Kills: a lens id looked up in
+        // everything the reader sees (a stub included) rather than in what it is served whole.
+        [Test]
+        public void ALensAGuestKnowsOnlyAsAStub_ReadsAsNothing_ById_AndWhole_ItReads()
+        {
+            var world = new List<JObject>
+            {
+                JObject.Parse(@"{""id"":""L"",""type"":""construct"",""name"":""Ada and hers"",""supertype"":""Lens"",""characters"":[""c1""],""x_lens"":{""depth"":1}}"),
+                JObject.Parse(@"{""id"":""c1"",""type"":""character"",""name"":""Ada"",""friends"":[""c2""]}"),
+                JObject.Parse(@"{""id"":""c2"",""type"":""character"",""name"":""Bo""}"),
+            };
+
+            var stub = OWLensReader.Guest(new[] { "c1", "c2" }, new[] { "L" });
+            var r = OWLens.Resolve(world, "L", stub);
+            CollectionAssert.IsEmpty(r.Kept, "a stub lens keeps nothing");
+            CollectionAssert.IsEmpty(r.Cut.Where(p => p.Value > 0), "a stub lens cuts nothing");
+            Assert.IsNull(r.RefusedKey, "a stub lens is not an unreadable one");
+            CollectionAssert.IsEmpty(OWGraph.Read(world, stub, new OWGraphOptions { LensId = "L" }).Nodes,
+                "the graph reads the lens as the resolver does");
+
+            var whole = OWLens.Resolve(world, "L", OWLensReader.Guest(new[] { "L", "c1", "c2" }, new string[0]));
+            CollectionAssert.AreEqual(new[] { "c1", "c2" }, whole.Kept);
+        }
+
         /// <summary>The case's lens, a body or the id of a lens in the world.</summary>
         private static OWLensResult ResolveCase(List<JObject> world, JObject c, OWLensReader reader, OWLensOptions options)
         {

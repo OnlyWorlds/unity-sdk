@@ -134,6 +134,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   window without a now, a `to` after `as_of`, the fence on anchors, the members list in the mail rule, a message
   not repeated among the kept, the thirty days' edge, ties by id), now replay here against `OWLens`, the file's
   sha256 pinned to the release.
+- A lens a guest knows only as a stub reads as nothing when it is named by its id, in `OWLens.Resolve` and so in
+  `OWGraph.Read` (`LensId`), as the server's own reader answers it: a stub serves no links and no recipe, so the
+  stored body's anchors are never followed. This SDK already looked a lens id up only among the elements the reader is
+  served whole, so nothing moved; the TypeScript SDK 4.93.1's test vector (the Python package 0.77.1 holds the same)
+  is ported and now holds it.
 
 ### Fixed
 
