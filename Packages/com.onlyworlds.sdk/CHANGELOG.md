@@ -60,9 +60,18 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   a missing key is absent, so `world: ""` refuses as `bad_world`, `lens: ""` as `bad_lens`, and `type: ""` with
   `id: ""` as `unknown_type`. The JSON overload throws `ArgumentException` for a key the shape does not hold (`wrold`,
   `Type`), as the packages throw a `TypeError`; a reading's `world_is_slug` and `canonical` are keys of it, ignored.
+- The lens profile's shared edge cases, the file the TypeScript SDK 4.91.0 and the Python package 0.74.0 both
+  hold byte for byte (ten cases: a known-of stub's links, the window's edge, `time_current` read as the now, no
+  window without a now, a `to` after `as_of`, the fence on anchors, the members list in the mail rule, a message
+  not repeated among the kept, the thirty days' edge, ties by id), now replay here against `OWLens`, the file's
+  sha256 pinned to the release.
 
 ### Fixed
 
+- `OWLens.Resolve` now breaks the kept elements' id tie by Unicode code point, as the lens profile's reference readers
+  do (the TypeScript SDK and the Python package). It had compared ids by UTF-16 code unit, which diverges only for ids
+  with a character outside the Basic Multilingual Plane (a surrogate pair sorted below U+FFFF, not above it); the hex
+  ids a world holds are ASCII and were never affected.
 - The message profile's shared edge cases, the file the TypeScript SDK 4.89.1 and the Python package both hold (26 cases:
   what a Note is to every reader, the `created_at` order, an edit, a Character's line), now replay here, and the
   readings they caught are fixed. `HasUnseenRecipients` is false for a Note, keyless or not. `ThreadOf` walks a chain
