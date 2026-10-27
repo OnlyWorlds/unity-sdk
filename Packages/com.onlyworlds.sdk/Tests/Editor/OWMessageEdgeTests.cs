@@ -12,20 +12,17 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// <summary>
     /// The message profile's shared edge cases: inputs the official fixture leaves open (what a Note is to every
     /// reader, the <c>created_at</c> order and its readable rule, an edit, a Character's line), answers written by
-    /// hand. The file is the TypeScript SDK's <c>test/fixtures/message-edges.json</c> from release 4.88.0 (commit
-    /// d8c9514), the same bytes the Python package holds, vendored in <c>Tests/Editor/Fixtures/message/edges.json</c>.
+    /// hand. The file is the TypeScript SDK's <c>test/fixtures/message-edges.json</c> from release 4.89.1 (commit
+    /// 7afdd17), the same bytes the Python package holds, vendored in <c>Tests/Editor/Fixtures/message/edges.json</c>.
     /// Each case names its reader; the readers run here as they run in the TypeScript SDK's replay
     /// (<c>test/message.test.mjs</c>). When the file moves, re-vendor it and update the hash and the count below.
     /// </summary>
     public class OWMessageEdgeTests
     {
-        /// <summary>The edge file's sha256: <c>test/fixtures/message-edges.json</c> in the TypeScript SDK 4.88.0 (d8c9514).</summary>
-        private const string EdgesSha256 = "83a1d2d5c447bb4b95b13133f81300d458c2b30aa24e3396750f235f44ef94b8";
+        /// <summary>The edge file's sha256: <c>test/fixtures/message-edges.json</c> in the TypeScript SDK 4.89.1 (7afdd17).</summary>
+        private const string EdgesSha256 = "b4b93ec587045c5b1e672df93337544f4b039ef129378ff53e59d4fa4a21de2e";
 
         private const int EdgeCount = 26;
-
-        /// <summary>The one case this reader answers differently until the next edge file (see the test).</summary>
-        private const string HiddenTrueOnly = "hidden-must-be-true-and-proposed-an-object";
 
         private static JArray _edges;
 
@@ -81,7 +78,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             {
                 var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
                 Assert.AreEqual(EdgesSha256, hash,
-                    "the vendored edge file is not the TypeScript SDK 4.88.0's: re-vendor it (a checkout's line endings change the bytes)");
+                    "the vendored edge file is not the TypeScript SDK 4.89.1's: re-vendor it (a checkout's line endings change the bytes)");
             }
 
             Assert.AreEqual(EdgeCount, Edges.Count);
@@ -92,9 +89,6 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             var edge = Edges.Cast<JObject>().FirstOrDefault(e => (string)e["name"] == name);
             Assert.IsNotNull(edge, "no edge case named " + name);
-            if (name == HiddenTrueOnly)
-                Assert.Ignore(name + " reads hidden as the boolean true only; ruled 2026-10-27 that a Note takes the one hidden "
-                              + "mark (anything but absent, null or false), so this case changes in the next edge file. Re-vendor then.");
             var got = Answer(edge);
             Assert.IsTrue(JToken.DeepEquals(edge["want"], got),
                 name + ": gave " + got.ToString(Formatting.None) + ", want " + edge["want"].ToString(Formatting.None));

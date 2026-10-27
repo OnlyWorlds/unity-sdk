@@ -55,14 +55,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Fixed
 
-- The message profile's shared edge cases, the file the TypeScript SDK 4.88.0 and the Python package both hold (26 cases:
+- The message profile's shared edge cases, the file the TypeScript SDK 4.89.1 and the Python package both hold (26 cases:
   what a Note is to every reader, the `created_at` order, an edit, a Character's line), now replay here, and the
   readings they caught are fixed. `HasUnseenRecipients` is false for a Note, keyless or not. `ThreadOf` walks a chain
   through a Note without listing it. A `created_at` is read by the profile's strict RFC 3339 rule (no lenient parse:
   a string that is not `YYYY-MM-DDTHH:MM:SS` with an optional fraction and zone sorts last). `NoteOf` passes over a
   Note without a string id. A Note's hidden mark is the one every reader reads (`OWPayload.IsHidden`: anything but
-  absent, `null` or `false`; ruled 2026-10-27), so the one edge case that reads only the boolean `true` is skipped
-  by name until the edge file changes.
+  absent, `null` or `false`; ruled 2026-10-27).
 
 ## [0.23.0] - 2026-10-27
 
