@@ -96,10 +96,24 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   in the world this key can see, each with its recipe echoed, the Titles it is the default for and whether this key
   chose it, answered whole as a `JObject` (`{data, read_as}`); `resolve` (`bool?`, sent as `true` or `false` when
   given) adds each lens's `reading`, and `readAs` (the owner only, with `resolve`; sent as `read_as`, escaped) reads as
-  another reader. A read, so no PIN. Both are a world key's calls: on an account token, with `World` or without, or on
-  a keyless client, each is an `InvalidOperationException` and nothing is sent. `GetMeAsync`'s answer now carries
+  another reader. A read, so no PIN. Both take a world key, and an account token as the next entry says; on a keyless
+  client each is an `InvalidOperationException` and nothing is sent. `GetMeAsync`'s answer now carries
   `lenses`, the holder's choice in order, which `OWLens.LensesFor` takes as the membership's. Parity with the
   TypeScript SDK 4.92.0, its test vectors ported.
+- **The lens routes on an account token, and a row's lenses.** `WorldLensesAsync(worldId)` on an `ow_a_` token sends
+  its Bearer alone, the world in the path and no `world=`, with `World` set or not. `SetMyLensesAsync(lensIds)` on an
+  account token sets the account's own list in the world `World` names, sending `world=<id>` and the Bearer, never a
+  PIN; an account client without `World` is an `InvalidOperationException` before sending. On a world key both send
+  as before. `OWClient.SetMemberLensesAsync(worldId, memberId, lensIds)`:
+  `PATCH /account/worlds/{world_id}/members/{member_id}` with `{"lenses": [...]}` alone (never a role, Character or
+  sponsor), both ids escaped, `memberId` a membership id or `owner` for the owner's own list; it answers the row as
+  served, a `JObject` (`{id, role, kind, lenses}`, and `x_served_trimmed` naming `lenses` when the list keeps a lens
+  you cannot see). A member sets its own row, a seat it answers for, or any seat as a co-builder; the owner any seat.
+  An account token's call: any other key, or no key, is an `InvalidOperationException` and a null list an
+  `ArgumentNullException`, each before anything is sent. The server's codes are those of `SetMyLensesAsync`, and a 422
+  when the owner names a person's row. The client's one request rule now reads a third mark beside the `/account`
+  routes and the world reads: a route the server's document declares the account token on. Parity with the TypeScript
+  SDK 4.94.0, its test vectors ported.
 
 ### Changed
 
@@ -180,10 +194,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 - The TypeScript SDK 4.92.0's `draught(characterId, { lens })` and the frames it answers: this SDK has no client for
   the draught (`GET /character/{id}/context`), so it has no `lens` option either.
-- `lenses` on a member row (the TypeScript SDK's `OwMember.lenses`), and the `lenses` key that
-  `PATCH /account/worlds/{world_id}/members/{member_id}` now takes: this SDK has no members call.
-- No typed `/me` or lens-list model: `GetMeAsync`, `SetMyLensesAsync` and `WorldLensesAsync` answer the body as
-  served (`JObject`), as `GetMeAsync` always has.
+- `lenses` on a member row (the TypeScript SDK's `OwMember.lenses`): this SDK has no members list. The `lenses` key
+  that `PATCH /account/worlds/{world_id}/members/{member_id}` takes is sent by `SetMemberLensesAsync`; the route's other
+  keys (role, Character, sponsor) have no call here.
+- The TypeScript SDK 4.94.0's `expiresAt` on `completeSignIn`'s result: this SDK has no sign-in exchange
+  (`POST /auth/token`), so there is no result to carry it.
+- No typed `/me`, lens-list or member-lenses model (the TypeScript SDK's `OwMemberLenses`): `GetMeAsync`,
+  `SetMyLensesAsync`, `WorldLensesAsync` and `SetMemberLensesAsync` answer the body as served (`JObject`), as
+  `GetMeAsync` always has.
 
 ## [0.23.0] - 2026-10-27
 

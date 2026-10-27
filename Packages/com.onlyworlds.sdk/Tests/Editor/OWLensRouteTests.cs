@@ -8,9 +8,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// The server's lens routes on the client: <see cref="OWClient.SetMyLensesAsync"/> (PUT /me/lenses) and
-    /// <see cref="OWClient.WorldLensesAsync"/> (GET /world/{world_id}/lenses), and the <c>lenses</c> GET /me now serves.
-    /// The TypeScript SDK's vectors (4.92.0), ported: what each call sends, what it answers, and what is refused before
-    /// anything is sent.
+    /// <see cref="OWClient.WorldLensesAsync"/> (GET /world/{world_id}/lenses), on a world key and on an account token,
+    /// <see cref="OWClient.SetMemberLensesAsync"/> (PATCH /account/worlds/{world_id}/members/{member_id}), and the
+    /// <c>lenses</c> GET /me now serves. The TypeScript SDK's vectors (4.92.0 and 4.94.0), ported: what each call sends,
+    /// what it answers, and what is refused before anything is sent.
     /// </summary>
     public class OWLensRouteTests
     {
@@ -81,19 +82,42 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsEmpty(t.Calls);
         }
 
-        // Kills: an account token, with World or without, or a keyless client, reaching the transport.
+        // The TypeScript SDK 4.94.0's vector: an account token sets its own list in the world World names, sending
+        // world=<id> and its Bearer, no API-Key, no PIN (even one configured), no X-OW-Agent or X-OW-Client. Kills: the
+        // account token refused as a world key's call, world= left off or taken from anywhere but World, or a PIN sent.
         [Test]
-        public void SetMyLenses_AnAccountTokenOrNoKey_IsRefused_NothingSent()
+        public async Task SetMyLenses_OnAnAccountToken_SendsTheBearerAndWorld_NoKeyNoPin()
         {
-            foreach (var (key, world) in new[] { ("ow_a_test", (string)null), ("ow_a_test", "w1"), (null, "w1") })
-            {
-                var t = new FakeTransport { ResponseBody = MeBody };
-                var e = Assert.ThrowsAsync<InvalidOperationException>(() => Make(t, key, null, world).SetMyLensesAsync(new[] { "l1" }),
-                    $"{key ?? "no key"}, World {world ?? "null"}");
-                StringAssert.Contains(key == null ? "needs a key" : "needs a world key", e.Message);
-                StringAssert.Contains("Nothing was sent", e.Message);
-                Assert.IsEmpty(t.Calls, $"{key ?? "no key"}, World {world ?? "null"}: nothing sent");
-            }
+            var t = new FakeTransport { ResponseBody = MeBody };
+            var c = Make(t, "ow_a_test", "1234", "w 1");
+
+            var me = await c.SetMyLensesAsync(new[] { "l1" });
+            Assert.IsTrue(JToken.DeepEquals(JObject.Parse(MeBody), me), "the /me body as served: " + me);
+
+            Assert.AreEqual(1, t.Calls.Count);
+            var a = t.Calls[0];
+            Assert.AreEqual("PUT", a.Method);
+            Assert.AreEqual("/api/v2/me/lenses", new Uri(a.Url).AbsolutePath);
+            Assert.AreEqual("world=w%201", Query(a));
+            Assert.IsTrue(JToken.DeepEquals(JObject.Parse(@"{""lenses"":[""l1""]}"), JObject.Parse(a.Body)), a.Body);
+            CollectionAssert.AreEquivalent(new[] { "Authorization", "Content-Type" }, a.Headers.Keys.ToArray());
+            Assert.AreEqual("Bearer ow_a_test", a.Headers["Authorization"]);
+        }
+
+        // Kills: an account token without World sending (keel would have no world to set the list in), or a keyless client,
+        // World set or not, reaching the transport: a write needs a credential.
+        [Test]
+        public void SetMyLenses_AnAccountTokenWithoutWorld_OrNoKey_IsRefused_NothingSent()
+        {
+            var t = new FakeTransport { ResponseBody = MeBody };
+            var e = Assert.ThrowsAsync<InvalidOperationException>(() => Make(t, "ow_a_test", null).SetMyLensesAsync(new[] { "l1" }));
+            StringAssert.Contains("names the world it sends to with World: set it", e.Message);
+            StringAssert.Contains("Nothing was sent", e.Message);
+            Assert.IsEmpty(t.Calls, "an account token without World: nothing sent");
+
+            var keyless = Assert.ThrowsAsync<InvalidOperationException>(() => Make(t, null, null, "w1").SetMyLensesAsync(new[] { "l1" }));
+            StringAssert.Contains("needs a key", keyless.Message);
+            Assert.IsEmpty(t.Calls, "a keyless client: nothing sent");
         }
 
         // -- WorldLensesAsync -------------------------------------------------------------------------------
@@ -139,19 +163,86 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual("resolve=true", Query(t.Last));
         }
 
-        // Kills: an account token (World set or not), or a keyless client, reaching the transport: the route is a world
-        // key's, not one of the world reads World opens.
+        // The TypeScript SDK 4.94.0's vector: an account token reads the world its path names, the Bearer alone, and no
+        // world= with or without the client's World (the path names the world). Kills: the account token refused, or
+        // World's id added beside the path's.
         [Test]
-        public void WorldLenses_AnAccountTokenOrNoKey_IsRefused_NothingSent()
+        public async Task WorldLenses_OnAnAccountToken_SendsTheBearerAlone_TheWorldInThePath_NoWorldQuery()
         {
-            foreach (var (key, world) in new[] { ("ow_a_test", (string)null), ("ow_a_test", "w1"), (null, "w1") })
+            foreach (var world in new[] { null, "other" })
             {
                 var t = new FakeTransport { ResponseBody = LensesBody };
-                var e = Assert.ThrowsAsync<InvalidOperationException>(() => Make(t, key, null, world).WorldLensesAsync("w1", resolve: true),
-                    $"{key ?? "no key"}, World {world ?? "null"}");
-                StringAssert.Contains(key == null ? "needs a key" : "needs a world key", e.Message);
-                StringAssert.Contains("Nothing was sent", e.Message);
-                Assert.IsEmpty(t.Calls, $"{key ?? "no key"}, World {world ?? "null"}: nothing sent");
+                var answer = await Make(t, "ow_a_test", null, world).WorldLensesAsync("w 1", resolve: true);
+                Assert.IsTrue(JToken.DeepEquals(JObject.Parse(LensesBody), answer), "the answer as served: " + answer);
+
+                var a = t.Calls.Single();
+                Assert.AreEqual("GET", a.Method);
+                Assert.AreEqual("/api/v2/world/w%201/lenses", new Uri(a.Url).AbsolutePath);
+                Assert.AreEqual("resolve=true", Query(a), $"World {world ?? "null"}: no world=");
+                Assert.AreEqual(new[] { "Authorization" }, a.Headers.Keys.ToArray(), "the Bearer alone");
+                Assert.AreEqual("Bearer ow_a_test", a.Headers["Authorization"]);
+            }
+        }
+
+        // Kills: a keyless client, World set or not, reaching the transport: the lens list is never a public read.
+        [Test]
+        public void WorldLenses_NoKey_IsRefused_NothingSent()
+        {
+            var t = new FakeTransport { ResponseBody = LensesBody };
+            var e = Assert.ThrowsAsync<InvalidOperationException>(() => Make(t, null, null, "w1").WorldLensesAsync("w1", resolve: true));
+            StringAssert.Contains("needs a key", e.Message);
+            StringAssert.Contains("Nothing was sent", e.Message);
+            Assert.IsEmpty(t.Calls);
+        }
+
+        // -- SetMemberLensesAsync ---------------------------------------------------------------------------
+
+        // The TypeScript SDK 4.94.0's vector: PATCH /account/worlds/{world_id}/members/{member_id} with { lenses } alone,
+        // the Bearer and nothing else, both ids escaped, 'owner' as a member id, an empty list sent as one, the answer as
+        // served. Kills: a role, Character or sponsor key sent beside lenses, an id put in raw, the wrong verb or path, a
+        // world=, an API-Key, PIN, X-OW-Agent or X-OW-Client header, or an answer reshaped.
+        [Test]
+        public async Task SetMemberLenses_SendsPatchAccountMember_LensesAlone_TheBearer_AndAnswersTheRowAsServed()
+        {
+            const string row = @"{""id"":""m1"",""role"":""guest"",""kind"":""agent"",""lenses"":[""l2"",""l1""],""x_served_trimmed"":[""lenses""]}";
+            var t = new FakeTransport { ResponseBody = row };
+            var c = Make(t, "ow_a_test", "1234", "w9");
+
+            var answer = await c.SetMemberLensesAsync("w 1", "m/1", new[] { "l2", "l1" });
+            Assert.IsTrue(JToken.DeepEquals(JObject.Parse(row), answer), "the row as served: " + answer);
+            await c.SetMemberLensesAsync("w1", "owner", new string[0]);
+
+            Assert.AreEqual(2, t.Calls.Count);
+            var a = t.Calls[0];
+            Assert.AreEqual("PATCH", a.Method);
+            Assert.AreEqual(Base + "/account/worlds/w%201/members/m%2F1", a.Url, "both ids escaped, no query");
+            Assert.AreEqual(@"{""lenses"":[""l2"",""l1""]}", a.Body, "exactly { lenses }");
+            CollectionAssert.AreEquivalent(new[] { "Authorization", "Content-Type" }, a.Headers.Keys.ToArray(),
+                "the Bearer, no key, PIN, agent or client header");
+            Assert.AreEqual("Bearer ow_a_test", a.Headers["Authorization"]);
+
+            var b = t.Calls[1];
+            Assert.AreEqual(Base + "/account/worlds/w1/members/owner", b.Url);
+            Assert.AreEqual(@"{""lenses"":[]}", b.Body, "an empty list is a choice, sent as one");
+        }
+
+        // Kills: a null list sent, or a world key, a read key, a legacy key or a keyless client reaching the transport.
+        [Test]
+        public void SetMemberLenses_ANullList_OrAnyKeyButAnAccountToken_IsRefused_NothingSent()
+        {
+            var t = new FakeTransport();
+            var e = Assert.ThrowsAsync<ArgumentNullException>(() => Make(t, "ow_a_test", null).SetMemberLensesAsync("w1", "m1", null));
+            StringAssert.Contains("SetMemberLensesAsync: lensIds is a list of lens ids", e.Message);
+            StringAssert.Contains("Nothing was sent", e.Message);
+            Assert.IsEmpty(t.Calls, "a null list: nothing sent");
+
+            foreach (var key in new[] { "ow_w_test", "ow_r_test", "0123456789", null })
+            {
+                var refused = Assert.ThrowsAsync<InvalidOperationException>(
+                    () => Make(t, key, null, key == null ? "w1" : null).SetMemberLensesAsync("w1", "m1", new[] { "l1" }), key ?? "no key");
+                StringAssert.Contains("SetMemberLensesAsync needs an account token (ow_a_)", refused.Message, key ?? "no key");
+                StringAssert.Contains("Nothing was sent", refused.Message, key ?? "no key");
+                Assert.IsEmpty(t.Calls, $"{key ?? "no key"}: nothing sent");
             }
         }
 

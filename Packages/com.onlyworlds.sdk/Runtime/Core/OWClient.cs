@@ -14,7 +14,8 @@ namespace OnlyWorlds.Sdk
     {
         /// <summary>
         /// The key: an <c>ow_w_</c> (write) or <c>ow_r_</c> (read) world key, an <c>ow_a_</c> account token (sent as a
-        /// Bearer, for the <c>/account</c> routes, and with <see cref="World"/> set for that world's reads), or a
+        /// Bearer, for the <c>/account</c> routes and the lens routes, and with <see cref="World"/> set for that world's
+        /// reads), or a
         /// 10-digit legacy key. Empty only with <see cref="World"/> set: a keyless reader of a public world.
         /// </summary>
         public string ApiKey;
@@ -28,8 +29,10 @@ namespace OnlyWorlds.Sdk
         /// does. Null by default.
         /// </summary>
         /// <remarks>
-        /// Read only: on such a client every other world call is an <see cref="InvalidOperationException"/> before
-        /// anything is sent, and an account token's <c>/account</c> calls work as without it. Given with a world key,
+        /// An account token also sets its own lenses there with <see cref="OWClient.SetMyLensesAsync"/>
+        /// (<c>world=&lt;id&gt;</c>), the one write it names. On such a client every other world call is an
+        /// <see cref="InvalidOperationException"/> before anything is sent; an account token's <c>/account</c> calls and
+        /// <see cref="OWClient.WorldLensesAsync"/> (the world in its path) work as without it. Given with a world key,
         /// or empty or white space, it is an <see cref="ArgumentException"/> when the client is built. Mirrors the
         /// TypeScript SDK's <c>world</c> option (4.88.0).
         /// </remarks>
@@ -291,8 +294,11 @@ namespace OnlyWorlds.Sdk
         /// the owner's keys the owner's own. A read key is a 403. The server refuses a lens this key cannot see (404) and
         /// answers 422 <c>not_a_lens</c>, <c>lens_is_template</c> or <c>lens_hidden</c> (<c>param</c> <c>lenses</c>). A lens
         /// only narrows what its holder may already read. Sent without <c>X-OW-Agent</c> or <c>X-OW-Client</c>, which the
-        /// server's document declares on neither. A world key's call: on an account token or a keyless client it is an
-        /// <see cref="InvalidOperationException"/>, and nothing is sent.
+        /// server's document declares on neither. An account token sets its own list in the world <see cref="World"/>
+        /// names, sending <c>world=&lt;id&gt;</c> and its Bearer, never a PIN; without <see cref="World"/> set it is an
+        /// <see cref="InvalidOperationException"/>, and nothing is sent. A world key sends no <c>world</c>: the key names
+        /// its world. A keyless client is refused, and nothing is sent. Mirrors the TypeScript SDK's
+        /// <c>setMyLenses</c> (4.92.0; on an account token from 4.94.0).
         /// </remarks>
         /// <exception cref="ArgumentNullException"><paramref name="lensIds"/> is null; nothing was sent.</exception>
         public Task<JObject> SetMyLensesAsync(IEnumerable<string> lensIds, CancellationToken ct = default)
@@ -304,7 +310,7 @@ namespace OnlyWorlds.Sdk
             }
 
             var body = new JObject { ["lenses"] = new JArray(lensIds) };
-            return RequestAsync<JObject>("PUT", "/me/lenses", body: body, ct: ct);
+            return RequestAsync<JObject>("PUT", "/me/lenses", body: body, ct: ct, accountToken: AccountTokenRoute.World);
         }
 
         /// <summary>
@@ -326,9 +332,11 @@ namespace OnlyWorlds.Sdk
         /// </param>
         /// <param name="ct">Cancels the request.</param>
         /// <remarks>
-        /// The owner's rows also carry <c>chosen_by</c> and <c>health</c>. A read, so the key goes without its PIN. A world
-        /// key's call: on an account token or a keyless client it is an <see cref="InvalidOperationException"/>, and nothing
-        /// is sent. Served <c>Cache-Control: private, no-store</c>.
+        /// The owner's rows also carry <c>chosen_by</c> and <c>health</c>. A read, so the key goes without its PIN. An
+        /// account token reads the world <paramref name="worldId"/> names, as its owner or as its member there: its Bearer
+        /// alone, no <c>world=</c> (<see cref="World"/> is not needed, and not sent when set). A keyless client is refused,
+        /// and nothing is sent. Served <c>Cache-Control: private, no-store</c>. Mirrors the TypeScript SDK's
+        /// <c>worldLenses</c> (4.92.0; on an account token from 4.94.0).
         /// </remarks>
         public Task<JObject> WorldLensesAsync(
             string worldId, bool? resolve = null, string readAs = null, CancellationToken ct = default)
@@ -338,7 +346,7 @@ namespace OnlyWorlds.Sdk
             if (!string.IsNullOrEmpty(readAs)) query.Add("read_as=" + Uri.EscapeDataString(readAs));
 
             return RequestAsync<JObject>("GET", $"/world/{Uri.EscapeDataString(worldId)}/lenses",
-                query: string.Join("&", query), ct: ct);
+                query: string.Join("&", query), ct: ct, accountToken: AccountTokenRoute.Path);
         }
 
         // -- Element reads ----------------------------------------------------
@@ -879,6 +887,57 @@ namespace OnlyWorlds.Sdk
             return await RequestAsync<OWAccountWorldCreated>("POST", "/account/worlds", body: body, ct: ct).ConfigureAwait(false);
         }
 
+        /// <summary>
+        /// PATCH /account/worlds/{world_id}/members/{member_id} with <c>lenses</c> alone -- set the lenses a row of the
+        /// world starts with: lens ids in order, 0 to 20, repeats dropped by the server; an empty list is a choice too.
+        /// Answers the row as served, a <see cref="JObject"/>: <c>{id, role, kind, lenses}</c>, and
+        /// <c>x_served_trimmed</c> naming <c>lenses</c> when the list keeps a lens you cannot see (which stays at its
+        /// place in the stored list and is left out of the answer's).
+        /// </summary>
+        /// <param name="worldId">The world. Escaped.</param>
+        /// <param name="memberId">The membership's id, or <c>owner</c> for the owner's own list. Escaped.</param>
+        /// <param name="lensIds">The lens ids, in the order the row reads them; empty for none.</param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <remarks>
+        /// <para>
+        /// A member sets its own row (any role), a seat it answers for (its sponsor), or any seat as a co-builder; the
+        /// owner any seat, and its own list with <c>owner</c>. Any other row is a 404; the owner naming a person's row is
+        /// a 422 (a person sets its own, with <see cref="SetMyLensesAsync"/>). Each id must be a lens of this world that
+        /// you and the row's holder can both see: one either cannot see is the same 404, a Construct that is no lens 422
+        /// <c>not_a_lens</c>, a template 422 <c>lens_is_template</c>, a hidden lens 422 <c>lens_hidden</c>
+        /// (<c>param</c> <c>lenses</c>).
+        /// </para>
+        /// <para>
+        /// The body is <c>{"lenses": [...]}</c> and nothing else: the route also takes a role, a Character or a sponsor,
+        /// and none of them is sent here. An account token only, sent as its Bearer, never with <c>API-Pin</c>,
+        /// <c>X-OW-Agent</c> or <c>X-OW-Client</c>. Mirrors the TypeScript SDK's <c>setMemberLenses</c> (4.94.0).
+        /// </para>
+        /// </remarks>
+        /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <exception cref="ArgumentNullException"><paramref name="lensIds"/> is null; nothing was sent.</exception>
+        public Task<JObject> SetMemberLensesAsync(
+            string worldId, string memberId, IEnumerable<string> lensIds, CancellationToken ct = default)
+        {
+            if (KeyKind != OWKeyKind.Account)
+            {
+                throw new InvalidOperationException(
+                    "SetMemberLensesAsync needs an account token (ow_a_); this client holds "
+                    + (_keyless ? "none" : $"a {KeyKind.ToString().ToLowerInvariant()} key")
+                    + ". A world key sets its own holder's list with SetMyLensesAsync. Nothing was sent.");
+            }
+
+            if (lensIds == null)
+            {
+                throw new ArgumentNullException(nameof(lensIds),
+                    "SetMemberLensesAsync: lensIds is a list of lens ids (empty for none). Nothing was sent.");
+            }
+
+            var body = new JObject { ["lenses"] = new JArray(lensIds) };
+            return RequestAsync<JObject>("PATCH",
+                $"/account/worlds/{Uri.EscapeDataString(worldId)}/members/{Uri.EscapeDataString(memberId)}",
+                body: body, ct: ct);
+        }
+
         // -- Sync -------------------------------------------------------------
 
         /// <summary>
@@ -985,11 +1044,13 @@ namespace OnlyWorlds.Sdk
             string method, string path,
             string query = null, JObject body = null, string idempotencyKey = null,
             bool allowEmpty = false, bool write = false, CancellationToken ct = default, long? ifMatch = null,
-            bool named = false, bool proposable = false, bool worldRead = false)
+            bool named = false, bool proposable = false, bool worldRead = false,
+            AccountTokenRoute accountToken = AccountTokenRoute.None)
         {
             var result = await RequestWithResponseAsync<T>(
                 method, path, query, body, idempotencyKey, allowEmpty, write, ct,
-                ifMatch: ifMatch, named: named, proposable: proposable, worldRead: worldRead).ConfigureAwait(false);
+                ifMatch: ifMatch, named: named, proposable: proposable, worldRead: worldRead,
+                accountToken: accountToken).ConfigureAwait(false);
 
             return result.Value;
         }
@@ -1014,18 +1075,28 @@ namespace OnlyWorlds.Sdk
         /// A GET keel serves an account token, or no key, with <c>world=&lt;id&gt;</c> (element list and get, the world
         /// GET). On a client with <see cref="World"/> set, <c>world=&lt;id&gt;</c> is added to the query.
         /// </param>
+        /// <param name="accountToken">
+        /// A world route keel's document declares the account token on beside the world key (the lens routes): an account
+        /// client sends it with its Bearer token. <see cref="AccountTokenRoute.Path"/>: the path names the world, nothing is
+        /// added. <see cref="AccountTokenRoute.World"/>: <c>world=&lt;id&gt;</c> is added from <see cref="World"/>, and an
+        /// account client without it is refused before sending. A world key sends as without it; a keyless client is
+        /// still refused.
+        /// </param>
         private async Task<(T Value, OWResponse Response)> RequestWithResponseAsync<T>(
             string method, string path,
             string query = null, JObject body = null, string idempotencyKey = null,
             bool allowEmpty = false, bool write = false, CancellationToken ct = default,
             string ifNoneMatch = null, bool notModified = false, long? ifMatch = null,
-            bool named = false, bool proposable = false, bool worldRead = false)
+            bool named = false, bool proposable = false, bool worldRead = false,
+            AccountTokenRoute accountToken = AccountTokenRoute.None)
         {
             // The one rule for what an account token or no key may send, read from the request itself (keel's
-            // account reads, ruled 2026-10-26): an /account route, or a GET marked as a world read. Anything else
-            // keel answers such a client with a 401, so it is refused here and nothing is sent. Mirrors the
-            // TypeScript SDK's request() (4.88.0).
+            // account reads, ruled 2026-10-26): an /account route, a GET marked as a world read, or a route marked as
+            // one the account token is declared on (the lens routes). Anything else keel answers such a client with a
+            // 401, so it is refused here and nothing is sent. Mirrors the TypeScript SDK's request() (4.88.0; the
+            // account token's lens routes from 4.94.0).
             var reads = worldRead && string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase);
+            var tokenRoute = KeyKind == OWKeyKind.Account ? accountToken : AccountTokenRoute.None;
 
             if (_keyless && !(reads && World != null))
             {
@@ -1036,22 +1107,30 @@ namespace OnlyWorlds.Sdk
 
             if (KeyKind == OWKeyKind.Account && !IsAccountRoute(path))
             {
-                if (!reads)
+                if (!reads && tokenRoute == AccountTokenRoute.None)
                 {
                     throw new InvalidOperationException(
-                        $"{method} {path} needs a world key: an account token sends the /account routes, and with World "
-                        + $"set reads a world through {WorldReads} only. Nothing was sent.");
+                        $"{method} {path} needs a world key: an account token sends the /account routes, "
+                        + $"WorldLensesAsync and SetMyLensesAsync, and with World set reads a world through {WorldReads} "
+                        + "only. Nothing was sent.");
                 }
 
-                if (World == null)
+                if (reads && World == null)
                 {
                     throw new InvalidOperationException(
                         $"{method} {path}: an account token reads a world only with World set "
                         + $"(new OWClientConfig {{ ApiKey, World }}), through {WorldReads}. Nothing was sent.");
                 }
+
+                if (tokenRoute == AccountTokenRoute.World && World == null)
+                {
+                    throw new InvalidOperationException(
+                        $"{method} {path}: an account token names the world it sends to with World: set it "
+                        + "(new OWClientConfig { ApiKey, World }). Nothing was sent.");
+                }
             }
 
-            if (reads && World != null)
+            if ((reads || tokenRoute == AccountTokenRoute.World) && World != null)
             {
                 var world = "world=" + Uri.EscapeDataString(World);
                 query = string.IsNullOrEmpty(query) ? world : query + "&" + world;
@@ -1137,6 +1216,19 @@ namespace OnlyWorlds.Sdk
             }
 
             return (OWJson.Deserialize<T>(response.Body), response);
+        }
+
+        /// <summary>How an account token sends a world route keel declares it on beside the world key.</summary>
+        private enum AccountTokenRoute
+        {
+            /// <summary>Not such a route: an account token sends only the /account routes and the world reads.</summary>
+            None,
+
+            /// <summary>The path names the world; nothing is added.</summary>
+            Path,
+
+            /// <summary>The world is named with <c>world=&lt;id&gt;</c>, from <see cref="OWClient.World"/>, which must be set.</summary>
+            World,
         }
 
         /// <summary>

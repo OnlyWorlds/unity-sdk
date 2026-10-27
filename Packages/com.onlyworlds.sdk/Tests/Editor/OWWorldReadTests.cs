@@ -243,11 +243,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
         // -- Every public method, by what it does ------------------------------------
         //
-        // `Read` sends world= (the Bearer on an account client, nothing on a keyless one), `Account` sends the Bearer to an
-        // /account route, `Refused` is an InvalidOperationException before the transport is called. A method the table
-        // does not hold fails the sweep, so a new call is classified when it is added.
+        // `Read` sends world= (the Bearer on an account client, nothing on a keyless one), `Named` sends world= and the
+        // Bearer on an account client (SetMyLensesAsync, the one write that names its world so) and is refused on a keyless
+        // one, `Path` sends the Bearer to a world route whose path names the world, without world= (WorldLensesAsync),
+        // `Account` sends the Bearer to an /account route, `Refused` is an InvalidOperationException before the transport
+        // is called. A method the table does not hold fails the sweep, so a new call is classified when it is added.
 
-        private enum Does { Read, Account, Refused }
+        private enum Does { Read, Named, Path, Account, Refused }
 
         private static readonly Dictionary<string, (Does Does, Func<OWClient, Task> Run)> Methods =
             new Dictionary<string, (Does, Func<OWClient, Task>)>
@@ -255,8 +257,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 ["GetWorldAsync"] = (Does.Read, c => c.GetWorldAsync()),
                 ["PatchWorldAsync"] = (Does.Refused, c => c.PatchWorldAsync(new JObject { ["name"] = "W" })),
                 ["GetMeAsync"] = (Does.Refused, c => c.GetMeAsync()),
-                ["SetMyLensesAsync"] = (Does.Refused, c => c.SetMyLensesAsync(new string[0])),
-                ["WorldLensesAsync"] = (Does.Refused, c => c.WorldLensesAsync(W)),
+                ["SetMyLensesAsync"] = (Does.Named, c => c.SetMyLensesAsync(new string[0])),
+                ["WorldLensesAsync"] = (Does.Path, c => c.WorldLensesAsync(W)),
                 ["ListAsync"] = (Does.Read, c => c.ListAsync<JObject>("location")),
                 ["ListAllAsync"] = (Does.Read, c => c.ListAllAsync<JObject>("location")),
                 ["GetAsync"] = (Does.Read, c => c.GetAsync<JObject>("location", El)),
@@ -273,6 +275,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 ["WithdrawProposalAsync"] = (Does.Refused, c => c.WithdrawProposalAsync("location", El, Pid)),
                 ["ReviewNewElementAsync"] = (Does.Refused, c => c.ReviewNewElementAsync("location", El, OWReviewed.Accept)),
                 ["CreateAccountWorldAsync"] = (Does.Account, c => c.CreateAccountWorldAsync(new OWAccountWorldCreate { Name = "W" })),
+                ["SetMemberLensesAsync"] = (Does.Account, c => c.SetMemberLensesAsync(W, "owner", new string[0])),
                 ["ChangesAsync"] = (Does.Refused, c => c.ChangesAsync()),
             };
 
@@ -324,6 +327,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                     if (row.Value.Does == Does.Account)
                     {
                         StringAssert.StartsWith("/api/v2/account/", path, name);
+                        Assert.IsEmpty(Values(sent, "world"), $"{name}: no world=");
+                    }
+                    else if (row.Value.Does == Does.Path)
+                    {
+                        StringAssert.Contains("/" + W + "/", path, $"{name}: the world in the path");
                         Assert.IsEmpty(Values(sent, "world"), $"{name}: no world=");
                     }
                     else
