@@ -5,7 +5,7 @@
     "X-Session-Token",
     "Authorization"
   ],
-  "document_sha256": "6360290e4c79bd5dc4cc4fe8757c17d0bc1a2de73e1225c3cf014668bb87675e",
+  "document_sha256": "c4e4519cae08bed64e0d55b06e1d3bccdfb555a6bd603c217d4eecd1152e646b",
   "error_codes": {
     "already_member": 409,
     "already_reported": 409,
@@ -43,6 +43,7 @@
     "not_proposed": 422,
     "not_reader": 403,
     "not_removable": 403,
+    "one_credential": 400,
     "own_proposal": 403,
     "owner_only": 403,
     "payload_too_large": 413,
@@ -74,7 +75,7 @@
     "world_full": 422,
     "write_failed": 502
   },
-  "fetched": "2026-10-27T01:15+01:00",
+  "fetched": "2026-10-27T15:23+01:00",
   "openapi_version": "2.0",
   "paths": {
     "/api/v2/ability": {
@@ -867,6 +868,7 @@
         "response": [
           "data",
           "data[].id",
+          "data[].keys_minted",
           "data[].last4",
           "data[].last_used_at",
           "data[].name",
@@ -878,6 +880,7 @@
         "query": [],
         "response": [
           "id",
+          "keys_minted",
           "last4",
           "last_used_at",
           "name",
@@ -1002,7 +1005,9 @@
           "character",
           "characters",
           "days",
+          "for_email",
           "inviter_name",
+          "label",
           "max_uses",
           "preview",
           "reader",
@@ -1114,7 +1119,9 @@
         "body_patterns": [
           "^(x_|atlas_|shadow_)"
         ],
-        "header": [],
+        "header": [
+          "Idempotency-Key"
+        ],
         "query": [],
         "response": [
           "abilities",
@@ -7649,7 +7656,9 @@
           "character",
           "characters",
           "days",
+          "for_email",
           "inviter_name",
+          "label",
           "max_uses",
           "preview",
           "reader",
