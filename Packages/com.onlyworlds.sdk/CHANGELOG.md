@@ -27,8 +27,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
-- The schema pin moves to dist.77 (`v0.33.0-dist.77`): serial 77 adds the address profile (`profiles/address.md` and
-  its 133-case fixture) and nothing else. No generated model changed.
+- The schema pin moves to dist.78 (`v0.33.0-dist.78`). Serial 77 adds the address profile (`profiles/address.md` and
+  its 133-case fixture); serial 78 adds the lens profile (`profiles/lens.md` and its 84-case fixture). Nothing else
+  moved, and no generated model changed.
 
 ## [0.23.0] - 2026-10-27
 

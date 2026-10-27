@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.33.00";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 77;
+        public const int DistSerial = 78;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.33.0-dist.77";
+        public const string Tag = "v0.33.0-dist.78";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -195,7 +195,7 @@ namespace OnlyWorlds.Sdk
         /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "7224f5f1d01d9dff1be5efe7ddcd9844bc3c69811b8bed4037faa147474b5729";
+            "8c0c83b90c88ad70b5e03e1d44bf7fd4d43f554f8a449bf842dbcfe54a8a177b";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.
