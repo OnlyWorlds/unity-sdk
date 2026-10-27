@@ -6,6 +6,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The schema pin moves to dist.76 (`v0.33.0-dist.76`): only the message profile moved, its page and its fixture (55
+  cases to 81). No generated model changed.
+
 ## [0.22.0] - 2026-10-27
 
 A read mark, named: `OWMessage.IsReadMark` says whether an element is a read mark, so a reader that weighs elements
