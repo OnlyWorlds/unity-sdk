@@ -33,8 +33,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   mark is not to everyone either: `IsAddressedTo` reads it as addressed to no Character the reader is given, and a
   list that still holds ids beside the mark is addressed to those ids. A Note is addressed to nobody, never unread and
   never in a thread, whatever its `characters` holds (`RecipientsOf` gives none for it).
-- The schema pin moves to dist.76 (`v0.33.0-dist.76`): only the message profile moved, its page and its fixture (55
-  cases to 81). No generated model changed.
+- The schema pin moves to dist.77 (`v0.33.0-dist.77`). Serial 76 moved only the message profile, its page and its
+  fixture (55 cases to 81); serial 77 adds the address profile (`profiles/address.md` and its 133-case fixture) and
+  nothing else. No generated model changed.
 
 ## [0.22.0] - 2026-10-27
 
