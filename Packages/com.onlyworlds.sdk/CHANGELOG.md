@@ -65,12 +65,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
-- The schema pin moves to dist.79 (`v0.33.0-dist.79`). Serial 77 adds the address profile (`profiles/address.md` and
+- The schema pin moves to dist.80 (`v0.33.0-dist.80`). Serial 77 adds the address profile (`profiles/address.md` and
   its 133-case fixture); serial 78 adds the lens profile (`profiles/lens.md` and its 84-case fixture); serial 79 adds
   four Note cases to the message profile's fixture (81 to 85: a Note has no recipients and is never unread even when
   its `characters` names the reader, is never in a thread, and a hidden mark that is not a boolean hides it like
-  `true`), which `OWMessage` already answered, and moves the folder check to format 0.3.19. The fixture's test copy is
-  re-vendored. No schema file moved, and no generated model changed.
+  `true`), which `OWMessage` already answered, and moves the folder check to format 0.3.19; serial 80 adds four lens
+  cases (84 to 88: the window's edge inclusive, a reading with no `as_of` and no world `now` whose window cuts nothing,
+  notes trimmed with a hidden anchor, an empty-string `x_lens` value refused), which `OWLens` already answered. The
+  fixtures' test copies are re-vendored. No schema file moved, and no generated model changed.
 - Folders declare format 0.3.19. The version rules the served-trimmed mark in a folder (§4.4 rule 6): a file keeps
   `x_served_trimmed` exactly as the server served it, a reader reads a field the mark names as trimmed, never as
   empty, and a writer never sends the mark up. This SDK already kept the mark byte for byte on export and on read

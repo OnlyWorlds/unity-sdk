@@ -5,7 +5,7 @@
     "X-Session-Token",
     "Authorization"
   ],
-  "document_sha256": "c4e4519cae08bed64e0d55b06e1d3bccdfb555a6bd603c217d4eecd1152e646b",
+  "document_sha256": "a340e7637a865af13817c9f36224197f3f9d5393299eafe3d8446286be52ae6f",
   "error_codes": {
     "already_member": 409,
     "already_reported": 409,
@@ -35,8 +35,11 @@
     "invalid_request": 422,
     "key_revoked": 401,
     "known_of_not_writable": 422,
+    "lens_hidden": 422,
+    "lens_is_template": 422,
     "media_unavailable": 503,
     "method_not_allowed": 405,
+    "not_a_lens": 422,
     "not_author": 403,
     "not_co_builder": 403,
     "not_found": 404,
@@ -54,6 +57,7 @@
     "proposed_only": 403,
     "quota_exceeded": 429,
     "rate_limited": 429,
+    "read_as_owner_only": 403,
     "removal_in_flight": 409,
     "remove_failed": 502,
     "resync_required": 409,
@@ -75,7 +79,7 @@
     "world_full": 422,
     "write_failed": 502
   },
-  "fetched": "2026-10-27T15:23+01:00",
+  "fetched": "2026-10-27T15:55+01:00",
   "openapi_version": "2.0",
   "paths": {
     "/api/v2/ability": {
@@ -1067,6 +1071,7 @@
           "members[].joined_at",
           "members[].kind",
           "members[].last_active",
+          "members[].lenses",
           "members[].may_change_character",
           "members[].name",
           "members[].role",
@@ -1084,6 +1089,7 @@
       "PATCH": {
         "body": [
           "character",
+          "lenses",
           "role",
           "sponsor"
         ],
@@ -1096,6 +1102,7 @@
           "joined_at",
           "kind",
           "last_active",
+          "lenses",
           "may_change_character",
           "name",
           "role",
@@ -1928,6 +1935,7 @@
           "compact",
           "components",
           "depth",
+          "lens",
           "mode",
           "since",
           "undated"
@@ -1953,6 +1961,14 @@
           "knowledge[].grade",
           "knowledge[].her_links",
           "knowledge[].via",
+          "lenses",
+          "lenses[].cut",
+          "lenses[].id",
+          "lenses[].mail",
+          "lenses[].name",
+          "lenses[].rows",
+          "lenses[].skipped",
+          "lenses[].unreadable",
           "messages",
           "messages[].author",
           "messages[].element",
@@ -3014,6 +3030,7 @@
           "data[].traits",
           "data[].type",
           "data[].updated_at",
+          "data[].x_served_trimmed",
           "data[].zones",
           "has_more",
           "next_cursor"
@@ -3112,6 +3129,7 @@
           "traits",
           "type",
           "updated_at",
+          "x_served_trimmed",
           "zones"
         ]
       }
@@ -3175,6 +3193,7 @@
           "traits",
           "type",
           "updated_at",
+          "x_served_trimmed",
           "zones"
         ]
       },
@@ -3271,6 +3290,7 @@
           "traits",
           "type",
           "updated_at",
+          "x_served_trimmed",
           "zones"
         ]
       },
@@ -3366,6 +3386,7 @@
           "traits",
           "type",
           "updated_at",
+          "x_served_trimmed",
           "zones"
         ]
       }
@@ -3422,6 +3443,7 @@
           "traits",
           "type",
           "updated_at",
+          "x_served_trimmed",
           "zones"
         ]
       }
@@ -3554,6 +3576,7 @@
           "traits",
           "type",
           "updated_at",
+          "x_served_trimmed",
           "zones"
         ]
       }
@@ -6393,6 +6416,7 @@
           "members[].character",
           "members[].id",
           "members[].kind",
+          "members[].lenses",
           "members[].name",
           "members[].role",
           "members[].status",
@@ -9652,6 +9676,7 @@
           "front_door.sponsor",
           "front_door.sponsor_character",
           "kind",
+          "lenses",
           "membership",
           "name",
           "role",
@@ -9679,6 +9704,35 @@
           "front_door.sponsor",
           "front_door.sponsor_character",
           "kind",
+          "lenses",
+          "membership",
+          "name",
+          "role",
+          "scope",
+          "world",
+          "world.id",
+          "world.name"
+        ]
+      }
+    },
+    "/api/v2/me/lenses": {
+      "PUT": {
+        "body": [
+          "lenses"
+        ],
+        "header": [],
+        "query": [],
+        "response": [
+          "character",
+          "front_door",
+          "front_door.charter",
+          "front_door.charter_skill",
+          "front_door.my_character",
+          "front_door.my_seats",
+          "front_door.sponsor",
+          "front_door.sponsor_character",
+          "kind",
+          "lenses",
           "membership",
           "name",
           "role",
@@ -9731,6 +9785,7 @@
           "data[].character",
           "data[].id",
           "data[].kind",
+          "data[].lenses",
           "data[].name",
           "data[].role",
           "data[].status"
@@ -15295,6 +15350,31 @@
           "data[].via",
           "has_more",
           "next_cursor"
+        ]
+      }
+    },
+    "/api/v2/world/{world_id}/lenses": {
+      "GET": {
+        "header": [],
+        "query": [
+          "read_as",
+          "resolve"
+        ],
+        "response": [
+          "data",
+          "data[].chosen",
+          "data[].chosen_by",
+          "data[].element",
+          "data[].health",
+          "data[].id",
+          "data[].name",
+          "data[].reading",
+          "data[].retired",
+          "data[].template",
+          "data[].titles",
+          "data[].unreadable",
+          "data[].x_lens",
+          "read_as"
         ]
       }
     },
