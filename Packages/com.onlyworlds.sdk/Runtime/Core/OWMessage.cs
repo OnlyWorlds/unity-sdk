@@ -496,7 +496,7 @@ namespace OnlyWorlds.Sdk
         /// when unreadable. A string is parsed (no offset is read as UTC); a Date token, as <c>JObject.Parse</c> leaves
         /// one, is read as its instant.
         /// </summary>
-        private static long? TimeKey(JToken token)
+        internal static long? TimeKey(JToken token)
         {
             if (!(token is JValue value)) return null;
             DateTimeOffset at;
@@ -522,7 +522,7 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>By <c>created_at</c>; equal times keep the input's order (the server's list order); unreadable times last. Never by id.</summary>
-        private static IReadOnlyList<JObject> InCreatedOrder(IEnumerable<JObject> items)
+        internal static IReadOnlyList<JObject> InCreatedOrder(IEnumerable<JObject> items)
         {
             // OrderBy is a stable sort: two equal keys keep the order of the list given.
             return items
