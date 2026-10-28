@@ -575,7 +575,8 @@ namespace OnlyWorlds.Sdk
                 counts[reason] = counts.TryGetValue(reason, out var n) ? n + 1 : 1;
             }
 
-            var rows = part.Kept.Select(i => Row(view, i, part.ShownBy[i], part.Recipe)).ToList();
+            // Rows are built here alone, by the lens read: a child's show and notes never reach one (rule 3).
+            var rows = part.Kept.Select(i => Row(view, i, part.Recipe)).ToList();
             cutById = part.Cut;
             return new OWLensResult(part.Kept, rows, counts, part.NotesIgnored, part.Mail, null);
         }
@@ -675,10 +676,8 @@ namespace OnlyWorlds.Sdk
                 }
             }
 
-            // The umbrella: each child once, by its own recipe, the union in link order; the umbrella's budget caps
-            // the union and its mail rule is the reading's one (a child's own budget and mail rule are not read). A row
-            // is shown by the recipe of the lens that kept it first.
-            foreach (var i in kept) part.ShownBy[i] = r;
+            // The umbrella: each child once, by its own whole recipe (its mail rule and budget among it), the union in link
+            // order; the umbrella's mail rule and budget then run over the union. A child's mail is never served here.
             var keptSet = new HashSet<string>(kept);
             foreach (var child in children)
             {
@@ -687,9 +686,7 @@ namespace OnlyWorlds.Sdk
                 visited.UnionWith(sub.Visited);
                 foreach (var i in sub.Kept)
                 {
-                    if (!keptSet.Add(i)) continue;
-                    kept.Add(i);
-                    part.ShownBy[i] = sub.ShownBy[i];
+                    if (keptSet.Add(i)) kept.Add(i);
                 }
 
                 foreach (var pair in sub.Cut) SetDefault(cut, pair.Key, pair.Value);
@@ -701,18 +698,14 @@ namespace OnlyWorlds.Sdk
                 foreach (var i in visited) cut.Remove(i);
             }
 
-            if (top && r.Mail != "none")
+            if (r.Mail != "none")
             {
                 part.Mail = MailOf(reading, r, out var inMail);
                 kept = kept.Where(i => !inMail.Contains(i)).ToList();
             }
 
-            if (top)
-            {
-                foreach (var i in kept.Skip(r.Budget)) cut[i] = OWLensCut.Budget;
-                if (kept.Count > r.Budget) kept = kept.Take(r.Budget).ToList();
-            }
-
+            foreach (var i in kept.Skip(r.Budget)) cut[i] = OWLensCut.Budget;
+            if (kept.Count > r.Budget) kept = kept.Take(r.Budget).ToList();
             foreach (var i in kept) cut.Remove(i);
 
             part.Kept = kept;
@@ -905,15 +898,12 @@ namespace OnlyWorlds.Sdk
 
         private static readonly char[] LineBreaks = { '\r', '\n' };
 
-        /// <summary>
-        /// A kept element as <c>show</c> makes it (<paramref name="shown"/>'s, the lens that kept it), from the body this
-        /// reader is served, with its note (<paramref name="r"/>'s, the lens read).
-        /// </summary>
-        private static JObject Row(View view, string i, Recipe shown, Recipe r)
+        /// <summary>A kept element as <c>show</c> makes it, from the body this reader is served, with its note.</summary>
+        private static JObject Row(View view, string i, Recipe r)
         {
             var body = view.Served(i);
             JObject row;
-            if (shown.Show == "name" || shown.Show == "first_line")
+            if (r.Show == "name" || r.Show == "first_line")
             {
                 row = new JObject
                 {
@@ -922,7 +912,7 @@ namespace OnlyWorlds.Sdk
                     ["name"] = Copy(body["name"]),
                 };
                 // Up to the first line break, CR or LF; a body with no string description has none in its row.
-                if (shown.Show == "first_line" && StringOf(body["description"]) is string description)
+                if (r.Show == "first_line" && StringOf(body["description"]) is string description)
                 {
                     var lineBreak = description.IndexOfAny(LineBreaks);
                     row["description"] = lineBreak < 0 ? description : description.Substring(0, lineBreak);
@@ -1272,10 +1262,6 @@ namespace OnlyWorlds.Sdk
             public readonly Dictionary<string, string> Cut = new Dictionary<string, string>();
             public HashSet<string> Visited;
             public Recipe Recipe;
-
-            /// <summary>Each kept id's recipe for its row's <c>show</c>: the lens that kept it first.</summary>
-            public readonly Dictionary<string, Recipe> ShownBy = new Dictionary<string, Recipe>();
-
             public OWLensMail Mail;
             public int NotesIgnored;
         }

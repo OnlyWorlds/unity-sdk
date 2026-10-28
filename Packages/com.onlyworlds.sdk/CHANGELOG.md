@@ -243,10 +243,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   as the TypeScript SDK and the Python package make the row.
 - `OWLens.LensesFor` keeps ids that are not null or empty, each once, in the order given, as the TypeScript SDK's
   `lensesInUse` and the Python package's `lenses_in_use` do; it had returned the list as given.
-- `OWLens.Resolve` reads an umbrella's child lens as the lens profile's rule 3 writes it and the TypeScript SDK and
-  the Python package read it: the umbrella's `budget` caps the union and its mail rule is the reading's only one, so a
-  child's own `budget` no longer cuts its kept list before the union (nor its own mail rule take messages out of
-  it), and a child's kept elements are shown by the child's own `show`, not the umbrella's.
+- `OWLens.Resolve` reads an umbrella's child lens as keel's reader reads it (the lens profile's rule 3): each child is
+  resolved by its own whole recipe, its own mail rule and `budget` among it, so a child keeps at most its budget and
+  the rest is counted `budget`; the union then takes the umbrella's mail rule and budget on top. Rows are built by the
+  umbrella's recipe alone: a row kept through a child is shown by the umbrella's `show`, and a child's `notes` never
+  reach a row. A message a child's mail rule takes out of its kept list is neither served nor counted under the
+  umbrella.
 - `OWLens` serves a known-of stub as the TypeScript SDK and the Python package do: its base keys (`id`, `type`,
   `name`, `description`, `supertype`, `subtype`, `image_url`, `created_at`, `updated_at`) and its type's public fields
   that are not links (the presentation sidecar's `public`: a Character's `physicality`, `height`, `weight`,
