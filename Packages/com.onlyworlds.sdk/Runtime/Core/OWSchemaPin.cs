@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.33.00";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 81;
+        public const int DistSerial = 82;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.33.0-dist.81";
+        public const string Tag = "v0.33.0-dist.82";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -195,7 +195,7 @@ namespace OnlyWorlds.Sdk
         /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "8a8c4412ccee14e04471f194c3563c317188149b1045232735c19d00e8c1728f";
+            "22b718e781df1f8469378e18475db9f034dfde68c220bd4c85364643e5496799";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.
@@ -209,7 +209,7 @@ namespace OnlyWorlds.Sdk
             "3c20afa9fee3c191c390452f74f415eb999156bbbf966c56beac283fa0ea91a4";
 
         /// <summary>When these constants were last verified against the published dist.</summary>
-        public const string PinnedOn = "2026-10-27";
+        public const string PinnedOn = "2026-10-28";
 
         /// <summary>
         /// ⚑ Rulings that bind THIS SDK and any emitter generating into it. Read the row, not the key.

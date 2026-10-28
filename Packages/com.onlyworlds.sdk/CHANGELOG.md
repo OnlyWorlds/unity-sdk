@@ -128,10 +128,27 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   when the owner names a person's row. The client's one request rule now reads a third mark beside the `/account`
   routes and the world reads: a route the server's document declares the account token on. Parity with the TypeScript
   SDK 4.94.0, its test vectors ported.
+- **The lens profile at serial 82: `changed_within` and the reading aids.** `x_lens` takes `changed_within`, a whole
+  number of days from 1: an element a hop or a filter reaches whose `updated_at` is older than that many days before
+  the reading's wall clock (`OWLensOptions.Clock`, or `OWGraphOptions.Clock`) is cut and counted under the new reason
+  `OWLensCut.Stale` (`stale`), after `window` and before the budget; it never applies to an anchor, and an element with
+  no time is never cut. A folder element is read by the newer of its `server_updated_at` and `local_updated_at`.
+  `CheckKeys` refuses anything else by name, between `undated` and `show`. **`OWRoom.IsReadingAid(element)`** tells
+  the charter (a Law with supertype Charter), its guide (a Construct with supertype Guide) and its domains (Constructs
+  with supertype Domain) by the pair, trimmed and folded, AND the mark `x_charter_of` (`OWRoom.ReadingAidMarkField`,
+  the id of the world the aid belongs to), beside `IsRoomElement`; the pair without the mark is lore.
+  `OWRoom.ReadingAidPairs` holds the three pairs; read the test rather than keeping a list of them. In
+  `OWLens.Resolve` a reading aid a hop reaches is kept, and hopped out of, only when `types` names its pair
+  (`law/charter`, `construct/guide`, `construct/domain`, now legal `types` words); otherwise it is cut as `types`, and
+  a lens with no `types`, or one naming only `law` or `construct`, keeps none. An anchor that is a reading aid is kept
+  and followed like any anchor, and an aid a second hop would reach is counted `hops_not_served` only when `types`
+  names its pair, as a room element is. In `OWGraph.Read` the reading aids are out of an unlensed graph, counted under the new
+  reason `OWGraphCut.ReadingAid` (`reading_aid`), and no flag brings them back; a lens that names the pair keeps them.
+  The fixture's 132 cases are the test.
 
 ### Changed
 
-- The schema pin moves to dist.81 (`v0.33.0-dist.81`). Serial 77 adds the address profile (`profiles/address.md` and
+- The schema pin moves to dist.82 (`v0.33.0-dist.82`). Serial 77 adds the address profile (`profiles/address.md` and
   its 133-case fixture); serial 78 adds the lens profile (`profiles/lens.md` and its 84-case fixture); serial 79 adds
   four Note cases to the message profile's fixture (81 to 85: a Note has no recipients and is never unread even when
   its `characters` names the reader, is never in a thread, and a hidden mark that is not a boolean hides it like
@@ -142,8 +159,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   `x_lens_leads_to`, the one link the profile declares) and adds the fixture's `graph` kind (88 cases to 122: 34 graph
   cases, each with its own small world) and the graph tables (`graph_links`, `graph_flags`, `owner_only_flags`,
   `edges_cut_reasons`, `owner_only_edges_cut_reasons`), and corrects the message profile's `noteOf` sentence (the id of
-  the newest own-hand Note, which `OWMessage.NoteOf` already returns). The fixtures' test copies are re-vendored. No
-  schema file moved, and no generated model changed but its serial stamp.
+  the newest own-hand Note, which `OWMessage.NoteOf` already returns); serial 82 adds the lens profile's
+  `changed_within` key and its cut reason `stale`, names the charter, its guide and its domains reading aids (by the
+  pair and the mark `x_charter_of`, in the lens profile's rule 4 and the room profile's line beside its pairs), reads a
+  lens served only as a known-of stub as not there, and adds ten fixture cases (122 to 132: seven resolve cases and
+  three graph cases) with the `reading_aid_pairs` and `reading_aid_mark` tables; the address profile gains the line
+  on what onlyworlds.com commits to (an id never reused, an address outliving a rename, a deleted element answering like
+  a missing one), which asks nothing of `OWAddress`. The fixtures' test copies are re-vendored. No schema file moved,
+  and no generated model changed but its serial stamp.
 - Folders declare format 0.3.19. The version rules the served-trimmed mark in a folder (§4.4 rule 6): a file keeps
   `x_served_trimmed` exactly as the server served it, a reader reads a field the mark names as trimmed, never as
   empty, and a writer never sends the mark up. This SDK already kept the mark byte for byte on export and on read
@@ -170,6 +193,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Fixed
 
+- `OWLensResult.NotesIgnored` counts as keel's reader does: only the notes keyed to an element that is not an anchor
+  and that the reader sees. A note keyed to an anchor the reader cannot see, to an element it cannot see, or to an id
+  in no element counts nothing. It had counted every note on an id that was not a visible anchor, so a guest's count
+  told it a hidden anchor existed.
+- `OWLens.Resolve` and `OWGraph.Read` read a lens body served only as a known-of stub (`known_of: true`) as not there:
+  it keeps and cuts nothing. It had been read as a lens with no anchors, a filter over the reader's whole view. A lens
+  named by its id already read as nothing unless the reader is served it whole. The lens profile's rule 1, serial 82.
 - `OWLens.Resolve` leaves the lens being read, and every lens it enters, out of its own result, as the lens profile's
   rule 3 says and the TypeScript SDK and the Python package read it: a lens that names itself (or a lens already
   entered) as an anchor no longer keeps itself, an umbrella's hop no longer reaches its own child lens (it had kept
@@ -188,9 +218,6 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 - `OWLens.Resolve` under `show: first_line` cuts the description at its first line break, CR or LF (it cut at LF
   only, so a `\r\n` line kept its `\r`), and writes `description` only when the body has a string one (it wrote `""`),
   as the TypeScript SDK and the Python package make the row.
-- `OWLens.Resolve` lets a hop go on out of an element the fence cut (`after_as_of`), an anchor or one a hop reached:
-  the fence cuts the element, not the path through it. It had stopped there; read as the TypeScript SDK and the
-  Python package read it.
 - `OWLens.LensesFor` keeps ids that are not null or empty, each once, in the order given, as the TypeScript SDK's
   `lensesInUse` and the Python package's `lenses_in_use` do; it had returned the list as given.
 - `OWLens.Resolve` reads an umbrella's child lens as the lens profile's rule 3 writes it and the TypeScript SDK and
@@ -201,9 +228,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   `name`, `description`, `supertype`, `subtype`, `image_url`, `created_at`, `updated_at`) and its type's public fields
   that are not links (the presentation sidecar's `public`: a Character's `physicality`, `height`, `weight`,
   `reputation`), with `known_of: true`. It had kept `change_seq` and dropped the public fields.
-- `OWLens` reads a JSON number with no fraction as whole, as the TypeScript SDK and the Python package do: a date of
-  `7.0` reads as 7 (it read as undated), and a lens's `depth`, `window`, `from`, `to` or `budget` written as `2.0`
-  is legal. A fraction, NaN or a number past 64 bits is still not whole.
+- `OWLens` reads an element's date written with no fraction as whole, as the TypeScript SDK and the Python package
+  do: a date of `7.0` reads as 7 (it read as undated), in `OWLens.DateOf` and the fence alike. A recipe stays strict,
+  as keel's reader reads it: a float in an `x_lens` key (`depth`, `window`, `from`, `to`, `budget`, `changed_within`)
+  is refused by name even with no fraction (`2.0`), and the lens is unreadable. A fraction, NaN or a number past 64
+  bits is never whole.
 - `OWLens.Resolve` reads three rules as the lens profile and both reference readers (the TypeScript SDK and the Python
   package) read them. An element whose `x_review_proposed` holds any value but null, a doubt as well as a mark, is in
   no reader's view (the review profile's rule for a reader that hands a world on); it had left out only an object. An

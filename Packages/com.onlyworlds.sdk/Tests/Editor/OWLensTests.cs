@@ -13,7 +13,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// The lens profile's conformance fixture (schema-dist <c>profiles/lens.fixture.json</c>, vendored byte for byte in
-    /// <c>Tests/Editor/Fixtures/lens/</c> from dist.81), replayed case by case through <see cref="OWLens"/>: the pair and
+    /// <c>Tests/Editor/Fixtures/lens/</c> from dist.82), replayed case by case through <see cref="OWLens"/>: the pair and
     /// the template (<see cref="OWLens.IsLens"/>, <see cref="OWLens.IsTemplate"/>), the legal values of <c>x_lens</c>
     /// (<see cref="OWLens.CheckKeys"/>), every resolution over the fixture's four worlds and their readers
     /// (<see cref="OWLens.Resolve(IEnumerable{JToken}, JObject, OWLensReader, OWLensOptions)"/>), the invariants, and
@@ -28,13 +28,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </remarks>
     public class OWLensTests
     {
-        /// <summary>The fixture's sha256 as dist.81's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "4b65b474f4174d54705f4f76e910f124bb99423788e0bf643b4d55bb36b85499";
+        /// <summary>The fixture's sha256 as dist.82's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "594193e9ffa695033403ef6a11454b1fdbbae24b62d5d79d22a78b1b5e07030d";
 
-        /// <summary>The fixture's cases by kind, as dist.81 holds them (122 in all; the graph kind is the graph reader's).</summary>
+        /// <summary>The fixture's cases by kind, as dist.82 holds them (132 in all; the graph kind is the graph reader's).</summary>
         private static readonly Dictionary<string, int> Counts = new Dictionary<string, int>
         {
-            ["shape"] = 6, ["keys"] = 23, ["resolve"] = 51, ["invariant"] = 4, ["uses"] = 4, ["graph"] = 34,
+            ["shape"] = 6, ["keys"] = 23, ["resolve"] = 58, ["invariant"] = 4, ["uses"] = 4, ["graph"] = 37,
         };
 
         private static JObject _fixture;
@@ -84,15 +84,15 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.81's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.82's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
-        public void TheFixture_HoldsDist81sCases()
+        public void TheFixture_HoldsDist82sCases()
         {
             Assert.IsNotNull(Fixture, "the vendored lens fixture was not found");
             var cases = Fixture["cases"].Cast<JObject>().ToList();
-            Assert.AreEqual(122, cases.Count, "dist.81's fixture holds 122 cases");
+            Assert.AreEqual(132, cases.Count, "dist.82's fixture holds 132 cases");
             var counts = cases.GroupBy(c => (string)c["kind"]).ToDictionary(g => g.Key, g => g.Count());
             CollectionAssert.AreEquivalent(Counts, counts);
         }
@@ -123,6 +123,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             var roomWords = OWRoom.Pairs.Select(p => OWProfileText.Fold(p.type) + "/" + OWProfileText.Fold(p.supertype));
             CollectionAssert.AreEqual(Strings(f["room_pairs"]), roomWords.ToList());
+            var aidWords = OWRoom.ReadingAidPairs.Select(p => OWProfileText.Fold(p.type) + "/" + OWProfileText.Fold(p.supertype));
+            CollectionAssert.AreEqual(Strings(f["reading_aid_pairs"]), aidWords.ToList());
+            Assert.AreEqual((string)f["reading_aid_mark"]["field"], OWRoom.ReadingAidMarkField);
 
             CollectionAssert.AreEqual(Strings(f["cut_reasons"]), OWLensCut.All);
             CollectionAssert.AreEqual(Strings(f["owner_only_reasons"]), OWLensCut.OwnerOnly);
@@ -517,6 +520,142 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             var whole = OWLens.Resolve(world, "L", OWLensReader.Guest(new[] { "L", "c1", "c2" }, new string[0]));
             CollectionAssert.AreEqual(new[] { "c1", "c2" }, whole.Kept);
+        }
+
+        // Rule 1 at serial 82: a lens the reader is served only as a known-of stub resolves as not there, by its body too.
+        // A served stub carries no links and no x_lens, so read as a body it would be a lens with no anchors: a filter over
+        // the reader's whole view. Kills: a stub body read as a filter.
+        [Test]
+        public void ALensBodyServedAsAStub_ReadsAsNothing_NeverAsAFilter()
+        {
+            var world = new List<JObject>
+            {
+                JObject.Parse(@"{""id"":""c1"",""type"":""character"",""name"":""Ada""}"),
+                JObject.Parse(@"{""id"":""c2"",""type"":""character"",""name"":""Bo""}"),
+            };
+            var stub = JObject.Parse(@"{""id"":""L"",""type"":""construct"",""name"":""Ada and hers"",""supertype"":""Lens"",""known_of"":true}");
+
+            var r = OWLens.Resolve(world, stub, OWLensReader.Owner());
+            CollectionAssert.IsEmpty(r.Kept, "a stub lens body keeps nothing");
+            CollectionAssert.IsEmpty(r.Cut, "a stub lens body cuts nothing");
+            Assert.IsNull(r.RefusedKey);
+            CollectionAssert.IsEmpty(OWGraph.Read(world, OWLensReader.Owner(), new OWGraphOptions { Lens = stub }).Nodes);
+
+            stub["known_of"] = false;
+            CollectionAssert.AreEqual(new[] { "c1", "c2" }, OWLens.Resolve(world, stub, OWLensReader.Owner()).Kept,
+                "known_of false is a whole body: a lens with no anchors is a filter");
+        }
+
+        // notes_ignored counts as keel's reader does: the notes on ids that are not anchors (the lens's anchors and the
+        // ones the reader cannot see), only where the reader sees the id. A note keyed to a hidden anchor went with the
+        // anchor (rule 6), one keyed to an element the reader cannot see is no note of its, and one keyed to an id in no
+        // element names nothing. Kills: a hidden anchor's note counted, which tells a guest a hidden element exists.
+        [Test]
+        public void NotesIgnored_CountsOnlyNonAnchorsTheReaderSees()
+        {
+            var world = new List<JObject>
+            {
+                JObject.Parse(@"{""id"":""a"",""type"":""character"",""name"":""Seen anchor""}"),
+                JObject.Parse(@"{""id"":""ha"",""type"":""character"",""name"":""Hidden anchor"",""hidden"":true}"),
+                JObject.Parse(@"{""id"":""s"",""type"":""character"",""name"":""Seen, not an anchor""}"),
+                JObject.Parse(@"{""id"":""h"",""type"":""character"",""name"":""Hidden, not an anchor"",""hidden"":true}"),
+            };
+            var lens = JObject.Parse(@"{""id"":""L"",""type"":""construct"",""supertype"":""Lens"",""characters"":[""a"",""ha""],""x_lens"":{""depth"":0,""notes"":{
+                ""a"":""an anchor's note"",""ha"":""a hidden anchor's note"",""s"":""seen, not an anchor"",""h"":""hidden, not an anchor"",""nowhere"":""an id in no element""}}}");
+
+            Assert.AreEqual(1, OWLens.Resolve(world, lens, OWLensReader.Contributor()).NotesIgnored, "the contributor");
+            Assert.AreEqual(2, OWLens.Resolve(world, lens, OWLensReader.Owner()).NotesIgnored, "the owner sees h");
+        }
+
+        // hops_not_served never counts a reading aid that types would not keep, as it never counts such a room element
+        // (keel's reader; the ruling rides serial 83's fixture). Kills: an aid the lens would cut as types counted as a
+        // hop not served.
+        [Test]
+        public void HopsNotServed_CountsAReadingAidOnlyWhenTypesWouldKeepIt()
+        {
+            var world = new List<JObject>
+            {
+                JObject.Parse(@"{""id"":""A"",""type"":""institution"",""name"":""The Desk"",""allies"":[""B""]}"),
+                JObject.Parse(@"{""id"":""B"",""type"":""institution"",""name"":""The Bindery""}"),
+                JObject.Parse(@"{""id"":""ch"",""type"":""law"",""name"":""House Rules"",""supertype"":""Charter"",""author"":""B"",""x_charter_of"":""w1""}"),
+            };
+            var lens = JObject.Parse(@"{""id"":""L"",""type"":""construct"",""supertype"":""Lens"",""institutions"":[""A""],""x_lens"":{""depth"":2}}");
+
+            var r = OWLens.Resolve(world, lens, OWLensReader.Owner());
+            CollectionAssert.AreEqual(new[] { "A", "B" }, r.Kept);
+            CollectionAssert.IsEmpty(r.Cut, "the charter at the second hop, which types would not keep, is not counted");
+
+            lens["x_lens"]["types"] = new JArray("institution", "law/charter");
+            r = OWLens.Resolve(world, lens, OWLensReader.Owner());
+            CollectionAssert.AreEqual(new[] { "A", "B" }, r.Kept);
+            CollectionAssert.AreEquivalent(new Dictionary<string, int> { [OWLensCut.HopsNotServed] = 1 }, r.Cut,
+                "a lens that names the pair counts it");
+        }
+
+        // A float in an x_lens key is refused, even with no fraction (keel's reader; the ruling rides serial 83's fixture):
+        // the lens is unreadable and the key is named. An element's date still reads 7.0 as 7. Kills: depth 2.0 read as
+        // 2, a date of 7.0 read as undated.
+        [Test]
+        public void AFloatInAnXLensKey_IsRefused_ButAnElementsDateOf7Point0Is7()
+        {
+            foreach (var (key, value) in new[]
+                     {
+                         ("depth", "2.0"), ("window", "3.0"), ("budget", "10.0"), ("changed_within", "7.0"),
+                     })
+                Assert.AreEqual(key, OWLens.CheckKeys(JObject.Parse("{\"" + key + "\":" + value + "}")), key + " " + value);
+            Assert.AreEqual("from", OWLens.CheckKeys(JObject.Parse(@"{""from"":1.0,""to"":5}")));
+            Assert.AreEqual("to", OWLens.CheckKeys(JObject.Parse(@"{""from"":1,""to"":5.0}")));
+
+            var world = new List<JObject>
+            {
+                JObject.Parse(@"{""id"":""e"",""type"":""event"",""name"":""After"",""start_date"":1300.0}"),
+                JObject.Parse(@"{""id"":""c"",""type"":""character"",""name"":""c""}"),
+            };
+            var lens = JObject.Parse(@"{""id"":""L"",""type"":""construct"",""supertype"":""Lens"",""events"":[""e""],""characters"":[""c""],""x_lens"":{""depth"":2.0}}");
+            Assert.AreEqual("depth", OWLens.Resolve(world, lens, OWLensReader.Owner()).RefusedKey, "an unreadable lens names the key");
+
+            lens["x_lens"] = new JObject { ["depth"] = 0 };
+            var r = OWLens.Resolve(world, lens, OWLensReader.Owner(), new OWLensOptions { AsOf = 1200 });
+            CollectionAssert.AreEqual(new[] { "c" }, r.Kept);
+            CollectionAssert.AreEquivalent(new Dictionary<string, int> { [OWLensCut.AfterAsOf] = 1 }, r.Cut,
+                "the fence reads the element's 1300.0 as 1300");
+            Assert.AreEqual(7, OWLens.DateOf(JObject.Parse(@"{""type"":""event"",""start_date"":7.0}")));
+        }
+
+        // changed_within (serial 82): a whole number of days from 1, refused by name otherwise, between undated and show
+        // in the table's order. The fixture's keys cases do not carry it.
+        [Test]
+        public void ChangedWithin_IsAWholeNumberOfDaysFromOne()
+        {
+            Assert.IsNull(OWLens.CheckKeys(JObject.Parse(@"{""changed_within"":1}")));
+            Assert.IsNull(OWLens.CheckKeys(JObject.Parse(@"{""changed_within"":null}")), "null is absent");
+            foreach (var bad in new[] { "0", "-3", "1.5", "\"7\"", "true", "[7]" })
+                Assert.AreEqual("changed_within", OWLens.CheckKeys(JObject.Parse(@"{""changed_within"":" + bad + "}")), bad);
+            Assert.AreEqual("undated", OWLens.CheckKeys(JObject.Parse(@"{""undated"":""no"",""changed_within"":0}")), "undated first");
+            Assert.AreEqual("changed_within", OWLens.CheckKeys(JObject.Parse(@"{""changed_within"":0,""show"":""no""}")), "before show");
+            Assert.IsNull(OWLens.CheckKeys(JObject.Parse(@"{""types"":[""law/charter"",""Construct/Guide"",""construct/domain""]}")),
+                "a reading aid's pair is a type word");
+        }
+
+        // changed_within reads the server's updated_at, or a folder element's server_updated_at or local_updated_at, the
+        // newer; no time, no cut; never an anchor. Kills: the folder's local edit ignored, an element with no time cut.
+        [Test]
+        public void ChangedWithin_ReadsUpdatedAt_OrTheNewerOfAFoldersTwo_AndNeverAnAnchor()
+        {
+            var world = new List<JObject>
+            {
+                JObject.Parse(@"{""id"":""a"",""type"":""institution"",""name"":""Anchor"",""objects"":[""o1"",""o2"",""o3"",""o4""],""updated_at"":""2026-01-01T00:00:00Z""}"),
+                JObject.Parse(@"{""id"":""o1"",""type"":""object"",""name"":""Fresh"",""updated_at"":""2026-10-26T00:00:00Z""}"),
+                JObject.Parse(@"{""id"":""o2"",""type"":""object"",""name"":""Old on the server, edited here"",""server_updated_at"":""2026-09-01T00:00:00Z"",""local_updated_at"":""2026-10-25T00:00:00Z""}"),
+                JObject.Parse(@"{""id"":""o3"",""type"":""object"",""name"":""Old both ways"",""server_updated_at"":""2026-09-01T00:00:00Z"",""local_updated_at"":""2026-09-02T00:00:00Z""}"),
+                JObject.Parse(@"{""id"":""o4"",""type"":""object"",""name"":""No time""}"),
+            };
+            var lens = JObject.Parse(@"{""id"":""L"",""type"":""construct"",""supertype"":""Lens"",""institutions"":[""a""],""x_lens"":{""changed_within"":7}}");
+            var options = new OWLensOptions { Clock = new DateTimeOffset(2026, 10, 27, 12, 0, 0, TimeSpan.Zero) };
+
+            var r = OWLens.Resolve(world, lens, OWLensReader.Owner(), options);
+            CollectionAssert.AreEquivalent(new[] { "a", "o1", "o2", "o4" }, r.Kept);
+            CollectionAssert.AreEquivalent(new Dictionary<string, int> { [OWLensCut.Stale] = 1 }, r.Cut);
         }
 
         /// <summary>The case's lens, a body or the id of a lens in the world.</summary>

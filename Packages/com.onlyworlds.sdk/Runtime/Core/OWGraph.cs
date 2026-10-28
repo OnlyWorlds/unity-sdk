@@ -1,5 +1,5 @@
 // The lens profile's graph section: a reading of a world as nodes and edges (schema-dist profiles/lens.md, serial 81,
-// ruled 2026-10-27). The elements a reader sees are the nodes, the links between them the edges. It adds nothing to the
+// ruled 2026-10-27; the reading aids out of an unlensed graph and a stub lens read as nothing at serial 82). The elements a reader sees are the nodes, the links between them the edges. It adds nothing to the
 // world and stores nothing.
 //
 // Written from the profile and its conformance fixture's graph kind (profiles/lens.fixture.json), which is this file's
@@ -50,6 +50,12 @@ namespace OnlyWorlds.Sdk
         public const string MapSpace = "map_space";
 
         /// <summary>
+        /// A reading aid (<see cref="OWRoom.IsReadingAid"/>: the charter, its guide, its domains, by the pair and the mark
+        /// <c>x_charter_of</c>), out of an unlensed graph. No flag brings it back; a lens that names its pair keeps it.
+        /// </summary>
+        public const string ReadingAid = "reading_aid";
+
+        /// <summary>
         /// A link from a kept node to an element the reader sees that the lens neither kept nor cut: past its hops,
         /// outside its types, the lens element itself, a message its mail part took. Every reader's count: the target is
         /// in its view, so the count leaks nothing. Never in a lens's cut.
@@ -58,7 +64,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Every reason, in the one order the counts are given in: the lens's, then the graph's.</summary>
         public static readonly string[] All =
-            OWLensCut.All.Concat(new[] { Room, Hidden, Proposed, MapSpace, OutsideLens }).ToArray();
+            OWLensCut.All.Concat(new[] { Room, Hidden, Proposed, MapSpace, ReadingAid, OutsideLens }).ToArray();
 
         /// <summary>
         /// The counts only the owner sees (the owner reading as itself, or as another reader): the lens's two, and the two
@@ -90,7 +96,9 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// The ids the world's hidden mark keeps, beside each element's own <c>hidden</c>, as
-        /// <see cref="OWLensOptions.HiddenIds"/>: who sees them, and which nodes carry the <c>hidden</c> kind. Null for none.
+        /// <see cref="OWLensOptions.HiddenIds"/>: who sees them, and which nodes carry the <c>hidden</c> kind. The TypeScript
+        /// SDK and the Python package read this list as <c>hidden</c> on the world snapshot (<c>world.hidden</c>, as the
+        /// lens profile's fixture worlds carry it). Null for none.
         /// </summary>
         public IEnumerable<string> HiddenIds { get; set; }
 
@@ -239,7 +247,7 @@ namespace OnlyWorlds.Sdk
         /// <summary>
         /// With a lens, the lens's own cut (<see cref="OWLensResult.Cut"/>), unchanged. Without one, the elements out by
         /// default that the reader sees, counted by reason (<c>room</c>, <c>hidden</c> and <c>proposed</c> for the owner
-        /// only, <c>map_space</c>).
+        /// only, <c>map_space</c>, <c>reading_aid</c>).
         /// </summary>
         public IReadOnlyDictionary<string, int> Cut { get; }
 
@@ -316,11 +324,12 @@ namespace OnlyWorlds.Sdk
         /// <remarks>
         /// <para>
         /// Without a lens the nodes are every element the reader sees less what is out by default: room elements, hidden
-        /// ones, proposed ones and map space, each brought back by its flag and then marked (map space carries no mark).
+        /// ones, proposed ones and map space, each brought back by its flag and then marked (map space carries no mark),
+        /// and the reading aids (<see cref="OWRoom.IsReadingAid"/>), which no flag brings back.
         /// With a lens (<see cref="OWGraphOptions.Lens"/> or <see cref="OWGraphOptions.LensId"/>) the nodes are exactly the
         /// lens's kept, its cut rides along unchanged, and a flag adds nothing: a lens means one thing everywhere. A lens
         /// whose <c>x_lens</c> cannot be read gives an empty graph naming the key; a lens id the reader is not served whole
-        /// gives an empty graph that is readable.
+        /// gives an empty graph that is readable, as does a lens body served only as a known-of stub.
         /// </para>
         /// <para>
         /// Each schema link field, and each declared extension link (<see cref="DeclaredLinks"/>), gives one edge per
@@ -328,7 +337,7 @@ namespace OnlyWorlds.Sdk
         /// one edge per party). A known-of node has no edges out. A link to an element that is not a node is counted in
         /// <see cref="OWWorldGraph.EdgesCut"/> by its target's reason: the lens's cut reason (which wins over
         /// <c>not_visible</c>), else with a lens <c>outside_lens</c> for one the reader sees, else without one the first of
-        /// the four kinds not brought back, and <c>not_visible</c> for one the reader does not see (the owner's count).
+        /// the kinds not brought back, and <c>not_visible</c> for one the reader does not see (the owner's count).
         /// </para>
         /// </remarks>
         /// <exception cref="ArgumentNullException">No reader.</exception>
@@ -352,6 +361,7 @@ namespace OnlyWorlds.Sdk
                 [OWGraphCut.Hidden] = o.Hidden,
                 [OWGraphCut.Proposed] = o.Proposed,
                 [OWGraphCut.MapSpace] = o.MapSpace,
+                [OWGraphCut.ReadingAid] = false,
             };
             var seenOwner = view.Rung == OWLensRung.Owner;
 
@@ -362,6 +372,7 @@ namespace OnlyWorlds.Sdk
                 if (view.Hidden.Contains(id)) kinds.Add(OWGraphCut.Hidden);
                 if (view.Proposed.Contains(id)) kinds.Add(OWGraphCut.Proposed);
                 if (MapSpaceTypes.Contains(view.TypeOf(id))) kinds.Add(OWGraphCut.MapSpace);
+                if (view.IsReadingAid(id)) kinds.Add(OWGraphCut.ReadingAid);
                 return kinds;
             }
 
@@ -411,7 +422,7 @@ namespace OnlyWorlds.Sdk
             var nodes = ids.Select(id =>
             {
                 var type = view.TypeOf(id);
-                var marks = KindsOf(id).Where(k => k != OWGraphCut.MapSpace).ToList();
+                var marks = KindsOf(id).Where(k => OWGraphMark.All.Contains(k)).ToList();
                 return new OWGraphNode(id, type, StringOf(view.Els[id]["name"]),
                     OWPresentation.FamilyOf(type), OWPresentation.IconOf(type),
                     marks, view.KnownOf.Contains(id));

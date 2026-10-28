@@ -1,6 +1,7 @@
 // The lens profile: a saved way of reading a world, a Construct with supertype Lens whose links are its anchors and
-// whose x_lens recipe says what to read (depth, types, window, from, to, undated, show, budget, mail, notes), and the
-// one resolution every reader agrees on (schema-dist profiles/lens.md, serial 78, ruled 2026-10-26).
+// whose x_lens recipe says what to read (depth, types, window, from, to, undated, changed_within, show, budget, mail,
+// notes), and the one resolution every reader agrees on (schema-dist profiles/lens.md, serial 78, ruled 2026-10-26; the
+// reading aids, changed_within and a stub lens read as nothing at serial 82).
 //
 // Written from the profile and its conformance fixture, profiles/lens.fixture.json, which is this file's own test
 // (OWLensTests); keel's reference reader replays the same cases. The packages' reader is resolveLens(world, lens,
@@ -22,18 +23,24 @@ namespace OnlyWorlds.Sdk
     /// <summary>
     /// Why a lens left an element out: the profile's closed list. Each cut element is counted once, under the first
     /// reason that applies: the fence (<see cref="AfterAsOf"/>, <see cref="Undated"/>), then <see cref="Types"/>, then
-    /// <see cref="Window"/>, then <see cref="Budget"/>.
+    /// <see cref="Window"/>, then <see cref="Stale"/>, then <see cref="Budget"/>.
     /// </summary>
     public static class OWLensCut
     {
         /// <summary>Past the limit, in the budget's order.</summary>
         public const string Budget = "budget";
 
-        /// <summary>Reached, of a type (or a room pair) the lens does not keep.</summary>
+        /// <summary>Reached, of a type (or a room pair, or a reading aid's pair) the lens does not keep.</summary>
         public const string Types = "types";
 
         /// <summary>Dated before the window, or outside <c>from</c> and <c>to</c>.</summary>
         public const string Window = "window";
+
+        /// <summary>
+        /// Changed longer ago than <c>changed_within</c> days before the reading's wall clock (<see cref="OWLensOptions.Clock"/>),
+        /// by the element's <c>updated_at</c>. Never an anchor's reason.
+        /// </summary>
+        public const string Stale = "stale";
 
         /// <summary>Of a dated type with no date, under <c>undated: exclude</c>.</summary>
         public const string Undated = "undated";
@@ -53,7 +60,7 @@ namespace OnlyWorlds.Sdk
         /// <summary>Every reason, in the profile's order.</summary>
         public static readonly string[] All =
         {
-            Budget, Types, Window, Undated, AfterAsOf, AnchorNotVisible, NotVisible, HopsNotServed,
+            Budget, Types, Window, Stale, Undated, AfterAsOf, AnchorNotVisible, NotVisible, HopsNotServed,
         };
 
         /// <summary>
@@ -155,16 +162,19 @@ namespace OnlyWorlds.Sdk
         /// </summary>
         public int? Now { get; set; }
 
-        /// <summary>The reading's time, for the mail rule's thirty days (mail is dated by the clock). Null: the current time.</summary>
+        /// <summary>
+        /// The reading's wall clock: the mail rule's thirty days (mail is dated by the clock) and <c>changed_within</c>'s
+        /// days are counted back from it. Null: the current time.
+        /// </summary>
         public DateTimeOffset? Clock { get; set; }
 
         /// <summary>The world's members list, as <see cref="OWMessage.SenderStatus"/> reads it; null when unreadable.</summary>
         public IEnumerable<JToken> Members { get; set; }
 
         /// <summary>
-        /// The ids the world's hidden mark keeps, beside each element's own <c>hidden</c>: a world-level list, as the
-        /// TypeScript SDK and the Python package read a world's <c>hidden</c> (the lens profile's fixture worlds carry
-        /// one). Null for none.
+        /// The ids the world's hidden mark keeps, beside each element's own <c>hidden</c>: a world-level list. The
+        /// TypeScript SDK and the Python package read this list as <c>hidden</c> on the world snapshot (<c>world.hidden</c>,
+        /// as the lens profile's fixture worlds carry it); here it rides in the options. Null for none.
         /// </summary>
         public IEnumerable<string> HiddenIds { get; set; }
     }
@@ -236,7 +246,11 @@ namespace OnlyWorlds.Sdk
         /// </summary>
         public IReadOnlyDictionary<string, int> Cut { get; }
 
-        /// <summary>How many of <c>notes</c>' ids are not anchors of the lens (ignored, and counted).</summary>
+        /// <summary>
+        /// How many of <c>notes</c>' ids are not anchors of the lens (ignored, and counted), counting only ids the reader
+        /// sees: a note on an anchor it cannot see went with the anchor, and one on an element it cannot see, or on an
+        /// id in no element, is no note of its.
+        /// </summary>
         public int NotesIgnored { get; }
 
         /// <summary>The mail part when the lens names a mail rule; null under <c>mail: none</c>.</summary>
@@ -401,17 +415,19 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// Null when <c>x_lens</c> is legal, else the first key refused, in the profile's table order (<c>depth</c>,
-        /// <c>types</c>, <c>window</c>, <c>from</c>, <c>to</c>, <c>undated</c>, <c>show</c>, <c>budget</c>, <c>mail</c>,
-        /// <c>notes</c>), or <c>x_lens</c> itself when the value is not an object. Absent and <c>null</c> are legal, a
+        /// <c>types</c>, <c>window</c>, <c>from</c>, <c>to</c>, <c>undated</c>, <c>changed_within</c>, <c>show</c>,
+        /// <c>budget</c>, <c>mail</c>, <c>notes</c>), or <c>x_lens</c> itself when the value is not an object. Absent and <c>null</c> are legal, a
         /// key whose value is <c>null</c> is absent, and a key the profile does not name is ignored.
         /// </summary>
         /// <remarks>
-        /// <c>depth</c> 0, 1 or 2; <c>types</c> a list of type slugs or room pairs (<c>narrative/message</c>), each word
-        /// trimmed and folded; <c>window</c> a whole number from 0, never beside <c>from</c> or <c>to</c>; <c>from</c> a
-        /// whole number; <c>to</c> a whole number after <c>from</c>, never alone; <c>undated</c> <c>include</c> or
-        /// <c>exclude</c>; <c>show</c> <c>full</c>, <c>first_line</c> or <c>name</c>; <c>budget</c> 1 to 1000;
+        /// <c>depth</c> 0, 1 or 2; <c>types</c> a list of type slugs, room pairs (<c>narrative/message</c>) or reading
+        /// aid pairs (<c>law/charter</c>), each word trimmed and folded; <c>window</c> a whole number from 0, never beside
+        /// <c>from</c> or <c>to</c>; <c>from</c> a whole number; <c>to</c> a whole number after <c>from</c>, never alone;
+        /// <c>undated</c> <c>include</c> or <c>exclude</c>; <c>changed_within</c> a whole number of days from 1;
+        /// <c>show</c> <c>full</c>, <c>first_line</c> or <c>name</c>; <c>budget</c> 1 to 1000;
         /// <c>mail</c> <c>unread_full_read_titles</c>, <c>all</c> or <c>none</c>; <c>notes</c> an object of strings. A
-        /// whole number is a JSON integer (a boolean or a float is not); one beyond the 64-bit range is refused.
+        /// whole number is a JSON integer (a boolean or a float is not, <c>2.0</c> included, as keel's reader reads it); one
+        /// beyond the 64-bit range is refused.
         /// </remarks>
         public static string CheckKeys(JToken xLens)
         {
@@ -420,19 +436,20 @@ namespace OnlyWorlds.Sdk
 
             bool Has(string key, out JToken value) => x.TryGetValue(key, out value) && value.Type != JTokenType.Null;
 
-            if (Has("depth", out var depth) && !(Whole(depth, out var d) && d >= 0 && d <= 2)) return "depth";
+            if (Has("depth", out var depth) && !(Integer(depth, out var d) && d >= 0 && d <= 2)) return "depth";
             if (Has("types", out var types) && !(types is JArray list && list.All(IsTypeWord))) return "types";
             var hasWindow = Has("window", out var window);
-            if (hasWindow && !(Whole(window, out var w) && w >= 0)) return "window";
+            if (hasWindow && !(Integer(window, out var w) && w >= 0)) return "window";
             var hasFrom = Has("from", out var from);
             var hasTo = Has("to", out var to);
             if (hasWindow && (hasFrom || hasTo)) return "window";
             long f = 0;
-            if (hasFrom && !Whole(from, out f)) return "from";
-            if (hasTo && !(Whole(to, out var t) && hasFrom && f < t)) return "to";
+            if (hasFrom && !Integer(from, out f)) return "from";
+            if (hasTo && !(Integer(to, out var t) && hasFrom && f < t)) return "to";
             if (Has("undated", out var undated) && !IsOneOf(undated, UndatedValues)) return "undated";
+            if (Has("changed_within", out var changed) && !(Integer(changed, out var c) && c >= 1)) return "changed_within";
             if (Has("show", out var show) && !IsOneOf(show, ShowValues)) return "show";
-            if (Has("budget", out var budget) && !(Whole(budget, out var b) && b >= 1 && b <= 1000)) return "budget";
+            if (Has("budget", out var budget) && !(Integer(budget, out var b) && b >= 1 && b <= 1000)) return "budget";
             if (Has("mail", out var mail) && !IsOneOf(mail, MailValues)) return "mail";
             if (Has("notes", out var notes)
                 && !(notes is JObject n && n.Properties().All(p => p.Value.Type == JTokenType.String)))
@@ -478,16 +495,19 @@ namespace OnlyWorlds.Sdk
         /// The rules, in short. A hop reaches both ways, through what this reader is served. A Relation a hop lands on is
         /// an edge: in the same hop it reaches every element its own links name (never what links to it, never on through
         /// a second Relation), whether or not <c>types</c> keeps it. A hop never crosses a room element; one a hop
-        /// reaches is kept only when <c>types</c> names its pair. A known-of stub is kept as served and nothing hops out
-        /// of it. An umbrella enters only its own <c>constructs</c> lenses, each once, the union in link order; a lens a
+        /// reaches is kept only when <c>types</c> names its pair. A reading aid (<see cref="OWRoom.IsReadingAid"/>) a hop
+        /// reaches is kept, and hopped out of, only when <c>types</c> names its pair; an anchor that is one is kept and
+        /// followed like any anchor. A known-of stub is kept as served and nothing hops out of it; a lens served only as
+        /// a stub resolves to nothing. An umbrella enters only its own <c>constructs</c> lenses, each once, the union in link order; a lens a
         /// hop reaches is kept and never entered; the lens being read is never in its own result. The order is anchors
         /// first in the lens's link order, then by type in the schema's order, then newest first (<c>updated_at</c>), then
         /// by id; the budget keeps the first and counts the rest.
         /// </para>
         /// <para>
         /// The fence is the reading's <c>as_of</c>, on each element's own date (a stub's missing date is never read as
-        /// undated); <c>undated</c>, the fence and the date table apply to anchors too, <c>types</c> and the window only
-        /// to what a hop or a filter reaches. A date is a whole number in the world's own unit and is compared as it is,
+        /// undated), and nothing past it leads anywhere: no hop goes out of an anchor or a reached element it cuts; <c>undated</c>, the fence and the date table apply to anchors too, <c>types</c>, the window and
+        /// <c>changed_within</c> (days before the reading's wall clock, on <c>updated_at</c>: <c>stale</c>) only to what
+        /// a hop or a filter reaches. A date is a whole number in the world's own unit and is compared as it is,
         /// never filled to a finer one. A lens with no anchors is a filter over the whole visible world (types only;
         /// what is not selected is not counted) unless it is a template; one whose anchors were all left out for this
         /// reader (or whose <c>x_served_trimmed</c> names an anchor field) is anchored and resolves to what is left.
@@ -539,7 +559,9 @@ namespace OnlyWorlds.Sdk
         {
             var empty = new OWLensResult(new List<string>(), new List<JObject>(), new Dictionary<string, int>(), 0, null, null);
             cutById = new Dictionary<string, string>();
-            if (lens == null || !IsLens(lens)) return empty;
+            // A lens served only as a known-of stub resolves as not there (rule 1): a stub has no links and no x_lens, and
+            // is never a filter over the reader's view.
+            if (lens == null || !IsLens(lens) || OWPayload.IsKnownOf(lens)) return empty;
             var bad = CheckKeys(lens[Field]);
             if (bad != null)
                 return new OWLensResult(new List<string>(), new List<JObject>(), new Dictionary<string, int>(), 0, null, bad);
@@ -592,7 +614,8 @@ namespace OnlyWorlds.Sdk
                 var pool = view.Order.Where(i => view.Sees(i) && !visited.Contains(i) && Admitted(view, i, r));
                 foreach (var i in Ordered(view, pool))
                 {
-                    var reason = Fence(view, i, r, reading.AsOf) ?? Window(view, i, r, reading.AsOf);
+                    var reason = Fence(view, i, r, reading.AsOf) ?? Window(view, i, r, reading.AsOf)
+                                 ?? Stale(view, i, r, reading.Clock);
                     if (reason != null) SetDefault(cut, i, reason);
                     else kept.Add(i);
                 }
@@ -612,7 +635,7 @@ namespace OnlyWorlds.Sdk
                 known.UnionWith(visited);
                 known.UnionWith(unseen);
                 known.UnionWith(children);
-                var frontier = read.Where(i => HopsOut(view, i)).ToList();
+                var frontier = read.Where(i => HopsOut(view, i, r, reading.AsOf)).ToList();
                 var reached = new List<string>();
                 for (var depth = 1; depth <= r.Depth; depth++)
                 {
@@ -622,7 +645,8 @@ namespace OnlyWorlds.Sdk
                     {
                         foreach (var i in ring)
                         {
-                            if (!view.IsRoom(i) || Admitted(view, i, r)) SetDefault(cut, i, OWLensCut.HopsNotServed);
+                            // A room element or a reading aid that types would not keep is not counted (keel's reader).
+                            if (!view.StandsApart(i) || Admitted(view, i, r)) SetDefault(cut, i, OWLensCut.HopsNotServed);
                         }
                     }
                     else
@@ -630,14 +654,17 @@ namespace OnlyWorlds.Sdk
                         reached.AddRange(ring);
                     }
 
-                    frontier = ring.Where(i => HopsOut(view, i)).ToList();
+                    // Nothing hops on out of a reached reading aid whose pair the lens does not name (rule 4).
+                    frontier = ring.Where(i => HopsOut(view, i, r, reading.AsOf) && !(view.IsReadingAid(i) && !Admitted(view, i, r)))
+                        .ToList();
                 }
 
                 foreach (var i in Ordered(view, reached))
                 {
                     var reason = Fence(view, i, r, reading.AsOf)
                                  ?? (Admitted(view, i, r) ? null : OWLensCut.Types)
-                                 ?? Window(view, i, r, reading.AsOf);
+                                 ?? Window(view, i, r, reading.AsOf)
+                                 ?? Stale(view, i, r, reading.Clock);
                     if (reason != null) SetDefault(cut, i, reason);
                     else kept.Add(i);
                 }
@@ -689,7 +716,10 @@ namespace OnlyWorlds.Sdk
             foreach (var i in kept) cut.Remove(i);
 
             part.Kept = kept;
-            part.NotesIgnored = r.Notes.Keys.Count(i => !anchors.Contains(i));
+            // A note on an id that is not an anchor (seen or unseen) counts only where the reader sees the id: a note on a
+            // hidden anchor went with the anchor, and one keyed to an element it cannot see is no note of its (rule 6).
+            part.NotesIgnored = r.Notes.Keys.Count(i => !anchors.Contains(i) && !unseen.Contains(i)
+                                                        && view.Els.ContainsKey(i) && view.Sees(i));
             return part;
         }
 
@@ -782,19 +812,20 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
-        /// True when a hop goes on out of the element: served whole and not a room element. The fence cuts an element,
-        /// never the hop through it: a hop goes on out of an element cut <c>after_as_of</c>.
+        /// True when a hop goes on out of the element: served whole, not a room element, and not after the fence. Nothing
+        /// past the reading's date leads anywhere: no hop goes out of an anchor or a reached element cut <c>after_as_of</c>.
         /// </summary>
-        private static bool HopsOut(View view, string i) => view.Whole.Contains(i) && !view.IsRoom(i);
+        private static bool HopsOut(View view, string i, Recipe r, long? asOf) =>
+            view.Whole.Contains(i) && !view.IsRoom(i) && Fence(view, i, r, asOf) != OWLensCut.AfterAsOf;
 
         /// <summary>
-        /// True when the lens's <c>types</c> keeps the element: a room element only when its pair is named; any other when
-        /// <c>types</c> is empty or names its type.
+        /// True when the lens's <c>types</c> keeps the element: a room element or a reading aid only when its pair is named;
+        /// any other when <c>types</c> is empty or names its type.
         /// </summary>
         private static bool Admitted(View view, string i, Recipe r)
         {
             var e = view.Els[i];
-            if (view.IsRoom(i))
+            if (view.StandsApart(i))
                 return r.Types.Contains(OWProfileText.Fold(StringOf(e["type"])) + "/" + OWProfileText.Fold(StringOf(e["supertype"])));
             return r.Types.Count == 0 || r.Types.Contains(view.TypeOf(i));
         }
@@ -816,6 +847,34 @@ namespace OnlyWorlds.Sdk
             if (r.From.HasValue && date < r.From.Value) return OWLensCut.Window;
             if (r.To.HasValue && date >= r.To.Value) return OWLensCut.Window;
             return null;
+        }
+
+        /// <summary>
+        /// <c>changed_within</c>: <c>stale</c> when the element changed longer ago than that many days before the reading's
+        /// wall clock. No cut when the key is absent or the element carries no time (<see cref="ChangedAt"/>).
+        /// </summary>
+        private static string Stale(View view, string i, Recipe r, DateTimeOffset clock)
+        {
+            if (!r.ChangedWithin.HasValue) return null;
+            var when = ChangedAt(view.Els[i]);
+            if (!when.HasValue) return null;
+            var edge = clock.UtcTicks / 10 - r.ChangedWithin.Value * MicrosPerDay;
+            return when.Value < edge ? OWLensCut.Stale : null;
+        }
+
+        /// <summary>A day in <see cref="OWMessage.TimeKey"/>'s unit (microseconds).</summary>
+        private const long MicrosPerDay = 86_400_000_000L;
+
+        /// <summary>
+        /// When an element last changed, for <c>changed_within</c>: the server's <c>updated_at</c>, or for a folder element
+        /// the newer of <c>server_updated_at</c> and <c>local_updated_at</c>. Null when it carries none.
+        /// </summary>
+        private static long? ChangedAt(JObject e)
+        {
+            var server = OWMessage.TimeKey(e["server_updated_at"]);
+            var local = OWMessage.TimeKey(e["local_updated_at"]);
+            if (server.HasValue || local.HasValue) return Math.Max(server ?? long.MinValue, local ?? long.MinValue);
+            return OWMessage.TimeKey(e["updated_at"]);
         }
 
         private enum DateKind
@@ -968,6 +1027,7 @@ namespace OnlyWorlds.Sdk
             private readonly Dictionary<string, List<string>> _fromWhole = new Dictionary<string, List<string>>();
             private readonly Dictionary<string, List<string>> _fromAll = new Dictionary<string, List<string>>();
             private readonly Dictionary<string, bool> _room = new Dictionary<string, bool>();
+            private readonly Dictionary<string, bool> _aid = new Dictionary<string, bool>();
 
             /// <summary>
             /// The ids under the hidden mark: <paramref name="hiddenIds"/> (the world's own list) and each element whose
@@ -1064,6 +1124,16 @@ namespace OnlyWorlds.Sdk
                 if (!_room.TryGetValue(i, out var room)) _room[i] = room = OWRoom.IsRoomElement(Els[i]);
                 return room;
             }
+
+            /// <summary>A reading aid (<see cref="OWRoom.IsReadingAid"/>): the charter, its guide or a domain, by the pair and the mark.</summary>
+            public bool IsReadingAid(string i)
+            {
+                if (!_aid.TryGetValue(i, out var aid)) _aid[i] = aid = OWRoom.IsReadingAid(Els[i]);
+                return aid;
+            }
+
+            /// <summary>A room element or a reading aid: kept only by its pair, never by its type alone (rule 4).</summary>
+            public bool StandsApart(string i) => IsRoom(i) || IsReadingAid(i);
 
             /// <summary>Every id the element's own body links to, in the schema's field order (each field's list in order).</summary>
             public List<string> LinksOf(string i)
@@ -1222,14 +1292,15 @@ namespace OnlyWorlds.Sdk
             public long? Window;
             public long? From;
             public long? To;
+            public long? ChangedWithin;
             public readonly Dictionary<string, string> Notes = new Dictionary<string, string>();
 
             public static Recipe Of(JObject lens)
             {
                 var r = new Recipe();
                 if (!(lens?[Field] is JObject x)) return r;
-                if (Whole(x["depth"], out var depth)) r.Depth = (int)depth;
-                if (Whole(x["budget"], out var budget)) r.Budget = (int)budget;
+                if (Integer(x["depth"], out var depth)) r.Depth = (int)depth;
+                if (Integer(x["budget"], out var budget)) r.Budget = (int)budget;
                 r.Undated = StringOf(x["undated"]) ?? r.Undated;
                 r.Show = StringOf(x["show"]) ?? r.Show;
                 r.Mail = StringOf(x["mail"]) ?? r.Mail;
@@ -1238,9 +1309,10 @@ namespace OnlyWorlds.Sdk
                     foreach (var word in types) r.Types.Add(OWProfileText.Fold(StringOf(word) ?? ""));
                 }
 
-                if (Whole(x["window"], out var window)) r.Window = window;
-                if (Whole(x["from"], out var from)) r.From = from;
-                if (Whole(x["to"], out var to)) r.To = to;
+                if (Integer(x["window"], out var window)) r.Window = window;
+                if (Integer(x["from"], out var from)) r.From = from;
+                if (Integer(x["to"], out var to)) r.To = to;
+                if (Integer(x["changed_within"], out var changed)) r.ChangedWithin = changed;
                 if (x["notes"] is JObject notes)
                 {
                     foreach (var p in notes.Properties())
@@ -1293,8 +1365,20 @@ namespace OnlyWorlds.Sdk
         // -- Small readers ---------------------------------------------------------------
 
         /// <summary>
+        /// An <c>x_lens</c> key's whole number: a JSON integer only, as keel's reader reads the recipe. A float is refused
+        /// even with no fraction (<c>2.0</c>), so the lens is unreadable and the key is named; an element's date reads
+        /// through <see cref="Whole"/>, which takes <c>7.0</c> as 7.
+        /// </summary>
+        private static bool Integer(JToken token, out long value)
+        {
+            value = 0;
+            return token is JValue v && v.Type == JTokenType.Integer && Whole(v, out value);
+        }
+
+        /// <summary>
         /// A JSON number with no fraction as a long (<c>7</c> and <c>7.0</c> alike, as the TypeScript SDK and the Python
-        /// package read it); a boolean, a string, a fraction, NaN or a number past 64 bits is not a whole number.
+        /// package read it); a boolean, a string, a fraction, NaN or a number past 64 bits is not a whole number. An
+        /// element's date reads through it; an <c>x_lens</c> key through the strict <see cref="Integer"/>.
         /// </summary>
         private static bool Whole(JToken token, out long value)
         {
@@ -1349,7 +1433,8 @@ namespace OnlyWorlds.Sdk
             if (word == null) return false;
             var folded = OWProfileText.Fold(word);
             if (Array.IndexOf(OWElementTypes.Slugs, folded) >= 0) return true;
-            return OWRoom.Pairs.Any(p => OWProfileText.Fold(p.type) + "/" + OWProfileText.Fold(p.supertype) == folded);
+            return OWRoom.Pairs.Concat(OWRoom.ReadingAidPairs)
+                .Any(p => OWProfileText.Fold(p.type) + "/" + OWProfileText.Fold(p.supertype) == folded);
         }
 
         private static void SetDefault(Dictionary<string, string> cut, string id, string reason)

@@ -154,5 +154,39 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsFalse(OWRoom.IsRoomElement(El("law", "Charter", World)));
             Assert.IsFalse(OWRoom.IsRoomElement(El("narrative", "Spec", World)), "a pair is a type and a supertype together");
         }
+
+        private static JObject Aid(object type, object supertype, object mark)
+        {
+            var el = new JObject();
+            if (type != null) el["type"] = JToken.FromObject(type);
+            if (supertype != null) el["supertype"] = JToken.FromObject(supertype);
+            if (mark != null) el[OWRoom.ReadingAidMarkField] = JToken.FromObject(mark);
+            return el;
+        }
+
+        /// <summary>
+        /// The reading aids (room profile, serial 82; the lens profile's rule 4): the charter, its guide and its domains,
+        /// by the pair AND the mark <c>x_charter_of</c>. Kills: the pair alone read as an aid (a novel's Charter is lore),
+        /// the room's mark read for an aid's, a mark without a pair, a supertype compared as written.
+        /// </summary>
+        [Test]
+        public void AReadingAid_IsThePairAndTheMark_AndNeverARoomElement()
+        {
+            foreach (var (type, supertype) in OWRoom.ReadingAidPairs)
+            {
+                Assert.IsTrue(OWRoom.IsReadingAid(Aid(type, supertype, World)), $"{type}/{supertype}");
+                Assert.IsFalse(OWRoom.IsReadingAid(Aid(type, supertype, null)), $"{type}/{supertype} without the mark is lore");
+                Assert.IsFalse(OWRoom.IsReadingAid(Aid(type, supertype, "")), $"{type}/{supertype} with an empty mark");
+                Assert.IsFalse(OWRoom.IsRoomElement(Aid(type, supertype, World)), $"{type}/{supertype} is not a room element");
+                Assert.IsFalse(OWRoom.IsReadingAid(El(type, supertype, World)), $"{type}/{supertype} with the room's mark");
+            }
+
+            Assert.IsTrue(OWRoom.IsReadingAid(Aid(" LAW ", "charter" + U(0x3000), World)), "trimmed and folded");
+            Assert.IsFalse(OWRoom.IsReadingAid(Aid("law", "Charters", World)), "the whole word");
+            Assert.IsFalse(OWRoom.IsReadingAid(Aid("construct", "Charter", World)), "a pair is a type and a supertype together");
+            Assert.IsFalse(OWRoom.IsReadingAid(Aid("construct", "Lens", World)), "a mark without a pair");
+            Assert.IsFalse(OWRoom.IsReadingAid(Aid("law", "Charter", 7)), "a mark that is not a string");
+            Assert.IsFalse(OWRoom.IsReadingAid(null));
+        }
     }
 }
