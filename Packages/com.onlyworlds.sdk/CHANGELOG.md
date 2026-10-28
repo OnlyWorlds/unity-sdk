@@ -191,6 +191,8 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 - `OWLens.Resolve` lets a hop go on out of an element the fence cut (`after_as_of`), an anchor or one a hop reached:
   the fence cuts the element, not the path through it. It had stopped there; read as the TypeScript SDK and the
   Python package read it.
+- `OWLens.LensesFor` keeps ids that are not null or empty, each once, in the order given, as the TypeScript SDK's
+  `lensesInUse` and the Python package's `lenses_in_use` do; it had returned the list as given.
 - `OWLens` reads a JSON number with no fraction as whole, as the TypeScript SDK and the Python package do: a date of
   `7.0` reads as 7 (it read as undated), and a lens's `depth`, `window`, `from`, `to` or `budget` written as `2.0`
   is legal. A fraction, NaN or a number past 64 bits is still not whole.

@@ -422,13 +422,21 @@ namespace OnlyWorlds.Sdk
         /// <summary>
         /// The lenses a seat reads: its membership's choice when it has made one (an empty choice is a choice), else its
         /// folder Character's <c>x_lens_uses</c>, else none. The membership wins, so the list is never kept in two places.
+        /// Ids that are not empty, each once, in the order given (the TypeScript SDK's <c>lensesInUse</c>).
         /// </summary>
         /// <param name="membership">The membership's chosen lens ids; null when it has made no choice (or there is none, a folder).</param>
         /// <param name="characterUses">The Character's <see cref="UsesField"/>; null when absent.</param>
         public static IReadOnlyList<string> LensesFor(IEnumerable<string> membership, IEnumerable<string> characterUses)
         {
-            if (membership != null) return membership.ToList();
-            return characterUses?.ToList() ?? new List<string>();
+            var chosen = membership ?? characterUses;
+            var ids = new List<string>();
+            if (chosen == null) return ids;
+            foreach (var id in chosen)
+            {
+                if (!string.IsNullOrEmpty(id) && !ids.Contains(id)) ids.Add(id);
+            }
+
+            return ids;
         }
 
         /// <summary>

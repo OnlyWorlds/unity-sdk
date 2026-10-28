@@ -122,6 +122,16 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Same(@"{""after_as_of"":1}", Cut(r));
         }
 
+        // --- lensesInUse: strings that are not empty, each once ---
+
+        [Test]
+        public void LensesFor_KeepsEachNonEmptyIdOnce()
+        {
+            Assert.AreEqual(new[] { "L1" }, OWLens.LensesFor(new[] { "", null, "L1", "L1" }, null).ToArray());
+            Assert.AreEqual(new[] { "L2", "L3" }, OWLens.LensesFor(null, new[] { "L2", "", "L2", "L3" }).ToArray());
+            Assert.AreEqual(new string[0], OWLens.LensesFor(new string[0], new[] { "L2" }).ToArray());
+        }
+
         // --- Helpers ---
 
         /// <summary>
