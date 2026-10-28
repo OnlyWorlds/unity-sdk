@@ -15,8 +15,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// window's edge, the world's <c>time_current</c> or <c>time_range_current</c> read as its now, no window without a
     /// now, a <c>to</c> after <c>as_of</c>, the fence on anchors, the members list in the mail rule, a message not
     /// repeated among the kept, the thirty days' edge, ties by id by code point, an umbrella's stub child, a stub message
-    /// in the mail part), answers written by hand. The file is the TypeScript SDK's <c>test/fixtures/lens-edges.json</c>
-    /// from release 4.97.1 (commit 1ef2e8e), the same bytes the Python package (onlyworlds 0.79.3) holds, vendored in
+    /// in the mail part, the notes a reader may count as ignored), answers written by hand. The file is the TypeScript
+    /// SDK's <c>test/fixtures/lens-edges.json</c> from release 4.98.0 (commit e9622d2), the same bytes the Python package
+    /// (onlyworlds 0.80.0) holds, vendored in
     /// <c>Tests/Editor/Fixtures/lens/edges.json</c>. Each case names its reader and its world; the readers run here as
     /// they run in the TypeScript SDK's replay (<c>test/lens.test.mjs</c>), which reads the world's <c>now</c> (else its
     /// <c>time_current</c>, else <c>time_range_current</c>) and its members off the world itself. When the file moves,
@@ -24,10 +25,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </summary>
     public class OWLensEdgeTests
     {
-        /// <summary>The edge file's sha256: <c>test/fixtures/lens-edges.json</c> in the TypeScript SDK 4.97.1 (1ef2e8e).</summary>
-        private const string EdgesSha256 = "adb4e2badfcadaa52eb3b740479aec649ee283ab84edb45f2c9f648af1242b04";
+        /// <summary>The edge file's sha256: <c>test/fixtures/lens-edges.json</c> in the TypeScript SDK 4.98.0 (e9622d2).</summary>
+        private const string EdgesSha256 = "4cb440cde85da877e2b5ba7129dd34be90a1e0bb109eefb56f0cae040a19b080";
 
-        private const int EdgeCount = 14;
+        private const int EdgeCount = 15;
 
         private static JArray _edges;
 
@@ -83,7 +84,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             {
                 var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
                 Assert.AreEqual(EdgesSha256, hash,
-                    "the vendored edge file is not the TypeScript SDK 4.91.0's: re-vendor it (a checkout's line endings change the bytes)");
+                    "the vendored edge file is not the TypeScript SDK 4.98.0's: re-vendor it (a checkout's line endings change the bytes)");
             }
 
             Assert.AreEqual(EdgeCount, Edges.Count);
