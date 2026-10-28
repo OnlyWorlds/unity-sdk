@@ -193,6 +193,10 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   Python package read it.
 - `OWLens.LensesFor` keeps ids that are not null or empty, each once, in the order given, as the TypeScript SDK's
   `lensesInUse` and the Python package's `lenses_in_use` do; it had returned the list as given.
+- `OWLens.Resolve` reads an umbrella's child lens as the lens profile's rule 3 writes it and the TypeScript SDK and
+  the Python package read it: the umbrella's `budget` caps the union and its mail rule is the reading's only one, so a
+  child's own `budget` no longer cuts its kept list before the union (nor its own mail rule take messages out of
+  it), and a child's kept elements are shown by the child's own `show`, not the umbrella's.
 - `OWLens` reads a JSON number with no fraction as whole, as the TypeScript SDK and the Python package do: a date of
   `7.0` reads as 7 (it read as undated), and a lens's `depth`, `window`, `from`, `to` or `budget` written as `2.0`
   is legal. A fraction, NaN or a number past 64 bits is still not whole.

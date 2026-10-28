@@ -132,6 +132,21 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(new string[0], OWLens.LensesFor(new string[0], new[] { "L2" }).ToArray());
         }
 
+        // --- An umbrella's child: the umbrella's budget caps the union; the child's rows by its own show ---
+
+        [Test]
+        public void AnUmbrellasChild_IsCappedByTheUmbrellasBudget_AndShownByItsOwnShow()
+        {
+            var r = Read(@"[{""id"":""U"",""type"":""construct"",""name"":""U"",""supertype"":""Lens"",""x_lens"":{},""constructs"":[""C""]},
+                {""id"":""C"",""type"":""construct"",""name"":""C"",""supertype"":""Lens"",""x_lens"":{""depth"":0,""budget"":1,""show"":""name""},
+                ""characters"":[""c1"",""c2""]},
+                {""id"":""c1"",""type"":""character"",""name"":""c1"",""description"":""d""},
+                {""id"":""c2"",""type"":""character"",""name"":""c2"",""description"":""d""}]", "U", OWLensReader.Owner());
+            Same(@"[""c1"",""c2""]", Kept(r));
+            Same(@"[{""id"":""c1"",""type"":""character"",""name"":""c1""},{""id"":""c2"",""type"":""character"",""name"":""c2""}]", Rows(r));
+            Same("{}", Cut(r));
+        }
+
         // --- Helpers ---
 
         /// <summary>
