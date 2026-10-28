@@ -131,7 +131,7 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
-- The schema pin moves to dist.81 (`v0.33.0-dist.81`). Serial 77 adds the address profile (`profiles/address.md` and
+- The schema pin moves to dist.82 (`v0.33.0-dist.82`). Serial 77 adds the address profile (`profiles/address.md` and
   its 133-case fixture); serial 78 adds the lens profile (`profiles/lens.md` and its 84-case fixture); serial 79 adds
   four Note cases to the message profile's fixture (81 to 85: a Note has no recipients and is never unread even when
   its `characters` names the reader, is never in a thread, and a hidden mark that is not a boolean hides it like
@@ -142,8 +142,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   `x_lens_leads_to`, the one link the profile declares) and adds the fixture's `graph` kind (88 cases to 122: 34 graph
   cases, each with its own small world) and the graph tables (`graph_links`, `graph_flags`, `owner_only_flags`,
   `edges_cut_reasons`, `owner_only_edges_cut_reasons`), and corrects the message profile's `noteOf` sentence (the id of
-  the newest own-hand Note, which `OWMessage.NoteOf` already returns). The fixtures' test copies are re-vendored. No
-  schema file moved, and no generated model changed but its serial stamp.
+  the newest own-hand Note, which `OWMessage.NoteOf` already returns); serial 82 adds the lens profile's
+  `changed_within` key and its cut reason `stale`, names the charter, its guide and its domains reading aids (by the
+  pair and the mark `x_charter_of`, in the lens profile's rule 4 and the room profile's line beside its pairs), reads a
+  lens served only as a known-of stub as not there, and adds ten fixture cases (122 to 132: seven resolve cases and
+  three graph cases) with the `reading_aid_pairs` and `reading_aid_mark` tables; the address profile gains the line
+  on what onlyworlds.com commits to (an id never reused, an address outliving a rename, a deleted element answering like
+  a missing one), which asks nothing of `OWAddress`. The fixtures' test copies are re-vendored. No schema file moved,
+  and no generated model changed but its serial stamp.
 - Folders declare format 0.3.19. The version rules the served-trimmed mark in a folder (§4.4 rule 6): a file keeps
   `x_served_trimmed` exactly as the server served it, a reader reads a field the mark names as trimmed, never as
   empty, and a writer never sends the mark up. This SDK already kept the mark byte for byte on export and on read
