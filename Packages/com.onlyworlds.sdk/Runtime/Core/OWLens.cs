@@ -160,6 +160,13 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>The world's members list, as <see cref="OWMessage.SenderStatus"/> reads it; null when unreadable.</summary>
         public IEnumerable<JToken> Members { get; set; }
+
+        /// <summary>
+        /// The ids the world's hidden mark keeps, beside each element's own <c>hidden</c>: a world-level list, as the
+        /// TypeScript SDK and the Python package read a world's <c>hidden</c> (the lens profile's fixture worlds carry
+        /// one). Null for none.
+        /// </summary>
+        public IEnumerable<string> HiddenIds { get; set; }
     }
 
     /// <summary>The mail rule's part of a reading: the reader's own messages, read through the message profile.</summary>
@@ -341,11 +348,32 @@ namespace OnlyWorlds.Sdk
         private static readonly string[] ShowValues = { "full", "first_line", "name" };
         private static readonly string[] MailValues = { "unread_full_read_titles", "all", "none" };
 
-        /// <summary>The keys a known-of stub keeps (the API's stub, less the type's public fields).</summary>
+        /// <summary>The keys every known-of stub keeps, beside its type's public fields (<see cref="StubPublicFields"/>).</summary>
         private static readonly string[] StubKeys =
         {
-            "type", "id", "name", "description", "supertype", "subtype", "image_url", "created_at", "updated_at", "change_seq",
+            "type", "id", "name", "description", "supertype", "subtype", "image_url", "created_at", "updated_at",
         };
+
+        /// <summary>
+        /// Each type's public fields, the ones the platform shows on a known-of element: the presentation sidecar's
+        /// <c>types.&lt;type&gt;.public</c> (<c>Runtime/Resources/ow-presentation.json</c>, keel's field tag). A type not
+        /// named has none. OWLensParityTests holds this table to the sidecar.
+        /// </summary>
+        private static readonly Dictionary<string, string[]> PublicFields = new Dictionary<string, string[]>
+        {
+            ["character"] = new[] { "physicality", "height", "weight", "species", "reputation" },
+        };
+
+        /// <summary>
+        /// The fields a known-of stub of this type keeps beside <see cref="StubKeys"/>: its public fields that are not
+        /// links (a stub carries no links), as the TypeScript SDK and the Python package serve a stub.
+        /// </summary>
+        internal static IReadOnlyList<string> StubPublicFields(string type)
+        {
+            if (type == null || !PublicFields.TryGetValue(type, out var fields)) return Array.Empty<string>();
+            var links = new HashSet<string>(LinkFieldsOf(type).Select(l => l.field));
+            return fields.Where(f => !links.Contains(f)).ToArray();
+        }
 
         /// <summary>
         /// True when the element is a lens: its <c>type</c> and <c>supertype</c>, each trimmed and folded as the room
@@ -415,13 +443,21 @@ namespace OnlyWorlds.Sdk
         /// <summary>
         /// The lenses a seat reads: its membership's choice when it has made one (an empty choice is a choice), else its
         /// folder Character's <c>x_lens_uses</c>, else none. The membership wins, so the list is never kept in two places.
+        /// Ids that are not empty, each once, in the order given (the TypeScript SDK's <c>lensesInUse</c>).
         /// </summary>
         /// <param name="membership">The membership's chosen lens ids; null when it has made no choice (or there is none, a folder).</param>
         /// <param name="characterUses">The Character's <see cref="UsesField"/>; null when absent.</param>
         public static IReadOnlyList<string> LensesFor(IEnumerable<string> membership, IEnumerable<string> characterUses)
         {
-            if (membership != null) return membership.ToList();
-            return characterUses?.ToList() ?? new List<string>();
+            var chosen = membership ?? characterUses;
+            var ids = new List<string>();
+            if (chosen == null) return ids;
+            foreach (var id in chosen)
+            {
+                if (!string.IsNullOrEmpty(id) && !ids.Contains(id)) ids.Add(id);
+            }
+
+            return ids;
         }
 
         /// <summary>
@@ -461,7 +497,7 @@ namespace OnlyWorlds.Sdk
             OWLensOptions options = null)
         {
             if (reader == null) throw new ArgumentNullException(nameof(reader));
-            var view = new View(world, reader);
+            var view = new View(world, reader, options?.HiddenIds);
             return Finish(new Reading(view, options), lens, out _);
         }
 
@@ -473,7 +509,7 @@ namespace OnlyWorlds.Sdk
             OWLensOptions options = null)
         {
             if (reader == null) throw new ArgumentNullException(nameof(reader));
-            var view = new View(world, reader);
+            var view = new View(world, reader, options?.HiddenIds);
             var lens = lensId != null && view.Whole.Contains(lensId) ? view.Els[lensId] : null;
             return Finish(new Reading(view, options), lens, out _);
         }
@@ -508,7 +544,7 @@ namespace OnlyWorlds.Sdk
             if (bad != null)
                 return new OWLensResult(new List<string>(), new List<JObject>(), new Dictionary<string, int>(), 0, null, bad);
 
-            var part = Read(reading, lens, new HashSet<string>());
+            var part = Read(reading, lens, new HashSet<string>(), true);
             var view = reading.View;
             var counts = new Dictionary<string, int>();
             foreach (var reason in part.Cut.Values)
@@ -517,13 +553,18 @@ namespace OnlyWorlds.Sdk
                 counts[reason] = counts.TryGetValue(reason, out var n) ? n + 1 : 1;
             }
 
-            var rows = part.Kept.Select(i => Row(view, i, part.Recipe)).ToList();
+            var rows = part.Kept.Select(i => Row(view, i, part.ShownBy[i], part.Recipe)).ToList();
             cutById = part.Cut;
             return new OWLensResult(part.Kept, rows, counts, part.NotesIgnored, part.Mail, null);
         }
 
-        /// <summary>One lens's reading, the umbrella's children through it: kept ids, each cut id's first reason, the lenses visited.</summary>
-        private static Part Read(Reading reading, JObject lens, HashSet<string> visitedBefore)
+        /// <summary>
+        /// One lens's reading, the umbrella's children through it: kept ids, each cut id's first reason, the lenses
+        /// visited. <paramref name="top"/> is the lens being read (not a child entered): every lens entered is then
+        /// left out of what it keeps and of its cut, since the lens read and every lens entered are never in their own
+        /// result.
+        /// </summary>
+        private static Part Read(Reading reading, JObject lens, HashSet<string> visitedBefore, bool top)
         {
             var view = reading.View;
             var visited = new HashSet<string>(visitedBefore);
@@ -537,7 +578,10 @@ namespace OnlyWorlds.Sdk
             Anchors(view, lens, out var anchors, out var children, out var unseen);
             if (view.OwnerCounts)
             {
-                foreach (var i in unseen) SetDefault(cut, i, OWLensCut.AnchorNotVisible);
+                foreach (var i in unseen)
+                {
+                    if (!visited.Contains(i)) SetDefault(cut, i, OWLensCut.AnchorNotVisible);
+                }
             }
 
             var kept = new List<string>();
@@ -555,7 +599,9 @@ namespace OnlyWorlds.Sdk
             }
             else
             {
-                foreach (var a in anchors)
+                // An anchor that is the lens itself, or a lens already entered, is never in its own result.
+                var read = anchors.Where(a => !visited.Contains(a)).ToList();
+                foreach (var a in read)
                 {
                     var reason = Fence(view, a, r, reading.AsOf);
                     if (reason != null) SetDefault(cut, a, reason);
@@ -565,7 +611,8 @@ namespace OnlyWorlds.Sdk
                 var known = new HashSet<string>(anchors);
                 known.UnionWith(visited);
                 known.UnionWith(unseen);
-                var frontier = anchors.Where(i => HopsOut(view, i, r, reading.AsOf)).ToList();
+                known.UnionWith(children);
+                var frontier = read.Where(i => HopsOut(view, i)).ToList();
                 var reached = new List<string>();
                 for (var depth = 1; depth <= r.Depth; depth++)
                 {
@@ -583,7 +630,7 @@ namespace OnlyWorlds.Sdk
                         reached.AddRange(ring);
                     }
 
-                    frontier = ring.Where(i => HopsOut(view, i, r, reading.AsOf)).ToList();
+                    frontier = ring.Where(i => HopsOut(view, i)).ToList();
                 }
 
                 foreach (var i in Ordered(view, reached))
@@ -601,29 +648,44 @@ namespace OnlyWorlds.Sdk
                 }
             }
 
-            // The umbrella: each child once, by its own recipe, the union in link order.
+            // The umbrella: each child once, by its own recipe, the union in link order; the umbrella's budget caps
+            // the union and its mail rule is the reading's one (a child's own budget and mail rule are not read). A row
+            // is shown by the recipe of the lens that kept it first.
+            foreach (var i in kept) part.ShownBy[i] = r;
             var keptSet = new HashSet<string>(kept);
             foreach (var child in children)
             {
                 if (visited.Contains(child)) continue;
-                var sub = Read(reading, view.Els[child], visited);
+                var sub = Read(reading, view.Els[child], visited, false);
                 visited.UnionWith(sub.Visited);
                 foreach (var i in sub.Kept)
                 {
-                    if (keptSet.Add(i)) kept.Add(i);
+                    if (!keptSet.Add(i)) continue;
+                    kept.Add(i);
+                    part.ShownBy[i] = sub.ShownBy[i];
                 }
 
                 foreach (var pair in sub.Cut) SetDefault(cut, pair.Key, pair.Value);
             }
 
-            if (r.Mail != "none")
+            if (top)
+            {
+                kept = kept.Where(i => !visited.Contains(i)).ToList();
+                foreach (var i in visited) cut.Remove(i);
+            }
+
+            if (top && r.Mail != "none")
             {
                 part.Mail = MailOf(reading, r, out var inMail);
                 kept = kept.Where(i => !inMail.Contains(i)).ToList();
             }
 
-            foreach (var i in kept.Skip(r.Budget)) cut[i] = OWLensCut.Budget;
-            if (kept.Count > r.Budget) kept = kept.Take(r.Budget).ToList();
+            if (top)
+            {
+                foreach (var i in kept.Skip(r.Budget)) cut[i] = OWLensCut.Budget;
+                if (kept.Count > r.Budget) kept = kept.Take(r.Budget).ToList();
+            }
+
             foreach (var i in kept) cut.Remove(i);
 
             part.Kept = kept;
@@ -659,9 +721,10 @@ namespace OnlyWorlds.Sdk
 
                 if (notVisible != null && view.OwnerCounts)
                 {
+                    // A link to an id in no element is a dangling link, not a visibility fact: never counted.
                     foreach (var n in view.LinksOf(x).Concat(view.LinkedFromAll(x)))
                     {
-                        if (!view.Sees(n)) notVisible.Add(n);
+                        if (!view.Sees(n) && view.Els.ContainsKey(n)) notVisible.Add(n);
                     }
                 }
             }
@@ -672,7 +735,7 @@ namespace OnlyWorlds.Sdk
                 foreach (var z in view.LinksOf(y))
                 {
                     if (view.Sees(z)) Meet(z);
-                    else if (notVisible != null && view.OwnerCounts) notVisible.Add(z);
+                    else if (notVisible != null && view.OwnerCounts && view.Els.ContainsKey(z)) notVisible.Add(z);
                 }
             }
 
@@ -697,8 +760,9 @@ namespace OnlyWorlds.Sdk
                 {
                     var i = StringOf(entry);
                     if (string.IsNullOrEmpty(i) || !seen.Add(i)) continue;
-                    view.Els.TryGetValue(i, out var element);
-                    if (field == "constructs" && element != null && IsLens(element))
+                    // An anchor in no element is a dangling link: skipped, and never counted as not visible.
+                    if (!view.Els.TryGetValue(i, out var element)) continue;
+                    if (field == "constructs" && IsLens(element))
                         (view.Whole.Contains(i) ? children : unseen).Add(i);
                     else if (view.Sees(i)) anchors.Add(i);
                     else unseen.Add(i);
@@ -717,9 +781,11 @@ namespace OnlyWorlds.Sdk
                    && trimmed.Any(entry => StringOf(entry) is string f && AnchorFields.Contains(f));
         }
 
-        /// <summary>True when a hop goes on out of the element: served whole, not a room element, not after the fence.</summary>
-        private static bool HopsOut(View view, string i, Recipe r, long? asOf) =>
-            view.Whole.Contains(i) && !view.IsRoom(i) && Fence(view, i, r, asOf) != OWLensCut.AfterAsOf;
+        /// <summary>
+        /// True when a hop goes on out of the element: served whole and not a room element. The fence cuts an element,
+        /// never the hop through it: a hop goes on out of an element cut <c>after_as_of</c>.
+        /// </summary>
+        private static bool HopsOut(View view, string i) => view.Whole.Contains(i) && !view.IsRoom(i);
 
         /// <summary>
         /// True when the lens's <c>types</c> keeps the element: a room element only when its pair is named; any other when
@@ -778,12 +844,17 @@ namespace OnlyWorlds.Sdk
                 .ToList();
         }
 
-        /// <summary>A kept element as <c>show</c> makes it, from the body this reader is served, with its note.</summary>
-        private static JObject Row(View view, string i, Recipe r)
+        private static readonly char[] LineBreaks = { '\r', '\n' };
+
+        /// <summary>
+        /// A kept element as <c>show</c> makes it (<paramref name="shown"/>'s, the lens that kept it), from the body this
+        /// reader is served, with its note (<paramref name="r"/>'s, the lens read).
+        /// </summary>
+        private static JObject Row(View view, string i, Recipe shown, Recipe r)
         {
             var body = view.Served(i);
             JObject row;
-            if (r.Show == "name" || r.Show == "first_line")
+            if (shown.Show == "name" || shown.Show == "first_line")
             {
                 row = new JObject
                 {
@@ -791,10 +862,10 @@ namespace OnlyWorlds.Sdk
                     ["type"] = Copy(body["type"]),
                     ["name"] = Copy(body["name"]),
                 };
-                if (r.Show == "first_line")
+                // Up to the first line break, CR or LF; a body with no string description has none in its row.
+                if (shown.Show == "first_line" && StringOf(body["description"]) is string description)
                 {
-                    var description = StringOf(body["description"]) ?? "";
-                    var lineBreak = description.IndexOf('\n');
+                    var lineBreak = description.IndexOfAny(LineBreaks);
                     row["description"] = lineBreak < 0 ? description : description.Substring(0, lineBreak);
                 }
             }
@@ -898,8 +969,15 @@ namespace OnlyWorlds.Sdk
             private readonly Dictionary<string, List<string>> _fromAll = new Dictionary<string, List<string>>();
             private readonly Dictionary<string, bool> _room = new Dictionary<string, bool>();
 
-            public View(IEnumerable<JToken> world, OWLensReader reader)
+            /// <summary>
+            /// The ids under the hidden mark: <paramref name="hiddenIds"/> (the world's own list) and each element whose
+            /// own <c>hidden</c> marks it (<see cref="OWPayload.IsHidden"/>).
+            /// </summary>
+            public readonly HashSet<string> Hidden = new HashSet<string>();
+
+            public View(IEnumerable<JToken> world, OWLensReader reader, IEnumerable<string> hiddenIds = null)
             {
+                if (hiddenIds != null) Hidden.UnionWith(hiddenIds.Where(i => i != null));
                 OwnerCounts = reader.OwnerCounts;
                 Character = reader.Character;
                 Rung = reader.Rung;
@@ -912,6 +990,7 @@ namespace OnlyWorlds.Sdk
                     if (type == null || Array.IndexOf(OWElementTypes.Slugs, OWProfileText.Fold(type)) < 0) continue;
                     Els[id] = e;
                     Order.Add(id);
+                    if (OWPayload.IsHidden(e)) Hidden.Add(id);
                 }
 
                 foreach (var id in Order)
@@ -930,10 +1009,10 @@ namespace OnlyWorlds.Sdk
                             Whole.Add(id);
                             break;
                         case OWLensRung.Contributor:
-                            if (!OWPayload.IsHidden(e)) Whole.Add(id);
+                            if (!Hidden.Contains(id)) Whole.Add(id);
                             break;
                         case OWLensRung.Public:
-                            if (!OWPayload.IsHidden(e) && !IsRoom(id)) Whole.Add(id);
+                            if (!Hidden.Contains(id) && !IsRoom(id)) Whole.Add(id);
                             break;
                         case OWLensRung.Guest:
                             if (reader.Whole.Contains(id)) Whole.Add(id);
@@ -1033,9 +1112,10 @@ namespace OnlyWorlds.Sdk
                 if (KnownOf.Contains(i))
                 {
                     var stub = new JObject();
+                    var publicFields = StubPublicFields(TypeOf(i));
                     foreach (var p in e.Properties())
                     {
-                        if (Array.IndexOf(StubKeys, p.Name) >= 0) stub[p.Name] = p.Value.DeepClone();
+                        if (Array.IndexOf(StubKeys, p.Name) >= 0 || publicFields.Contains(p.Name)) stub[p.Name] = p.Value.DeepClone();
                     }
 
                     stub[OWPayload.KnownOf] = true;
@@ -1043,28 +1123,49 @@ namespace OnlyWorlds.Sdk
                 }
 
                 var body = (JObject)e.DeepClone();
+                var trimmed = new List<string>();
                 foreach (var (field, many) in LinkFieldsOf(TypeOf(i)))
                 {
                     if (!body.TryGetValue(field, out var value)) continue;
                     if (many)
                     {
                         var kept = new JArray();
+                        var cut = false;
                         if (value is JArray array)
                         {
                             foreach (var entry in array)
                             {
                                 var id = StringOf(entry);
                                 if (id != null && Sees(id)) kept.Add(entry.DeepClone());
+                                else if (id != null) cut = true;
                             }
                         }
 
                         body[field] = kept;
+                        if (cut) trimmed.Add(field);
                     }
                     else
                     {
                         var id = StringOf(value);
-                        if (string.IsNullOrEmpty(id) || !Sees(id)) body[field] = JValue.CreateNull();
+                        if (string.IsNullOrEmpty(id) || !Sees(id))
+                        {
+                            body[field] = JValue.CreateNull();
+                            if (id != null) trimmed.Add(field);
+                        }
                     }
+                }
+
+                // A served message or lens names the link fields its reader's view trimmed, as the server marks them
+                // (OWMessage.ServedTrimmedKey), so a reader of the body knows a list was cut, not empty.
+                if (trimmed.Count > 0 && (OWMessage.IsMessage(body) || IsLens(body)))
+                {
+                    var mark = body[OWMessage.ServedTrimmedKey] is JArray old ? (JArray)old.DeepClone() : new JArray();
+                    foreach (var field in trimmed)
+                    {
+                        if (!mark.Any(entry => StringOf(entry) == field)) mark.Add(field);
+                    }
+
+                    body[OWMessage.ServedTrimmedKey] = mark;
                 }
 
                 return body;
@@ -1101,6 +1202,10 @@ namespace OnlyWorlds.Sdk
             public readonly Dictionary<string, string> Cut = new Dictionary<string, string>();
             public HashSet<string> Visited;
             public Recipe Recipe;
+
+            /// <summary>Each kept id's recipe for its row's <c>show</c>: the lens that kept it first.</summary>
+            public readonly Dictionary<string, Recipe> ShownBy = new Dictionary<string, Recipe>();
+
             public OWLensMail Mail;
             public int NotesIgnored;
         }

@@ -170,6 +170,37 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Fixed
 
+- `OWLens.Resolve` leaves the lens being read, and every lens it enters, out of its own result, as the lens profile's
+  rule 3 says and the TypeScript SDK and the Python package read it: a lens that names itself (or a lens already
+  entered) as an anchor no longer keeps itself, an umbrella's hop no longer reaches its own child lens (it had kept
+  it, or counted it as cut), and no entered lens is counted in the cut.
+- `OWLens.Resolve` no longer counts a link to an id that is in no element as `not_visible` in the owner's count: a
+  dangling link is not a visibility fact, as the TypeScript SDK and the Python package read it.
+- `OWLens.Resolve` skips an anchor id that is in no element without counting it: it had been counted
+  `anchor_not_visible` for the owner. Read as the TypeScript SDK and the Python package read it.
+- `OWLens.Resolve` serves a message or a lens whose links its reader's view trimmed with `x_served_trimmed` naming
+  those fields, as the server marks them and the TypeScript SDK and the Python package serve them: a `full` row and a
+  mail row now say a list was cut, and the message profile's readers (who a message is to) read the mark.
+- `OWLensOptions.HiddenIds` and `OWGraphOptions.HiddenIds` take the world's own hidden list beside each element's own
+  `hidden`, as the TypeScript SDK and the Python package read a world's `hidden` (the lens profile's fixture worlds
+  carry one): those ids are out of a contributor's and the public reader's view, and a graph node among them carries
+  the `hidden` kind. Before, a world-level list could not be given, and its ids were read as visible.
+- `OWLens.Resolve` under `show: first_line` cuts the description at its first line break, CR or LF (it cut at LF
+  only, so a `\r\n` line kept its `\r`), and writes `description` only when the body has a string one (it wrote `""`),
+  as the TypeScript SDK and the Python package make the row.
+- `OWLens.Resolve` lets a hop go on out of an element the fence cut (`after_as_of`), an anchor or one a hop reached:
+  the fence cuts the element, not the path through it. It had stopped there; read as the TypeScript SDK and the
+  Python package read it.
+- `OWLens.LensesFor` keeps ids that are not null or empty, each once, in the order given, as the TypeScript SDK's
+  `lensesInUse` and the Python package's `lenses_in_use` do; it had returned the list as given.
+- `OWLens.Resolve` reads an umbrella's child lens as the lens profile's rule 3 writes it and the TypeScript SDK and
+  the Python package read it: the umbrella's `budget` caps the union and its mail rule is the reading's only one, so a
+  child's own `budget` no longer cuts its kept list before the union (nor its own mail rule take messages out of
+  it), and a child's kept elements are shown by the child's own `show`, not the umbrella's.
+- `OWLens` serves a known-of stub as the TypeScript SDK and the Python package do: its base keys (`id`, `type`,
+  `name`, `description`, `supertype`, `subtype`, `image_url`, `created_at`, `updated_at`) and its type's public fields
+  that are not links (the presentation sidecar's `public`: a Character's `physicality`, `height`, `weight`,
+  `reputation`), with `known_of: true`. It had kept `change_seq` and dropped the public fields.
 - `OWLens` reads a JSON number with no fraction as whole, as the TypeScript SDK and the Python package do: a date of
   `7.0` reads as 7 (it read as undated), and a lens's `depth`, `window`, `from`, `to` or `budget` written as `2.0`
   is legal. A fraction, NaN or a number past 64 bits is still not whole.
