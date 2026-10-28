@@ -546,6 +546,27 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 "known_of false is a whole body: a lens with no anchors is a filter");
         }
 
+        // notes_ignored counts as keel's reader does: the notes on ids that are not anchors (the lens's anchors and the
+        // ones the reader cannot see), only where the reader sees the id. A note keyed to a hidden anchor went with the
+        // anchor (rule 6), one keyed to an element the reader cannot see is no note of its, and one keyed to an id in no
+        // element names nothing. Kills: a hidden anchor's note counted, which tells a guest a hidden element exists.
+        [Test]
+        public void NotesIgnored_CountsOnlyNonAnchorsTheReaderSees()
+        {
+            var world = new List<JObject>
+            {
+                JObject.Parse(@"{""id"":""a"",""type"":""character"",""name"":""Seen anchor""}"),
+                JObject.Parse(@"{""id"":""ha"",""type"":""character"",""name"":""Hidden anchor"",""hidden"":true}"),
+                JObject.Parse(@"{""id"":""s"",""type"":""character"",""name"":""Seen, not an anchor""}"),
+                JObject.Parse(@"{""id"":""h"",""type"":""character"",""name"":""Hidden, not an anchor"",""hidden"":true}"),
+            };
+            var lens = JObject.Parse(@"{""id"":""L"",""type"":""construct"",""supertype"":""Lens"",""characters"":[""a"",""ha""],""x_lens"":{""depth"":0,""notes"":{
+                ""a"":""an anchor's note"",""ha"":""a hidden anchor's note"",""s"":""seen, not an anchor"",""h"":""hidden, not an anchor"",""nowhere"":""an id in no element""}}}");
+
+            Assert.AreEqual(1, OWLens.Resolve(world, lens, OWLensReader.Contributor()).NotesIgnored, "the contributor");
+            Assert.AreEqual(2, OWLens.Resolve(world, lens, OWLensReader.Owner()).NotesIgnored, "the owner sees h");
+        }
+
         // changed_within (serial 82): a whole number of days from 1, refused by name otherwise, between undated and show
         // in the table's order. The fixture's keys cases do not carry it.
         [Test]

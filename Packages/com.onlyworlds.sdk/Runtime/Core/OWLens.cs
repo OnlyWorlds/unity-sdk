@@ -246,7 +246,11 @@ namespace OnlyWorlds.Sdk
         /// </summary>
         public IReadOnlyDictionary<string, int> Cut { get; }
 
-        /// <summary>How many of <c>notes</c>' ids are not anchors of the lens (ignored, and counted).</summary>
+        /// <summary>
+        /// How many of <c>notes</c>' ids are not anchors of the lens (ignored, and counted), counting only ids the reader
+        /// sees: a note on an anchor it cannot see went with the anchor, and one on an element it cannot see, or on an
+        /// id in no element, is no note of its.
+        /// </summary>
         public int NotesIgnored { get; }
 
         /// <summary>The mail part when the lens names a mail rule; null under <c>mail: none</c>.</summary>
@@ -709,7 +713,10 @@ namespace OnlyWorlds.Sdk
             foreach (var i in kept) cut.Remove(i);
 
             part.Kept = kept;
-            part.NotesIgnored = r.Notes.Keys.Count(i => !anchors.Contains(i));
+            // A note on an id that is not an anchor (seen or unseen) counts only where the reader sees the id: a note on a
+            // hidden anchor went with the anchor, and one keyed to an element it cannot see is no note of its (rule 6).
+            part.NotesIgnored = r.Notes.Keys.Count(i => !anchors.Contains(i) && !unseen.Contains(i)
+                                                        && view.Els.ContainsKey(i) && view.Sees(i));
             return part;
         }
 

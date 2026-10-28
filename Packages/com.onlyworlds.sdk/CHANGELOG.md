@@ -192,6 +192,10 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Fixed
 
+- `OWLensResult.NotesIgnored` counts as keel's reader does: only the notes keyed to an element that is not an anchor
+  and that the reader sees. A note keyed to an anchor the reader cannot see, to an element it cannot see, or to an id
+  in no element counts nothing. It had counted every note on an id that was not a visible anchor, so a guest's count
+  told it a hidden anchor existed.
 - `OWLens.Resolve` and `OWGraph.Read` read a lens body served only as a known-of stub (`known_of: true`) as not there:
   it keeps and cuts nothing. It had been read as a lens with no anchors, a filter over the reader's whole view. A lens
   named by its id already read as nothing unless the reader is served it whole. The lens profile's rule 1, serial 82.
