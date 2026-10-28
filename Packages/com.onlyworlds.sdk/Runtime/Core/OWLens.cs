@@ -566,7 +566,7 @@ namespace OnlyWorlds.Sdk
             if (bad != null)
                 return new OWLensResult(new List<string>(), new List<JObject>(), new Dictionary<string, int>(), 0, null, bad);
 
-            var part = Read(reading, lens, new HashSet<string>(), true);
+            var part = Read(reading, lens, new HashSet<string>());
             var view = reading.View;
             var counts = new Dictionary<string, int>();
             foreach (var reason in part.Cut.Values)
@@ -583,11 +583,11 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// One lens's reading, the umbrella's children through it: kept ids, each cut id's first reason, the lenses
-        /// visited. <paramref name="top"/> is the lens being read (not a child entered): every lens entered is then
-        /// left out of what it keeps and of its cut, since the lens read and every lens entered are never in their own
-        /// result.
+        /// visited. A lens is never in the result it resolves: nothing reaches a lens already visited. The union drops an
+        /// element only by its id, so a sibling lens a child's hop reached stays kept, as an element, even when the
+        /// umbrella enters it as a later child (rule 3, serial 83).
         /// </summary>
-        private static Part Read(Reading reading, JObject lens, HashSet<string> visitedBefore, bool top)
+        private static Part Read(Reading reading, JObject lens, HashSet<string> visitedBefore)
         {
             var view = reading.View;
             var visited = new HashSet<string>(visitedBefore);
@@ -636,7 +636,8 @@ namespace OnlyWorlds.Sdk
                 var known = new HashSet<string>(anchors);
                 known.UnionWith(visited);
                 known.UnionWith(unseen);
-                known.UnionWith(children);
+                // A child not yet entered is not excluded from this lens's hop: one the hop reaches is kept (or cut) as an
+                // element, then entered as a child all the same (keel's known set).
                 var frontier = read.Where(i => HopsOut(view, i, r, reading.AsOf)).ToList();
                 var reached = new List<string>();
                 for (var depth = 1; depth <= r.Depth; depth++)
@@ -683,7 +684,7 @@ namespace OnlyWorlds.Sdk
             foreach (var child in children)
             {
                 if (visited.Contains(child)) continue;
-                var sub = Read(reading, view.Els[child], visited, false);
+                var sub = Read(reading, view.Els[child], visited);
                 visited.UnionWith(sub.Visited);
                 foreach (var i in sub.Kept)
                 {
@@ -691,12 +692,6 @@ namespace OnlyWorlds.Sdk
                 }
 
                 foreach (var pair in sub.Cut) SetDefault(cut, pair.Key, pair.Value);
-            }
-
-            if (top)
-            {
-                kept = kept.Where(i => !visited.Contains(i)).ToList();
-                foreach (var i in visited) cut.Remove(i);
             }
 
             if (r.Mail != "none")

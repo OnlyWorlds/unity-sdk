@@ -674,8 +674,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             CollectionAssert.AreEqual(new[] { "c1" }, r.Kept, "the umbrella's budget caps the union");
             CollectionAssert.AreEquivalent(new Dictionary<string, int> { [OWLensCut.Budget] = 1 }, r.Cut);
 
-            // The child's budget counts what it keeps before the union, an id the umbrella keeps too among it.
-            world[0] = Lens("U", "{}", @"""characters"":[""c1""],""constructs"":[""C""]");
+            // The child's budget counts what it keeps before the union, an id the umbrella keeps too among it. The umbrella
+            // reads at depth 0: a hop from c1 would reach its child C as an element (rule 3, serial 83).
+            world[0] = Lens("U", @"{""depth"":0}", @"""characters"":[""c1""],""constructs"":[""C""]");
             world[1] = Lens("C", @"{""depth"":0,""budget"":2}", @"""characters"":[""c1"",""c2"",""c3""]");
             world.Add(Character("c3"));
             r = OWLens.Resolve(world, "U", OWLensReader.Owner());
@@ -750,6 +751,50 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             CollectionAssert.AreEqual(new[] { "me" }, r.Kept, "under the umbrella the letter is out of the child's kept");
             Assert.IsNull(r.Mail, "the umbrella's mail is none: the child's mail is not served");
             CollectionAssert.IsEmpty(r.Cut, "nor counted");
+        }
+
+        /// <summary>
+        /// Rule 3 at serial 83: a sibling lens a child's hop reaches is an element of the result it was reached into, even
+        /// when the umbrella enters it as a later child; the union drops an element only by its id. Entered first, the
+        /// sibling is visited and the hop never reaches it. Reached and cut, it stays counted under its reason, as keel's
+        /// reader counts it. Kills: entered lens ids dropped from the union or from the cut.
+        /// </summary>
+        [Test]
+        public void AnUmbrellasSiblingLens_ReachedByAChildsHop_IsKept_UnlessEnteredFirst()
+        {
+            var world = new List<JObject>
+            {
+                Lens("U", @"{""depth"":0}", @"""constructs"":[""W"",""R""]"),
+                Lens("W", @"{""depth"":1}", @"""characters"":[""h""]"),
+                Lens("R", @"{""depth"":0}", @"""characters"":[""h""]"),
+                Character("h"),
+            };
+            var r = OWLens.Resolve(world, "U", OWLensReader.Owner());
+            CollectionAssert.AreEqual(new[] { "h", "R" }, r.Kept, "W's hop from h reaches R before R is entered");
+            CollectionAssert.IsEmpty(r.Cut);
+
+            world[0] = Lens("U", @"{""depth"":0}", @"""constructs"":[""R"",""W""]");
+            r = OWLens.Resolve(world, "U", OWLensReader.Owner());
+            CollectionAssert.AreEqual(new[] { "h" }, r.Kept, "R entered first is visited: W's hop never reaches it");
+            CollectionAssert.IsEmpty(r.Cut);
+
+            world[0] = Lens("U", @"{""depth"":0}", @"""constructs"":[""W"",""R""]");
+            world[1] = Lens("W", @"{""depth"":1,""types"":[""character""]}", @"""characters"":[""h""]");
+            r = OWLens.Resolve(world, "U", OWLensReader.Owner());
+            CollectionAssert.AreEqual(new[] { "h" }, r.Kept);
+            CollectionAssert.AreEquivalent(new Dictionary<string, int> { [OWLensCut.Types] = 1 }, r.Cut,
+                "R reached outside W's types is counted, though the umbrella enters it next");
+
+            // The umbrella's own hop reaches its child the same way, before entering it.
+            world = new List<JObject>
+            {
+                Lens("U", "{}", @"""characters"":[""h""],""constructs"":[""R""]"),
+                Lens("R", @"{""depth"":0}", @"""characters"":[""h""]"),
+                Character("h"),
+            };
+            r = OWLens.Resolve(world, "U", OWLensReader.Owner());
+            CollectionAssert.AreEqual(new[] { "h", "R" }, r.Kept, "U's hop from h reaches R, its own child");
+            CollectionAssert.IsEmpty(r.Cut);
         }
 
         /// <summary>

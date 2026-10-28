@@ -234,10 +234,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 - `OWLens.Resolve` and `OWGraph.Read` read a lens body served only as a known-of stub (`known_of: true`) as not there:
   it keeps and cuts nothing. It had been read as a lens with no anchors, a filter over the reader's whole view. A lens
   named by its id already read as nothing unless the reader is served it whole. The lens profile's rule 1, serial 82.
-- `OWLens.Resolve` leaves the lens being read, and every lens it enters, out of its own result, as the lens profile's
-  rule 3 says and the TypeScript SDK and the Python package read it: a lens that names itself (or a lens already
-  entered) as an anchor no longer keeps itself, an umbrella's hop no longer reaches its own child lens (it had kept
-  it, or counted it as cut), and no entered lens is counted in the cut.
+- `OWLens.Resolve` leaves a lens out of the result it resolves, as the lens profile's rule 3 says: a lens that names
+  itself (or a lens already entered) as an anchor no longer keeps itself. Serial 83 rules what "its own result"
+  means, and `OWLens.Resolve` reads it as keel's reader, the TypeScript SDK 4.100.0 and the Python package 0.82.0 do:
+  the union drops an element only by its id, never because it was entered. A sibling lens a child's hop reaches is
+  kept as an element even when the umbrella enters it as a later child (the fixture's
+  `umbrella-a-siblings-lens-reached-by-a-hop-is-kept-as-an-element`), and an umbrella's own hop reaches its child
+  lens as an element before entering it; either one, cut, is counted under its reason. A sibling entered before the
+  hop is never reached.
 - `OWLens.Resolve` no longer counts a link to an id that is in no element as `not_visible` in the owner's count: a
   dangling link is not a visibility fact, as the TypeScript SDK and the Python package read it.
 - `OWLens.Resolve` skips an anchor id that is in no element without counting it: it had been counted

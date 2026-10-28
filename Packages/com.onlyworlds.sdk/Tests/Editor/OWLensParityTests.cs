@@ -26,15 +26,21 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Same("{}", Cut(r));
         }
 
+        /// <summary>
+        /// Serial 83's rule 3 reverses this reading: a lens is never in the result it resolves, and nothing else is dropped
+        /// because it was entered, so the umbrella's own hop reaches its child lens C as an element (cut here by
+        /// <c>types</c>) before entering it. keel's reader, the TypeScript SDK 4.100.0 and the Python package 0.82.0 answer
+        /// this (<c>resolve_lens</c> on this world: kept <c>["c1"]</c>, cut <c>{"types": 1}</c>).
+        /// </summary>
         [Test]
-        public void AnUmbrellasHop_NeverReachesItsOwnChild()
+        public void AnUmbrellasHop_ReachesItsOwnChild_AsAnElement()
         {
             var r = Read(@"[{""id"":""U"",""type"":""construct"",""name"":""U"",""supertype"":""Lens"",""x_lens"":{""types"":[""character""]},
                 ""characters"":[""c1""],""constructs"":[""C""]},
                 {""id"":""C"",""type"":""construct"",""name"":""C"",""supertype"":""Lens"",""x_lens"":{""depth"":0},""characters"":[""c1""]},
                 {""id"":""c1"",""type"":""character"",""name"":""c1""}]", "U", OWLensReader.Owner());
             Same(@"[""c1""]", Kept(r));
-            Same("{}", Cut(r), "the child lens C, reached by the umbrella's hop, is not counted as cut by types");
+            Same(@"{""types"":1}", Cut(r), "the child lens C, reached by the umbrella's hop, is counted as cut by types");
         }
 
         // --- A link to an id in no element is a dangling link, not a visibility fact ---
