@@ -48,6 +48,17 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Same("{}", Cut(r));
         }
 
+        // --- An anchor in no element is skipped, never counted ---
+
+        [Test]
+        public void AnAnchorInNoElement_IsSkippedUncounted()
+        {
+            var r = Read(@"[{""id"":""L"",""type"":""construct"",""name"":""L"",""supertype"":""Lens"",""x_lens"":{""depth"":0},
+                ""characters"":[""a"",""missing""]},{""id"":""a"",""type"":""character"",""name"":""a""}]", "L", OWLensReader.Owner());
+            Same(@"[""a""]", Kept(r));
+            Same("{}", Cut(r));
+        }
+
         // --- Helpers ---
 
         /// <summary>

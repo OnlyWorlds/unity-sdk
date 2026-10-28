@@ -715,8 +715,9 @@ namespace OnlyWorlds.Sdk
                 {
                     var i = StringOf(entry);
                     if (string.IsNullOrEmpty(i) || !seen.Add(i)) continue;
-                    view.Els.TryGetValue(i, out var element);
-                    if (field == "constructs" && element != null && IsLens(element))
+                    // An anchor in no element is a dangling link: skipped, and never counted as not visible.
+                    if (!view.Els.TryGetValue(i, out var element)) continue;
+                    if (field == "constructs" && IsLens(element))
                         (view.Whole.Contains(i) ? children : unseen).Add(i);
                     else if (view.Sees(i)) anchors.Add(i);
                     else unseen.Add(i);
