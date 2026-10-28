@@ -176,6 +176,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   SDK 4.100.0 (`charterOf`, `domainsOf`) and the Python package 0.82.0 (`charter_of`, `domains_of`) replay the same
   fixture, and two of the TypeScript SDK's own vectors are ported (a Guide known only as a stub orders nothing; the
   owner reading as the public reads a closed world as nothing). The fixture's 22 cases are the test.
+- **`OWElementTypes.LinkTargets`** and `OWElementTypes.LinkTarget(slug, field)`: the type each link field points at,
+  generated from the schema (the target each model's doc comment already named). The Pin's generic pair is absent: its
+  `element_type` names its target.
 
 ### Changed
 
@@ -244,6 +247,18 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Fixed
 
+- `OWLens.Resolve`'s rows are now the bodies keel serves the reader, for every reader below the owner resolving from
+  the owner's data (a contributor, a guest, the public, the owner reading as one of them). A lens element a row
+  carries had kept its `x_lens.notes` whole, so the notes' keys and sentences told that reader about anchors and
+  elements it cannot see: now a note keyed to an element the reader cannot see is left out, an anchor's note goes
+  with the anchor, and `x_served_trimmed` names `notes` beside the anchor field. A link to a visible element of
+  another type than its field's target is left out, as keel checks each link against its target type. A Pin whose
+  target is unseen, or not of its `element_type`, reads the unset pair (`element_type` `""`, `element_id` null); it had
+  kept the hidden target's type word. `x_served_trimmed` names only a Message's `characters` and `narrator` (it had
+  named every trimmed link field) and a lens's anchor fields, and is never written for the public reader. The owner
+  reading as itself is served its bodies as stored: nothing trimmed, a link to a proposed element kept. The mail
+  part's rows and the charter readers read the same served bodies. The 20 row-trim cases the
+  TypeScript SDK 4.100.0 and the Python package 0.82.0 share, vendored byte for byte, are the test.
 - `OWLensResult.NotesIgnored` counts as keel's reader does: only the notes keyed to an element that is not an anchor
   and that the reader sees. A note keyed to an anchor the reader cannot see, to an element it cannot see, or to an id
   in no element counts nothing. It had counted every note on an id that was not a visible anchor, so a guest's count

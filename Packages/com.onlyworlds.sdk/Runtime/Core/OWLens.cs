@@ -1162,8 +1162,9 @@ namespace OnlyWorlds.Sdk
                 _fromAll.TryGetValue(i, out var list) ? list : (IReadOnlyList<string>)Array.Empty<string>();
 
             /// <summary>
-            /// The body this reader is served, a copy: a stub's keys and <c>known_of: true</c>, or the whole body with
-            /// every link to an element it cannot see left out (a single link null, a list without the id).
+            /// The body this reader is served, a copy, as keel serves it (<c>elements/serialize.py</c>, the visibility
+            /// module's <c>redact</c>): the owner's body as stored; a stub's keys and <c>known_of: true</c>; or, for any
+            /// other reader, the whole body trimmed (<see cref="Trim"/>).
             /// </summary>
             public JObject Served(string i)
             {
@@ -1182,10 +1183,49 @@ namespace OnlyWorlds.Sdk
                 }
 
                 var body = (JObject)e.DeepClone();
-                var trimmed = new List<string>();
-                foreach (var (field, many) in LinkFieldsOf(TypeOf(i)))
+                // The owner reading as itself is served what it stored, a link to a proposed element too: nothing is
+                // trimmed and nothing marked (keel's reader with no view). Reading as another reader, it gets theirs.
+                if (Rung != OWLensRung.Owner) Trim(body, TypeOf(i));
+                return body;
+            }
+
+            /// <summary>
+            /// True when a link to <paramref name="id"/> stays in a served body: the reader sees it and it is of the
+            /// field's <paramref name="target"/> type (keel asks per target type; null for no target). A hop does not
+            /// read this: it follows the link as stored.
+            /// </summary>
+            private bool ServedAs(string id, string target) => id != null && Sees(id) && (target == null || TypeOf(id) == target);
+
+            /// <summary>
+            /// A body's trim for a reader that is not the owner, in place. Every link to an id the reader does not see,
+            /// or to an element that is not the field's target type (<see cref="OWElementTypes.LinkTarget"/>), is left
+            /// out (a single link null, a list without the id, its order kept); a generic pair whose target is unseen or
+            /// not of its <c>element_type</c> reads <c>""</c> and null, an unset pair; a lens's <c>x_lens.notes</c> keeps
+            /// the notes on its served anchors and on other ids the reader sees (an anchor's note goes with the anchor).
+            /// Below co-builder and never on the public rung, <c>x_served_trimmed</c> names what the trim changed the
+            /// meaning of, names only: a Message's <c>characters</c> and <c>narrator</c>, a lens's anchor fields and,
+            /// when an anchor's note went with it, <c>notes</c>.
+            /// </summary>
+            private void Trim(JObject body, string type)
+            {
+                var pair = HasGenericPair(type);
+                if (pair && StringOf(body[GenericId]) is string target && target.Length > 0)
                 {
-                    if (!body.TryGetValue(field, out var value)) continue;
+                    var of = StringOf(body[GenericType]);
+                    if (of == null || !ServedAs(target, OWProfileText.Fold(of)))
+                    {
+                        if (body.ContainsKey(GenericType)) body[GenericType] = "";
+                        body[GenericId] = JValue.CreateNull();
+                    }
+                }
+
+                var lens = IsLens(body);
+                var before = lens ? AnchorIdsOf(body) : null;
+                var changed = new List<string>();
+                foreach (var (field, many) in LinkFieldsOf(type))
+                {
+                    if ((pair && field == GenericId) || !body.TryGetValue(field, out var value)) continue;
+                    var linkTarget = OWElementTypes.LinkTarget(type, field);
                     if (many)
                     {
                         var kept = new JArray();
@@ -1195,39 +1235,72 @@ namespace OnlyWorlds.Sdk
                             foreach (var entry in array)
                             {
                                 var id = StringOf(entry);
-                                if (id != null && Sees(id)) kept.Add(entry.DeepClone());
+                                if (ServedAs(id, linkTarget)) kept.Add(entry.DeepClone());
                                 else if (id != null) cut = true;
                             }
                         }
 
                         body[field] = kept;
-                        if (cut) trimmed.Add(field);
+                        if (cut) changed.Add(field);
                     }
                     else
                     {
                         var id = StringOf(value);
-                        if (string.IsNullOrEmpty(id) || !Sees(id))
+                        if (string.IsNullOrEmpty(id) || !ServedAs(id, linkTarget))
                         {
                             body[field] = JValue.CreateNull();
-                            if (id != null) trimmed.Add(field);
+                            if (id != null) changed.Add(field);
                         }
                     }
                 }
 
-                // A served message or lens names the link fields its reader's view trimmed, as the server marks them
-                // (OWMessage.ServedTrimmedKey), so a reader of the body knows a list was cut, not empty.
-                if (trimmed.Count > 0 && (OWMessage.IsMessage(body) || IsLens(body)))
+                // The mark names only what changes a body's meaning: a Message's addressing (an empty characters list
+                // addresses every member), a lens's anchors (a lens that names an anchor is never a filter).
+                var named = lens ? AnchorFields : OWMessage.IsMessage(body) ? MessageTrimmedFields : Array.Empty<string>();
+                var mark = named.Where(changed.Contains).ToList();
+                if (lens && body[Field] is JObject x && x[NotesKey] is JObject notes)
                 {
-                    var mark = body[OWMessage.ServedTrimmedKey] is JArray old ? (JArray)old.DeepClone() : new JArray();
-                    foreach (var field in trimmed)
+                    var served = AnchorIdsOf(body);
+                    var gone = new HashSet<string>(before.Where(a => !served.Contains(a)));
+                    var keptNotes = new JObject();
+                    foreach (var p in notes.Properties())
                     {
-                        if (!mark.Any(entry => StringOf(entry) == field)) mark.Add(field);
+                        if (served.Contains(p.Name) || (!gone.Contains(p.Name) && Sees(p.Name))) keptNotes[p.Name] = p.Value;
                     }
 
-                    body[OWMessage.ServedTrimmedKey] = mark;
+                    if (keptNotes.Count != notes.Count)
+                    {
+                        x[NotesKey] = keptNotes;
+                        if (notes.Properties().Any(p => gone.Contains(p.Name))) mark.Add(NotesKey);
+                    }
                 }
 
-                return body;
+                // Never on the public rung: the public reading stays the same with or without a private anchor or
+                // recipient in the world. A mark the body already carries (a key's served body) is kept, extended.
+                if (mark.Count == 0 || Rung == OWLensRung.Public) return;
+                var marked = body[OWMessage.ServedTrimmedKey] is JArray old ? (JArray)old.DeepClone() : new JArray();
+                foreach (var field in mark)
+                {
+                    if (!marked.Any(entry => StringOf(entry) == field)) marked.Add(field);
+                }
+
+                body[OWMessage.ServedTrimmedKey] = marked;
+            }
+
+            /// <summary>A lens body's anchor ids, as the body holds them.</summary>
+            private static HashSet<string> AnchorIdsOf(JObject body)
+            {
+                var ids = new HashSet<string>();
+                foreach (var field in AnchorFields)
+                {
+                    if (!(body[field] is JArray list)) continue;
+                    foreach (var entry in list)
+                    {
+                        if (StringOf(entry) is string id) ids.Add(id);
+                    }
+                }
+
+                return ids;
             }
 
             private static void Add(Dictionary<string, List<string>> index, string key, string value)
@@ -1322,6 +1395,21 @@ namespace OnlyWorlds.Sdk
         /// a single link. The pin's <c>element_type</c> is the generic link's type word, not an id.
         /// </summary>
         private static readonly Dictionary<string, (string field, bool many)[]> LinkTable = BuildLinkTable();
+
+        /// <summary>The generic pair's two keys (the schema's one <c>generic-link</c>, <c>pin.element</c>), as the wire carries them.</summary>
+        private const string GenericType = "element_type";
+
+        private const string GenericId = "element_id";
+
+        /// <summary>The <c>x_lens</c> key whose notes a served lens trims with its anchors.</summary>
+        private const string NotesKey = "notes";
+
+        /// <summary>A Message's fields its served mark may name, in the server's order: its addressing.</summary>
+        private static readonly string[] MessageTrimmedFields = { "characters", "narrator" };
+
+        /// <summary>True when the type carries the generic pair: <c>element_type</c> among its generated fields.</summary>
+        private static bool HasGenericPair(string type) =>
+            type != null && OWElementTypes.FieldNames.TryGetValue(type, out var names) && Array.IndexOf(names, GenericType) >= 0;
 
         private static Dictionary<string, (string field, bool many)[]> BuildLinkTable()
         {

@@ -112,6 +112,49 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 $"{name}: rows {rows.ToString(Formatting.None)}, want {c["want_rows"].ToString(Formatting.None)}");
         }
 
+        /// <summary>
+        /// The owner reading as itself is served its bodies untouched, a link to an element written as proposed too; the
+        /// proposed element is still in no reader's view, so nothing hops to it, and the owner reading as a contributor
+        /// gets the link left out. The Python package's reader answers the same.
+        /// </summary>
+        [Test]
+        public void TheOwnersRow_KeepsALinkToAProposedElement()
+        {
+            var quay = new JObject { ["id"] = "q", ["type"] = "location", ["name"] = "Quay", ["buildings"] = new JArray("c") };
+            var world = new List<JObject>
+            {
+                quay,
+                new JObject { ["id"] = "c", ["type"] = "object", ["name"] = "Crane", ["x_review_proposed"] = new JObject { ["by"] = "seat" } },
+            };
+            var lens = new JObject
+            {
+                ["id"] = "L", ["type"] = "construct", ["name"] = "L", ["supertype"] = "Lens", ["locations"] = new JArray("q"),
+                ["x_lens"] = new JObject { ["depth"] = 1 },
+            };
+            var owner = OWLens.Resolve(world, lens, OWLensReader.Owner());
+            CollectionAssert.AreEqual(new[] { "q" }, owner.Kept);
+            Assert.IsTrue(JToken.DeepEquals(quay, owner.Rows[0]), "the owner's row is its body: " + owner.Rows[0].ToString(Formatting.None));
+            var seen = OWLens.Resolve(world, lens, OWLensReader.Contributor().WithOwnerCounts());
+            Assert.IsTrue(JToken.DeepEquals(new JArray(), seen.Rows[0]["buildings"]), "the owner as a contributor loses the link");
+        }
+
+        /// <summary>The generated link targets name exactly the reader's link fields, but the generic pair's id.</summary>
+        [Test]
+        public void TheLinkTargets_NameEveryLinkField()
+        {
+            foreach (var slug in OWElementTypes.Slugs)
+            {
+                var fields = OWLens.LinkFieldsOf(slug).Select(f => f.field).Where(f => f != "element_id").ToList();
+                CollectionAssert.AreEqual(fields, OWElementTypes.LinkTargets[slug].Keys.ToList(), slug);
+                foreach (var target in OWElementTypes.LinkTargets[slug].Values)
+                    Assert.IsTrue(OWElementTypes.IsKnown(target), $"{slug}: a target outside the standard, {target}");
+            }
+
+            Assert.AreEqual("object", OWElementTypes.LinkTarget("location", "buildings"));
+            Assert.IsNull(OWElementTypes.LinkTarget("pin", "element_id"), "the generic pair names its own target");
+            Assert.IsNull(OWElementTypes.LinkTarget("location", "name"));
+        }
+
         /// <summary>A case's reader: its rung, a guest's lists, its character; <c>as</c> is the owner reading as another.</summary>
         private static OWLensReader ReaderOf(JObject r)
         {
