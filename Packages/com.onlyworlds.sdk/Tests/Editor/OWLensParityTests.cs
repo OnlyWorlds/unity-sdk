@@ -37,6 +37,17 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Same("{}", Cut(r), "the child lens C, reached by the umbrella's hop, is not counted as cut by types");
         }
 
+        // --- A link to an id in no element is a dangling link, not a visibility fact ---
+
+        [Test]
+        public void ALinkToAnIdInNoElement_IsNotCountedNotVisible()
+        {
+            var r = Read(@"[{""id"":""L"",""type"":""construct"",""name"":""L"",""supertype"":""Lens"",""x_lens"":{},""objects"":[""o""]},
+                {""id"":""o"",""type"":""object"",""name"":""o"",""location"":""missing""}]", "L", OWLensReader.Owner());
+            Same(@"[""o""]", Kept(r));
+            Same("{}", Cut(r));
+        }
+
         // --- Helpers ---
 
         /// <summary>

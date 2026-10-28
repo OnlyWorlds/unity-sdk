@@ -174,6 +174,8 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   rule 3 says and the TypeScript SDK and the Python package read it: a lens that names itself (or a lens already
   entered) as an anchor no longer keeps itself, an umbrella's hop no longer reaches its own child lens (it had kept
   it, or counted it as cut), and no entered lens is counted in the cut.
+- `OWLens.Resolve` no longer counts a link to an id that is in no element as `not_visible` in the owner's count: a
+  dangling link is not a visibility fact, as the TypeScript SDK and the Python package read it.
 - `OWLens` reads a JSON number with no fraction as whole, as the TypeScript SDK and the Python package do: a date of
   `7.0` reads as 7 (it read as undated), and a lens's `depth`, `window`, `from`, `to` or `budget` written as `2.0`
   is legal. A fraction, NaN or a number past 64 bits is still not whole.

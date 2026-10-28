@@ -676,9 +676,10 @@ namespace OnlyWorlds.Sdk
 
                 if (notVisible != null && view.OwnerCounts)
                 {
+                    // A link to an id in no element is a dangling link, not a visibility fact: never counted.
                     foreach (var n in view.LinksOf(x).Concat(view.LinkedFromAll(x)))
                     {
-                        if (!view.Sees(n)) notVisible.Add(n);
+                        if (!view.Sees(n) && view.Els.ContainsKey(n)) notVisible.Add(n);
                     }
                 }
             }
@@ -689,7 +690,7 @@ namespace OnlyWorlds.Sdk
                 foreach (var z in view.LinksOf(y))
                 {
                     if (view.Sees(z)) Meet(z);
-                    else if (notVisible != null && view.OwnerCounts) notVisible.Add(z);
+                    else if (notVisible != null && view.OwnerCounts && view.Els.ContainsKey(z)) notVisible.Add(z);
                 }
             }
 
