@@ -98,6 +98,18 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(new[] { "hidden" }, g.Nodes[1].Marks.ToArray());
         }
 
+        // --- show: first_line ---
+
+        [Test]
+        public void FirstLine_CutsAtEitherLineBreak_AndWritesOnlyAStringDescription()
+        {
+            var r = Read(@"[{""id"":""L"",""type"":""construct"",""name"":""L"",""supertype"":""Lens"",""x_lens"":{""depth"":0,""show"":""first_line""},
+                ""characters"":[""a"",""b""]},{""id"":""a"",""type"":""character"",""name"":""a"",""description"":""one\r\ntwo""},
+                {""id"":""b"",""type"":""character"",""name"":""b""}]", "L", OWLensReader.Owner());
+            Same(@"[{""id"":""a"",""type"":""character"",""name"":""a"",""description"":""one""},
+                {""id"":""b"",""type"":""character"",""name"":""b""}]", Rows(r));
+        }
+
         // --- Helpers ---
 
         /// <summary>

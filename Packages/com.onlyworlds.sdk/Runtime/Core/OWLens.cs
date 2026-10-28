@@ -804,6 +804,8 @@ namespace OnlyWorlds.Sdk
                 .ToList();
         }
 
+        private static readonly char[] LineBreaks = { '\r', '\n' };
+
         /// <summary>A kept element as <c>show</c> makes it, from the body this reader is served, with its note.</summary>
         private static JObject Row(View view, string i, Recipe r)
         {
@@ -817,10 +819,10 @@ namespace OnlyWorlds.Sdk
                     ["type"] = Copy(body["type"]),
                     ["name"] = Copy(body["name"]),
                 };
-                if (r.Show == "first_line")
+                // Up to the first line break, CR or LF; a body with no string description has none in its row.
+                if (r.Show == "first_line" && StringOf(body["description"]) is string description)
                 {
-                    var description = StringOf(body["description"]) ?? "";
-                    var lineBreak = description.IndexOf('\n');
+                    var lineBreak = description.IndexOfAny(LineBreaks);
                     row["description"] = lineBreak < 0 ? description : description.Substring(0, lineBreak);
                 }
             }

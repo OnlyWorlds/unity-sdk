@@ -185,6 +185,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   `hidden`, as the TypeScript SDK and the Python package read a world's `hidden` (the lens profile's fixture worlds
   carry one): those ids are out of a contributor's and the public reader's view, and a graph node among them carries
   the `hidden` kind. Before, a world-level list could not be given, and its ids were read as visible.
+- `OWLens.Resolve` under `show: first_line` cuts the description at its first line break, CR or LF (it cut at LF
+  only, so a `\r\n` line kept its `\r`), and writes `description` only when the body has a string one (it wrote `""`),
+  as the TypeScript SDK and the Python package make the row.
 - `OWLens` reads a JSON number with no fraction as whole, as the TypeScript SDK and the Python package do: a date of
   `7.0` reads as 7 (it read as undated), and a lens's `depth`, `window`, `from`, `to` or `budget` written as `2.0`
   is legal. A fraction, NaN or a number past 64 bits is still not whole.
