@@ -181,6 +181,10 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 - `OWLens.Resolve` serves a message or a lens whose links its reader's view trimmed with `x_served_trimmed` naming
   those fields, as the server marks them and the TypeScript SDK and the Python package serve them: a `full` row and a
   mail row now say a list was cut, and the message profile's readers (who a message is to) read the mark.
+- `OWLensOptions.HiddenIds` and `OWGraphOptions.HiddenIds` take the world's own hidden list beside each element's own
+  `hidden`, as the TypeScript SDK and the Python package read a world's `hidden` (the lens profile's fixture worlds
+  carry one): those ids are out of a contributor's and the public reader's view, and a graph node among them carries
+  the `hidden` kind. Before, a world-level list could not be given, and its ids were read as visible.
 - `OWLens` reads a JSON number with no fraction as whole, as the TypeScript SDK and the Python package do: a date of
   `7.0` reads as 7 (it read as undated), and a lens's `depth`, `window`, `from`, `to` or `budget` written as `2.0`
   is legal. A fraction, NaN or a number past 64 bits is still not whole.

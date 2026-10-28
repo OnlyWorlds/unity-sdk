@@ -73,6 +73,31 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 ""x_served_trimmed"":[""characters""]},{""id"":""c1"",""type"":""character"",""name"":""c1""}]", Rows(r));
         }
 
+        // --- The world's hidden list, beside each element's own mark ---
+
+        private const string HiddenWorld = @"[{""id"":""L"",""type"":""construct"",""name"":""L"",""supertype"":""Lens"",""x_lens"":{""depth"":0},
+            ""characters"":[""a"",""h""]},{""id"":""a"",""type"":""character"",""name"":""a""},{""id"":""h"",""type"":""character"",""name"":""h""}]";
+
+        [Test]
+        public void TheWorldsHiddenList_KeepsItsIdsFromAContributor()
+        {
+            var options = new OWLensOptions { HiddenIds = new[] { "h" } };
+            Same(@"[""a""]", Kept(Read(HiddenWorld, "L", OWLensReader.Contributor(), options)));
+            Same(@"[""a"",""h""]", Kept(Read(HiddenWorld, "L", OWLensReader.Owner(), options)));
+        }
+
+        [Test]
+        public void TheWorldsHiddenList_MarksTheGraphsHiddenKind()
+        {
+            var elements = Parse(HiddenWorld).Skip(1).ToList();
+            var g = OWGraph.Read(elements, OWLensReader.Owner(), new OWGraphOptions { HiddenIds = new[] { "h" } });
+            Assert.AreEqual(new[] { "a" }, g.Nodes.Select(n => n.Id).ToArray());
+            Assert.AreEqual(1, g.Cut["hidden"]);
+            g = OWGraph.Read(elements, OWLensReader.Owner(), new OWGraphOptions { HiddenIds = new[] { "h" }, Hidden = true });
+            Assert.AreEqual(new[] { "a", "h" }, g.Nodes.Select(n => n.Id).ToArray());
+            Assert.AreEqual(new[] { "hidden" }, g.Nodes[1].Marks.ToArray());
+        }
+
         // --- Helpers ---
 
         /// <summary>

@@ -160,6 +160,13 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>The world's members list, as <see cref="OWMessage.SenderStatus"/> reads it; null when unreadable.</summary>
         public IEnumerable<JToken> Members { get; set; }
+
+        /// <summary>
+        /// The ids the world's hidden mark keeps, beside each element's own <c>hidden</c>: a world-level list, as the
+        /// TypeScript SDK and the Python package read a world's <c>hidden</c> (the lens profile's fixture worlds carry
+        /// one). Null for none.
+        /// </summary>
+        public IEnumerable<string> HiddenIds { get; set; }
     }
 
     /// <summary>The mail rule's part of a reading: the reader's own messages, read through the message profile.</summary>
@@ -461,7 +468,7 @@ namespace OnlyWorlds.Sdk
             OWLensOptions options = null)
         {
             if (reader == null) throw new ArgumentNullException(nameof(reader));
-            var view = new View(world, reader);
+            var view = new View(world, reader, options?.HiddenIds);
             return Finish(new Reading(view, options), lens, out _);
         }
 
@@ -473,7 +480,7 @@ namespace OnlyWorlds.Sdk
             OWLensOptions options = null)
         {
             if (reader == null) throw new ArgumentNullException(nameof(reader));
-            var view = new View(world, reader);
+            var view = new View(world, reader, options?.HiddenIds);
             var lens = lensId != null && view.Whole.Contains(lensId) ? view.Els[lensId] : null;
             return Finish(new Reading(view, options), lens, out _);
         }
@@ -917,8 +924,15 @@ namespace OnlyWorlds.Sdk
             private readonly Dictionary<string, List<string>> _fromAll = new Dictionary<string, List<string>>();
             private readonly Dictionary<string, bool> _room = new Dictionary<string, bool>();
 
-            public View(IEnumerable<JToken> world, OWLensReader reader)
+            /// <summary>
+            /// The ids under the hidden mark: <paramref name="hiddenIds"/> (the world's own list) and each element whose
+            /// own <c>hidden</c> marks it (<see cref="OWPayload.IsHidden"/>).
+            /// </summary>
+            public readonly HashSet<string> Hidden = new HashSet<string>();
+
+            public View(IEnumerable<JToken> world, OWLensReader reader, IEnumerable<string> hiddenIds = null)
             {
+                if (hiddenIds != null) Hidden.UnionWith(hiddenIds.Where(i => i != null));
                 OwnerCounts = reader.OwnerCounts;
                 Character = reader.Character;
                 Rung = reader.Rung;
@@ -931,6 +945,7 @@ namespace OnlyWorlds.Sdk
                     if (type == null || Array.IndexOf(OWElementTypes.Slugs, OWProfileText.Fold(type)) < 0) continue;
                     Els[id] = e;
                     Order.Add(id);
+                    if (OWPayload.IsHidden(e)) Hidden.Add(id);
                 }
 
                 foreach (var id in Order)
@@ -949,10 +964,10 @@ namespace OnlyWorlds.Sdk
                             Whole.Add(id);
                             break;
                         case OWLensRung.Contributor:
-                            if (!OWPayload.IsHidden(e)) Whole.Add(id);
+                            if (!Hidden.Contains(id)) Whole.Add(id);
                             break;
                         case OWLensRung.Public:
-                            if (!OWPayload.IsHidden(e) && !IsRoom(id)) Whole.Add(id);
+                            if (!Hidden.Contains(id) && !IsRoom(id)) Whole.Add(id);
                             break;
                         case OWLensRung.Guest:
                             if (reader.Whole.Contains(id)) Whole.Add(id);

@@ -88,6 +88,12 @@ namespace OnlyWorlds.Sdk
         /// <summary>The world's members list, as <see cref="OWLensOptions.Members"/>; read only with a lens.</summary>
         public IEnumerable<JToken> Members { get; set; }
 
+        /// <summary>
+        /// The ids the world's hidden mark keeps, beside each element's own <c>hidden</c>, as
+        /// <see cref="OWLensOptions.HiddenIds"/>: who sees them, and which nodes carry the <c>hidden</c> kind. Null for none.
+        /// </summary>
+        public IEnumerable<string> HiddenIds { get; set; }
+
         /// <summary>Bring back room elements, marked <c>room</c>. Refused for the public reader.</summary>
         public bool Rooms { get; set; }
 
@@ -339,7 +345,7 @@ namespace OnlyWorlds.Sdk
                 throw new ArgumentException("OWGraph.Read: a lens is a body (Lens) or an id (LensId), not both.", nameof(options));
             Refuse(reader, o);
 
-            var view = new OWLens.View(world, reader);
+            var view = new OWLens.View(world, reader, o.HiddenIds);
             var flagged = new Dictionary<string, bool>
             {
                 [OWGraphCut.Room] = o.Rooms,
@@ -353,7 +359,7 @@ namespace OnlyWorlds.Sdk
             {
                 var kinds = new List<string>();
                 if (view.IsRoom(id)) kinds.Add(OWGraphCut.Room);
-                if (OWPayload.IsHidden(view.Els[id])) kinds.Add(OWGraphCut.Hidden);
+                if (view.Hidden.Contains(id)) kinds.Add(OWGraphCut.Hidden);
                 if (view.Proposed.Contains(id)) kinds.Add(OWGraphCut.Proposed);
                 if (MapSpaceTypes.Contains(view.TypeOf(id))) kinds.Add(OWGraphCut.MapSpace);
                 return kinds;
