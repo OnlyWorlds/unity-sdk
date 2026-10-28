@@ -14,13 +14,14 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// <c>elements/serialize.py</c> and <c>elements/visibility.py</c> <c>redact</c>), replayed over the row-trim cases the
     /// TypeScript SDK (<c>test/fixtures/row-trim-cases.json</c>) and the Python package
     /// (<c>tests/fixtures/row-trim-cases.json</c>) share byte for byte, vendored here in <c>Tests/Editor/Fixtures/lens/</c>
-    /// from the Python package (<c>github.com/OnlyWorlds/onlyworlds-python</c>, commit <c>0fadf58</c>). A reader that is
+    /// from the Python package (<c>github.com/OnlyWorlds/onlyworlds-python</c>, commit <c>28b8ed5</c>). A reader that is
     /// not the owner gets, in every link field, only the ids it is served as that field's target type; a Pin's pair
     /// emptied (<c>""</c>, null) when its target is unseen or not of its <c>element_type</c>; a lens's notes keyed to an
     /// element it cannot see left out. <c>x_served_trimmed</c> names only a Message's <c>characters</c> and
     /// <c>narrator</c>, and a lens's anchor fields and <c>notes</c> (for a note on an anchor left out), below co-builder
-    /// and never on the public rung. The owner's rows are its bodies untouched. When the packages move the file,
-    /// re-vendor it and update the hash below.
+    /// and never on the public rung; a mark a body stores is never served. A link or a note to a proposed element is
+    /// served to every reader but the public one. The owner's rows are its bodies untouched, but for a stored mark. When
+    /// the packages move the file, re-vendor it and update the hash below.
     /// </summary>
     /// <remarks>
     /// A case is <c>name</c>, <c>world</c> (its <c>elements</c> as the owner holds them, its <c>now</c>), <c>lens</c> (a
@@ -31,7 +32,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     public class OWLensRowTests
     {
         /// <summary>The file's sha256, as the TypeScript SDK's and the Python package's suites hold it.</summary>
-        private const string Sha256 = "a03998723cc2c717831785374e84fd6ac7e503f98d92a3218be5ec733c0168da";
+        private const string Sha256 = "8365cf7c1364e8d04f2143824ba4cb19f275935d3a602178fb2ed497bf6fe140";
 
         private static JArray _cases;
 
@@ -85,7 +86,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(Sha256, hash,
                 "the vendored cases are not the packages' file: re-vendor it (a checkout's line endings change the bytes)");
-            Assert.AreEqual(20, CaseList.Count, "the file holds 20 cases");
+            Assert.AreEqual(28, CaseList.Count, "the file holds 28 cases");
         }
 
         [TestCaseSource(nameof(Cases))]
@@ -114,8 +115,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
         /// <summary>
         /// The owner reading as itself is served its bodies untouched, a link to an element written as proposed too; the
-        /// proposed element is still in no reader's view, so nothing hops to it, and the owner reading as a contributor
-        /// gets the link left out. The Python package's reader answers the same.
+        /// proposed element is still in no reader's view, so nothing hops to it. The owner reading as a contributor is
+        /// served the link too, as keel serves a contributor every element that is not hidden; only the public reader
+        /// loses it (the file's <c>a-link-to-a-proposed-object-*</c> cases).
         /// </summary>
         [Test]
         public void TheOwnersRow_KeepsALinkToAProposedElement()
@@ -135,7 +137,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             CollectionAssert.AreEqual(new[] { "q" }, owner.Kept);
             Assert.IsTrue(JToken.DeepEquals(quay, owner.Rows[0]), "the owner's row is its body: " + owner.Rows[0].ToString(Formatting.None));
             var seen = OWLens.Resolve(world, lens, OWLensReader.Contributor().WithOwnerCounts());
-            Assert.IsTrue(JToken.DeepEquals(new JArray(), seen.Rows[0]["buildings"]), "the owner as a contributor loses the link");
+            CollectionAssert.AreEqual(new[] { "q" }, seen.Kept, "the proposed element is kept by no reader");
+            Assert.IsTrue(JToken.DeepEquals(new JArray("c"), seen.Rows[0]["buildings"]), "the owner as a contributor keeps the link");
+            var stranger = OWLens.Resolve(world, lens, OWLensReader.Public());
+            Assert.IsTrue(JToken.DeepEquals(new JArray(), stranger.Rows[0]["buildings"]), "the public reader loses the link");
         }
 
         /// <summary>The generated link targets name exactly the reader's link fields, but the generic pair's id.</summary>

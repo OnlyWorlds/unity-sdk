@@ -259,6 +259,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   reading as itself is served its bodies as stored: nothing trimmed, a link to a proposed element kept. The mail
   part's rows and the charter readers read the same served bodies. The 20 row-trim cases the
   TypeScript SDK 4.100.0 and the Python package 0.82.0 share, vendored byte for byte, are the test.
+- `OWLens.Resolve`'s rows serve a link to a proposed element, and a lens's note keyed to one, to a contributor and a
+  guest that sees it, and in a key's served bodies, as the server does: only the public reader's rows leave them out
+  (with no mark). A proposed element is still in no reader's view, so it is never a row, never hopped through and never
+  counted; only the served bodies changed, which had dropped both for every reader below the owner. And a body that
+  stores `x_served_trimmed` serves none of it: the owner's row and the public reader's carry no mark, a contributor's
+  and a guest's only what that reading trimmed. The stored mark had been kept, and merged with the reading's own. A
+  key's served bodies (`OWLensReader.Served`) keep the server's mark, and a lens body given to `Resolve` is read with
+  its mark as before. The row-trim file grew to 28 cases (the Python package 0.82.1's bytes), re-vendored byte for byte.
 - `OWLensResult.NotesIgnored` counts as keel's reader does: only the notes keyed to an element that is not an anchor
   and that the reader sees. A note keyed to an anchor the reader cannot see, to an element it cannot see, or to an id
   in no element counts nothing. It had counted every note on an id that was not a visible anchor, so a guest's count

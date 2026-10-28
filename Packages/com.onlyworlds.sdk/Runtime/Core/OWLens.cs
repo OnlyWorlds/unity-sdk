@@ -1002,8 +1002,18 @@ namespace OnlyWorlds.Sdk
             public readonly HashSet<string> Whole = new HashSet<string>();
             public readonly HashSet<string> KnownOf = new HashSet<string>();
 
-            /// <summary>The ids written as proposed (a mark or a doubt): in no reader's view, the owner's included.</summary>
+            /// <summary>
+            /// The ids written as proposed (a mark or a doubt): in no reader's view, the owner's included, though a served
+            /// body below the public rung still links to one (<see cref="Scoped"/>).
+            /// </summary>
             public readonly HashSet<string> Proposed = new HashSet<string>();
+
+            /// <summary>
+            /// The ids a served body keeps a link or a note to, as keel's <c>scoped</c> answers them (the visibility
+            /// module): the reader's view and, but for the public reader, what is proposed in it. A proposed element is
+            /// never kept, hopped to or counted, yet a contributor and a guest are served the links to it.
+            /// </summary>
+            public readonly HashSet<string> Scoped = new HashSet<string>();
 
             public readonly List<string> WholeSorted;
             public readonly bool OwnerCounts;
@@ -1045,33 +1055,41 @@ namespace OnlyWorlds.Sdk
                 foreach (var id in Order)
                 {
                     var e = Els[id];
+                    var whole = false;
+                    var knownOf = false;
+                    switch (reader.Rung)
+                    {
+                        case OWLensRung.Owner:
+                            whole = true;
+                            break;
+                        case OWLensRung.Contributor:
+                            whole = !Hidden.Contains(id);
+                            break;
+                        case OWLensRung.Public:
+                            whole = !Hidden.Contains(id) && !IsRoom(id);
+                            break;
+                        case OWLensRung.Guest:
+                            whole = reader.Whole.Contains(id);
+                            knownOf = !whole && reader.KnownOf.Contains(id);
+                            break;
+                        case OWLensRung.Served:
+                            knownOf = OWPayload.IsKnownOf(e);
+                            whole = !knownOf;
+                            break;
+                    }
+
                     // The review profile's rule for a reader that hands a world on: a mark or a doubt, any value but null.
-                    if (OWPayload.IsProposedOrInDoubt(e))
+                    // Keel's public rung alone leaves it out of what a body links to (without_proposed).
+                    var proposed = OWPayload.IsProposedOrInDoubt(e);
+                    if ((whole || knownOf) && !(proposed && reader.Rung == OWLensRung.Public)) Scoped.Add(id);
+                    if (proposed)
                     {
                         Proposed.Add(id);
                         continue;
                     }
 
-                    switch (reader.Rung)
-                    {
-                        case OWLensRung.Owner:
-                            Whole.Add(id);
-                            break;
-                        case OWLensRung.Contributor:
-                            if (!Hidden.Contains(id)) Whole.Add(id);
-                            break;
-                        case OWLensRung.Public:
-                            if (!Hidden.Contains(id) && !IsRoom(id)) Whole.Add(id);
-                            break;
-                        case OWLensRung.Guest:
-                            if (reader.Whole.Contains(id)) Whole.Add(id);
-                            else if (reader.KnownOf.Contains(id)) KnownOf.Add(id);
-                            break;
-                        case OWLensRung.Served:
-                            if (OWPayload.IsKnownOf(e)) KnownOf.Add(id);
-                            else Whole.Add(id);
-                            break;
-                    }
+                    if (whole) Whole.Add(id);
+                    else if (knownOf) KnownOf.Add(id);
                 }
 
                 WholeSorted = Whole.OrderBy(i => i, StringComparer.Ordinal).ToList();
@@ -1183,6 +1201,9 @@ namespace OnlyWorlds.Sdk
                 }
 
                 var body = (JObject)e.DeepClone();
+                // x_served_trimmed is the server's key, never a stored one: a body that stores it serves none of it, to
+                // any reader (keel pops it before the trim). Only a key's served bodies carry the server's own mark.
+                if (Rung != OWLensRung.Served) body.Remove(OWMessage.ServedTrimmedKey);
                 // The owner reading as itself is served what it stored, a link to a proposed element too: nothing is
                 // trimmed and nothing marked (keel's reader with no view). Reading as another reader, it gets theirs.
                 if (Rung != OWLensRung.Owner) Trim(body, TypeOf(i));
@@ -1190,18 +1211,20 @@ namespace OnlyWorlds.Sdk
             }
 
             /// <summary>
-            /// True when a link to <paramref name="id"/> stays in a served body: the reader sees it and it is of the
-            /// field's <paramref name="target"/> type (keel asks per target type; null for no target). A hop does not
-            /// read this: it follows the link as stored.
+            /// True when a link to <paramref name="id"/> stays in a served body: it is in the reader's
+            /// <see cref="Scoped"/> and of the field's <paramref name="target"/> type (keel asks per target type; null for
+            /// no target). A hop does not read this: it follows the link as stored.
             /// </summary>
-            private bool ServedAs(string id, string target) => id != null && Sees(id) && (target == null || TypeOf(id) == target);
+            private bool ServedAs(string id, string target) =>
+                id != null && Scoped.Contains(id) && (target == null || TypeOf(id) == target);
 
             /// <summary>
-            /// A body's trim for a reader that is not the owner, in place. Every link to an id the reader does not see,
-            /// or to an element that is not the field's target type (<see cref="OWElementTypes.LinkTarget"/>), is left
-            /// out (a single link null, a list without the id, its order kept); a generic pair whose target is unseen or
-            /// not of its <c>element_type</c> reads <c>""</c> and null, an unset pair; a lens's <c>x_lens.notes</c> keeps
-            /// the notes on its served anchors and on other ids the reader sees (an anchor's note goes with the anchor).
+            /// A body's trim for a reader that is not the owner, in place. Every link to an id outside the reader's
+            /// <see cref="Scoped"/>, or to an element that is not the field's target type
+            /// (<see cref="OWElementTypes.LinkTarget"/>), is left out (a single link null, a list without the id, its
+            /// order kept); a generic pair whose target is out of it or not of its <c>element_type</c> reads <c>""</c> and
+            /// null, an unset pair; a lens's <c>x_lens.notes</c> keeps the notes on its served anchors and on other ids in
+            /// it (an anchor's note goes with the anchor).
             /// Below co-builder and never on the public rung, <c>x_served_trimmed</c> names what the trim changed the
             /// meaning of, names only: a Message's <c>characters</c> and <c>narrator</c>, a lens's anchor fields and,
             /// when an anchor's note went with it, <c>notes</c>.
@@ -1265,7 +1288,7 @@ namespace OnlyWorlds.Sdk
                     var keptNotes = new JObject();
                     foreach (var p in notes.Properties())
                     {
-                        if (served.Contains(p.Name) || (!gone.Contains(p.Name) && Sees(p.Name))) keptNotes[p.Name] = p.Value;
+                        if (served.Contains(p.Name) || (!gone.Contains(p.Name) && Scoped.Contains(p.Name))) keptNotes[p.Name] = p.Value;
                     }
 
                     if (keptNotes.Count != notes.Count)
@@ -1276,7 +1299,7 @@ namespace OnlyWorlds.Sdk
                 }
 
                 // Never on the public rung: the public reading stays the same with or without a private anchor or
-                // recipient in the world. A mark the body already carries (a key's served body) is kept, extended.
+                // recipient in the world. Only a key's served body still carries a mark here, the server's: kept, extended.
                 if (mark.Count == 0 || Rung == OWLensRung.Public) return;
                 var marked = body[OWMessage.ServedTrimmedKey] is JArray old ? (JArray)old.DeepClone() : new JArray();
                 foreach (var field in mark)
