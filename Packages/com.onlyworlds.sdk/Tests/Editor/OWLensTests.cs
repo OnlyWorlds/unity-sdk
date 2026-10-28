@@ -752,6 +752,35 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             CollectionAssert.IsEmpty(r.Cut, "nor counted");
         }
 
+        /// <summary>
+        /// The profile's <c>notes</c>: a note keyed to an element that is not an anchor is ignored, counted in
+        /// <c>notes_ignored</c>, even when that element is kept (reached by a hop, or kept through a child). keel's reader
+        /// puts it on the row; the profile is followed here. Kills: a note on a kept non-anchor's row.
+        /// </summary>
+        [Test]
+        public void ANoteOnAKeptElementThatIsNotAnAnchor_IsIgnored_NotOnItsRow()
+        {
+            var world = new List<JObject>
+            {
+                Lens("L", @"{""depth"":1,""notes"":{""c1"":""an anchor's note"",""c2"":""reached, not an anchor""}}", @"""characters"":[""c1""]"),
+                Character("c1", @"""friends"":[""c2""]"),
+                Character("c2"),
+            };
+            var r = OWLens.Resolve(world, "L", OWLensReader.Owner());
+            CollectionAssert.AreEqual(new[] { "c1", "c2" }, r.Kept);
+            Assert.AreEqual("an anchor's note", (string)r.Rows[0]["note"]);
+            Assert.IsNull(r.Rows[1]["note"], "a hop's element: " + r.Rows[1]);
+            Assert.AreEqual(1, r.NotesIgnored);
+
+            world[0] = Lens("U", @"{""notes"":{""c2"":""kept through the child, not an anchor""}}", @"""characters"":[""c1""],""constructs"":[""C""]");
+            world.Add(Lens("C", @"{""depth"":0}", @"""characters"":[""c2""]"));
+            world[1] = Character("c1");
+            r = OWLens.Resolve(world, "U", OWLensReader.Owner());
+            CollectionAssert.AreEqual(new[] { "c1", "c2" }, r.Kept);
+            Assert.IsNull(r.Rows[1]["note"], "a child's anchor: " + r.Rows[1]);
+            Assert.AreEqual(1, r.NotesIgnored);
+        }
+
         // A float in an x_lens key is refused, even with no fraction (keel's reader; the ruling rides serial 83's fixture):
         // the lens is unreadable and the key is named. An element's date still reads 7.0 as 7. Kills: depth 2.0 read as
         // 2, a date of 7.0 read as undated.

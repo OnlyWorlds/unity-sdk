@@ -576,7 +576,7 @@ namespace OnlyWorlds.Sdk
             }
 
             // Rows are built here alone, by the lens read: a child's show and notes never reach one (rule 3).
-            var rows = part.Kept.Select(i => Row(view, i, part.Recipe)).ToList();
+            var rows = part.Kept.Select(i => Row(view, i, part.Recipe, part.Anchors)).ToList();
             cutById = part.Cut;
             return new OWLensResult(part.Kept, rows, counts, part.NotesIgnored, part.Mail, null);
         }
@@ -599,6 +599,7 @@ namespace OnlyWorlds.Sdk
             var r = part.Recipe;
             var cut = part.Cut;
             Anchors(view, lens, out var anchors, out var children, out var unseen);
+            part.Anchors.UnionWith(anchors);
             if (view.OwnerCounts)
             {
                 foreach (var i in unseen)
@@ -898,8 +899,11 @@ namespace OnlyWorlds.Sdk
 
         private static readonly char[] LineBreaks = { '\r', '\n' };
 
-        /// <summary>A kept element as <c>show</c> makes it, from the body this reader is served, with its note.</summary>
-        private static JObject Row(View view, string i, Recipe r)
+        /// <summary>
+        /// A kept element as <c>show</c> makes it, from the body this reader is served, with its note when it is one of
+        /// the lens's <paramref name="anchors"/> (a note on any other id is ignored, and counted in <c>notes_ignored</c>).
+        /// </summary>
+        private static JObject Row(View view, string i, Recipe r, HashSet<string> anchors)
         {
             var body = view.Served(i);
             JObject row;
@@ -923,7 +927,7 @@ namespace OnlyWorlds.Sdk
                 row = body;
             }
 
-            if (r.Notes.TryGetValue(i, out var note)) row["note"] = note;
+            if (anchors.Contains(i) && r.Notes.TryGetValue(i, out var note)) row["note"] = note;
             return row;
         }
 
@@ -1262,6 +1266,10 @@ namespace OnlyWorlds.Sdk
             public readonly Dictionary<string, string> Cut = new Dictionary<string, string>();
             public HashSet<string> Visited;
             public Recipe Recipe;
+
+            /// <summary>The lens's own anchors the reader sees: the only rows its notes are written on.</summary>
+            public readonly HashSet<string> Anchors = new HashSet<string>();
+
             public OWLensMail Mail;
             public int NotesIgnored;
         }

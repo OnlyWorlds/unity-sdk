@@ -249,6 +249,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   umbrella's recipe alone: a row kept through a child is shown by the umbrella's `show`, and a child's `notes` never
   reach a row. A message a child's mail rule takes out of its kept list is neither served nor counted under the
   umbrella.
+- `OWLens.Resolve` puts a note on a kept anchor's row only, as the lens profile's `notes` row says: a note keyed to a
+  kept element that is not one of the lens's anchors (one a hop reached, or one kept through a child) is ignored and
+  counted in `notes_ignored`. It had also been written on that element's row.
 - `OWLens` serves a known-of stub as the TypeScript SDK and the Python package do: its base keys (`id`, `type`,
   `name`, `description`, `supertype`, `subtype`, `image_url`, `created_at`, `updated_at`) and its type's public fields
   that are not links (the presentation sidecar's `public`: a Character's `physicality`, `height`, `weight`,
