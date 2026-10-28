@@ -191,7 +191,7 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   edge, the hop, `hops_not_served`, the graph's `room` kind). Serial 83's room fixture carries four of the shapes as
   its own cases (28 to 32: a number, a White_Space string, U+001F, a padded id); all five (and an empty string) are
   tests here, through each of those readers.
-- The schema pin moves to dist.84 (`v0.33.0-dist.84`). Serial 77 adds the address profile (`profiles/address.md` and
+- The schema pin moves to dist.85 (`v0.33.0-dist.85`). Serial 77 adds the address profile (`profiles/address.md` and
   its 133-case fixture); serial 78 adds the lens profile (`profiles/lens.md` and its 84-case fixture); serial 79 adds
   four Note cases to the message profile's fixture (81 to 85: a Note has no recipients and is never unread even when
   its `characters` names the reader, is never in a thread, and a hidden mark that is not a boolean hides it like
@@ -223,7 +223,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   re-key line into the checks, room and spine profiles (an id a re-key moves is rewritten where a key holds it whole)
   and an editor line into the spine profile (`x_spine_` keys shown read-only), none of which asks anything of this
   SDK: it never re-keys an element, and its World Browser shows every field read-only. The fixtures' test copies are re-vendored.
-  No schema file moved, and no generated model changed but its serial stamp.
+  Serial 85 refreshes four of the standard's description lines (supertype and subtype a classification within the
+  type; a Title's `grant_date` and `revoke_date` its own, a holder's span a Relation), which reach the generated
+  models' doc comments on `OWTitle`, and rewords the charter and checks profiles; no fixture case changed.
 - Folders declare format 0.3.20, two versions past 0.23.0's. Version 0.3.19 rules the served-trimmed mark in a folder
   (§4.4 rule 6): a file keeps `x_served_trimmed` exactly as the server served it, a reader reads a field the mark
   names as trimmed, never as empty, and a writer never sends the mark up. This SDK already kept the mark byte for
@@ -253,6 +255,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   is ported and now holds it.
 
 ### Fixed
+
+- A file the folder reader drops because another file serves its id now names that id in
+  `OWSkippedFile.Id` (null for every other skip). Since the reader keeps the first file by code point, the repeat
+  left `Elements` with only its path in `Skipped`, so a caller mapping ids to files could not see it, and deleting
+  the served file would serve the dropped one.
 
 - `OWLens.Resolve`'s rows are now the bodies keel serves the reader, for every reader below the owner resolving from
   the owner's data (a contributor, a guest, the public, the owner reading as one of them). A lens element a row
