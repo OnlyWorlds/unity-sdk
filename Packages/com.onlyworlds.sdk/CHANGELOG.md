@@ -158,6 +158,24 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   names its pair, as a room element is. In `OWGraph.Read` the reading aids are out of an unlensed graph, counted under the new
   reason `OWGraphCut.ReadingAid` (`reading_aid`), and no flag brings them back; a lens that names the pair keeps them.
   The fixture's 132 cases are the test.
+- **`OWCharter`, the charter profile** (schema-dist `profiles/charter.md`, serial 83, ruled 2026-10-28): a world's
+  reading aids, the Charter (the rules here, for people and AIs), the Guide (start here) and the Domains (the places
+  in the world), each told by `OWRoom.IsCharterElement` (the pair and the mark `x_charter_of`), and the one packet
+  every front door shows first. `OWCharter.CharterOf(world, reader, open, hiddenIds)` is the profile's
+  `charterOf(world, reader)`: an `OWReadingAids` with `Charter` (`Id`, `Name`, `Rules`, `Skill`), `Guide` (`Id`,
+  `Name`) and `Domains` (each `Id`, `Name`, `Sentence`, `Hubs`), and `ToJson()` in the profile's words, the shape keel
+  serves as `reading_aids`. The Charter is the newest marked Charter the reader sees, by `created_at` as an instant
+  (none sorts oldest) and then the higher id by code point; the Guide the same; the Domains in the Guide's
+  `constructs` order, then by folded name and id. `Rules` is `x_checks_rules` as served (`OWCharter.RulesField`), an
+  empty list when none; `Skill` the ids the Charter's text names in any `ow://` form, a site address or bare, each
+  once, kept when it is an Object of this world the reader sees, at most five (`OWCharter.SkillMax`); a Domain's
+  `Sentence` is its description's first line, trimmed, and its `Hubs` the distinct `(type, id)` its served link fields
+  name, in the schema's order (`OWCharter.HubFields`), never itself. `OWCharter.DomainsOf` is the list alone. It reads
+  through the lens reader's view and the same `OWLensReader` (owner, contributor, guest, public, served); the public
+  reader reads nothing unless `open` is true. Written from the profile, its fixture and keel's reader; the TypeScript
+  SDK 4.100.0 (`charterOf`, `domainsOf`) and the Python package 0.82.0 (`charter_of`, `domains_of`) replay the same
+  fixture, and two of the TypeScript SDK's own vectors are ported (a Guide known only as a stub orders nothing; the
+  owner reading as the public reads a closed world as nothing). The fixture's 22 cases are the test.
 
 ### Changed
 
