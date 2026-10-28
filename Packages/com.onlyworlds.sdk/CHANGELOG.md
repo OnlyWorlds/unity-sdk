@@ -76,6 +76,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   count, since what the reading left out has no edge. A null graph is an `ArgumentNullException`. Parity with the
   TypeScript SDK 4.95.0 (`degreeOf`) and the Python package 0.78.0 (`degree_of`), the TypeScript SDK's test vectors
   ported: its own graph, and every fixture graph case's answer against a direct count of its edges.
+- **`OWGraph.OutDegreeOf(graph)`**: each node's out-degree in a graph `OWGraph.Read` answered, the number of distinct
+  nodes its own link fields point at: a target listed in two fields counts once, a link to itself does not count, and a
+  mirror pair counts 1 at each end. Every node is a key, 0 included, enumerated in the graph's node order. Beside
+  `DegreeOf` ("most linked"), it says how far an element reaches out. A null graph is an `ArgumentNullException`.
+  Parity with the TypeScript SDK 4.98.0 (`outDegreeOf`) and the Python package 0.80.0 (`out_degree_of`), the
+  TypeScript SDK's test vectors ported: its own graph, and every fixture graph case's answer against a direct count of
+  distinct targets.
 - **`OWLens.DateOf(element)`**: an element's date as the lens profile's date table (`OWLens.DateFields`) reads it,
   the whole number in its type's date field, or null for a timeless type, a body with no known `type` (trimmed and
   folded), a date field that is absent, null or not a whole number, and anything that is not an element body

@@ -522,6 +522,32 @@ namespace OnlyWorlds.Sdk
             return degree;
         }
 
+        /// <summary>
+        /// Each node's out-degree in a graph <see cref="Read"/> answered: the number of distinct nodes its own link fields
+        /// point at. A target listed in two fields counts once, a link to itself does not count, and a mirror pair (A lists
+        /// B, B lists A) counts 1 at each end, since each counts its own list. Every node is a key, 0 included, enumerated
+        /// in the graph's node order.
+        /// </summary>
+        /// <remarks>
+        /// Like <see cref="DegreeOf"/>, the count is the reader's: what the reading left out is never counted. This is how
+        /// far an element reaches out, apart from how often it is named. Mirrors the TypeScript SDK's <c>outDegreeOf</c>
+        /// (4.98.0) and the Python package's <c>out_degree_of</c> (0.80.0).
+        /// </remarks>
+        /// <exception cref="ArgumentNullException">No graph.</exception>
+        public static IReadOnlyDictionary<string, int> OutDegreeOf(OWWorldGraph graph)
+        {
+            if (graph == null) throw new ArgumentNullException(nameof(graph), "OWGraph.OutDegreeOf: graph is what OWGraph.Read answers.");
+            var degree = new NodeCounts(graph.Nodes.Select(n => n.Id));
+            var seen = new HashSet<(string, string)>();
+            foreach (var e in graph.Edges)
+            {
+                if (e.Target == e.Source || !seen.Add((e.Source, e.Target))) continue;
+                degree.Add(e.Source);
+            }
+
+            return degree;
+        }
+
         /// <summary>A count per node id, enumerated in the order the ids were given; an id not given is never added.</summary>
         private sealed class NodeCounts : IReadOnlyDictionary<string, int>
         {

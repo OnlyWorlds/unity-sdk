@@ -342,6 +342,80 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.Greater(checkedCases, 1);
         }
 
+        // -- OutDegreeOf (the TypeScript SDK 4.98.0's outDegreeOf, the Python package 0.80.0's out_degree_of) ------------
+
+        /// <summary>
+        /// The TypeScript SDK 4.98.0's vector (<c>test/graph.test.mjs</c>): each node's distinct targets among its own
+        /// links, two fields naming one target once, a link to itself none, a mirror pair 1 at each end, every node a key
+        /// with 0 included, in the graph's node order. Kills: an edge counted per field, a self-link counted, a target
+        /// counted at the target's end, a node with no edge left out, the keys in another order than the nodes'.
+        /// </summary>
+        [Test]
+        public void OutDegreeOf_CountsDistinctTargets_TwoFieldsToOneTargetOnce_ALinkToItselfNone_AMirrorPairOneEach()
+        {
+            var world = new List<JObject>
+            {
+                JObject.Parse(@"{""id"":""c1"",""type"":""character"",""name"":""Ada"",""friends"":[""c2"",""c1""],""rivals"":[""c2""]}"),
+                JObject.Parse(@"{""id"":""c2"",""type"":""character"",""name"":""Bo"",""friends"":[""c1""]}"),
+                JObject.Parse(@"{""id"":""r1"",""type"":""relation"",""name"":""Pact"",""characters"":[""c1"",""c2"",""c3""]}"),
+                JObject.Parse(@"{""id"":""c3"",""type"":""character"",""name"":""Cy""}"),
+                JObject.Parse(@"{""id"":""o1"",""type"":""object"",""name"":""Lamp""}"),
+                JObject.Parse(@"{""id"":""constructor"",""type"":""object"",""name"":""An id like an inherited key""}"),
+                JObject.Parse(@"{""id"":""__proto__"",""type"":""character"",""name"":""Another"",""objects"":[""constructor""]}"),
+            };
+
+            var g = OWGraph.Read(world, OWLensReader.Owner());
+            var d = OWGraph.OutDegreeOf(g);
+            CollectionAssert.AreEqual(g.Nodes.Select(n => n.Id).ToList(), d.Keys.ToList(), "every node a key, in the nodes' order");
+            Assert.AreEqual(1, d["c1"], "friends and rivals both name c2: once; c1 itself: none");
+            Assert.AreEqual(1, d["c2"], "the mirror of c1's c2");
+            Assert.AreEqual(3, d["r1"]);
+            Assert.AreEqual(0, d["c3"]);
+            Assert.AreEqual(0, d["o1"]);
+            Assert.AreEqual(0, d["constructor"]);
+            Assert.AreEqual(1, d["__proto__"]);
+            Assert.AreEqual(g.Nodes.Count, d.Count);
+            Assert.Throws<ArgumentNullException>(() => OWGraph.OutDegreeOf(null));
+        }
+
+        /// <summary>
+        /// The TypeScript SDK 4.98.0's second vector: on every fixture graph case's answer (its <c>want</c>, built as the
+        /// graph it states), each node's out-degree equals a direct count of the distinct targets of the edges it is the
+        /// source of, a link to itself left out. Kills: a count that reads anything but the graph's own edges.
+        /// </summary>
+        [Test]
+        public void OutDegreeOf_OnEveryFixtureGraph_IsADirectCountOfDistinctTargets()
+        {
+            Assert.IsNotNull(Fixture, "the vendored lens fixture was not found");
+            var checkedCases = 0;
+            foreach (var c in GraphCases)
+            {
+                var want = (JObject)c["want"];
+                if (!(want["nodes"] is JArray nodes)) continue;
+                var edges = (JArray)want["edges"];
+                var graph = new OWWorldGraph(
+                    nodes.Cast<JObject>().Select(n => new OWGraphNode((string)n["id"], (string)n["type"], (string)n["name"],
+                        (string)n["family"], (string)n["icon"], Strings(n["marks"]), n["known_of"]?.Type == JTokenType.Boolean && (bool)n["known_of"])).ToList(),
+                    edges.Cast<JObject>().Select(e => new OWGraphEdge((string)e["source"], (string)e["field"], (string)e["target"],
+                        (int)e["index"])).ToList(),
+                    new Dictionary<string, int>(), new Dictionary<string, int>(), null);
+
+                var d = OWGraph.OutDegreeOf(graph);
+                foreach (var n in nodes.Cast<JObject>())
+                {
+                    var id = (string)n["id"];
+                    var direct = edges.Cast<JObject>()
+                        .Where(e => (string)e["source"] == id && (string)e["target"] != id)
+                        .Select(e => (string)e["target"]).Distinct().Count();
+                    Assert.AreEqual(direct, d[id], $"{c["name"]}: {id}");
+                }
+
+                checkedCases++;
+            }
+
+            Assert.Greater(checkedCases, 1);
+        }
+
         /// <summary>
         /// The served reader (this SDK's own rung): a contributor's served bodies, read as they are, give the contributor's
         /// graph, in every unlensed contributor case.
