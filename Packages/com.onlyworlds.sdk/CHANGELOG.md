@@ -6,6 +6,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-10-29
+
+Three of the schema's reading profiles in Unity: `OWAddress` (an element's address and the `ow://` links that name it),
+`OWLens` with its graph reader `OWGraph` (a saved way of reading a world, served as keel serves each reader), and
+`OWCharter` (a world's Charter, Guide and Domains). The server's lens routes, an account token that reads the world it
+names, and the link target of every link field. The pin moves to dist.85 and the folder check to format 0.3.20. A minor
+release because it adds public API (below).
+
 ### Added
 
 - **`OWAddress`, the address profile** (schema-dist `profiles/address.md`, serial 77, ruled 2026-10-26): one element
