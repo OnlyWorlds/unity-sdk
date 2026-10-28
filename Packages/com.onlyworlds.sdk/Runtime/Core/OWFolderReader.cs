@@ -132,6 +132,9 @@ namespace OnlyWorlds.Sdk
     {
         public string Path;
         public string Reason;
+        /// <summary>The id the file carried, when it was dropped because another file serves that id; null otherwise.
+        /// A caller that maps ids to files reads it: deleting the served file would serve this one.</summary>
+        public string Id;
     }
 
     /// <summary>
@@ -351,7 +354,7 @@ namespace OnlyWorlds.Sdk
                 foreach (var e in result.LegacyElements)
                 {
                     if (current.Contains(e.Id))
-                        result.Skipped.Add(new OWSkippedFile { Path = e.Path, Reason = "same id as a file in elements/, which is served" });
+                        result.Skipped.Add(new OWSkippedFile { Path = e.Path, Reason = "same id as a file in elements/, which is served", Id = e.Id });
                 }
                 result.LegacyElements.RemoveAll(e => current.Contains(e.Id));
             }
@@ -371,7 +374,7 @@ namespace OnlyWorlds.Sdk
             elements.RemoveAll(e =>
             {
                 if (seen.Add(e.Id)) return false;
-                skipped.Add(new OWSkippedFile { Path = e.Path, Reason = "same id as an earlier file, which is served" });
+                skipped.Add(new OWSkippedFile { Path = e.Path, Reason = "same id as an earlier file, which is served", Id = e.Id });
                 return true;
             });
         }

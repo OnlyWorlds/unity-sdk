@@ -109,6 +109,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsFalse(read.LegacyElements.Exists(e => e.Id == ZoneId), "the spatial/ copy is not served");
             Assert.IsTrue(read.Skipped.Exists(s => s.Path.EndsWith("z-old.json") && s.Reason.Contains("elements/")),
                 "and it is logged");
+            Assert.IsTrue(read.Skipped.Exists(s => s.Id == ZoneId), "with the id it carried");
             Assert.IsTrue(File.Exists(Path.Combine(_root, "spatial/zone/z-old.json")), "and never deleted");
         }
 
@@ -313,6 +314,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual("upper", (string)read.Elements[0].Body["name"], "B.json is first by code point");
             Assert.AreEqual(1, read.Skipped.Count);
             StringAssert.EndsWith("a.json", read.Skipped[0].Path);
+            Assert.AreEqual("c-twice", read.Skipped[0].Id, "the dropped repeat names its id");
         }
     }
 }
