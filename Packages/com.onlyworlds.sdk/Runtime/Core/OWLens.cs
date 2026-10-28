@@ -508,7 +508,7 @@ namespace OnlyWorlds.Sdk
             if (bad != null)
                 return new OWLensResult(new List<string>(), new List<JObject>(), new Dictionary<string, int>(), 0, null, bad);
 
-            var part = Read(reading, lens, new HashSet<string>());
+            var part = Read(reading, lens, new HashSet<string>(), true);
             var view = reading.View;
             var counts = new Dictionary<string, int>();
             foreach (var reason in part.Cut.Values)
@@ -522,8 +522,13 @@ namespace OnlyWorlds.Sdk
             return new OWLensResult(part.Kept, rows, counts, part.NotesIgnored, part.Mail, null);
         }
 
-        /// <summary>One lens's reading, the umbrella's children through it: kept ids, each cut id's first reason, the lenses visited.</summary>
-        private static Part Read(Reading reading, JObject lens, HashSet<string> visitedBefore)
+        /// <summary>
+        /// One lens's reading, the umbrella's children through it: kept ids, each cut id's first reason, the lenses
+        /// visited. <paramref name="top"/> is the lens being read (not a child entered): every lens entered is then
+        /// left out of what it keeps and of its cut, since the lens read and every lens entered are never in their own
+        /// result.
+        /// </summary>
+        private static Part Read(Reading reading, JObject lens, HashSet<string> visitedBefore, bool top)
         {
             var view = reading.View;
             var visited = new HashSet<string>(visitedBefore);
@@ -537,7 +542,10 @@ namespace OnlyWorlds.Sdk
             Anchors(view, lens, out var anchors, out var children, out var unseen);
             if (view.OwnerCounts)
             {
-                foreach (var i in unseen) SetDefault(cut, i, OWLensCut.AnchorNotVisible);
+                foreach (var i in unseen)
+                {
+                    if (!visited.Contains(i)) SetDefault(cut, i, OWLensCut.AnchorNotVisible);
+                }
             }
 
             var kept = new List<string>();
@@ -555,7 +563,9 @@ namespace OnlyWorlds.Sdk
             }
             else
             {
-                foreach (var a in anchors)
+                // An anchor that is the lens itself, or a lens already entered, is never in its own result.
+                var read = anchors.Where(a => !visited.Contains(a)).ToList();
+                foreach (var a in read)
                 {
                     var reason = Fence(view, a, r, reading.AsOf);
                     if (reason != null) SetDefault(cut, a, reason);
@@ -565,7 +575,8 @@ namespace OnlyWorlds.Sdk
                 var known = new HashSet<string>(anchors);
                 known.UnionWith(visited);
                 known.UnionWith(unseen);
-                var frontier = anchors.Where(i => HopsOut(view, i, r, reading.AsOf)).ToList();
+                known.UnionWith(children);
+                var frontier = read.Where(i => HopsOut(view, i, r, reading.AsOf)).ToList();
                 var reached = new List<string>();
                 for (var depth = 1; depth <= r.Depth; depth++)
                 {
@@ -606,7 +617,7 @@ namespace OnlyWorlds.Sdk
             foreach (var child in children)
             {
                 if (visited.Contains(child)) continue;
-                var sub = Read(reading, view.Els[child], visited);
+                var sub = Read(reading, view.Els[child], visited, false);
                 visited.UnionWith(sub.Visited);
                 foreach (var i in sub.Kept)
                 {
@@ -614,6 +625,12 @@ namespace OnlyWorlds.Sdk
                 }
 
                 foreach (var pair in sub.Cut) SetDefault(cut, pair.Key, pair.Value);
+            }
+
+            if (top)
+            {
+                kept = kept.Where(i => !visited.Contains(i)).ToList();
+                foreach (var i in visited) cut.Remove(i);
             }
 
             if (r.Mail != "none")
