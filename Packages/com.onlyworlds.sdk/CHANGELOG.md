@@ -191,7 +191,7 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   edge, the hop, `hops_not_served`, the graph's `room` kind). Serial 83's room fixture carries four of the shapes as
   its own cases (28 to 32: a number, a White_Space string, U+001F, a padded id); all five (and an empty string) are
   tests here, through each of those readers.
-- The schema pin moves to dist.83 (`v0.33.0-dist.83`). Serial 77 adds the address profile (`profiles/address.md` and
+- The schema pin moves to dist.84 (`v0.33.0-dist.84`). Serial 77 adds the address profile (`profiles/address.md` and
   its 133-case fixture); serial 78 adds the lens profile (`profiles/lens.md` and its 84-case fixture); serial 79 adds
   four Note cases to the message profile's fixture (81 to 85: a Note has no recipients and is never unread even when
   its `characters` names the reader, is never in a thread, and a hidden mark that is not a boolean hides it like
@@ -215,8 +215,15 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   for an umbrella's child read by its own recipe and budget, a sibling lens a child's hop reaches, a stub child and a
   stub Message, nothing hopped out of what the fence cuts, the second hop's count, a note on anchors only, and a
   fraction or an integral float refused in `x_lens` (a `text_only` case, which this SDK passes: `OWJson` keeps `7.0`
-  a float); the folder check moves to format 0.3.20. The fixtures' test copies are re-vendored. No schema file
-  moved, and no generated model changed but its serial stamp.
+  a float); the folder check moves to format 0.3.20; serial 84 adds four lens cases (147 to 151, on a new world,
+  `watch`: a lens a hop reaches is served whole to the owner, and to a contributor, a guest and the public reader its
+  row leaves out the hidden anchor and every note keyed to what that reader cannot see, with `x_served_trimmed` naming
+  the fields as keel writes it) and a charter case (22 to 23: a Guide the reader holds only as a stub is still the
+  Guide, `{id, name}`, and orders nothing), all five of which `OWLens` and `OWCharter` already answered, and writes a
+  re-key line into the checks, room and spine profiles (an id a re-key moves is rewritten where a key holds it whole)
+  and an editor line into the spine profile (`x_spine_` keys shown read-only), none of which asks anything of this
+  SDK: it never re-keys an element, and its World Browser shows every field read-only. The fixtures' test copies are re-vendored.
+  No schema file moved, and no generated model changed but its serial stamp.
 - Folders declare format 0.3.20, two versions past 0.23.0's. Version 0.3.19 rules the served-trimmed mark in a folder
   (§4.4 rule 6): a file keeps `x_served_trimmed` exactly as the server served it, a reader reads a field the mark
   names as trimmed, never as empty, and a writer never sends the mark up. This SDK already kept the mark byte for

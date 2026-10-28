@@ -11,7 +11,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// The charter profile's conformance fixture (schema-dist <c>profiles/charter.fixture.json</c>, vendored byte for byte
-    /// in <c>Tests/Editor/Fixtures/charter/</c> from dist.83), replayed case by case: the pair-and-mark test
+    /// in <c>Tests/Editor/Fixtures/charter/</c> from dist.84), replayed case by case: the pair-and-mark test
     /// (<see cref="OWRoom.IsCharterElement"/>) on the <c>element</c> cases, and the packet
     /// (<see cref="OWCharter.CharterOf"/>, <see cref="OWCharter.DomainsOf"/>) on the <c>charter</c> cases, over the
     /// fixture's named worlds and the worlds a case carries. The profile's tables (the pairs, the mark, the rules field,
@@ -26,13 +26,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </remarks>
     public class OWCharterTests
     {
-        /// <summary>The fixture's sha256 as dist.83's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "a19d3cb379eb79ecc4473ef225e00aae81eee97876c58d618756b182c16f6128";
+        /// <summary>The fixture's sha256 as dist.84's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "566204bdaebab8d3ac15be7b6ea5ab8b83ed393436c21c3a7ad4d3b7314980c6";
 
-        /// <summary>The fixture's cases by kind, as dist.83 holds them (22 in all).</summary>
+        /// <summary>The fixture's cases by kind, as dist.84 holds them (23 in all).</summary>
         private static readonly Dictionary<string, int> Counts = new Dictionary<string, int>
         {
-            ["element"] = 5, ["charter"] = 17,
+            ["element"] = 5, ["charter"] = 18,
         };
 
         private static JObject _fixture;
@@ -81,15 +81,15 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.83's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.84's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
-        public void TheFixture_HoldsDist83sCases()
+        public void TheFixture_HoldsDist84sCases()
         {
             Assert.IsNotNull(Fixture, "the vendored charter fixture was not found");
             var cases = Fixture["cases"].Cast<JObject>().ToList();
-            Assert.AreEqual(22, cases.Count, "dist.83's fixture holds 22 cases");
+            Assert.AreEqual(23, cases.Count, "dist.84's fixture holds 23 cases");
             var counts = cases.GroupBy(c => (string)c["kind"]).ToDictionary(g => g.Key, g => g.Count());
             CollectionAssert.AreEquivalent(Counts, counts);
         }
