@@ -583,7 +583,7 @@ namespace OnlyWorlds.Sdk
                 known.UnionWith(visited);
                 known.UnionWith(unseen);
                 known.UnionWith(children);
-                var frontier = read.Where(i => HopsOut(view, i, r, reading.AsOf)).ToList();
+                var frontier = read.Where(i => HopsOut(view, i)).ToList();
                 var reached = new List<string>();
                 for (var depth = 1; depth <= r.Depth; depth++)
                 {
@@ -601,7 +601,7 @@ namespace OnlyWorlds.Sdk
                         reached.AddRange(ring);
                     }
 
-                    frontier = ring.Where(i => HopsOut(view, i, r, reading.AsOf)).ToList();
+                    frontier = ring.Where(i => HopsOut(view, i)).ToList();
                 }
 
                 foreach (var i in Ordered(view, reached))
@@ -743,9 +743,11 @@ namespace OnlyWorlds.Sdk
                    && trimmed.Any(entry => StringOf(entry) is string f && AnchorFields.Contains(f));
         }
 
-        /// <summary>True when a hop goes on out of the element: served whole, not a room element, not after the fence.</summary>
-        private static bool HopsOut(View view, string i, Recipe r, long? asOf) =>
-            view.Whole.Contains(i) && !view.IsRoom(i) && Fence(view, i, r, asOf) != OWLensCut.AfterAsOf;
+        /// <summary>
+        /// True when a hop goes on out of the element: served whole and not a room element. The fence cuts an element,
+        /// never the hop through it: a hop goes on out of an element cut <c>after_as_of</c>.
+        /// </summary>
+        private static bool HopsOut(View view, string i) => view.Whole.Contains(i) && !view.IsRoom(i);
 
         /// <summary>
         /// True when the lens's <c>types</c> keeps the element: a room element only when its pair is named; any other when

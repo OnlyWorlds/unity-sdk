@@ -110,6 +110,18 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 {""id"":""b"",""type"":""character"",""name"":""b""}]", Rows(r));
         }
 
+        // --- The fence cuts an element, and a hop still goes on out of it ---
+
+        [Test]
+        public void AHop_GoesOnOutOfAnAnchorCutAfterAsOf()
+        {
+            var r = Read(@"[{""id"":""L"",""type"":""construct"",""name"":""L"",""supertype"":""Lens"",""x_lens"":{},""events"":[""e""]},
+                {""id"":""e"",""type"":""event"",""name"":""e"",""start_date"":1300,""characters"":[""c""]},
+                {""id"":""c"",""type"":""character"",""name"":""c""}]", "L", OWLensReader.Owner(), new OWLensOptions { AsOf = 1200 });
+            Same(@"[""c""]", Kept(r));
+            Same(@"{""after_as_of"":1}", Cut(r));
+        }
+
         // --- Helpers ---
 
         /// <summary>
