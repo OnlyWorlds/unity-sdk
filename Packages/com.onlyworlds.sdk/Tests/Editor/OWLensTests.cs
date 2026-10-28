@@ -658,6 +658,72 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             CollectionAssert.AreEquivalent(new Dictionary<string, int> { [OWLensCut.Stale] = 1 }, r.Cut);
         }
 
+        // The TypeScript SDK 4.98.0's vector (test/lens.test.mjs; the Python package 0.80.0 holds the same): an element
+        // exactly that many days old is kept, a second older is stale, an offset is read, a filter is cut too, every
+        // refused value names the key, and null is absent. Kills: the edge read as stale, an offset ignored, a filter
+        // left uncut, an unreadable time cut.
+        [Test]
+        public void ChangedWithin_KeepsTheExactEdge_CutsASecondOlder_ReadsAnOffset_AndCutsAFilter()
+        {
+            var clock = new DateTimeOffset(2026, 10, 27, 12, 0, 0, TimeSpan.Zero);
+            var world = new List<JObject>
+            {
+                JObject.Parse(@"{""id"":""a"",""type"":""institution"",""name"":""Anchor"",""updated_at"":""2020-01-01T00:00:00Z"",""objects"":[""edge"",""past"",""none"",""bad""]}"),
+                JObject.Parse(@"{""id"":""edge"",""type"":""object"",""name"":""Seven days"",""updated_at"":""2026-10-20T12:00:00Z""}"),
+                JObject.Parse(@"{""id"":""past"",""type"":""object"",""name"":""Seven days and a second"",""updated_at"":""2026-10-20T11:59:59Z""}"),
+                JObject.Parse(@"{""id"":""none"",""type"":""object"",""name"":""No time""}"),
+                JObject.Parse(@"{""id"":""bad"",""type"":""object"",""name"":""Unreadable"",""updated_at"":""yesterday""}"),
+            };
+            JObject LensOn(string anchors, string xLens) => JObject.Parse(
+                @"{""id"":""L"",""type"":""construct"",""name"":""L"",""supertype"":""Lens""" + anchors + @",""x_lens"":" + xLens + "}");
+            var options = new OWLensOptions { Clock = clock };
+            var anchored = @",""institutions"":[""a""]";
+
+            var r = OWLens.Resolve(world, LensOn(anchored, @"{""changed_within"":7}"), OWLensReader.Owner(), options);
+            CollectionAssert.AreEqual(new[] { "a", "edge", "bad", "none" }, r.Kept, "no readable time: never cut, sorted last");
+            CollectionAssert.AreEquivalent(new Dictionary<string, int> { [OWLensCut.Stale] = 1 }, r.Cut);
+
+            world[2]["updated_at"] = "2026-10-20T13:00:00+01:00";
+            CollectionAssert.IsEmpty(OWLens.Resolve(world, LensOn(anchored, @"{""changed_within"":7}"), OWLensReader.Owner(), options).Cut,
+                "13:00+01:00 is the same instant as the edge");
+
+            var f = OWLens.Resolve(world, LensOn("", @"{""types"":[""object""],""changed_within"":1}"), OWLensReader.Owner(), options);
+            CollectionAssert.AreEqual(new[] { "bad", "none" }, f.Kept, "a filter is cut too");
+            CollectionAssert.AreEquivalent(new Dictionary<string, int> { [OWLensCut.Stale] = 2 }, f.Cut);
+
+            foreach (var bad in new[] { "0", "-1", "1.5", "\"7\"", "true", "[7]" })
+                Assert.AreEqual("changed_within",
+                    OWLens.Resolve(world, LensOn(anchored, @"{""changed_within"":" + bad + "}"), OWLensReader.Owner()).RefusedKey, bad);
+            Assert.IsNull(OWLens.Resolve(world, LensOn(anchored, @"{""changed_within"":null}"), OWLensReader.Owner(), options).RefusedKey);
+        }
+
+        // The TypeScript SDK 4.98.0's folder vector: a folder element reads the newer of its two sync stamps; a folder
+        // stamp, where one reads, wins over updated_at; an unreadable one is no stamp. Kills: updated_at read over a
+        // readable folder stamp, an unreadable folder stamp read as a time or as hiding updated_at.
+        [Test]
+        public void ChangedWithin_ReadsAFolderElement_ByTheNewerOfItsTwoSyncStamps()
+        {
+            var options = new OWLensOptions { Clock = new DateTimeOffset(2026, 10, 27, 12, 0, 0, TimeSpan.Zero) };
+            var lens = JObject.Parse(@"{""id"":""L"",""type"":""construct"",""name"":""L"",""supertype"":""Lens"",""institutions"":[""a""],""x_lens"":{""changed_within"":7}}");
+            bool Kept(string stamps)
+            {
+                var world = new List<JObject>
+                {
+                    JObject.Parse(@"{""id"":""a"",""type"":""institution"",""name"":""Anchor"",""objects"":[""o""]}"),
+                    JObject.Parse(@"{""id"":""o"",""type"":""object"",""name"":""Folder copy""" + stamps + "}"),
+                };
+                return OWLens.Resolve(world, lens, OWLensReader.Owner(), options).Kept.Contains("o");
+            }
+
+            Assert.IsTrue(Kept(@",""server_updated_at"":""2026-09-01T00:00:00Z"",""local_updated_at"":""2026-10-26T00:00:00Z"""));
+            Assert.IsTrue(Kept(@",""server_updated_at"":""2026-10-26T00:00:00Z"",""local_updated_at"":""2026-09-01T00:00:00Z"""));
+            Assert.IsFalse(Kept(@",""server_updated_at"":""2026-09-01T00:00:00Z"",""local_updated_at"":""2026-09-02T00:00:00Z"""));
+            Assert.IsFalse(Kept(@",""updated_at"":""2026-10-26T00:00:00Z"",""local_updated_at"":""2026-09-02T00:00:00Z"""),
+                "a folder stamp, where one reads, wins over updated_at");
+            Assert.IsTrue(Kept(@",""updated_at"":""2026-10-26T00:00:00Z"",""local_updated_at"":""soon"""),
+                "an unreadable folder stamp is no stamp");
+        }
+
         /// <summary>The case's lens, a body or the id of a lens in the world.</summary>
         private static OWLensResult ResolveCase(List<JObject> world, JObject c, OWLensReader reader, OWLensOptions options)
         {

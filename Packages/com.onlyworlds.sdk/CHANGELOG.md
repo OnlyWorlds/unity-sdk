@@ -139,7 +139,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   number of days from 1: an element a hop or a filter reaches whose `updated_at` is older than that many days before
   the reading's wall clock (`OWLensOptions.Clock`, or `OWGraphOptions.Clock`) is cut and counted under the new reason
   `OWLensCut.Stale` (`stale`), after `window` and before the budget; it never applies to an anchor, and an element with
-  no time is never cut. A folder element is read by the newer of its `server_updated_at` and `local_updated_at`.
+  no time is never cut. A folder element is read by the newer of its `server_updated_at` and `local_updated_at`
+  where either reads as a time, else by its `updated_at`, as the TypeScript SDK 4.98.0 and the Python package 0.80.0
+  read it; their test vectors are ported (the exact edge, an offset, a filter, the refused values, the two stamps).
   `CheckKeys` refuses anything else by name, between `undated` and `show`. **`OWRoom.IsCharterElement(element)`**
   tells the charter (a Law with supertype Charter), its guide (a Construct with supertype Guide) and its domains
   (Constructs with supertype Domain) by the pair, trimmed and folded, AND the mark `x_charter_of`
