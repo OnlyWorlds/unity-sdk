@@ -76,6 +76,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   count, since what the reading left out has no edge. A null graph is an `ArgumentNullException`. Parity with the
   TypeScript SDK 4.95.0 (`degreeOf`) and the Python package 0.78.0 (`degree_of`), the TypeScript SDK's test vectors
   ported: its own graph, and every fixture graph case's answer against a direct count of its edges.
+- **`OWGraph.OutDegreeOf(graph)`**: each node's out-degree in a graph `OWGraph.Read` answered, the number of distinct
+  nodes its own link fields point at: a target listed in two fields counts once, a link to itself does not count, and a
+  mirror pair counts 1 at each end. Every node is a key, 0 included, enumerated in the graph's node order. Beside
+  `DegreeOf` ("most linked"), it says how far an element reaches out. A null graph is an `ArgumentNullException`.
+  Parity with the TypeScript SDK 4.98.0 (`outDegreeOf`) and the Python package 0.80.0 (`out_degree_of`), the
+  TypeScript SDK's test vectors ported: its own graph, and every fixture graph case's answer against a direct count of
+  distinct targets.
 - **`OWLens.DateOf(element)`**: an element's date as the lens profile's date table (`OWLens.DateFields`) reads it,
   the whole number in its type's date field, or null for a timeless type, a body with no known `type` (trimmed and
   folded), a date field that is absent, null or not a whole number, and anything that is not an element body
@@ -132,11 +139,17 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   number of days from 1: an element a hop or a filter reaches whose `updated_at` is older than that many days before
   the reading's wall clock (`OWLensOptions.Clock`, or `OWGraphOptions.Clock`) is cut and counted under the new reason
   `OWLensCut.Stale` (`stale`), after `window` and before the budget; it never applies to an anchor, and an element with
-  no time is never cut. A folder element is read by the newer of its `server_updated_at` and `local_updated_at`.
-  `CheckKeys` refuses anything else by name, between `undated` and `show`. **`OWRoom.IsReadingAid(element)`** tells
-  the charter (a Law with supertype Charter), its guide (a Construct with supertype Guide) and its domains (Constructs
-  with supertype Domain) by the pair, trimmed and folded, AND the mark `x_charter_of` (`OWRoom.ReadingAidMarkField`,
-  the id of the world the aid belongs to), beside `IsRoomElement`; the pair without the mark is lore.
+  no time is never cut. A folder element is read by the newer of its `server_updated_at` and `local_updated_at`
+  where either reads as a time, else by its `updated_at`, as the TypeScript SDK 4.98.0 and the Python package 0.80.0
+  read it; their test vectors are ported (the exact edge, an offset, a filter, the refused values, the two stamps).
+  `CheckKeys` refuses anything else by name, between `undated` and `show`. **`OWRoom.IsCharterElement(element)`**
+  tells the charter (a Law with supertype Charter), its guide (a Construct with supertype Guide) and its domains
+  (Constructs with supertype Domain) by the pair, trimmed and folded, AND the mark `x_charter_of`
+  (`OWRoom.ReadingAidMarkField`, the id of the world the aid belongs to), beside `IsRoomElement`; the pair without the
+  mark is lore. The mark counts when it is present and not null, a string only when something is left after trimming
+  White_Space: `7` is a mark, `"  "` is not (the room mark `x_room_of` is still read as a non-empty string). Parity
+  with the TypeScript SDK 4.98.0 (`isCharterElement`) and the Python package 0.80.0 (`is_charter_element`), their
+  test vector ported.
   `OWRoom.ReadingAidPairs` holds the three pairs; read the test rather than keeping a list of them. In
   `OWLens.Resolve` a reading aid a hop reaches is kept, and hopped out of, only when `types` names its pair
   (`law/charter`, `construct/guide`, `construct/domain`, now legal `types` words); otherwise it is cut as `types`, and
@@ -196,7 +209,8 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 - `OWLensResult.NotesIgnored` counts as keel's reader does: only the notes keyed to an element that is not an anchor
   and that the reader sees. A note keyed to an anchor the reader cannot see, to an element it cannot see, or to an id
   in no element counts nothing. It had counted every note on an id that was not a visible anchor, so a guest's count
-  told it a hidden anchor existed.
+  told it a hidden anchor existed. The shared lens edge file holds this as its 15th case, the same bytes as the
+  TypeScript SDK 4.98.0's and the Python package 0.80.0's.
 - `OWLens.Resolve` and `OWGraph.Read` read a lens body served only as a known-of stub (`known_of: true`) as not there:
   it keeps and cuts nothing. It had been read as a lens with no anchors, a filter over the reader's whole view. A lens
   named by its id already read as nothing unless the reader is served it whole. The lens profile's rule 1, serial 82.

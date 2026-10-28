@@ -50,7 +50,7 @@ namespace OnlyWorlds.Sdk
         public const string MapSpace = "map_space";
 
         /// <summary>
-        /// A reading aid (<see cref="OWRoom.IsReadingAid"/>: the charter, its guide, its domains, by the pair and the mark
+        /// A reading aid (<see cref="OWRoom.IsCharterElement"/>: the charter, its guide, its domains, by the pair and the mark
         /// <c>x_charter_of</c>), out of an unlensed graph. No flag brings it back; a lens that names its pair keeps it.
         /// </summary>
         public const string ReadingAid = "reading_aid";
@@ -325,7 +325,7 @@ namespace OnlyWorlds.Sdk
         /// <para>
         /// Without a lens the nodes are every element the reader sees less what is out by default: room elements, hidden
         /// ones, proposed ones and map space, each brought back by its flag and then marked (map space carries no mark),
-        /// and the reading aids (<see cref="OWRoom.IsReadingAid"/>), which no flag brings back.
+        /// and the reading aids (<see cref="OWRoom.IsCharterElement"/>), which no flag brings back.
         /// With a lens (<see cref="OWGraphOptions.Lens"/> or <see cref="OWGraphOptions.LensId"/>) the nodes are exactly the
         /// lens's kept, its cut rides along unchanged, and a flag adds nothing: a lens means one thing everywhere. A lens
         /// whose <c>x_lens</c> cannot be read gives an empty graph naming the key; a lens id the reader is not served whole
@@ -517,6 +517,32 @@ namespace OnlyWorlds.Sdk
             {
                 degree.Add(e.Source);
                 if (e.Target != e.Source) degree.Add(e.Target);
+            }
+
+            return degree;
+        }
+
+        /// <summary>
+        /// Each node's out-degree in a graph <see cref="Read"/> answered: the number of distinct nodes its own link fields
+        /// point at. A target listed in two fields counts once, a link to itself does not count, and a mirror pair (A lists
+        /// B, B lists A) counts 1 at each end, since each counts its own list. Every node is a key, 0 included, enumerated
+        /// in the graph's node order.
+        /// </summary>
+        /// <remarks>
+        /// Like <see cref="DegreeOf"/>, the count is the reader's: what the reading left out is never counted. This is how
+        /// far an element reaches out, apart from how often it is named. Mirrors the TypeScript SDK's <c>outDegreeOf</c>
+        /// (4.98.0) and the Python package's <c>out_degree_of</c> (0.80.0).
+        /// </remarks>
+        /// <exception cref="ArgumentNullException">No graph.</exception>
+        public static IReadOnlyDictionary<string, int> OutDegreeOf(OWWorldGraph graph)
+        {
+            if (graph == null) throw new ArgumentNullException(nameof(graph), "OWGraph.OutDegreeOf: graph is what OWGraph.Read answers.");
+            var degree = new NodeCounts(graph.Nodes.Select(n => n.Id));
+            var seen = new HashSet<(string, string)>();
+            foreach (var e in graph.Edges)
+            {
+                if (e.Target == e.Source || !seen.Add((e.Source, e.Target))) continue;
+                degree.Add(e.Source);
             }
 
             return degree;

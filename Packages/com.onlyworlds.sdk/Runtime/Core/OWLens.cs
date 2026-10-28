@@ -495,7 +495,7 @@ namespace OnlyWorlds.Sdk
         /// The rules, in short. A hop reaches both ways, through what this reader is served. A Relation a hop lands on is
         /// an edge: in the same hop it reaches every element its own links name (never what links to it, never on through
         /// a second Relation), whether or not <c>types</c> keeps it. A hop never crosses a room element; one a hop
-        /// reaches is kept only when <c>types</c> names its pair. A reading aid (<see cref="OWRoom.IsReadingAid"/>) a hop
+        /// reaches is kept only when <c>types</c> names its pair. A reading aid (<see cref="OWRoom.IsCharterElement"/>) a hop
         /// reaches is kept, and hopped out of, only when <c>types</c> names its pair; an anchor that is one is kept and
         /// followed like any anchor. A known-of stub is kept as served and nothing hops out of it; a lens served only as
         /// a stub resolves to nothing. An umbrella enters only its own <c>constructs</c> lenses, each once, the union in link order; a lens a
@@ -1125,10 +1125,10 @@ namespace OnlyWorlds.Sdk
                 return room;
             }
 
-            /// <summary>A reading aid (<see cref="OWRoom.IsReadingAid"/>): the charter, its guide or a domain, by the pair and the mark.</summary>
+            /// <summary>A reading aid (<see cref="OWRoom.IsCharterElement"/>): the charter, its guide or a domain, by the pair and the mark.</summary>
             public bool IsReadingAid(string i)
             {
-                if (!_aid.TryGetValue(i, out var aid)) _aid[i] = aid = OWRoom.IsReadingAid(Els[i]);
+                if (!_aid.TryGetValue(i, out var aid)) _aid[i] = aid = OWRoom.IsCharterElement(Els[i]);
                 return aid;
             }
 
