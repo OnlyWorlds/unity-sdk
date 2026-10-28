@@ -592,6 +592,54 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 "a lens that names the pair counts it");
         }
 
+        /// <summary>
+        /// The room mark's five shapes (<see cref="OWRoomTests.MarkShapes"/>) through every place the reader asks whether
+        /// an element is a room element: the public reader's view, <c>types</c> (a room element kept only by its pair), a
+        /// Relation that is no edge to its parties, no hop out of a room element, and <c>hops_not_served</c>. Kills: a
+        /// path of the lens that reads the mark apart from <see cref="OWRoom.IsRoomElement"/>.
+        /// </summary>
+        [TestCaseSource(typeof(OWRoomTests), nameof(OWRoomTests.MarkShapes))]
+        public void TheRoomMark_CountsByPresence_InTheLens(string markJson, bool marks)
+        {
+            var mark = JToken.Parse(markJson);
+            var world = new List<JObject>
+            {
+                JObject.Parse(@"{""id"":""c1"",""type"":""character"",""name"":""Ada""}"),
+                JObject.Parse(@"{""id"":""m1"",""type"":""narrative"",""name"":""A line"",""supertype"":""Message"",""characters"":[""c1"",""c3""]}"),
+                JObject.Parse(@"{""id"":""c3"",""type"":""character"",""name"":""Cy""}"),
+            };
+            world[1][OWRoom.MarkField] = mark.DeepClone();
+            var lens = JObject.Parse(@"{""id"":""L"",""type"":""construct"",""supertype"":""Lens"",""characters"":[""c1""],""x_lens"":{""depth"":1}}");
+
+            var r = OWLens.Resolve(world, lens, OWLensReader.Public());
+            CollectionAssert.AreEqual(marks ? new[] { "c1" } : new[] { "c1", "m1" }, r.Kept, "the public reader's view");
+            CollectionAssert.IsEmpty(r.Cut, "the public reader counts nothing it does not see");
+
+            r = OWLens.Resolve(world, lens, OWLensReader.Owner());
+            CollectionAssert.AreEqual(marks ? new[] { "c1" } : new[] { "c1", "m1" }, r.Kept, "the owner, no types");
+            CollectionAssert.AreEquivalent(marks ? new Dictionary<string, int> { [OWLensCut.Types] = 1 } : new Dictionary<string, int>(),
+                r.Cut, "a room element is kept only by its pair");
+
+            // A Vote among c1 and c2, and a second hop from the message to c3: depth 2 with the pairs named.
+            world.Add(JObject.Parse(@"{""id"":""r1"",""type"":""relation"",""name"":""Aye"",""supertype"":""Vote"",""characters"":[""c1"",""c2""]}"));
+            world.Add(JObject.Parse(@"{""id"":""c2"",""type"":""character"",""name"":""Bo""}"));
+            world[3][OWRoom.MarkField] = mark.DeepClone();
+            lens["x_lens"] = JObject.Parse(@"{""depth"":2,""types"":[""character"",""narrative/message"",""relation/vote""]}");
+
+            r = OWLens.Resolve(world, lens, OWLensReader.Owner());
+            if (marks)
+            {
+                CollectionAssert.AreEquivalent(new[] { "c1", "m1", "r1" }, r.Kept, "the pairs kept; the room Vote is no edge to c2");
+                CollectionAssert.IsEmpty(r.Cut, "no hop goes out of a room element, so c3 is never reached");
+            }
+            else
+            {
+                CollectionAssert.AreEquivalent(new[] { "c1", "c2" }, r.Kept, "a lore Vote is an edge to c2, in the same hop");
+                CollectionAssert.AreEquivalent(new Dictionary<string, int> { [OWLensCut.Types] = 2, [OWLensCut.HopsNotServed] = 1 },
+                    r.Cut, "the lore message and Vote cut as types; c3 at the second hop not served");
+            }
+        }
+
         // A float in an x_lens key is refused, even with no fraction (keel's reader; the ruling rides serial 83's fixture):
         // the lens is unreadable and the key is named. An element's date still reads 7.0 as 7. Kills: depth 2.0 read as
         // 2, a date of 7.0 read as undated.

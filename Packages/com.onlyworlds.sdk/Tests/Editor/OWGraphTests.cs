@@ -342,6 +342,29 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.Greater(checkedCases, 1);
         }
 
+        /// <summary>
+        /// The room mark's five shapes (<see cref="OWRoomTests.MarkShapes"/>) through the unlensed graph: the owner's
+        /// graph leaves a room element out and its <c>rooms</c> flag brings it back marked, and the public reader's view
+        /// never holds it. Kills: a reader of the graph that reads the mark apart from <see cref="OWRoom.IsRoomElement"/>.
+        /// </summary>
+        [TestCaseSource(typeof(OWRoomTests), nameof(OWRoomTests.MarkShapes))]
+        public void TheRoomMark_CountsByPresence_InTheGraph(string markJson, bool marks)
+        {
+            var world = new List<JObject>
+            {
+                JObject.Parse(@"{""id"":""c1"",""type"":""character"",""name"":""Ada""}"),
+                JObject.Parse(@"{""id"":""m1"",""type"":""narrative"",""name"":""A line"",""supertype"":""Message"",""characters"":[""c1""]}"),
+            };
+            world[1][OWRoom.MarkField] = JToken.Parse(markJson);
+
+            Assert.AreEqual(!marks, OWGraph.Read(world, OWLensReader.Owner()).Nodes.Any(n => n.Id == "m1"),
+                "the owner's graph leaves a room element out");
+            var flagged = OWGraph.Read(world, OWLensReader.Owner(), new OWGraphOptions { Rooms = true }).Nodes.Single(n => n.Id == "m1");
+            Assert.AreEqual(marks, flagged.Marks.Contains(OWGraphMark.Room), "the rooms flag marks a room element");
+            Assert.AreEqual(!marks, OWGraph.Read(world, OWLensReader.Public()).Nodes.Any(n => n.Id == "m1"),
+                "the public reader's view leaves a room element out");
+        }
+
         // -- OutDegreeOf (the TypeScript SDK 4.98.0's outDegreeOf, the Python package 0.80.0's out_degree_of) ------------
 
         /// <summary>

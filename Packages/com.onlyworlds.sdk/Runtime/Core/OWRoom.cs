@@ -2,8 +2,8 @@
 // with the mark x_room_of (schema-dist profiles/room.md, serial 45; "trimmed and without regard to case" defined once
 // at serial 47; the ninth pair, relation/Take, at serial 66). The reading aids beside them (the charter, its guide and its
 // domains, by their pair and the mark x_charter_of) at serial 82: room.md's "Not in the room" line and the lens profile's
-// rule 4. The two marks are read apart: x_room_of as a non-empty string, x_charter_of present and not null, a string
-// only when not blank (isCharterElement, 4.98.0).
+// rule 4. Both marks are read by one rule, keel's: present and not null, a string only when something is left after
+// trimming White_Space (x_charter_of since isCharterElement, 4.98.0; x_room_of since serial 83's ruling).
 //
 // Ported from @onlyworlds/sdk src/room.ts (4.55.0, ca15043; the trim of 4.57.2), isRoomElement. The conformance
 // fixture, profiles/room.fixture.json, is this file's own test (OWRoomTests), as it is the TypeScript SDK's and the
@@ -36,8 +36,10 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// True when the element is a room element: its <c>type</c> and <c>supertype</c>, each trimmed and compared
-        /// without regard to case, match one of <see cref="Pairs"/>, and it carries <see cref="MarkField"/> as a
-        /// non-empty string. Both, always.
+        /// without regard to case, match one of <see cref="Pairs"/>, and it carries <see cref="MarkField"/>, present and
+        /// not null. Both, always. The mark is read as the API reads it and as <see cref="IsCharterElement"/> reads its
+        /// own: a string mark counts only when something is left after trimming White_Space (so <c>"  "</c> is no mark),
+        /// any other JSON value but null counts (so <c>7</c> is one), and the value is never compared.
         /// </summary>
         /// <param name="element">An element body that names its <c>type</c> (a slug); null is no element.</param>
         /// <remarks>
@@ -57,7 +59,7 @@ namespace OnlyWorlds.Sdk
         /// is folded by Unicode simple case folding from a table, so every runtime answers the same.
         /// </para>
         /// </remarks>
-        public static bool IsRoomElement(JObject element) => HasRoomMark(element) && Matches(element, Pairs);
+        public static bool IsRoomElement(JObject element) => HasMark(element, MarkField) && Matches(element, Pairs);
 
         /// <summary>The mark a reading aid carries: the id of the world the aid belongs to.</summary>
         public const string ReadingAidMarkField = "x_charter_of";
@@ -73,11 +75,10 @@ namespace OnlyWorlds.Sdk
         /// <summary>
         /// True when the element is a reading aid: its <c>type</c> and <c>supertype</c>, each trimmed and compared
         /// without regard to case, match one of <see cref="ReadingAidPairs"/>, and it carries
-        /// <see cref="ReadingAidMarkField"/>, present and not null. Both, always. The mark is read as the API reads it: a
-        /// string mark counts only when something is left after trimming White_Space (so <c>"  "</c> is no mark), and any
-        /// other JSON value but null counts (so <c>7</c> is one). The pair is trimmed and folded as
-        /// <see cref="IsRoomElement"/> reads its own. The TypeScript SDK's <c>isCharterElement</c> and the Python package's
-        /// <c>is_charter_element</c> answer the same.
+        /// <see cref="ReadingAidMarkField"/>, present and not null. Both, always. The mark and the pair are read as
+        /// <see cref="IsRoomElement"/> reads its own: a string mark counts only when something is left after trimming
+        /// White_Space (so <c>"  "</c> is no mark), and any other JSON value but null counts (so <c>7</c> is one). The
+        /// TypeScript SDK's <c>isCharterElement</c> and the Python package's <c>is_charter_element</c> answer the same.
         /// </summary>
         /// <param name="element">An element body that names its <c>type</c> (a slug); null is no element.</param>
         /// <remarks>
@@ -94,21 +95,16 @@ namespace OnlyWorlds.Sdk
         /// </para>
         /// </remarks>
         public static bool IsCharterElement(JObject element) =>
-            HasCharterMark(element) && Matches(element, ReadingAidPairs);
+            HasMark(element, ReadingAidMarkField) && Matches(element, ReadingAidPairs);
 
         /// <summary>
-        /// The room mark as the room test reads it: a JSON string with at least one character (whitespace counts).
+        /// A mark (<see cref="MarkField"/> or <see cref="ReadingAidMarkField"/>) as the API reads it: present and not
+        /// null; a string only when something is left after trimming White_Space. Any other JSON value (a number, a
+        /// boolean, an object, a list) is a mark. The value is never compared.
         /// </summary>
-        private static bool HasRoomMark(JObject element) =>
-            element?[MarkField] is JValue m && m.Type == JTokenType.String && ((string)m).Length > 0;
-
-        /// <summary>
-        /// The charter mark as the API reads it: present and not null; a string only when something is left after trimming
-        /// White_Space. Any other JSON value (a number, a boolean, an object, a list) is a mark.
-        /// </summary>
-        private static bool HasCharterMark(JObject element)
+        private static bool HasMark(JObject element, string field)
         {
-            var m = element?[ReadingAidMarkField];
+            var m = element?[field];
             if (m == null || m.Type == JTokenType.Null || m.Type == JTokenType.Undefined) return false;
             return m.Type != JTokenType.String || OWProfileText.TrimWhiteSpace((string)m).Length > 0;
         }

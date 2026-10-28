@@ -147,7 +147,7 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   (Constructs with supertype Domain) by the pair, trimmed and folded, AND the mark `x_charter_of`
   (`OWRoom.ReadingAidMarkField`, the id of the world the aid belongs to), beside `IsRoomElement`; the pair without the
   mark is lore. The mark counts when it is present and not null, a string only when something is left after trimming
-  White_Space: `7` is a mark, `"  "` is not (the room mark `x_room_of` is still read as a non-empty string). Parity
+  White_Space: `7` is a mark, `"  "` is not (the room mark `x_room_of` now reads by the same rule; see Changed). Parity
   with the TypeScript SDK 4.98.0 (`isCharterElement`) and the Python package 0.80.0 (`is_charter_element`), their
   test vector ported.
   `OWRoom.ReadingAidPairs` holds the three pairs; read the test rather than keeping a list of them. In
@@ -161,6 +161,15 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
+- `OWRoom.IsRoomElement` reads the mark `x_room_of` by presence, the rule `IsCharterElement` reads `x_charter_of` by
+  and keel's reader reads both by: any JSON value but null counts, and a string only when something is left after
+  trimming White_Space; the value is never compared. So an element of a room pair marked `7` is a room element, one
+  marked `"  "` is lore, and a mark of U+001F alone counts (it is not White_Space). It had been read as a non-empty
+  string, untrimmed. The two marks go through one matcher, and `OWLens.Resolve` and `OWGraph.Read` ask that test
+  everywhere they ask whether an element is a room element (the public reader's view, `types`, a Relation as an
+  edge, the hop, `hops_not_served`, the graph's `room` kind). Serial 83's fixture is to carry a case per shape; the
+  five shapes (a number, an empty string, a White_Space string, U+001F, a padded id) are tests here already, through
+  each of those readers.
 - The schema pin moves to dist.82 (`v0.33.0-dist.82`). Serial 77 adds the address profile (`profiles/address.md` and
   its 133-case fixture); serial 78 adds the lens profile (`profiles/lens.md` and its 84-case fixture); serial 79 adds
   four Note cases to the message profile's fixture (81 to 85: a Note has no recipients and is never unread even when
