@@ -217,9 +217,6 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 - `OWLens.Resolve` under `show: first_line` cuts the description at its first line break, CR or LF (it cut at LF
   only, so a `\r\n` line kept its `\r`), and writes `description` only when the body has a string one (it wrote `""`),
   as the TypeScript SDK and the Python package make the row.
-- `OWLens.Resolve` lets a hop go on out of an element the fence cut (`after_as_of`), an anchor or one a hop reached:
-  the fence cuts the element, not the path through it. It had stopped there; read as the TypeScript SDK and the
-  Python package read it.
 - `OWLens.LensesFor` keeps ids that are not null or empty, each once, in the order given, as the TypeScript SDK's
   `lensesInUse` and the Python package's `lenses_in_use` do; it had returned the list as given.
 - `OWLens.Resolve` reads an umbrella's child lens as the lens profile's rule 3 writes it and the TypeScript SDK and

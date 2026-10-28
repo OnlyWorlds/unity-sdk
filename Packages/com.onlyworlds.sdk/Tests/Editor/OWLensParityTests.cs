@@ -110,15 +110,23 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 {""id"":""b"",""type"":""character"",""name"":""b""}]", Rows(r));
         }
 
-        // --- The fence cuts an element, and a hop still goes on out of it ---
+        // --- Nothing past the reading's date leads anywhere: no hop goes out of an element cut after_as_of ---
+        // (keel's reader, where the packages hopped on; ruled keel's way, riding serial 83's fixture)
 
         [Test]
-        public void AHop_GoesOnOutOfAnAnchorCutAfterAsOf()
+        public void AHop_NeverGoesOutOfAnElementCutAfterAsOf()
         {
             var r = Read(@"[{""id"":""L"",""type"":""construct"",""name"":""L"",""supertype"":""Lens"",""x_lens"":{},""events"":[""e""]},
                 {""id"":""e"",""type"":""event"",""name"":""e"",""start_date"":1300,""characters"":[""c""]},
                 {""id"":""c"",""type"":""character"",""name"":""c""}]", "L", OWLensReader.Owner(), new OWLensOptions { AsOf = 1200 });
-            Same(@"[""c""]", Kept(r));
+            Same("[]", Kept(r), "the anchor after as_of links c, and c is not reached");
+            Same(@"{""after_as_of"":1}", Cut(r));
+
+            r = Read(@"[{""id"":""L"",""type"":""construct"",""name"":""L"",""supertype"":""Lens"",""x_lens"":{""depth"":2},""characters"":[""a""]},
+                {""id"":""a"",""type"":""character"",""name"":""a""},
+                {""id"":""e"",""type"":""event"",""name"":""e"",""start_date"":1300,""characters"":[""a"",""c""]},
+                {""id"":""c"",""type"":""character"",""name"":""c""}]", "L", OWLensReader.Owner(), new OWLensOptions { AsOf = 1200 });
+            Same(@"[""a""]", Kept(r), "a reached element after as_of is cut and not hopped out of: c is not a second hop");
             Same(@"{""after_as_of"":1}", Cut(r));
         }
 

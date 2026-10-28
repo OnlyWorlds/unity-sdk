@@ -504,7 +504,7 @@ namespace OnlyWorlds.Sdk
         /// </para>
         /// <para>
         /// The fence is the reading's <c>as_of</c>, on each element's own date (a stub's missing date is never read as
-        /// undated); <c>undated</c>, the fence and the date table apply to anchors too, <c>types</c>, the window and
+        /// undated), and nothing past it leads anywhere: no hop goes out of an anchor or a reached element it cuts; <c>undated</c>, the fence and the date table apply to anchors too, <c>types</c>, the window and
         /// <c>changed_within</c> (days before the reading's wall clock, on <c>updated_at</c>: <c>stale</c>) only to what
         /// a hop or a filter reaches. A date is a whole number in the world's own unit and is compared as it is,
         /// never filled to a finer one. A lens with no anchors is a filter over the whole visible world (types only;
@@ -634,7 +634,7 @@ namespace OnlyWorlds.Sdk
                 known.UnionWith(visited);
                 known.UnionWith(unseen);
                 known.UnionWith(children);
-                var frontier = read.Where(i => HopsOut(view, i)).ToList();
+                var frontier = read.Where(i => HopsOut(view, i, r, reading.AsOf)).ToList();
                 var reached = new List<string>();
                 for (var depth = 1; depth <= r.Depth; depth++)
                 {
@@ -653,7 +653,8 @@ namespace OnlyWorlds.Sdk
                     }
 
                     // Nothing hops on out of a reached reading aid whose pair the lens does not name (rule 4).
-                    frontier = ring.Where(i => HopsOut(view, i) && !(view.IsReadingAid(i) && !Admitted(view, i, r))).ToList();
+                    frontier = ring.Where(i => HopsOut(view, i, r, reading.AsOf) && !(view.IsReadingAid(i) && !Admitted(view, i, r)))
+                        .ToList();
                 }
 
                 foreach (var i in Ordered(view, reached))
@@ -809,10 +810,11 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
-        /// True when a hop goes on out of the element: served whole and not a room element. The fence cuts an element,
-        /// never the hop through it: a hop goes on out of an element cut <c>after_as_of</c>.
+        /// True when a hop goes on out of the element: served whole, not a room element, and not after the fence. Nothing
+        /// past the reading's date leads anywhere: no hop goes out of an anchor or a reached element cut <c>after_as_of</c>.
         /// </summary>
-        private static bool HopsOut(View view, string i) => view.Whole.Contains(i) && !view.IsRoom(i);
+        private static bool HopsOut(View view, string i, Recipe r, long? asOf) =>
+            view.Whole.Contains(i) && !view.IsRoom(i) && Fence(view, i, r, asOf) != OWLensCut.AfterAsOf;
 
         /// <summary>
         /// True when the lens's <c>types</c> keeps the element: a room element or a reading aid only when its pair is named;
