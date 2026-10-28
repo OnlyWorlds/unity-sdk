@@ -28,8 +28,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </remarks>
     public class OWLensTests
     {
-        /// <summary>The fixture's sha256 as dist.84's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "b0b18fa18cf205bece20921d2ec52ba03fc68b8d41206ded0418ac22eaa8a460";
+        /// <summary>The fixture's sha256 as dist.86's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "2cf7d9878f1746f889e83275a2aa217e0c59d2e784fbba616759457115c72165";
 
         /// <summary>The fixture's cases by kind, as dist.84 holds them (151 in all; the graph kind is the graph reader's).</summary>
         private static readonly Dictionary<string, int> Counts = new Dictionary<string, int>
@@ -84,7 +84,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.84's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.86's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]

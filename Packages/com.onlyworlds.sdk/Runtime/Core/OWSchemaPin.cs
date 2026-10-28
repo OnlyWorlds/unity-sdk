@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.33.00";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 85;
+        public const int DistSerial = 86;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.33.0-dist.85";
+        public const string Tag = "v0.33.0-dist.86";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -195,7 +195,7 @@ namespace OnlyWorlds.Sdk
         /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "31e953dac2ba77cbc0d65b71de2ac3520d50d9df760156df95359c155c0c57ed";
+            "15200898cd533de34fb3c05ba651beb6bc47ec35deaf016c6058e867da0cb1fe";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.
@@ -206,7 +206,7 @@ namespace OnlyWorlds.Sdk
         /// silently the way an unguarded vendored copy always eventually does.
         /// </remarks>
         public const string PresentationSha256 =
-            "3c20afa9fee3c191c390452f74f415eb999156bbbf966c56beac283fa0ea91a4";
+            "f06cd67349c84e92e5a93b28ea36533bd8942ee6e81d708f8d29cfa7f9fc3183";
 
         /// <summary>When these constants were last verified against the published dist.</summary>
         public const string PinnedOn = "2026-10-28";

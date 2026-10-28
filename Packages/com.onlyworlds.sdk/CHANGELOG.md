@@ -6,6 +6,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The schema pin moves to dist.86 (`v0.33.0-dist.86`). The presentation sidecar names each type's colour group by
+  its colour: `OWPresentation.FamilyOf` answers `blue`, `green`, `pink` or `amber` where it answered `agents`,
+  `world`, `abstract` or `temporal`, and `FamilyOrder` lists the four colour words. Construct moves to pink and
+  Ability to amber; the colours themselves are unchanged. A graph node's `Family` follows, as the lens profile's
+  fixture now asserts. Code that compared a family to one of the old words compares to the colour word instead.
+
 ## [0.24.0] - 2026-10-29
 
 Three of the schema's reading profiles in Unity: `OWAddress` (an element's address and the `ow://` links that name it),

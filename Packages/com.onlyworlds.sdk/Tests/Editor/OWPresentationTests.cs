@@ -26,9 +26,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public void FamilyOrder_IsPreserved_NotSorted()
         {
             // The order IS the CVD-safety mechanism of the source palette. Alphabetical would be
-            // abstract/agents/temporal/world -- if that is what we see, something sorted it.
+            // amber/blue/green/pink -- if that is what we see, something sorted it.
             CollectionAssert.AreEqual(
-                new[] { "agents", "world", "abstract", "temporal" },
+                new[] { "blue", "green", "pink", "amber" },
                 OWPresentation.FamilyOrder);
         }
 
@@ -36,11 +36,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public void WorldGreen_IsIdenticalInBothModes()
         {
             // Deliberate, and pinned by the accessibility budget: every brighter green collides
-            // with Temporal amber for protan viewers. If this ever differs, someone "improved" it.
-            var world = OWPresentation.ColorOfFamily("world");
-            Assert.IsNotNull(world);
-            Assert.AreEqual(world.Value.Light, world.Value.Dark,
-                "World green is pinned at its low-contrast end in BOTH modes -- mitigate with icon "
+            // with amber for protan viewers. If this ever differs, someone "improved" it.
+            var green = OWPresentation.ColorOfFamily("green");
+            Assert.IsNotNull(green);
+            Assert.AreEqual(green.Value.Light, green.Value.Dark,
+                "Green is pinned at its low-contrast end in BOTH modes -- mitigate with icon "
                 + "and label, never a hue shift.");
         }
 
@@ -48,8 +48,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public void OtherFamilies_DifferBetweenModes()
         {
             // Light assumes near-white surfaces, dark near-black. A family whose two variants match
-            // (other than world) means one mode was copied over the other.
-            foreach (var family in new[] { "agents", "abstract", "temporal" })
+            // (other than green) means one mode was copied over the other.
+            foreach (var family in new[] { "blue", "pink", "amber" })
             {
                 var color = OWPresentation.ColorOfFamily(family);
                 Assert.IsNotNull(color);
@@ -73,10 +73,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [Test]
         public void KnownTypes_MapToExpectedFamilies()
         {
-            Assert.AreEqual("agents", OWPresentation.FamilyOf("character"));
-            Assert.AreEqual("world", OWPresentation.FamilyOf("location"));
-            Assert.AreEqual("abstract", OWPresentation.FamilyOf("ability"));
-            Assert.AreEqual("temporal", OWPresentation.FamilyOf("event"));
+            Assert.AreEqual("blue", OWPresentation.FamilyOf("character"));
+            Assert.AreEqual("green", OWPresentation.FamilyOf("location"));
+            Assert.AreEqual("pink", OWPresentation.FamilyOf("language"));
+            Assert.AreEqual("amber", OWPresentation.FamilyOf("event"));
+            // Serial 86 moved these two (the Captain's pick on the colour groups).
+            Assert.AreEqual("amber", OWPresentation.FamilyOf("ability"));
+            Assert.AreEqual("pink", OWPresentation.FamilyOf("construct"));
         }
 
         [Test]
@@ -93,10 +96,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [Test]
         public void ColorFor_SelectsTheModeVariant()
         {
-            var agents = OWPresentation.ColorOfFamily("agents").Value;
+            var blue = OWPresentation.ColorOfFamily("blue").Value;
 
-            Assert.AreEqual(agents.Light, OWPresentation.ColorFor("character", darkSurface: false));
-            Assert.AreEqual(agents.Dark, OWPresentation.ColorFor("character", darkSurface: true));
+            Assert.AreEqual(blue.Light, OWPresentation.ColorFor("character", darkSurface: false));
+            Assert.AreEqual(blue.Dark, OWPresentation.ColorFor("character", darkSurface: true));
         }
 
         [Test]
