@@ -216,5 +216,55 @@ namespace OnlyWorlds.Sdk
                 && StringFieldNames.TryGetValue(slug, out var names)
                 && Array.IndexOf(names, field) >= 0;
         }
+
+        /// <summary>
+        /// The type each link field points at, per slug: the field's wire name to the target's slug,
+        /// in the schema's field order -- NOT including the shared base fields.
+        /// </summary>
+        /// <remarks>
+        /// The walk's <c>target</c> for every <c>single-link</c> and <c>multi-link</c>, the same word
+        /// each model's link field names in its doc comment. <c>pin</c>'s generic pair is absent:
+        /// its <c>element_type</c> names its target. A type with no link of its own maps to an
+        /// empty table.
+        /// </remarks>
+        public static readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> LinkTargets =
+            new Dictionary<string, IReadOnlyDictionary<string, string>>(StringComparer.OrdinalIgnoreCase)
+        {
+            { "ability", new Dictionary<string, string> { { "effects", "phenomenon" }, { "talents", "trait" }, { "requisites", "construct" }, { "tradition", "construct" }, { "source", "phenomenon" }, { "locus", "location" }, { "instruments", "object" }, { "systems", "construct" } } },
+            { "collective", new Dictionary<string, string> { { "operator", "institution" }, { "equipment", "object" }, { "abilities", "ability" }, { "symbolism", "construct" }, { "species", "species" }, { "characters", "character" }, { "creatures", "creature" }, { "phenomena", "phenomenon" } } },
+            { "character", new Dictionary<string, string> { { "species", "species" }, { "traits", "trait" }, { "abilities", "ability" }, { "birthplace", "location" }, { "languages", "language" }, { "location", "location" }, { "objects", "object" }, { "institutions", "institution" }, { "family", "family" }, { "friends", "character" }, { "rivals", "character" } } },
+            { "construct", new Dictionary<string, string> { { "founder", "character" }, { "custodian", "institution" }, { "characters", "character" }, { "objects", "object" }, { "locations", "location" }, { "species", "species" }, { "creatures", "creature" }, { "institutions", "institution" }, { "traits", "trait" }, { "collectives", "collective" }, { "zones", "zone" }, { "abilities", "ability" }, { "phenomena", "phenomenon" }, { "languages", "language" }, { "families", "family" }, { "relations", "relation" }, { "titles", "title" }, { "constructs", "construct" }, { "events", "event" }, { "narratives", "narrative" } } },
+            { "creature", new Dictionary<string, string> { { "species", "species" }, { "traits", "trait" }, { "abilities", "ability" }, { "languages", "language" }, { "location", "location" }, { "zone", "zone" }, { "actions", "ability" } } },
+            { "event", new Dictionary<string, string> { { "triggers", "event" }, { "characters", "character" }, { "objects", "object" }, { "locations", "location" }, { "species", "species" }, { "creatures", "creature" }, { "institutions", "institution" }, { "traits", "trait" }, { "collectives", "collective" }, { "zones", "zone" }, { "abilities", "ability" }, { "phenomena", "phenomenon" }, { "languages", "language" }, { "families", "family" }, { "relations", "relation" }, { "titles", "title" }, { "constructs", "construct" } } },
+            { "family", new Dictionary<string, string> { { "traditions", "construct" }, { "traits", "trait" }, { "abilities", "ability" }, { "languages", "language" }, { "ancestors", "character" }, { "estates", "location" }, { "governs", "institution" }, { "heirlooms", "object" }, { "creatures", "creature" } } },
+            { "institution", new Dictionary<string, string> { { "parent_institution", "institution" }, { "zones", "zone" }, { "objects", "object" }, { "creatures", "creature" }, { "allies", "institution" }, { "adversaries", "institution" }, { "constructs", "construct" } } },
+            { "language", new Dictionary<string, string> { { "classification", "construct" }, { "spread", "location" }, { "dialects", "language" } } },
+            { "law", new Dictionary<string, string> { { "parent_law", "law" }, { "penalties", "construct" }, { "author", "institution" }, { "locations", "location" }, { "zones", "zone" }, { "prohibitions", "construct" }, { "adjudicators", "title" }, { "enforcers", "title" } } },
+            { "location", new Dictionary<string, string> { { "parent_location", "location" }, { "populations", "collective" }, { "primary_power", "institution" }, { "governing_title", "title" }, { "secondary_powers", "institution" }, { "zone", "zone" }, { "rival", "location" }, { "partner", "location" }, { "founders", "character" }, { "cults", "construct" }, { "delicacies", "species" }, { "extraction_methods", "construct" }, { "extraction_goods", "construct" }, { "industry_methods", "construct" }, { "industry_goods", "construct" }, { "extraction_markets", "location" }, { "industry_markets", "location" }, { "currencies", "construct" }, { "buildings", "object" }, { "building_methods", "construct" }, { "fighters", "construct" }, { "defensive_objects", "object" } } },
+            { "map", new Dictionary<string, string> { { "parent_map", "map" }, { "location", "location" } } },
+            { "marker", new Dictionary<string, string> { { "map", "map" }, { "zone", "zone" } } },
+            { "narrative", new Dictionary<string, string> { { "parent_narrative", "narrative" }, { "protagonist", "character" }, { "antagonist", "character" }, { "narrator", "character" }, { "conservator", "institution" }, { "events", "event" }, { "characters", "character" }, { "objects", "object" }, { "locations", "location" }, { "species", "species" }, { "creatures", "creature" }, { "institutions", "institution" }, { "traits", "trait" }, { "collectives", "collective" }, { "zones", "zone" }, { "abilities", "ability" }, { "phenomena", "phenomenon" }, { "languages", "language" }, { "families", "family" }, { "relations", "relation" }, { "titles", "title" }, { "constructs", "construct" }, { "laws", "law" } } },
+            { "object", new Dictionary<string, string> { { "parent_object", "object" }, { "materials", "construct" }, { "technology", "construct" }, { "effects", "phenomenon" }, { "abilities", "ability" }, { "consumes", "construct" }, { "location", "location" }, { "language", "language" }, { "affinities", "trait" } } },
+            { "phenomenon", new Dictionary<string, string> { { "catalysts", "object" }, { "empowerments", "ability" }, { "system", "phenomenon" }, { "triggers", "construct" }, { "wielders", "character" }, { "environments", "location" } } },
+            { "pin", new Dictionary<string, string> { { "map", "map" } } },
+            { "relation", new Dictionary<string, string> { { "actor", "character" }, { "events", "event" }, { "characters", "character" }, { "objects", "object" }, { "locations", "location" }, { "species", "species" }, { "creatures", "creature" }, { "institutions", "institution" }, { "traits", "trait" }, { "collectives", "collective" }, { "zones", "zone" }, { "abilities", "ability" }, { "phenomena", "phenomenon" }, { "languages", "language" }, { "families", "family" }, { "titles", "title" }, { "constructs", "construct" }, { "narratives", "narrative" } } },
+            { "species", new Dictionary<string, string> { { "nourishment", "species" }, { "reproduction", "construct" }, { "adaptations", "ability" }, { "traits", "trait" }, { "parent_species", "species" }, { "locations", "location" }, { "zones", "zone" }, { "affinities", "phenomenon" } } },
+            { "title", new Dictionary<string, string> { { "issuer", "institution" }, { "body", "institution" }, { "superior_title", "title" }, { "holders", "character" }, { "symbols", "object" }, { "characters", "character" }, { "institutions", "institution" }, { "families", "family" }, { "zones", "zone" }, { "locations", "location" }, { "objects", "object" }, { "constructs", "construct" }, { "laws", "law" }, { "collectives", "collective" }, { "creatures", "creature" }, { "phenomena", "phenomenon" }, { "species", "species" }, { "languages", "language" } } },
+            { "trait", new Dictionary<string, string> { { "anti_trait", "trait" }, { "empowered_abilities", "ability" } } },
+            { "zone", new Dictionary<string, string> { { "phenomena", "phenomenon" }, { "linked_zones", "zone" }, { "populations", "collective" }, { "titles", "title" }, { "principles", "construct" } } },
+        };
+
+        /// <summary>
+        /// The slug <paramref name="field"/> links to on this type (<see cref="LinkTargets"/>); null
+        /// when the field is not one of its links or the slug is not in the standard.
+        /// </summary>
+        public static string LinkTarget(string slug, string field)
+        {
+            return !string.IsNullOrEmpty(slug) && field != null
+                && LinkTargets.TryGetValue(slug, out var targets)
+                && targets.TryGetValue(field, out var target)
+                ? target
+                : null;
+        }
     }
 }
