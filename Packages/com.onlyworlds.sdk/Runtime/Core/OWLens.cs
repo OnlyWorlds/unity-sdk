@@ -426,7 +426,8 @@ namespace OnlyWorlds.Sdk
         /// <c>undated</c> <c>include</c> or <c>exclude</c>; <c>changed_within</c> a whole number of days from 1;
         /// <c>show</c> <c>full</c>, <c>first_line</c> or <c>name</c>; <c>budget</c> 1 to 1000;
         /// <c>mail</c> <c>unread_full_read_titles</c>, <c>all</c> or <c>none</c>; <c>notes</c> an object of strings. A
-        /// whole number is a JSON integer (a boolean or a float is not); one beyond the 64-bit range is refused.
+        /// whole number is a JSON integer (a boolean or a float is not, <c>2.0</c> included, as keel's reader reads it); one
+        /// beyond the 64-bit range is refused.
         /// </remarks>
         public static string CheckKeys(JToken xLens)
         {
@@ -435,20 +436,20 @@ namespace OnlyWorlds.Sdk
 
             bool Has(string key, out JToken value) => x.TryGetValue(key, out value) && value.Type != JTokenType.Null;
 
-            if (Has("depth", out var depth) && !(Whole(depth, out var d) && d >= 0 && d <= 2)) return "depth";
+            if (Has("depth", out var depth) && !(Integer(depth, out var d) && d >= 0 && d <= 2)) return "depth";
             if (Has("types", out var types) && !(types is JArray list && list.All(IsTypeWord))) return "types";
             var hasWindow = Has("window", out var window);
-            if (hasWindow && !(Whole(window, out var w) && w >= 0)) return "window";
+            if (hasWindow && !(Integer(window, out var w) && w >= 0)) return "window";
             var hasFrom = Has("from", out var from);
             var hasTo = Has("to", out var to);
             if (hasWindow && (hasFrom || hasTo)) return "window";
             long f = 0;
-            if (hasFrom && !Whole(from, out f)) return "from";
-            if (hasTo && !(Whole(to, out var t) && hasFrom && f < t)) return "to";
+            if (hasFrom && !Integer(from, out f)) return "from";
+            if (hasTo && !(Integer(to, out var t) && hasFrom && f < t)) return "to";
             if (Has("undated", out var undated) && !IsOneOf(undated, UndatedValues)) return "undated";
-            if (Has("changed_within", out var changed) && !(Whole(changed, out var c) && c >= 1)) return "changed_within";
+            if (Has("changed_within", out var changed) && !(Integer(changed, out var c) && c >= 1)) return "changed_within";
             if (Has("show", out var show) && !IsOneOf(show, ShowValues)) return "show";
-            if (Has("budget", out var budget) && !(Whole(budget, out var b) && b >= 1 && b <= 1000)) return "budget";
+            if (Has("budget", out var budget) && !(Integer(budget, out var b) && b >= 1 && b <= 1000)) return "budget";
             if (Has("mail", out var mail) && !IsOneOf(mail, MailValues)) return "mail";
             if (Has("notes", out var notes)
                 && !(notes is JObject n && n.Properties().All(p => p.Value.Type == JTokenType.String)))
@@ -1298,8 +1299,8 @@ namespace OnlyWorlds.Sdk
             {
                 var r = new Recipe();
                 if (!(lens?[Field] is JObject x)) return r;
-                if (Whole(x["depth"], out var depth)) r.Depth = (int)depth;
-                if (Whole(x["budget"], out var budget)) r.Budget = (int)budget;
+                if (Integer(x["depth"], out var depth)) r.Depth = (int)depth;
+                if (Integer(x["budget"], out var budget)) r.Budget = (int)budget;
                 r.Undated = StringOf(x["undated"]) ?? r.Undated;
                 r.Show = StringOf(x["show"]) ?? r.Show;
                 r.Mail = StringOf(x["mail"]) ?? r.Mail;
@@ -1308,10 +1309,10 @@ namespace OnlyWorlds.Sdk
                     foreach (var word in types) r.Types.Add(OWProfileText.Fold(StringOf(word) ?? ""));
                 }
 
-                if (Whole(x["window"], out var window)) r.Window = window;
-                if (Whole(x["from"], out var from)) r.From = from;
-                if (Whole(x["to"], out var to)) r.To = to;
-                if (Whole(x["changed_within"], out var changed)) r.ChangedWithin = changed;
+                if (Integer(x["window"], out var window)) r.Window = window;
+                if (Integer(x["from"], out var from)) r.From = from;
+                if (Integer(x["to"], out var to)) r.To = to;
+                if (Integer(x["changed_within"], out var changed)) r.ChangedWithin = changed;
                 if (x["notes"] is JObject notes)
                 {
                     foreach (var p in notes.Properties())
@@ -1364,8 +1365,20 @@ namespace OnlyWorlds.Sdk
         // -- Small readers ---------------------------------------------------------------
 
         /// <summary>
+        /// An <c>x_lens</c> key's whole number: a JSON integer only, as keel's reader reads the recipe. A float is refused
+        /// even with no fraction (<c>2.0</c>), so the lens is unreadable and the key is named; an element's date reads
+        /// through <see cref="Whole"/>, which takes <c>7.0</c> as 7.
+        /// </summary>
+        private static bool Integer(JToken token, out long value)
+        {
+            value = 0;
+            return token is JValue v && v.Type == JTokenType.Integer && Whole(v, out value);
+        }
+
+        /// <summary>
         /// A JSON number with no fraction as a long (<c>7</c> and <c>7.0</c> alike, as the TypeScript SDK and the Python
-        /// package read it); a boolean, a string, a fraction, NaN or a number past 64 bits is not a whole number.
+        /// package read it); a boolean, a string, a fraction, NaN or a number past 64 bits is not a whole number. An
+        /// element's date reads through it; an <c>x_lens</c> key through the strict <see cref="Integer"/>.
         /// </summary>
         private static bool Whole(JToken token, out long value)
         {

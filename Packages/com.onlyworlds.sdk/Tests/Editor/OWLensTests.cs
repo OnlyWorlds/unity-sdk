@@ -592,6 +592,36 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 "a lens that names the pair counts it");
         }
 
+        // A float in an x_lens key is refused, even with no fraction (keel's reader; the ruling rides serial 83's fixture):
+        // the lens is unreadable and the key is named. An element's date still reads 7.0 as 7. Kills: depth 2.0 read as
+        // 2, a date of 7.0 read as undated.
+        [Test]
+        public void AFloatInAnXLensKey_IsRefused_ButAnElementsDateOf7Point0Is7()
+        {
+            foreach (var (key, value) in new[]
+                     {
+                         ("depth", "2.0"), ("window", "3.0"), ("budget", "10.0"), ("changed_within", "7.0"),
+                     })
+                Assert.AreEqual(key, OWLens.CheckKeys(JObject.Parse("{\"" + key + "\":" + value + "}")), key + " " + value);
+            Assert.AreEqual("from", OWLens.CheckKeys(JObject.Parse(@"{""from"":1.0,""to"":5}")));
+            Assert.AreEqual("to", OWLens.CheckKeys(JObject.Parse(@"{""from"":1,""to"":5.0}")));
+
+            var world = new List<JObject>
+            {
+                JObject.Parse(@"{""id"":""e"",""type"":""event"",""name"":""After"",""start_date"":1300.0}"),
+                JObject.Parse(@"{""id"":""c"",""type"":""character"",""name"":""c""}"),
+            };
+            var lens = JObject.Parse(@"{""id"":""L"",""type"":""construct"",""supertype"":""Lens"",""events"":[""e""],""characters"":[""c""],""x_lens"":{""depth"":2.0}}");
+            Assert.AreEqual("depth", OWLens.Resolve(world, lens, OWLensReader.Owner()).RefusedKey, "an unreadable lens names the key");
+
+            lens["x_lens"] = new JObject { ["depth"] = 0 };
+            var r = OWLens.Resolve(world, lens, OWLensReader.Owner(), new OWLensOptions { AsOf = 1200 });
+            CollectionAssert.AreEqual(new[] { "c" }, r.Kept);
+            CollectionAssert.AreEquivalent(new Dictionary<string, int> { [OWLensCut.AfterAsOf] = 1 }, r.Cut,
+                "the fence reads the element's 1300.0 as 1300");
+            Assert.AreEqual(7, OWLens.DateOf(JObject.Parse(@"{""type"":""event"",""start_date"":7.0}")));
+        }
+
         // changed_within (serial 82): a whole number of days from 1, refused by name otherwise, between undated and show
         // in the table's order. The fixture's keys cases do not carry it.
         [Test]
