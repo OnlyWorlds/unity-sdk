@@ -114,9 +114,36 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsFalse(OWRoom.IsRoomElement(El("narrative", null, World)));
             Assert.IsFalse(OWRoom.IsRoomElement(El(null, "Message", World)));
             Assert.IsFalse(OWRoom.IsRoomElement(El("narrative", "   ", World)));
-            Assert.IsFalse(OWRoom.IsRoomElement(El("narrative", "Message", 7)));
             Assert.IsFalse(OWRoom.IsRoomElement(El("narrative", "Message", "")));
             Assert.IsTrue(OWRoom.IsRoomElement(El("narrative", "Message", World)));
+        }
+
+        /// <summary>
+        /// The mark's five shapes (the schema steward's ruling for serial 83; its fixture is not yet published): a mark
+        /// counts by presence, as the API reads it. Any JSON value but null counts, and a string only when something is
+        /// left after trimming White_Space; the value is never compared. Each case is the mark as JSON and whether it
+        /// marks. Shared by every reader of the room mark (<see cref="OWGraphTests"/>, <see cref="OWLensTests"/>).
+        /// </summary>
+        public static IEnumerable<TestCaseData> MarkShapes()
+        {
+            yield return new TestCaseData("7", true); // a number
+            yield return new TestCaseData("\"\"", false); // an empty string
+            yield return new TestCaseData("\"  \"", false); // White_Space only
+            yield return new TestCaseData("\"\\u001f\"", true); // U+001F is not White_Space
+            yield return new TestCaseData("\"  " + World + "\\t\"", true); // an id padded, never compared
+        }
+
+        /// <summary>
+        /// One rule for both marks: <c>x_room_of</c> read as <c>x_charter_of</c> is. Kills: a number read as no room mark,
+        /// a blank string read as one, a language's own trim (Python's <c>strip()</c> takes U+001F) for White_Space, the
+        /// padded value compared or trimmed away.
+        /// </summary>
+        [TestCaseSource(nameof(MarkShapes))]
+        public void BothMarks_CountByPresence(string markJson, bool marks)
+        {
+            var mark = JToken.Parse(markJson);
+            Assert.AreEqual(marks, OWRoom.IsRoomElement(El("narrative", "Message", mark)), "x_room_of " + markJson);
+            Assert.AreEqual(marks, OWRoom.IsCharterElement(Aid("law", "Charter", mark)), "x_charter_of " + markJson);
         }
 
         [Test]

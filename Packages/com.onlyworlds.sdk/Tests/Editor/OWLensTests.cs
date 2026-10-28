@@ -592,6 +592,195 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 "a lens that names the pair counts it");
         }
 
+        /// <summary>
+        /// The room mark's five shapes (<see cref="OWRoomTests.MarkShapes"/>) through every place the reader asks whether
+        /// an element is a room element: the public reader's view, <c>types</c> (a room element kept only by its pair), a
+        /// Relation that is no edge to its parties, no hop out of a room element, and <c>hops_not_served</c>. Kills: a
+        /// path of the lens that reads the mark apart from <see cref="OWRoom.IsRoomElement"/>.
+        /// </summary>
+        [TestCaseSource(typeof(OWRoomTests), nameof(OWRoomTests.MarkShapes))]
+        public void TheRoomMark_CountsByPresence_InTheLens(string markJson, bool marks)
+        {
+            var mark = JToken.Parse(markJson);
+            var world = new List<JObject>
+            {
+                JObject.Parse(@"{""id"":""c1"",""type"":""character"",""name"":""Ada""}"),
+                JObject.Parse(@"{""id"":""m1"",""type"":""narrative"",""name"":""A line"",""supertype"":""Message"",""characters"":[""c1"",""c3""]}"),
+                JObject.Parse(@"{""id"":""c3"",""type"":""character"",""name"":""Cy""}"),
+            };
+            world[1][OWRoom.MarkField] = mark.DeepClone();
+            var lens = JObject.Parse(@"{""id"":""L"",""type"":""construct"",""supertype"":""Lens"",""characters"":[""c1""],""x_lens"":{""depth"":1}}");
+
+            var r = OWLens.Resolve(world, lens, OWLensReader.Public());
+            CollectionAssert.AreEqual(marks ? new[] { "c1" } : new[] { "c1", "m1" }, r.Kept, "the public reader's view");
+            CollectionAssert.IsEmpty(r.Cut, "the public reader counts nothing it does not see");
+
+            r = OWLens.Resolve(world, lens, OWLensReader.Owner());
+            CollectionAssert.AreEqual(marks ? new[] { "c1" } : new[] { "c1", "m1" }, r.Kept, "the owner, no types");
+            CollectionAssert.AreEquivalent(marks ? new Dictionary<string, int> { [OWLensCut.Types] = 1 } : new Dictionary<string, int>(),
+                r.Cut, "a room element is kept only by its pair");
+
+            // A Vote among c1 and c2, and a second hop from the message to c3: depth 2 with the pairs named.
+            world.Add(JObject.Parse(@"{""id"":""r1"",""type"":""relation"",""name"":""Aye"",""supertype"":""Vote"",""characters"":[""c1"",""c2""]}"));
+            world.Add(JObject.Parse(@"{""id"":""c2"",""type"":""character"",""name"":""Bo""}"));
+            world[3][OWRoom.MarkField] = mark.DeepClone();
+            lens["x_lens"] = JObject.Parse(@"{""depth"":2,""types"":[""character"",""narrative/message"",""relation/vote""]}");
+
+            r = OWLens.Resolve(world, lens, OWLensReader.Owner());
+            if (marks)
+            {
+                CollectionAssert.AreEquivalent(new[] { "c1", "m1", "r1" }, r.Kept, "the pairs kept; the room Vote is no edge to c2");
+                CollectionAssert.IsEmpty(r.Cut, "no hop goes out of a room element, so c3 is never reached");
+            }
+            else
+            {
+                CollectionAssert.AreEquivalent(new[] { "c1", "c2" }, r.Kept, "a lore Vote is an edge to c2, in the same hop");
+                CollectionAssert.AreEquivalent(new Dictionary<string, int> { [OWLensCut.Types] = 2, [OWLensCut.HopsNotServed] = 1 },
+                    r.Cut, "the lore message and Vote cut as types; c3 at the second hop not served");
+            }
+        }
+
+        // -- An umbrella's children, as keel's reader reads them (the ruling rides serial 83) ----------------------------
+        // Each child is resolved by its own whole recipe, its own mail rule and budget among it; the union then takes the
+        // umbrella's mail rule and budget on top, and every row is built by the umbrella's recipe alone.
+
+        private static JObject Lens(string id, string xLens, string links) =>
+            JObject.Parse(@"{""id"":""" + id + @""",""type"":""construct"",""name"":""" + id + @""",""supertype"":""Lens"",""x_lens"":"
+                          + xLens + (links == null ? "" : "," + links) + "}");
+
+        private static JObject Character(string id, string links = null) =>
+            JObject.Parse(@"{""id"":""" + id + @""",""type"":""character"",""name"":""" + id + @""",""description"":""d""" +
+                          (links == null ? "" : "," + links) + "}");
+
+        /// <summary>Kills: a child's own budget unread (only the union capped), a child's over-budget ids not counted.</summary>
+        [Test]
+        public void AnUmbrellasChild_KeepsAtMostItsOwnBudget_TheRestCountedBudget()
+        {
+            var world = new List<JObject>
+            {
+                Lens("U", "{}", @"""constructs"":[""C""]"),
+                Lens("C", @"{""depth"":0,""budget"":1}", @"""characters"":[""c1"",""c2""]"),
+                Character("c1"),
+                Character("c2"),
+            };
+            var r = OWLens.Resolve(world, "U", OWLensReader.Owner());
+            CollectionAssert.AreEqual(new[] { "c1" }, r.Kept, "the child keeps its budget's worth");
+            CollectionAssert.AreEquivalent(new Dictionary<string, int> { [OWLensCut.Budget] = 1 }, r.Cut);
+
+            // The umbrella's budget on top of a child with none of its own.
+            world[0] = Lens("U", @"{""budget"":1}", @"""constructs"":[""C""]");
+            world[1] = Lens("C", @"{""depth"":0}", @"""characters"":[""c1"",""c2""]");
+            r = OWLens.Resolve(world, "U", OWLensReader.Owner());
+            CollectionAssert.AreEqual(new[] { "c1" }, r.Kept, "the umbrella's budget caps the union");
+            CollectionAssert.AreEquivalent(new Dictionary<string, int> { [OWLensCut.Budget] = 1 }, r.Cut);
+
+            // The child's budget counts what it keeps before the union, an id the umbrella keeps too among it.
+            world[0] = Lens("U", "{}", @"""characters"":[""c1""],""constructs"":[""C""]");
+            world[1] = Lens("C", @"{""depth"":0,""budget"":2}", @"""characters"":[""c1"",""c2"",""c3""]");
+            world.Add(Character("c3"));
+            r = OWLens.Resolve(world, "U", OWLensReader.Owner());
+            CollectionAssert.AreEqual(new[] { "c1", "c2" }, r.Kept, "the child's two, one of them the umbrella's own");
+            CollectionAssert.AreEquivalent(new Dictionary<string, int> { [OWLensCut.Budget] = 1 }, r.Cut);
+        }
+
+        /// <summary>Kills: a row kept through a child shown by the child's <c>show</c>.</summary>
+        [Test]
+        public void AnUmbrellasChildsRow_IsShownByTheUmbrellasShow()
+        {
+            var world = new List<JObject>
+            {
+                Lens("U", @"{""show"":""full""}", @"""constructs"":[""C""]"),
+                Lens("C", @"{""depth"":0,""show"":""name""}", @"""characters"":[""c1""]"),
+                Character("c1"),
+            };
+            var row = OWLens.Resolve(world, "U", OWLensReader.Owner()).Rows.Single();
+            Assert.AreEqual("d", (string)row["description"], "full under a full umbrella: " + row);
+
+            world[0] = Lens("U", @"{""show"":""name""}", @"""constructs"":[""C""]");
+            world[1] = Lens("C", @"{""depth"":0,""show"":""full""}", @"""characters"":[""c1""]");
+            row = OWLens.Resolve(world, "U", OWLensReader.Owner()).Rows.Single();
+            Assert.IsTrue(JToken.DeepEquals(JObject.Parse(@"{""id"":""c1"",""type"":""character"",""name"":""c1""}"), row),
+                "a name row under a name umbrella: " + row);
+        }
+
+        /// <summary>
+        /// Kills: a child's <c>x_lens.notes</c> on a row, or counted in the umbrella's <c>notes_ignored</c> (rows are built
+        /// with the umbrella's recipe only).
+        /// </summary>
+        [Test]
+        public void AnUmbrellasChildsNotes_NeverReachARow()
+        {
+            var world = new List<JObject>
+            {
+                Lens("U", "{}", @"""constructs"":[""C""]"),
+                Lens("C", @"{""depth"":0,""notes"":{""c1"":""the child's note on its own anchor"",""c2"":""on none of its anchors""}}",
+                    @"""characters"":[""c1""]"),
+                Character("c1"),
+                Character("c2"),
+            };
+            var r = OWLens.Resolve(world, "U", OWLensReader.Owner());
+            CollectionAssert.AreEqual(new[] { "c1" }, r.Kept);
+            Assert.IsNull(r.Rows.Single()["note"], r.Rows.Single().ToString());
+            Assert.AreEqual(0, r.NotesIgnored, "the child's notes are not the umbrella's to count");
+        }
+
+        /// <summary>
+        /// Kills: a child's own mail rule unread (its message left in the union), and a child's mail served or counted
+        /// under the umbrella. Under an umbrella with mail <c>none</c> the child's messages are simply gone.
+        /// </summary>
+        [Test]
+        public void AnUmbrellasChildsMailRule_TakesItsMessagesOut_NeitherServedNorCounted()
+        {
+            var world = new List<JObject>
+            {
+                Lens("U", "{}", @"""constructs"":[""C""]"),
+                Lens("C", @"{""depth"":1,""mail"":""all""}", @"""characters"":[""me""]"),
+                Character("me"),
+                Character("a"),
+                JObject.Parse(@"{""id"":""m1"",""type"":""narrative"",""name"":""A letter"",""supertype"":""Message"",""narrator"":""a"",
+                    ""characters"":[""me""],""created_at"":""2026-10-20T12:00:00Z""}"),
+            };
+            var options = new OWLensOptions { Clock = new DateTimeOffset(2026, 10, 28, 0, 0, 0, TimeSpan.Zero) };
+
+            var child = OWLens.Resolve(world, "C", OWLensReader.Owner("me"), options);
+            CollectionAssert.AreEqual(new[] { "me" }, child.Kept, "read alone, the child's mail rule takes the letter out");
+            CollectionAssert.AreEqual(new[] { "m1" }, child.Mail.Unread, "and serves it in its mail");
+
+            var r = OWLens.Resolve(world, "U", OWLensReader.Owner("me"), options);
+            CollectionAssert.AreEqual(new[] { "me" }, r.Kept, "under the umbrella the letter is out of the child's kept");
+            Assert.IsNull(r.Mail, "the umbrella's mail is none: the child's mail is not served");
+            CollectionAssert.IsEmpty(r.Cut, "nor counted");
+        }
+
+        /// <summary>
+        /// The profile's <c>notes</c>: a note keyed to an element that is not an anchor is ignored, counted in
+        /// <c>notes_ignored</c>, even when that element is kept (reached by a hop, or kept through a child). keel's reader
+        /// puts it on the row; the profile is followed here. Kills: a note on a kept non-anchor's row.
+        /// </summary>
+        [Test]
+        public void ANoteOnAKeptElementThatIsNotAnAnchor_IsIgnored_NotOnItsRow()
+        {
+            var world = new List<JObject>
+            {
+                Lens("L", @"{""depth"":1,""notes"":{""c1"":""an anchor's note"",""c2"":""reached, not an anchor""}}", @"""characters"":[""c1""]"),
+                Character("c1", @"""friends"":[""c2""]"),
+                Character("c2"),
+            };
+            var r = OWLens.Resolve(world, "L", OWLensReader.Owner());
+            CollectionAssert.AreEqual(new[] { "c1", "c2" }, r.Kept);
+            Assert.AreEqual("an anchor's note", (string)r.Rows[0]["note"]);
+            Assert.IsNull(r.Rows[1]["note"], "a hop's element: " + r.Rows[1]);
+            Assert.AreEqual(1, r.NotesIgnored);
+
+            world[0] = Lens("U", @"{""notes"":{""c2"":""kept through the child, not an anchor""}}", @"""characters"":[""c1""],""constructs"":[""C""]");
+            world.Add(Lens("C", @"{""depth"":0}", @"""characters"":[""c2""]"));
+            world[1] = Character("c1");
+            r = OWLens.Resolve(world, "U", OWLensReader.Owner());
+            CollectionAssert.AreEqual(new[] { "c1", "c2" }, r.Kept);
+            Assert.IsNull(r.Rows[1]["note"], "a child's anchor: " + r.Rows[1]);
+            Assert.AreEqual(1, r.NotesIgnored);
+        }
+
         // A float in an x_lens key is refused, even with no fraction (keel's reader; the ruling rides serial 83's fixture):
         // the lens is unreadable and the key is named. An element's date still reads 7.0 as 7. Kills: depth 2.0 read as
         // 2, a date of 7.0 read as undated.

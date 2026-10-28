@@ -147,7 +147,7 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   (Constructs with supertype Domain) by the pair, trimmed and folded, AND the mark `x_charter_of`
   (`OWRoom.ReadingAidMarkField`, the id of the world the aid belongs to), beside `IsRoomElement`; the pair without the
   mark is lore. The mark counts when it is present and not null, a string only when something is left after trimming
-  White_Space: `7` is a mark, `"  "` is not (the room mark `x_room_of` is still read as a non-empty string). Parity
+  White_Space: `7` is a mark, `"  "` is not (the room mark `x_room_of` now reads by the same rule; see Changed). Parity
   with the TypeScript SDK 4.98.0 (`isCharterElement`) and the Python package 0.80.0 (`is_charter_element`), their
   test vector ported.
   `OWRoom.ReadingAidPairs` holds the three pairs; read the test rather than keeping a list of them. In
@@ -161,6 +161,15 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
+- `OWRoom.IsRoomElement` reads the mark `x_room_of` by presence, the rule `IsCharterElement` reads `x_charter_of` by
+  and keel's reader reads both by: any JSON value but null counts, and a string only when something is left after
+  trimming White_Space; the value is never compared. So an element of a room pair marked `7` is a room element, one
+  marked `"  "` is lore, and a mark of U+001F alone counts (it is not White_Space). It had been read as a non-empty
+  string, untrimmed. The two marks go through one matcher, and `OWLens.Resolve` and `OWGraph.Read` ask that test
+  everywhere they ask whether an element is a room element (the public reader's view, `types`, a Relation as an
+  edge, the hop, `hops_not_served`, the graph's `room` kind). Serial 83's fixture is to carry a case per shape; the
+  five shapes (a number, an empty string, a White_Space string, U+001F, a padded id) are tests here already, through
+  each of those readers.
 - The schema pin moves to dist.82 (`v0.33.0-dist.82`). Serial 77 adds the address profile (`profiles/address.md` and
   its 133-case fixture); serial 78 adds the lens profile (`profiles/lens.md` and its 84-case fixture); serial 79 adds
   four Note cases to the message profile's fixture (81 to 85: a Note has no recipients and is never unread even when
@@ -234,10 +243,15 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   as the TypeScript SDK and the Python package make the row.
 - `OWLens.LensesFor` keeps ids that are not null or empty, each once, in the order given, as the TypeScript SDK's
   `lensesInUse` and the Python package's `lenses_in_use` do; it had returned the list as given.
-- `OWLens.Resolve` reads an umbrella's child lens as the lens profile's rule 3 writes it and the TypeScript SDK and
-  the Python package read it: the umbrella's `budget` caps the union and its mail rule is the reading's only one, so a
-  child's own `budget` no longer cuts its kept list before the union (nor its own mail rule take messages out of
-  it), and a child's kept elements are shown by the child's own `show`, not the umbrella's.
+- `OWLens.Resolve` reads an umbrella's child lens as keel's reader reads it (the lens profile's rule 3): each child is
+  resolved by its own whole recipe, its own mail rule and `budget` among it, so a child keeps at most its budget and
+  the rest is counted `budget`; the union then takes the umbrella's mail rule and budget on top. Rows are built by the
+  umbrella's recipe alone: a row kept through a child is shown by the umbrella's `show`, and a child's `notes` never
+  reach a row. A message a child's mail rule takes out of its kept list is neither served nor counted under the
+  umbrella.
+- `OWLens.Resolve` puts a note on a kept anchor's row only, as the lens profile's `notes` row says: a note keyed to a
+  kept element that is not one of the lens's anchors (one a hop reached, or one kept through a child) is ignored and
+  counted in `notes_ignored`. It had also been written on that element's row.
 - `OWLens` serves a known-of stub as the TypeScript SDK and the Python package do: its base keys (`id`, `type`,
   `name`, `description`, `supertype`, `subtype`, `image_url`, `created_at`, `updated_at`) and its type's public fields
   that are not links (the presentation sidecar's `public`: a Character's `physicality`, `height`, `weight`,
