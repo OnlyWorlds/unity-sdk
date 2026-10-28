@@ -644,7 +644,8 @@ namespace OnlyWorlds.Sdk
                     {
                         foreach (var i in ring)
                         {
-                            if (!view.IsRoom(i) || Admitted(view, i, r)) SetDefault(cut, i, OWLensCut.HopsNotServed);
+                            // A room element or a reading aid that types would not keep is not counted (keel's reader).
+                            if (!view.StandsApart(i) || Admitted(view, i, r)) SetDefault(cut, i, OWLensCut.HopsNotServed);
                         }
                     }
                     else

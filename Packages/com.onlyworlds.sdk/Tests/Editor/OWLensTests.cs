@@ -567,6 +567,31 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(2, OWLens.Resolve(world, lens, OWLensReader.Owner()).NotesIgnored, "the owner sees h");
         }
 
+        // hops_not_served never counts a reading aid that types would not keep, as it never counts such a room element
+        // (keel's reader; the ruling rides serial 83's fixture). Kills: an aid the lens would cut as types counted as a
+        // hop not served.
+        [Test]
+        public void HopsNotServed_CountsAReadingAidOnlyWhenTypesWouldKeepIt()
+        {
+            var world = new List<JObject>
+            {
+                JObject.Parse(@"{""id"":""A"",""type"":""institution"",""name"":""The Desk"",""allies"":[""B""]}"),
+                JObject.Parse(@"{""id"":""B"",""type"":""institution"",""name"":""The Bindery""}"),
+                JObject.Parse(@"{""id"":""ch"",""type"":""law"",""name"":""House Rules"",""supertype"":""Charter"",""author"":""B"",""x_charter_of"":""w1""}"),
+            };
+            var lens = JObject.Parse(@"{""id"":""L"",""type"":""construct"",""supertype"":""Lens"",""institutions"":[""A""],""x_lens"":{""depth"":2}}");
+
+            var r = OWLens.Resolve(world, lens, OWLensReader.Owner());
+            CollectionAssert.AreEqual(new[] { "A", "B" }, r.Kept);
+            CollectionAssert.IsEmpty(r.Cut, "the charter at the second hop, which types would not keep, is not counted");
+
+            lens["x_lens"]["types"] = new JArray("institution", "law/charter");
+            r = OWLens.Resolve(world, lens, OWLensReader.Owner());
+            CollectionAssert.AreEqual(new[] { "A", "B" }, r.Kept);
+            CollectionAssert.AreEquivalent(new Dictionary<string, int> { [OWLensCut.HopsNotServed] = 1 }, r.Cut,
+                "a lens that names the pair counts it");
+        }
+
         // changed_within (serial 82): a whole number of days from 1, refused by name otherwise, between undated and show
         // in the table's order. The fixture's keys cases do not carry it.
         [Test]

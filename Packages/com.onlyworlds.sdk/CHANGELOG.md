@@ -141,7 +141,8 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   `OWLens.Resolve` a reading aid a hop reaches is kept, and hopped out of, only when `types` names its pair
   (`law/charter`, `construct/guide`, `construct/domain`, now legal `types` words); otherwise it is cut as `types`, and
   a lens with no `types`, or one naming only `law` or `construct`, keeps none. An anchor that is a reading aid is kept
-  and followed like any anchor. In `OWGraph.Read` the reading aids are out of an unlensed graph, counted under the new
+  and followed like any anchor, and an aid a second hop would reach is counted `hops_not_served` only when `types`
+  names its pair, as a room element is. In `OWGraph.Read` the reading aids are out of an unlensed graph, counted under the new
   reason `OWGraphCut.ReadingAid` (`reading_aid`), and no flag brings them back; a lens that names the pair keeps them.
   The fixture's 132 cases are the test.
 
