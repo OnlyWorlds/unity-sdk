@@ -167,10 +167,10 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   marked `"  "` is lore, and a mark of U+001F alone counts (it is not White_Space). It had been read as a non-empty
   string, untrimmed. The two marks go through one matcher, and `OWLens.Resolve` and `OWGraph.Read` ask that test
   everywhere they ask whether an element is a room element (the public reader's view, `types`, a Relation as an
-  edge, the hop, `hops_not_served`, the graph's `room` kind). Serial 83's fixture is to carry a case per shape; the
-  five shapes (a number, an empty string, a White_Space string, U+001F, a padded id) are tests here already, through
-  each of those readers.
-- The schema pin moves to dist.82 (`v0.33.0-dist.82`). Serial 77 adds the address profile (`profiles/address.md` and
+  edge, the hop, `hops_not_served`, the graph's `room` kind). Serial 83's room fixture carries four of the shapes as
+  its own cases (28 to 32: a number, a White_Space string, U+001F, a padded id); all five (and an empty string) are
+  tests here, through each of those readers.
+- The schema pin moves to dist.83 (`v0.33.0-dist.83`). Serial 77 adds the address profile (`profiles/address.md` and
   its 133-case fixture); serial 78 adds the lens profile (`profiles/lens.md` and its 84-case fixture); serial 79 adds
   four Note cases to the message profile's fixture (81 to 85: a Note has no recipients and is never unread even when
   its `characters` names the reader, is never in a thread, and a hidden mark that is not a boolean hides it like
@@ -187,13 +187,24 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   lens served only as a known-of stub as not there, and adds ten fixture cases (122 to 132: seven resolve cases and
   three graph cases) with the `reading_aid_pairs` and `reading_aid_mark` tables; the address profile gains the line
   on what onlyworlds.com commits to (an id never reused, an address outliving a rename, a deleted element answering like
-  a missing one), which asks nothing of `OWAddress`. The fixtures' test copies are re-vendored. No schema file moved,
-  and no generated model changed but its serial stamp.
-- Folders declare format 0.3.19. The version rules the served-trimmed mark in a folder (§4.4 rule 6): a file keeps
-  `x_served_trimmed` exactly as the server served it, a reader reads a field the mark names as trimmed, never as
-  empty, and a writer never sends the mark up. This SDK already kept the mark byte for byte on export and on read
-  (`OWMessage.HasUnseenRecipients` reads it), and it has no push from a folder, so nothing else moved; a test now
-  holds the export and the read-back to it.
+  a missing one), which asks nothing of `OWAddress`; serial 83 adds the charter profile (`profiles/charter.md` and its
+  22-case fixture: the selection of the Charter, the Guide and the Domains, and the packet a front door shows; see
+  Added), writes the room mark's presence rule into the room profile with four fixture cases (28 to 32), and adds
+  fifteen lens cases (132 to 147: thirteen resolve cases on two new worlds, `reach` and `stubs`, and two keys cases)
+  for an umbrella's child read by its own recipe and budget, a sibling lens a child's hop reaches, a stub child and a
+  stub Message, nothing hopped out of what the fence cuts, the second hop's count, a note on anchors only, and a
+  fraction or an integral float refused in `x_lens` (a `text_only` case, which this SDK passes: `OWJson` keeps `7.0`
+  a float); the folder check moves to format 0.3.20. The fixtures' test copies are re-vendored. No schema file
+  moved, and no generated model changed but its serial stamp.
+- Folders declare format 0.3.20, two versions past 0.23.0's. Version 0.3.19 rules the served-trimmed mark in a folder
+  (§4.4 rule 6): a file keeps `x_served_trimmed` exactly as the server served it, a reader reads a field the mark
+  names as trimmed, never as empty, and a writer never sends the mark up. This SDK already kept the mark byte for
+  byte on export and on read (`OWMessage.HasUnseenRecipients` reads it), and it has no push from a folder; a test now
+  holds the export and the read-back to it. Version 0.3.20 rules the folder's `charter` shortcut in `world.json`
+  (§4.6 (a)): it picks among marked Charters only (`x_charter_of`, the charter profile's mark) and never stands in
+  for the mark. This SDK writes no `charter` key and its folder reader keeps `world.json` as read; `OWCharter` (see
+  Added) selects by the mark alone. Nothing else moved: the Python package's `world_for_disk` (0.82.0), re-run on
+  the six world cases the export tests hold, changed only `format_version`.
 - `OWAddress.ElementAddress` reads three things as the TypeScript SDK 4.89.1 and the Python package 0.73.1 do, where
   the profile's fixture is silent and the two packages agree. When several parts are wrong, the writer names
   `bad_form` first, then `segments`, then `no_world`, then the reader's order (a type with no id and no world is

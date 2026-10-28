@@ -12,7 +12,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// The lens profile's graph section: <see cref="OWGraph.Read"/> on the graph kind of the lens fixture (schema-dist
-    /// <c>profiles/lens.fixture.json</c>, vendored byte for byte in <c>Tests/Editor/Fixtures/lens/</c> from dist.82, its
+    /// <c>profiles/lens.fixture.json</c>, vendored byte for byte in <c>Tests/Editor/Fixtures/lens/</c> from dist.83, its
     /// hash held by <see cref="OWLensTests"/>), each answer held to the section's invariants, the fixture's graph tables
     /// read back through the reader, and the TypeScript SDK's own vectors (<c>test/graph.test.mjs</c>, release 4.93.0)
     /// where C# can state them. The TypeScript SDK and the Python package (<c>world_graph</c>, 0.77.0) replay the same
@@ -27,7 +27,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </remarks>
     public class OWGraphTests
     {
-        /// <summary>The fixture's graph cases, as dist.82 holds them.</summary>
+        /// <summary>The fixture's graph cases, as dist.83 holds them.</summary>
         private const int GraphCount = 37;
 
         private static JObject _fixture;
@@ -103,10 +103,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
-        public void TheFixture_HoldsDist82sGraphCases()
+        public void TheFixture_HoldsDist83sGraphCases()
         {
             Assert.IsNotNull(Fixture, "the vendored lens fixture was not found");
-            Assert.AreEqual(GraphCount, GraphCases.Count(), "dist.82's fixture holds 37 graph cases");
+            Assert.AreEqual(GraphCount, GraphCases.Count(), "dist.83's fixture holds 37 graph cases");
         }
 
         [TestCaseSource(nameof(Cases))]
