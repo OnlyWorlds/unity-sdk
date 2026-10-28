@@ -12,21 +12,22 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// The lens profile's shared edge cases: inputs the conformance fixture leaves open (a known-of stub's links, the
-    /// window's edge, the world's <c>time_current</c> read as its now, no window without a now, a <c>to</c> after
-    /// <c>as_of</c>, the fence on anchors, the members list in the mail rule, a message not repeated among the kept, the
-    /// thirty days' edge, ties by id by code point), answers written by hand. The file is the TypeScript SDK's
-    /// <c>test/fixtures/lens-edges.json</c> from release 4.91.0 (commit 7741f1d), the same bytes the Python package
-    /// (onlyworlds 0.74.0) holds, vendored in <c>Tests/Editor/Fixtures/lens/edges.json</c>. Each case names its reader and
-    /// its world; the readers run here as they run in the TypeScript SDK's replay (<c>test/lens.test.mjs</c>), which reads
-    /// the world's <c>now</c> (else its <c>time_current</c>) and its members off the world itself. When the file moves,
+    /// window's edge, the world's <c>time_current</c> or <c>time_range_current</c> read as its now, no window without a
+    /// now, a <c>to</c> after <c>as_of</c>, the fence on anchors, the members list in the mail rule, a message not
+    /// repeated among the kept, the thirty days' edge, ties by id by code point, an umbrella's stub child, a stub message
+    /// in the mail part), answers written by hand. The file is the TypeScript SDK's <c>test/fixtures/lens-edges.json</c>
+    /// from release 4.97.1 (commit 1ef2e8e), the same bytes the Python package (onlyworlds 0.79.3) holds, vendored in
+    /// <c>Tests/Editor/Fixtures/lens/edges.json</c>. Each case names its reader and its world; the readers run here as
+    /// they run in the TypeScript SDK's replay (<c>test/lens.test.mjs</c>), which reads the world's <c>now</c> (else its
+    /// <c>time_current</c>, else <c>time_range_current</c>) and its members off the world itself. When the file moves,
     /// re-vendor it and update the hash and the count below.
     /// </summary>
     public class OWLensEdgeTests
     {
-        /// <summary>The edge file's sha256: <c>test/fixtures/lens-edges.json</c> in the TypeScript SDK 4.91.0 (7741f1d).</summary>
-        private const string EdgesSha256 = "ee28a59302c6dd055bc9bfeac2f950233eb97e5eade67b3a3a2efbc53e560187";
+        /// <summary>The edge file's sha256: <c>test/fixtures/lens-edges.json</c> in the TypeScript SDK 4.97.1 (1ef2e8e).</summary>
+        private const string EdgesSha256 = "adb4e2badfcadaa52eb3b740479aec649ee283ab84edb45f2c9f648af1242b04";
 
-        private const int EdgeCount = 10;
+        private const int EdgeCount = 14;
 
         private static JArray _edges;
 
@@ -119,7 +120,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         private static JObject Answer(JObject e)
         {
             var world = ((JArray)e["world"]["elements"]).Cast<JToken>().ToList();
-            var result = OWLens.Resolve(world, (JObject)e["lens"], ReaderOf((JObject)e["reader"]), OptionsOf(e));
+            // A case names its lens as a body, or by id (a lens the reader reads in the world, as the umbrella cases do).
+            var reader = ReaderOf((JObject)e["reader"]);
+            var result = e["lens"] is JObject body
+                ? OWLens.Resolve(world, body, reader, OptionsOf(e))
+                : OWLens.Resolve(world, (string)e["lens"], reader, OptionsOf(e));
             return Json(result);
         }
 
@@ -149,7 +154,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             return new OWLensOptions
             {
                 AsOf = Whole(e["as_of"]),
-                Now = Whole(world["now"]) ?? Whole(world["time_current"]),
+                Now = Whole(world["now"]) ?? Whole(world["time_current"]) ?? Whole(world["time_range_current"]),
                 Clock = e["clock"]?.Type == JTokenType.String
                     ? DateTimeOffset.Parse((string)e["clock"], CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal)
                     : (DateTimeOffset?)null,

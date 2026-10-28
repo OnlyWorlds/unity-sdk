@@ -138,6 +138,56 @@
   }
  },
  {
+  "name": "the-worlds-now-is-its-time-range-current-as-the-api-serves-it",
+  "world": {
+   "time_range_current": 10,
+   "elements": [
+    {
+     "id": "e1",
+     "type": "event",
+     "name": "E1",
+     "start_date": 7
+    },
+    {
+     "id": "e2",
+     "type": "event",
+     "name": "E2",
+     "start_date": 6
+    },
+    {
+     "id": "e3",
+     "type": "event",
+     "name": "E3",
+     "start_date": 12
+    }
+   ]
+  },
+  "lens": {
+   "id": "L",
+   "type": "construct",
+   "name": "L",
+   "supertype": "Lens",
+   "x_lens": {
+    "types": [
+     "event"
+    ],
+    "window": 3
+   }
+  },
+  "reader": {
+   "rung": "owner"
+  },
+  "want": {
+   "kept": [
+    "e1"
+   ],
+   "cut": {
+    "window": 1,
+    "after_as_of": 1
+   }
+  }
+ },
+ {
   "name": "with-no-as-of-and-no-now-the-window-cuts-nothing",
   "world": {
    "elements": [
@@ -533,6 +583,184 @@
     "x\ud83d\ude00"
    ],
    "cut": {}
+  }
+ },
+ {
+  "name": "umbrella-child-a-stub-is-not-entered",
+  "world": {
+   "elements": [
+    {
+     "id": "U",
+     "type": "construct",
+     "name": "U",
+     "supertype": "Lens",
+     "constructs": [
+      "L2"
+     ],
+     "characters": [],
+     "x_lens": {
+      "depth": 0
+     }
+    },
+    {
+     "id": "L2",
+     "type": "construct",
+     "name": "L2",
+     "supertype": "Lens",
+     "constructs": [],
+     "characters": [
+      "c1"
+     ],
+     "x_lens": {
+      "depth": 0
+     }
+    },
+    {
+     "id": "c1",
+     "type": "character",
+     "name": "Secret contact"
+    }
+   ]
+  },
+  "lens": "U",
+  "reader": {
+   "rung": "guest",
+   "whole": [
+    "U"
+   ],
+   "known_of": [
+    "L2",
+    "c1"
+   ]
+  },
+  "want": {
+   "kept": [],
+   "cut": {}
+  }
+ },
+ {
+  "name": "umbrella-child-whole-is-entered",
+  "world": {
+   "elements": [
+    {
+     "id": "U",
+     "type": "construct",
+     "name": "U",
+     "supertype": "Lens",
+     "constructs": [
+      "L2"
+     ],
+     "characters": [],
+     "x_lens": {
+      "depth": 0
+     }
+    },
+    {
+     "id": "L2",
+     "type": "construct",
+     "name": "L2",
+     "supertype": "Lens",
+     "constructs": [],
+     "characters": [
+      "c1"
+     ],
+     "x_lens": {
+      "depth": 0
+     }
+    },
+    {
+     "id": "c1",
+     "type": "character",
+     "name": "Secret contact"
+    }
+   ]
+  },
+  "lens": "U",
+  "reader": {
+   "rung": "guest",
+   "whole": [
+    "U",
+    "L2"
+   ],
+   "known_of": [
+    "c1"
+   ]
+  },
+  "want": {
+   "kept": [
+    "c1"
+   ],
+   "cut": {}
+  }
+ },
+ {
+  "name": "the-mail-part-reads-whole-messages-only-a-stub-is-not-to-everyone",
+  "world": {
+   "elements": [
+    {
+     "id": "a",
+     "type": "character",
+     "name": "A"
+    },
+    {
+     "id": "n1",
+     "type": "narrative",
+     "name": "Known of",
+     "supertype": "Message",
+     "characters": [],
+     "created_at": "2026-10-20T12:00:00Z"
+    },
+    {
+     "id": "n2",
+     "type": "narrative",
+     "name": "To everyone",
+     "supertype": "Message",
+     "characters": [],
+     "created_at": "2026-10-21T12:00:00Z"
+    }
+   ]
+  },
+  "lens": {
+   "id": "L",
+   "type": "construct",
+   "name": "L",
+   "supertype": "Lens",
+   "x_lens": {
+    "types": [
+     "character"
+    ],
+    "mail": "unread_full_read_titles"
+   }
+  },
+  "reader": {
+   "rung": "guest",
+   "character": "a",
+   "whole": [
+    "a",
+    "L",
+    "n2"
+   ],
+   "known_of": [
+    "n1"
+   ]
+  },
+  "clock": "2026-10-27T12:00:00Z",
+  "want": {
+   "kept": [
+    "a"
+   ],
+   "cut": {},
+   "mail": {
+    "unread": [
+     "n2"
+    ],
+    "read": [],
+    "cut": {},
+    "totals": {
+     "unread": 1,
+     "read": 0
+    }
+   }
   }
  }
 ]
