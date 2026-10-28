@@ -147,6 +147,32 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Same("{}", Cut(r));
         }
 
+        // --- A known-of stub's body ---
+
+        [Test]
+        public void AStub_KeepsItsTypesPublicFields_AndNoChangeSeq()
+        {
+            var r = Read(@"[{""id"":""L"",""type"":""construct"",""name"":""L"",""supertype"":""Lens"",""x_lens"":{""depth"":0},""characters"":[""k""]},
+                {""id"":""k"",""type"":""character"",""name"":""k"",""physicality"":""tall"",""height"":180,""change_seq"":7,
+                ""birth_date"":1190,""species"":[""s""]}]", "L", OWLensReader.Guest(new[] { "L" }, new[] { "k" }));
+            Same(@"[{""id"":""k"",""type"":""character"",""name"":""k"",""physicality"":""tall"",""height"":180,""known_of"":true}]", Rows(r));
+        }
+
+        [Test]
+        public void TheStubsPublicFields_AreThePresentationSidecars()
+        {
+            var root = TestPackage.Root();
+            Assert.IsNotNull(root, "the package root was not found");
+            var sidecar = JObject.Parse(System.IO.File.ReadAllText(
+                System.IO.Path.Combine(root, "Runtime", "Resources", "ow-presentation.json")));
+            foreach (var slug in OWElementTypes.Slugs)
+            {
+                var links = new HashSet<string>(OWLens.LinkFieldsOf(slug).Select(l => l.field));
+                var want = ((JArray)sidecar["types"][slug]["public"]).Select(t => (string)t).Where(f => !links.Contains(f));
+                CollectionAssert.AreEqual(want.ToArray(), OWLens.StubPublicFields(slug).ToArray(), slug);
+            }
+        }
+
         // --- Helpers ---
 
         /// <summary>

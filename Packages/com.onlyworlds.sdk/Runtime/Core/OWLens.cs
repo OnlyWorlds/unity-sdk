@@ -348,11 +348,32 @@ namespace OnlyWorlds.Sdk
         private static readonly string[] ShowValues = { "full", "first_line", "name" };
         private static readonly string[] MailValues = { "unread_full_read_titles", "all", "none" };
 
-        /// <summary>The keys a known-of stub keeps (the API's stub, less the type's public fields).</summary>
+        /// <summary>The keys every known-of stub keeps, beside its type's public fields (<see cref="StubPublicFields"/>).</summary>
         private static readonly string[] StubKeys =
         {
-            "type", "id", "name", "description", "supertype", "subtype", "image_url", "created_at", "updated_at", "change_seq",
+            "type", "id", "name", "description", "supertype", "subtype", "image_url", "created_at", "updated_at",
         };
+
+        /// <summary>
+        /// Each type's public fields, the ones the platform shows on a known-of element: the presentation sidecar's
+        /// <c>types.&lt;type&gt;.public</c> (<c>Runtime/Resources/ow-presentation.json</c>, keel's field tag). A type not
+        /// named has none. OWLensParityTests holds this table to the sidecar.
+        /// </summary>
+        private static readonly Dictionary<string, string[]> PublicFields = new Dictionary<string, string[]>
+        {
+            ["character"] = new[] { "physicality", "height", "weight", "species", "reputation" },
+        };
+
+        /// <summary>
+        /// The fields a known-of stub of this type keeps beside <see cref="StubKeys"/>: its public fields that are not
+        /// links (a stub carries no links), as the TypeScript SDK and the Python package serve a stub.
+        /// </summary>
+        internal static IReadOnlyList<string> StubPublicFields(string type)
+        {
+            if (type == null || !PublicFields.TryGetValue(type, out var fields)) return Array.Empty<string>();
+            var links = new HashSet<string>(LinkFieldsOf(type).Select(l => l.field));
+            return fields.Where(f => !links.Contains(f)).ToArray();
+        }
 
         /// <summary>
         /// True when the element is a lens: its <c>type</c> and <c>supertype</c>, each trimmed and folded as the room
@@ -1091,9 +1112,10 @@ namespace OnlyWorlds.Sdk
                 if (KnownOf.Contains(i))
                 {
                     var stub = new JObject();
+                    var publicFields = StubPublicFields(TypeOf(i));
                     foreach (var p in e.Properties())
                     {
-                        if (Array.IndexOf(StubKeys, p.Name) >= 0) stub[p.Name] = p.Value.DeepClone();
+                        if (Array.IndexOf(StubKeys, p.Name) >= 0 || publicFields.Contains(p.Name)) stub[p.Name] = p.Value.DeepClone();
                     }
 
                     stub[OWPayload.KnownOf] = true;

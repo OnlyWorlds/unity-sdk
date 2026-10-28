@@ -197,6 +197,10 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   the Python package read it: the umbrella's `budget` caps the union and its mail rule is the reading's only one, so a
   child's own `budget` no longer cuts its kept list before the union (nor its own mail rule take messages out of
   it), and a child's kept elements are shown by the child's own `show`, not the umbrella's.
+- `OWLens` serves a known-of stub as the TypeScript SDK and the Python package do: its base keys (`id`, `type`,
+  `name`, `description`, `supertype`, `subtype`, `image_url`, `created_at`, `updated_at`) and its type's public fields
+  that are not links (the presentation sidecar's `public`: a Character's `physicality`, `height`, `weight`,
+  `reputation`), with `known_of: true`. It had kept `change_seq` and dropped the public fields.
 - `OWLens` reads a JSON number with no fraction as whole, as the TypeScript SDK and the Python package do: a date of
   `7.0` reads as 7 (it read as undated), and a lens's `depth`, `window`, `from`, `to` or `budget` written as `2.0`
   is legal. A fraction, NaN or a number past 64 bits is still not whole.
