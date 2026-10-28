@@ -1,8 +1,9 @@
 // The room profile: which elements a parlor or a workshop puts in a world, told apart by type and supertype together
 // with the mark x_room_of (schema-dist profiles/room.md, serial 45; "trimmed and without regard to case" defined once
 // at serial 47; the ninth pair, relation/Take, at serial 66). The reading aids beside them (the charter, its guide and its
-// domains, by their pair and the mark x_charter_of) at serial 82, read the same way: room.md's "Not in the room" line and
-// the lens profile's rule 4.
+// domains, by their pair and the mark x_charter_of) at serial 82: room.md's "Not in the room" line and the lens profile's
+// rule 4. The two marks are read apart: x_room_of as a non-empty string, x_charter_of present and not null, a string
+// only when not blank (isCharterElement, 4.98.0).
 //
 // Ported from @onlyworlds/sdk src/room.ts (4.55.0, ca15043; the trim of 4.57.2), isRoomElement. The conformance
 // fixture, profiles/room.fixture.json, is this file's own test (OWRoomTests), as it is the TypeScript SDK's and the
@@ -56,7 +57,7 @@ namespace OnlyWorlds.Sdk
         /// is folded by Unicode simple case folding from a table, so every runtime answers the same.
         /// </para>
         /// </remarks>
-        public static bool IsRoomElement(JObject element) => Matches(element, MarkField, Pairs);
+        public static bool IsRoomElement(JObject element) => HasRoomMark(element) && Matches(element, Pairs);
 
         /// <summary>The mark a reading aid carries: the id of the world the aid belongs to.</summary>
         public const string ReadingAidMarkField = "x_charter_of";
@@ -72,7 +73,11 @@ namespace OnlyWorlds.Sdk
         /// <summary>
         /// True when the element is a reading aid: its <c>type</c> and <c>supertype</c>, each trimmed and compared
         /// without regard to case, match one of <see cref="ReadingAidPairs"/>, and it carries
-        /// <see cref="ReadingAidMarkField"/> as a non-empty string. Both, always: read like <see cref="IsRoomElement"/>.
+        /// <see cref="ReadingAidMarkField"/>, present and not null. Both, always. The mark is read as the API reads it: a
+        /// string mark counts only when something is left after trimming White_Space (so <c>"  "</c> is no mark), and any
+        /// other JSON value but null counts (so <c>7</c> is one). The pair is trimmed and folded as
+        /// <see cref="IsRoomElement"/> reads its own. The TypeScript SDK's <c>isCharterElement</c> and the Python package's
+        /// <c>is_charter_element</c> answer the same.
         /// </summary>
         /// <param name="element">An element body that names its <c>type</c> (a slug); null is no element.</param>
         /// <remarks>
@@ -88,14 +93,31 @@ namespace OnlyWorlds.Sdk
         /// any other. Read this test rather than keeping a list of the three pairs.
         /// </para>
         /// </remarks>
-        public static bool IsReadingAid(JObject element) => Matches(element, ReadingAidMarkField, ReadingAidPairs);
+        public static bool IsCharterElement(JObject element) =>
+            HasCharterMark(element) && Matches(element, ReadingAidPairs);
 
-        private static bool Matches(JObject element, string markField, IReadOnlyList<(string type, string supertype)> pairs)
+        /// <summary>
+        /// The room mark as the room test reads it: a JSON string with at least one character (whitespace counts).
+        /// </summary>
+        private static bool HasRoomMark(JObject element) =>
+            element?[MarkField] is JValue m && m.Type == JTokenType.String && ((string)m).Length > 0;
+
+        /// <summary>
+        /// The charter mark as the API reads it: present and not null; a string only when something is left after trimming
+        /// White_Space. Any other JSON value (a number, a boolean, an object, a list) is a mark.
+        /// </summary>
+        private static bool HasCharterMark(JObject element)
+        {
+            var m = element?[ReadingAidMarkField];
+            if (m == null || m.Type == JTokenType.Null || m.Type == JTokenType.Undefined) return false;
+            return m.Type != JTokenType.String || OWProfileText.TrimWhiteSpace((string)m).Length > 0;
+        }
+
+        private static bool Matches(JObject element, IReadOnlyList<(string type, string supertype)> pairs)
         {
             if (element == null) return false;
             if (!(element["type"] is JValue t && t.Type == JTokenType.String)) return false;
             if (!(element["supertype"] is JValue s && s.Type == JTokenType.String)) return false;
-            if (!(element[markField] is JValue m && m.Type == JTokenType.String) || ((string)m).Length == 0) return false;
 
             var type = OWProfileText.Fold((string)t);
             var supertype = OWProfileText.Fold((string)s);

@@ -174,19 +174,43 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             foreach (var (type, supertype) in OWRoom.ReadingAidPairs)
             {
-                Assert.IsTrue(OWRoom.IsReadingAid(Aid(type, supertype, World)), $"{type}/{supertype}");
-                Assert.IsFalse(OWRoom.IsReadingAid(Aid(type, supertype, null)), $"{type}/{supertype} without the mark is lore");
-                Assert.IsFalse(OWRoom.IsReadingAid(Aid(type, supertype, "")), $"{type}/{supertype} with an empty mark");
+                Assert.IsTrue(OWRoom.IsCharterElement(Aid(type, supertype, World)), $"{type}/{supertype}");
+                Assert.IsFalse(OWRoom.IsCharterElement(Aid(type, supertype, null)), $"{type}/{supertype} without the mark is lore");
+                Assert.IsFalse(OWRoom.IsCharterElement(Aid(type, supertype, "")), $"{type}/{supertype} with an empty mark");
                 Assert.IsFalse(OWRoom.IsRoomElement(Aid(type, supertype, World)), $"{type}/{supertype} is not a room element");
-                Assert.IsFalse(OWRoom.IsReadingAid(El(type, supertype, World)), $"{type}/{supertype} with the room's mark");
+                Assert.IsFalse(OWRoom.IsCharterElement(El(type, supertype, World)), $"{type}/{supertype} with the room's mark");
             }
 
-            Assert.IsTrue(OWRoom.IsReadingAid(Aid(" LAW ", "charter" + U(0x3000), World)), "trimmed and folded");
-            Assert.IsFalse(OWRoom.IsReadingAid(Aid("law", "Charters", World)), "the whole word");
-            Assert.IsFalse(OWRoom.IsReadingAid(Aid("construct", "Charter", World)), "a pair is a type and a supertype together");
-            Assert.IsFalse(OWRoom.IsReadingAid(Aid("construct", "Lens", World)), "a mark without a pair");
-            Assert.IsFalse(OWRoom.IsReadingAid(Aid("law", "Charter", 7)), "a mark that is not a string");
-            Assert.IsFalse(OWRoom.IsReadingAid(null));
+            Assert.IsTrue(OWRoom.IsCharterElement(Aid(" LAW ", "charter" + U(0x3000), World)), "trimmed and folded");
+            Assert.IsFalse(OWRoom.IsCharterElement(Aid("law", "Charters", World)), "the whole word");
+            Assert.IsFalse(OWRoom.IsCharterElement(Aid("construct", "Charter", World)), "a pair is a type and a supertype together");
+            Assert.IsFalse(OWRoom.IsCharterElement(Aid("construct", "Lens", World)), "a mark without a pair");
+            Assert.IsFalse(OWRoom.IsCharterElement(null));
+        }
+
+        /// <summary>
+        /// The TypeScript SDK 4.98.0's vector for <c>isCharterElement</c> (<c>test/lens.test.mjs</c>; the Python package
+        /// 0.80.0 holds the same): the mark counts when it is present and not null, and a string mark only when something
+        /// is left after trimming White_Space. Kills: a number read as no mark, a blank string read as a mark, a JSON null
+        /// read as a mark, the room's mark read for this one.
+        /// </summary>
+        [Test]
+        public void ACharterElements_Mark_CountsWhenPresentAndNotNull_AStringOnlyWhenNotBlank()
+        {
+            Assert.IsTrue(OWRoom.IsCharterElement(JObject.Parse(@"{""id"":""rules"",""type"":""law"",""supertype"":""Charter"",""x_charter_of"":""w1""}")));
+            Assert.IsFalse(OWRoom.IsCharterElement(JObject.Parse(@"{""id"":""charter"",""type"":""law"",""supertype"":"" charter ""}")), "the pair without the mark: lore");
+            Assert.IsTrue(OWRoom.IsCharterElement(JObject.Parse(@"{""type"":""construct"",""supertype"":""Domain"",""x_charter_of"":""w1""}")));
+            Assert.IsTrue(OWRoom.IsCharterElement(JObject.Parse(@"{""type"":""construct"",""supertype"":""GUIDE"",""x_charter_of"":""w1""}")), "folded");
+            Assert.IsFalse(OWRoom.IsCharterElement(Aid("law", "Charters", "w1")), "the whole word");
+            Assert.IsFalse(OWRoom.IsCharterElement(Aid("object", "Charter", "w1")));
+            Assert.IsFalse(OWRoom.IsCharterElement(Aid("law", "Charter", "")), "an empty string");
+            Assert.IsFalse(OWRoom.IsCharterElement(Aid("law", "Charter", " " + U(0x3000))), "a blank string: White_Space trimmed");
+            Assert.IsFalse(OWRoom.IsCharterElement(Aid("law", "Charter", "  ")), "two spaces");
+            Assert.IsFalse(OWRoom.IsCharterElement(JObject.Parse(@"{""type"":""law"",""supertype"":""Charter"",""x_charter_of"":null}")), "a JSON null");
+            Assert.IsTrue(OWRoom.IsCharterElement(Aid("law", "Charter", 7)), "a number is a mark");
+            Assert.IsTrue(OWRoom.IsCharterElement(Aid("law", "Charter", " w1 ")), "a string with something left after trimming");
+            Assert.IsTrue(OWRoom.IsCharterElement(Aid("law", "Charter", U(0xFEFF))), "a byte order mark is not White_Space");
+            Assert.IsFalse(OWRoom.IsCharterElement(El("law", "Charter", "w1")), "the room's mark is not this one");
         }
     }
 }

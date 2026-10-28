@@ -50,7 +50,7 @@ namespace OnlyWorlds.Sdk
         public const string MapSpace = "map_space";
 
         /// <summary>
-        /// A reading aid (<see cref="OWRoom.IsReadingAid"/>: the charter, its guide, its domains, by the pair and the mark
+        /// A reading aid (<see cref="OWRoom.IsCharterElement"/>: the charter, its guide, its domains, by the pair and the mark
         /// <c>x_charter_of</c>), out of an unlensed graph. No flag brings it back; a lens that names its pair keeps it.
         /// </summary>
         public const string ReadingAid = "reading_aid";
@@ -325,7 +325,7 @@ namespace OnlyWorlds.Sdk
         /// <para>
         /// Without a lens the nodes are every element the reader sees less what is out by default: room elements, hidden
         /// ones, proposed ones and map space, each brought back by its flag and then marked (map space carries no mark),
-        /// and the reading aids (<see cref="OWRoom.IsReadingAid"/>), which no flag brings back.
+        /// and the reading aids (<see cref="OWRoom.IsCharterElement"/>), which no flag brings back.
         /// With a lens (<see cref="OWGraphOptions.Lens"/> or <see cref="OWGraphOptions.LensId"/>) the nodes are exactly the
         /// lens's kept, its cut rides along unchanged, and a flag adds nothing: a lens means one thing everywhere. A lens
         /// whose <c>x_lens</c> cannot be read gives an empty graph naming the key; a lens id the reader is not served whole

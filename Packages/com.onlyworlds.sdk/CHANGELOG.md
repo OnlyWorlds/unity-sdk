@@ -133,10 +133,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   the reading's wall clock (`OWLensOptions.Clock`, or `OWGraphOptions.Clock`) is cut and counted under the new reason
   `OWLensCut.Stale` (`stale`), after `window` and before the budget; it never applies to an anchor, and an element with
   no time is never cut. A folder element is read by the newer of its `server_updated_at` and `local_updated_at`.
-  `CheckKeys` refuses anything else by name, between `undated` and `show`. **`OWRoom.IsReadingAid(element)`** tells
-  the charter (a Law with supertype Charter), its guide (a Construct with supertype Guide) and its domains (Constructs
-  with supertype Domain) by the pair, trimmed and folded, AND the mark `x_charter_of` (`OWRoom.ReadingAidMarkField`,
-  the id of the world the aid belongs to), beside `IsRoomElement`; the pair without the mark is lore.
+  `CheckKeys` refuses anything else by name, between `undated` and `show`. **`OWRoom.IsCharterElement(element)`**
+  tells the charter (a Law with supertype Charter), its guide (a Construct with supertype Guide) and its domains
+  (Constructs with supertype Domain) by the pair, trimmed and folded, AND the mark `x_charter_of`
+  (`OWRoom.ReadingAidMarkField`, the id of the world the aid belongs to), beside `IsRoomElement`; the pair without the
+  mark is lore. The mark counts when it is present and not null, a string only when something is left after trimming
+  White_Space: `7` is a mark, `"  "` is not (the room mark `x_room_of` is still read as a non-empty string). Parity
+  with the TypeScript SDK 4.98.0 (`isCharterElement`) and the Python package 0.80.0 (`is_charter_element`), their
+  test vector ported.
   `OWRoom.ReadingAidPairs` holds the three pairs; read the test rather than keeping a list of them. In
   `OWLens.Resolve` a reading aid a hop reaches is kept, and hopped out of, only when `types` names its pair
   (`law/charter`, `construct/guide`, `construct/domain`, now legal `types` words); otherwise it is cut as `types`, and
