@@ -59,6 +59,20 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Same("{}", Cut(r));
         }
 
+        // --- A served lens or message names the link fields its reader's view trimmed ---
+
+        [Test]
+        public void AServedMessage_NamesItsTrimmedField()
+        {
+            var r = Read(@"[{""id"":""L"",""type"":""construct"",""name"":""L"",""supertype"":""Lens"",""x_lens"":{},""characters"":[""m""]},
+                {""id"":""m"",""type"":""narrative"",""name"":""m"",""supertype"":""Message"",""characters"":[""c1"",""h""]},
+                {""id"":""c1"",""type"":""character"",""name"":""c1""},
+                {""id"":""h"",""type"":""character"",""name"":""h"",""hidden"":true}]", "L", OWLensReader.Contributor());
+            Same(@"[""m"",""c1""]", Kept(r));
+            Same(@"[{""id"":""m"",""type"":""narrative"",""name"":""m"",""supertype"":""Message"",""characters"":[""c1""],
+                ""x_served_trimmed"":[""characters""]},{""id"":""c1"",""type"":""character"",""name"":""c1""}]", Rows(r));
+        }
+
         // --- Helpers ---
 
         /// <summary>

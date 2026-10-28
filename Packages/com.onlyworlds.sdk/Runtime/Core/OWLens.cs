@@ -1062,28 +1062,49 @@ namespace OnlyWorlds.Sdk
                 }
 
                 var body = (JObject)e.DeepClone();
+                var trimmed = new List<string>();
                 foreach (var (field, many) in LinkFieldsOf(TypeOf(i)))
                 {
                     if (!body.TryGetValue(field, out var value)) continue;
                     if (many)
                     {
                         var kept = new JArray();
+                        var cut = false;
                         if (value is JArray array)
                         {
                             foreach (var entry in array)
                             {
                                 var id = StringOf(entry);
                                 if (id != null && Sees(id)) kept.Add(entry.DeepClone());
+                                else if (id != null) cut = true;
                             }
                         }
 
                         body[field] = kept;
+                        if (cut) trimmed.Add(field);
                     }
                     else
                     {
                         var id = StringOf(value);
-                        if (string.IsNullOrEmpty(id) || !Sees(id)) body[field] = JValue.CreateNull();
+                        if (string.IsNullOrEmpty(id) || !Sees(id))
+                        {
+                            body[field] = JValue.CreateNull();
+                            if (id != null) trimmed.Add(field);
+                        }
                     }
+                }
+
+                // A served message or lens names the link fields its reader's view trimmed, as the server marks them
+                // (OWMessage.ServedTrimmedKey), so a reader of the body knows a list was cut, not empty.
+                if (trimmed.Count > 0 && (OWMessage.IsMessage(body) || IsLens(body)))
+                {
+                    var mark = body[OWMessage.ServedTrimmedKey] is JArray old ? (JArray)old.DeepClone() : new JArray();
+                    foreach (var field in trimmed)
+                    {
+                        if (!mark.Any(entry => StringOf(entry) == field)) mark.Add(field);
+                    }
+
+                    body[OWMessage.ServedTrimmedKey] = mark;
                 }
 
                 return body;
