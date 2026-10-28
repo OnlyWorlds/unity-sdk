@@ -123,6 +123,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             var roomWords = OWRoom.Pairs.Select(p => OWProfileText.Fold(p.type) + "/" + OWProfileText.Fold(p.supertype));
             CollectionAssert.AreEqual(Strings(f["room_pairs"]), roomWords.ToList());
+            var aidWords = OWRoom.ReadingAidPairs.Select(p => OWProfileText.Fold(p.type) + "/" + OWProfileText.Fold(p.supertype));
+            CollectionAssert.AreEqual(Strings(f["reading_aid_pairs"]), aidWords.ToList());
+            Assert.AreEqual((string)f["reading_aid_mark"]["field"], OWRoom.ReadingAidMarkField);
 
             CollectionAssert.AreEqual(Strings(f["cut_reasons"]), OWLensCut.All);
             CollectionAssert.AreEqual(Strings(f["owner_only_reasons"]), OWLensCut.OwnerOnly);
@@ -517,6 +520,66 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             var whole = OWLens.Resolve(world, "L", OWLensReader.Guest(new[] { "L", "c1", "c2" }, new string[0]));
             CollectionAssert.AreEqual(new[] { "c1", "c2" }, whole.Kept);
+        }
+
+        // Rule 1 at serial 82: a lens the reader is served only as a known-of stub resolves as not there, by its body too.
+        // A served stub carries no links and no x_lens, so read as a body it would be a lens with no anchors: a filter over
+        // the reader's whole view. Kills: a stub body read as a filter.
+        [Test]
+        public void ALensBodyServedAsAStub_ReadsAsNothing_NeverAsAFilter()
+        {
+            var world = new List<JObject>
+            {
+                JObject.Parse(@"{""id"":""c1"",""type"":""character"",""name"":""Ada""}"),
+                JObject.Parse(@"{""id"":""c2"",""type"":""character"",""name"":""Bo""}"),
+            };
+            var stub = JObject.Parse(@"{""id"":""L"",""type"":""construct"",""name"":""Ada and hers"",""supertype"":""Lens"",""known_of"":true}");
+
+            var r = OWLens.Resolve(world, stub, OWLensReader.Owner());
+            CollectionAssert.IsEmpty(r.Kept, "a stub lens body keeps nothing");
+            CollectionAssert.IsEmpty(r.Cut, "a stub lens body cuts nothing");
+            Assert.IsNull(r.RefusedKey);
+            CollectionAssert.IsEmpty(OWGraph.Read(world, OWLensReader.Owner(), new OWGraphOptions { Lens = stub }).Nodes);
+
+            stub["known_of"] = false;
+            CollectionAssert.AreEqual(new[] { "c1", "c2" }, OWLens.Resolve(world, stub, OWLensReader.Owner()).Kept,
+                "known_of false is a whole body: a lens with no anchors is a filter");
+        }
+
+        // changed_within (serial 82): a whole number of days from 1, refused by name otherwise, between undated and show
+        // in the table's order. The fixture's keys cases do not carry it.
+        [Test]
+        public void ChangedWithin_IsAWholeNumberOfDaysFromOne()
+        {
+            Assert.IsNull(OWLens.CheckKeys(JObject.Parse(@"{""changed_within"":1}")));
+            Assert.IsNull(OWLens.CheckKeys(JObject.Parse(@"{""changed_within"":null}")), "null is absent");
+            foreach (var bad in new[] { "0", "-3", "1.5", "\"7\"", "true", "[7]" })
+                Assert.AreEqual("changed_within", OWLens.CheckKeys(JObject.Parse(@"{""changed_within"":" + bad + "}")), bad);
+            Assert.AreEqual("undated", OWLens.CheckKeys(JObject.Parse(@"{""undated"":""no"",""changed_within"":0}")), "undated first");
+            Assert.AreEqual("changed_within", OWLens.CheckKeys(JObject.Parse(@"{""changed_within"":0,""show"":""no""}")), "before show");
+            Assert.IsNull(OWLens.CheckKeys(JObject.Parse(@"{""types"":[""law/charter"",""Construct/Guide"",""construct/domain""]}")),
+                "a reading aid's pair is a type word");
+        }
+
+        // changed_within reads the server's updated_at, or a folder element's server_updated_at or local_updated_at, the
+        // newer; no time, no cut; never an anchor. Kills: the folder's local edit ignored, an element with no time cut.
+        [Test]
+        public void ChangedWithin_ReadsUpdatedAt_OrTheNewerOfAFoldersTwo_AndNeverAnAnchor()
+        {
+            var world = new List<JObject>
+            {
+                JObject.Parse(@"{""id"":""a"",""type"":""institution"",""name"":""Anchor"",""objects"":[""o1"",""o2"",""o3"",""o4""],""updated_at"":""2026-01-01T00:00:00Z""}"),
+                JObject.Parse(@"{""id"":""o1"",""type"":""object"",""name"":""Fresh"",""updated_at"":""2026-10-26T00:00:00Z""}"),
+                JObject.Parse(@"{""id"":""o2"",""type"":""object"",""name"":""Old on the server, edited here"",""server_updated_at"":""2026-09-01T00:00:00Z"",""local_updated_at"":""2026-10-25T00:00:00Z""}"),
+                JObject.Parse(@"{""id"":""o3"",""type"":""object"",""name"":""Old both ways"",""server_updated_at"":""2026-09-01T00:00:00Z"",""local_updated_at"":""2026-09-02T00:00:00Z""}"),
+                JObject.Parse(@"{""id"":""o4"",""type"":""object"",""name"":""No time""}"),
+            };
+            var lens = JObject.Parse(@"{""id"":""L"",""type"":""construct"",""supertype"":""Lens"",""institutions"":[""a""],""x_lens"":{""changed_within"":7}}");
+            var options = new OWLensOptions { Clock = new DateTimeOffset(2026, 10, 27, 12, 0, 0, TimeSpan.Zero) };
+
+            var r = OWLens.Resolve(world, lens, OWLensReader.Owner(), options);
+            CollectionAssert.AreEquivalent(new[] { "a", "o1", "o2", "o4" }, r.Kept);
+            CollectionAssert.AreEquivalent(new Dictionary<string, int> { [OWLensCut.Stale] = 1 }, r.Cut);
         }
 
         /// <summary>The case's lens, a body or the id of a lens in the world.</summary>

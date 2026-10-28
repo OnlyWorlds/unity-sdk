@@ -128,6 +128,22 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   when the owner names a person's row. The client's one request rule now reads a third mark beside the `/account`
   routes and the world reads: a route the server's document declares the account token on. Parity with the TypeScript
   SDK 4.94.0, its test vectors ported.
+- **The lens profile at serial 82: `changed_within` and the reading aids.** `x_lens` takes `changed_within`, a whole
+  number of days from 1: an element a hop or a filter reaches whose `updated_at` is older than that many days before
+  the reading's wall clock (`OWLensOptions.Clock`, or `OWGraphOptions.Clock`) is cut and counted under the new reason
+  `OWLensCut.Stale` (`stale`), after `window` and before the budget; it never applies to an anchor, and an element with
+  no time is never cut. A folder element is read by the newer of its `server_updated_at` and `local_updated_at`.
+  `CheckKeys` refuses anything else by name, between `undated` and `show`. **`OWRoom.IsReadingAid(element)`** tells
+  the charter (a Law with supertype Charter), its guide (a Construct with supertype Guide) and its domains (Constructs
+  with supertype Domain) by the pair, trimmed and folded, AND the mark `x_charter_of` (`OWRoom.ReadingAidMarkField`,
+  the id of the world the aid belongs to), beside `IsRoomElement`; the pair without the mark is lore.
+  `OWRoom.ReadingAidPairs` holds the three pairs; read the test rather than keeping a list of them. In
+  `OWLens.Resolve` a reading aid a hop reaches is kept, and hopped out of, only when `types` names its pair
+  (`law/charter`, `construct/guide`, `construct/domain`, now legal `types` words); otherwise it is cut as `types`, and
+  a lens with no `types`, or one naming only `law` or `construct`, keeps none. An anchor that is a reading aid is kept
+  and followed like any anchor. In `OWGraph.Read` the reading aids are out of an unlensed graph, counted under the new
+  reason `OWGraphCut.ReadingAid` (`reading_aid`), and no flag brings them back; a lens that names the pair keeps them.
+  The fixture's 132 cases are the test.
 
 ### Changed
 
@@ -176,6 +192,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Fixed
 
+- `OWLens.Resolve` and `OWGraph.Read` read a lens body served only as a known-of stub (`known_of: true`) as not there:
+  it keeps and cuts nothing. It had been read as a lens with no anchors, a filter over the reader's whole view. A lens
+  named by its id already read as nothing unless the reader is served it whole. The lens profile's rule 1, serial 82.
 - `OWLens.Resolve` leaves the lens being read, and every lens it enters, out of its own result, as the lens profile's
   rule 3 says and the TypeScript SDK and the Python package read it: a lens that names itself (or a lens already
   entered) as an anchor no longer keeps itself, an umbrella's hop no longer reaches its own child lens (it had kept
