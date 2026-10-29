@@ -101,6 +101,38 @@ var client = new OWClient(new OWClientConfig { ApiKey = joined.Key, Transport = 
 
 The models follow the OnlyWorlds schema; `OWSchemaPin` names the schema version they were generated from.
 
+## Opening `ow://` links in your Editor or game
+
+`OWLinkListener` lets an address link clicked outside Unity reach your running Editor or player:
+
+```csharp
+var listener = new OWLinkListener(47615, reading => Select(reading.World, reading.Type, reading.Id));
+if (!listener.TryStart(out var refusal)) Debug.Log($"No link listener: {refusal}"); // port_taken: another Editor has it
+// ...
+listener.Stop();
+```
+
+It listens on 127.0.0.1 only, never another interface, reads one line per connection (the link, at most 4096
+bytes), and can do nothing but hand you an `OWAddressReading`, on the main thread. A line the address profile refuses
+is answered with the refusal and goes no further.
+
+For a click in a browser to arrive, the operating system needs a handler for `ow://`. The package ships one for
+Windows in `Tools~/ow-link` (Unity ignores the folder; find it under the package's path). It is opt-in and per user:
+nothing is registered until you run its installer, which writes only `HKCU\Software\Classes\ow` and needs no
+administrator. Copy `ow-link.example.json`, set your ports and your player, then:
+
+```
+powershell -ExecutionPolicy Bypass -File install.ps1 -Config my-ow-link.json
+```
+
+To remove it, with nothing left behind:
+
+```
+powershell -ExecutionPolicy Bypass -File "%LOCALAPPDATA%\OnlyWorlds\ow-link\install.ps1" -Uninstall
+```
+
+This is for local development: no public page offers it.
+
 ## Things that will bite you
 
 **Only `name` is required.** Every other field is optional, and the API sends its empty value explicitly (`null`,

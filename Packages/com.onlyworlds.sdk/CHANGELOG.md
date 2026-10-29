@@ -6,6 +6,19 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- `OWLinkListener`: a listener on 127.0.0.1, never another interface, for an address link clicked outside Unity.
+  One connection carries one line, the link, read whole by `OWAddress.TryParseLink`; it answers `ok` or
+  `refused <reason>` (the address profile's own word, or `too_long` past 4096 bytes, `no_line`, `no_receiver`) and
+  hands an accepted `OWAddressReading` to your callback through `OWMainThread.Run`, or a dispatch you pass.
+  `TryStart` reports a taken port as `port_taken` rather than throwing, so two Editors can run side by side; a
+  domain unload stops every listener. `OWLinkListener.TrySend(port, link, timeout)` is the sender.
+- `Tools~/ow-link`: an opt-in forwarder for Windows that the system runs for `ow://` links. It offers the link to an
+  ordered list of ports from its config (a running Editor, then a running player) and starts the configured player
+  with the link when none takes it. `install.ps1` registers it for the current user only (`HKCU`, no administrator)
+  and `install.ps1 -Uninstall` removes it. Nothing is registered unless you run the installer.
+
 ### Changed
 
 - The schema pin moves to dist.90 (`v0.33.0-dist.90`). The calendar profile now says in words what the reader

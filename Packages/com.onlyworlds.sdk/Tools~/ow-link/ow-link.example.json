@@ -1,0 +1,8 @@
+{
+  "ports": [47615, 47616],
+  "timeout_ms": 600,
+  "player": {
+    "path": "%LOCALAPPDATA%\\Programs\\MyWorldPlayer\\MyWorldPlayer.exe",
+    "args": ["--ow-link", "{link}"]
+  }
+}
