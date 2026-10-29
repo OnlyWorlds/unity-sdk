@@ -6,6 +6,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The schema pin moves to dist.88 (`v0.33.0-dist.88`). Nothing in the schema or the readers moved: the lens fixture
+  gains a graph case whose elements carry an empty review mark, an object and a string, both nodes with no proposed
+  mark, which `OWGraph` passes.
+
 ## [0.25.0] - 2026-10-29
 
 Serials 86 and 87 in Unity: the presentation sidecar names each type's colour group by its colour word, an empty

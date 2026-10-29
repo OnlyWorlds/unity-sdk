@@ -13,7 +13,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// The lens profile's conformance fixture (schema-dist <c>profiles/lens.fixture.json</c>, vendored byte for byte in
-    /// <c>Tests/Editor/Fixtures/lens/</c> from dist.87), replayed case by case through <see cref="OWLens"/>: the pair and
+    /// <c>Tests/Editor/Fixtures/lens/</c> from dist.88), replayed case by case through <see cref="OWLens"/>: the pair and
     /// the template (<see cref="OWLens.IsLens"/>, <see cref="OWLens.IsTemplate"/>), the legal values of <c>x_lens</c>
     /// (<see cref="OWLens.CheckKeys"/>), every resolution over the fixture's worlds and their readers
     /// (<see cref="OWLens.Resolve(IEnumerable{JToken}, JObject, OWLensReader, OWLensOptions)"/>), the invariants, and
@@ -28,13 +28,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </remarks>
     public class OWLensTests
     {
-        /// <summary>The fixture's sha256 as dist.87's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "ef071a800b4d012d493fcf9c602e92c749016a01fab8fabe2b44acf46f8dd792";
+        /// <summary>The fixture's sha256 as dist.88's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "2ce92de4f07ccd4b289a881f749579c653358a37fc4ec9e219d84d13addb0cdd";
 
-        /// <summary>The fixture's cases by kind, as dist.87 holds them (152 in all; the graph kind is the graph reader's).</summary>
+        /// <summary>The fixture's cases by kind, as dist.88 holds them (153 in all; the graph kind is the graph reader's).</summary>
         private static readonly Dictionary<string, int> Counts = new Dictionary<string, int>
         {
-            ["shape"] = 6, ["keys"] = 25, ["resolve"] = 75, ["invariant"] = 4, ["uses"] = 4, ["graph"] = 38,
+            ["shape"] = 6, ["keys"] = 25, ["resolve"] = 75, ["invariant"] = 4, ["uses"] = 4, ["graph"] = 39,
         };
 
         private static JObject _fixture;
@@ -84,15 +84,15 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.87's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.88's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
-        public void TheFixture_HoldsDist87sCases()
+        public void TheFixture_HoldsDist88sCases()
         {
             Assert.IsNotNull(Fixture, "the vendored lens fixture was not found");
             var cases = Fixture["cases"].Cast<JObject>().ToList();
-            Assert.AreEqual(152, cases.Count, "dist.87's fixture holds 152 cases");
+            Assert.AreEqual(153, cases.Count, "dist.88's fixture holds 153 cases");
             var counts = cases.GroupBy(c => (string)c["kind"]).ToDictionary(g => g.Key, g => g.Count());
             CollectionAssert.AreEquivalent(Counts, counts);
         }
