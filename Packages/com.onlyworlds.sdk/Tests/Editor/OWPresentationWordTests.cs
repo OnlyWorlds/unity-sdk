@@ -97,6 +97,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var ex = Assert.Catch<Exception>(() => Load(sidecar));
             StringAssert.Contains("'pink'", ex.Message);
             StringAssert.Contains("colors.families", ex.Message);
+            // The types drawn in that word are named, so a reader knows what would have been drawn grey.
+            foreach (var type in new[] { "construct", "language", "law", "title", "trait" })
+                StringAssert.Contains(type, ex.Message);
 
             // Never a grey for a known type: the failure is the answer for every type, a pink one and any other.
             StringAssert.Contains("'pink'", Assert.Catch<Exception>(() => OWPresentation.ColorFor("language", true)).Message);
@@ -123,6 +126,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 var ex = Assert.Catch<Exception>(() => Load(sidecar), hex);
                 StringAssert.Contains("'" + hex + "'", ex.Message, hex);
                 StringAssert.Contains("'amber'", ex.Message, hex);
+                StringAssert.Contains("event", ex.Message, hex);
                 OWPresentation.Reload();
             }
         }
