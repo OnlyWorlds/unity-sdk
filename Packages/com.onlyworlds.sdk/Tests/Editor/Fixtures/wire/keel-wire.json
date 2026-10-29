@@ -5,7 +5,7 @@
     "X-Session-Token",
     "Authorization"
   ],
-  "document_sha256": "2756294a066bd2f1257a084c251159db52c43b619466563f898ccf9e2b652b3c",
+  "document_sha256": "ca0bdb5494c8e1c673bceebd66ab56b80cfced3395f415c97ca40ae4f4e1f2cd",
   "error_codes": {
     "already_member": 409,
     "already_reported": 409,
@@ -86,7 +86,7 @@
     "world_full": 422,
     "write_failed": 502
   },
-  "fetched": "2026-10-29T05:58+01:00",
+  "fetched": "2026-10-29T08:52+01:00",
   "openapi_version": "2.0",
   "paths": {
     "/api/v2/ability": {
@@ -1353,6 +1353,7 @@
           "clients",
           "clients[].id",
           "clients[].name",
+          "clients[].native",
           "clients[].redirect_uris"
         ]
       }
