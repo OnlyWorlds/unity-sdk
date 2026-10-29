@@ -6,6 +6,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-10-29
+
+Serials 86 and 87 in Unity: the presentation sidecar names each type's colour group by its colour word, an empty
+review mark is settled in every reader, and a colour word the sidecar cannot draw fails loudly with
+`OWPresentationException` instead of drawing a default. `OWApiError.IsReviewMarkEmpty` names keel's refusal of an
+empty mark. A minor release because it adds public API, and because `ColorOfFamily` now throws for a word outside
+the order where it answered null (below).
+
 ### Changed
 
 - The schema pin moves to dist.86 (`v0.33.0-dist.86`). The presentation sidecar names each type's colour group by
