@@ -66,7 +66,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// too; v0.3.17 with the package's 0.38.0, the four world cases re-run 2026-10-23: only <c>format_version</c>
     /// changed; v0.3.18 with the package's 0.42.0, the same four the same day: only <c>format_version</c>
     /// changed; v0.3.19, the six world cases re-run 2026-10-27 against the package's <c>world_for_disk</c> at
-    /// <c>FORMAT_VERSION</c> 0.3.19: only <c>format_version</c> changed; v0.3.20 with the package's 0.82.0, the six re-run 2026-10-28: only <c>format_version</c> changed), not what this SDK happens to write. Its known-of stubs (v0.3.10) are <see cref="OWKnownOfTests"/>.
+    /// <c>FORMAT_VERSION</c> 0.3.19: only <c>format_version</c> changed; v0.3.20 with the package's 0.82.0, the six re-run 2026-10-28: only <c>format_version</c> changed; v0.3.21 with the package's 0.88.0, the six world cases re-run 2026-10-29: only <c>format_version</c> changed), not what this SDK happens to write. Its known-of stubs (v0.3.10) are <see cref="OWKnownOfTests"/>.
     /// </summary>
     public class OWFolderExportTests
     {
@@ -122,10 +122,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             var disk = OWFolderExport.WorldForDisk(wire);
 
-            // package: {'id': 'w', 'name': 'n', 'time_current': 3, 'x': 1, 'format_version': '0.3.20'}
+            // package: {'id': 'w', 'name': 'n', 'time_current': 3, 'x': 1, 'format_version': '0.3.21'}
             CollectionAssert.AreEqual(new[] { "id", "name", "time_current", "x", "format_version" }, Keys(disk));
             Assert.AreEqual(3, (int)disk["time_current"]);
-            Assert.AreEqual("0.3.20", (string)disk["format_version"]);
+            Assert.AreEqual("0.3.21", (string)disk["format_version"]);
         }
 
         [Test]
@@ -135,7 +135,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             var disk = OWFolderExport.WorldForDisk(wire);
 
-            // package: {'id': 'w', 'name': '', 'time_range_current': 3, 'time_current': 4, 'format_version': '0.3.20'}
+            // package: {'id': 'w', 'name': '', 'time_range_current': 3, 'time_current': 4, 'format_version': '0.3.21'}
             CollectionAssert.AreEqual(new[] { "id", "name", "time_range_current", "time_current", "format_version" }, Keys(disk));
             Assert.AreEqual(3, (int)disk["time_range_current"]);
             Assert.AreEqual(4, (int)disk["time_current"]);
@@ -167,7 +167,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 JObject.Parse("{\"id\":\"w\",\"name\":\"n\",\"snapshot_of\":\"o\",\"snapshot_counts\":{\"a\":9}}"),
                 new Dictionary<string, int> { { "character", 2 }, { "map", 0 } });
 
-            // package: {..., 'snapshot_of': 'o', 'snapshot_counts': {'character': 2}, 'format_version': '0.3.20'}
+            // package: {..., 'snapshot_of': 'o', 'snapshot_counts': {'character': 2}, 'format_version': '0.3.21'}
             CollectionAssert.AreEqual(new[] { "id", "name", "snapshot_of", "snapshot_counts", "format_version" }, Keys(disk));
             Assert.AreEqual("{\"character\":2}", disk["snapshot_counts"].ToString(Newtonsoft.Json.Formatting.None));
         }
@@ -218,7 +218,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var disk = OWFolderExport.WorldForDisk(OWFolderWriter.Parse(
                 "{\"id\":\"w\",\"name\":\"n\",\"origin\":" + FirstImport + ",\"source\":" + ThisFoldersSource + "}"));
 
-            // package: {'id': 'w', 'name': 'n', 'origin': first, 'source': src, 'format_version': '0.3.20'}
+            // package: {'id': 'w', 'name': 'n', 'origin': first, 'source': src, 'format_version': '0.3.21'}
             CollectionAssert.AreEqual(new[] { "id", "name", "origin", "source", "format_version" }, Keys(disk));
             Assert.IsTrue(JToken.DeepEquals(OWFolderWriter.Parse(FirstImport), disk["origin"]), "the first import, as given");
             Assert.IsTrue(JToken.DeepEquals(OWFolderWriter.Parse(ThisFoldersSource), disk["source"]), "beside this folder's own line");
@@ -231,7 +231,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 "{\"id\":\"w\",\"name\":\"n\",\"source\":" + ThisFoldersSource
                 + ",\"producer\":{\"tool\":\"atlas\",\"version\":\"1.82.0\",\"input\":\"bare\"}}"));
 
-            // package: {'id': 'w', 'name': 'n', 'source': src, 'producer': {...}, 'format_version': '0.3.20'}
+            // package: {'id': 'w', 'name': 'n', 'source': src, 'producer': {...}, 'format_version': '0.3.21'}
             CollectionAssert.AreEqual(new[] { "id", "name", "source", "producer", "format_version" }, Keys(disk));
         }
 
@@ -244,7 +244,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 + "\"x_names\":{\"version\":1},\"atlas_c\":1,\"shadow_s\":[1]}"));
 
             // package: {'id': 'w', 'name': 'n', 'origin': {'source': None, 'producer': None}, 'x_names': {'version': 1},
-            //           'atlas_c': 1, 'shadow_s': [1], 'format_version': '0.3.20'}
+            //           'atlas_c': 1, 'shadow_s': [1], 'format_version': '0.3.21'}
             CollectionAssert.AreEqual(new[] { "id", "name", "origin", "x_names", "atlas_c", "shadow_s", "format_version" }, Keys(disk));
             Assert.AreEqual("{\"source\":null,\"producer\":null}", disk["origin"].ToString(Newtonsoft.Json.Formatting.None));
             Assert.AreEqual("{\"version\":1}", disk["x_names"].ToString(Newtonsoft.Json.Formatting.None));
@@ -309,7 +309,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 + "    \"world\": \"0695db52-0000-7000-8000-000000000001\",\n    \"at\": \"2026-10-19T21:00:00.005Z\"\n  },\n"
                 + "  \"producer\": {\n    \"tool\": \"com.onlyworlds.sdk\",\n    \"version\": \"" + OWFolderExport.ProducerVersion + "\",\n"
                 + "    \"input\": \"server\"\n  },\n"
-                + "  \"format_version\": \"0.3.20\"\n}\n",
+                + "  \"format_version\": \"0.3.21\"\n}\n",
                 Text(Path.Combine(_folder, "world.json")));
 
             Assert.AreEqual(
@@ -348,6 +348,32 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var body = OWFolderReader.Read(_folder).Elements.Single(e => e.Type == "narrative").Body;
             Assert.AreEqual("[\"characters\",\"narrator\"]", body["x_served_trimmed"].ToString(Newtonsoft.Json.Formatting.None));
             Assert.AreEqual(true, OWMessage.HasUnseenRecipients(body), "a field the mark names reads as trimmed, never as empty");
+        }
+
+        // -- The door history (v0.3.21): a member's snapshot keeps `doors` as served ---------------------------
+
+        [Test]
+        public async Task Export_KeepsTheServedDoorsAsServed_OnAWholeElementAndOnAStubThatHoldsThem()
+        {
+            // The package's write_folder (0.88.0) keeps both bodies' `doors` byte for byte, a stub's too (a set value is kept).
+            const string whole =
+                "{\"id\":\"01a1206b-0000-7000-8000-00000000c003\",\"type\":\"character\",\"name\":\"Cy\","
+                + "\"changed_via\":\"mcp\",\"changed_client\":\"atlas\","
+                + "\"doors\":{\"atlas\":\"2026-10-29T10:00:00+00:00\",\"mcp\":\"2026-10-28T09:00:00+00:00\"}}";
+            const string stub =
+                "{\"id\":\"01a1206b-0000-7000-8000-00000000c004\",\"type\":\"character\",\"name\":\"Di\","
+                + "\"known_of\":true,\"doors\":{\"atlas\":\"2026-10-29T10:00:00+00:00\"},\"physicality\":\"\"}";
+            await OWFolderExport.ExportAsync(Client(Testmoor().Type("character", Page(whole, stub))), _folder, NoMedia);
+
+            var doors = "  \"doors\": {\n    \"atlas\": \"2026-10-29T10:00:00+00:00\",\n";
+            var wholeFile = Text(Path.Combine(_folder, "elements", "character", "cy--0000c003.json"));
+            StringAssert.Contains(doors + "    \"mcp\": \"2026-10-28T09:00:00+00:00\"\n  }\n", wholeFile);
+            var stubFile = Text(Path.Combine(_folder, "elements", "character", "di--0000c004.json"));
+            StringAssert.Contains("  \"doors\": {\n    \"atlas\": \"2026-10-29T10:00:00+00:00\"\n  },\n  \"known_of\": true\n}\n", stubFile);
+            StringAssert.DoesNotContain("physicality", stubFile);
+
+            var read = OWFolderReader.Read(_folder).Elements.Single(e => e.Id == "01a1206b-0000-7000-8000-00000000c003").Body;
+            Assert.AreEqual("atlas", ((JObject)read["doors"]).Properties().First().Name);
         }
 
         [Test]

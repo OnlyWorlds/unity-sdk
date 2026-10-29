@@ -25,6 +25,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
+- The schema pin moves to dist.91 (`v0.33.0-dist.91`), and folders declare format 0.3.21 (`OWFolderExport.FormatVersion`).
+  The folder lint now lists `doors`, the door history the API serves to a world's members, among the server-managed
+  keys an element file may carry: a member's snapshot keeps it as served and never sends it up. The export already
+  wrote a served body whole, so it kept `doors` before this change and a test now holds that, on a whole element and
+  on a stub that carries it; the reader keeps it in the extensions bag. Nothing else in the schema or the readers
+  moved. The folder export's expectations (the `world_for_disk` cases) were re-run against the Python package
+  0.88.0: only `format_version` changed.
 - The schema pin moves to dist.90 (`v0.33.0-dist.90`). The calendar profile now says in words what the reader
   already did: an intercalary entry on a calendar with no months is not a calendar, whatever its `after_month`, 0
   included. The calendar fixture grows to 76 cases (42 refusals, 209 steps) with one new refusal,
