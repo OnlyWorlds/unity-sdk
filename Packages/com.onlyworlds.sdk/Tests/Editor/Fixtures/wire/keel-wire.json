@@ -5,7 +5,7 @@
     "X-Session-Token",
     "Authorization"
   ],
-  "document_sha256": "b2f55573a0b47898f221bccf5ca03be29f0421a0e081bbd746628f380a2ed9ef",
+  "document_sha256": "7dceba136475714c089753367282d7f2e0abf289fb6d11c32bffb635d28f859a",
   "error_codes": {
     "already_member": 409,
     "already_reported": 409,
@@ -25,6 +25,10 @@
     "files_full": 403,
     "gone": 410,
     "guest_not_supported": 403,
+    "handover_refused": [
+      409,
+      422
+    ],
     "hidden_not_allowed": 403,
     "id_conflict": 409,
     "idempotency_error": 409,
@@ -62,6 +66,7 @@
     "removal_in_flight": 409,
     "remove_failed": 502,
     "resync_required": 409,
+    "review_mark_empty": 422,
     "served_trimmed_not_writable": 422,
     "server_busy": 503,
     "stale_proposal": 409,
@@ -80,7 +85,7 @@
     "world_full": 422,
     "write_failed": 502
   },
-  "fetched": "2026-10-28T15:45+01:00",
+  "fetched": "2026-10-29T03:26+01:00",
   "openapi_version": "2.0",
   "paths": {
     "/api/v2/ability": {
@@ -946,6 +951,41 @@
           "name",
           "public_read",
           "role"
+        ]
+      }
+    },
+    "/api/v2/account/worlds/handover": {
+      "POST": {
+        "body": [
+          "items",
+          "items[].element",
+          "items[].type",
+          "world",
+          "world.name",
+          "world.pin",
+          "world.producer",
+          "world.source"
+        ],
+        "header": [
+          "X-OW-Agent",
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "door",
+          "items",
+          "items[].created_at",
+          "items[].error",
+          "items[].id",
+          "items[].proposal",
+          "items[].status",
+          "items[].updated_at",
+          "world",
+          "world.id",
+          "world.keys",
+          "world.name",
+          "world.public_read",
+          "world.role"
         ]
       }
     },
