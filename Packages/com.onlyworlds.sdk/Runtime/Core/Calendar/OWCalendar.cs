@@ -394,9 +394,11 @@ namespace OnlyWorlds.Sdk
                     if (!(i is JObject io)) return null;
                     if (!(io["name"] is JValue iname) || iname.Type != JTokenType.String) return null;
                     if (!TryInteger(io["after_month"], out long after)) return null;
-                    // A day placed after a month the year does not have (past the last, below the first; with no
-                    // months, anything above 0) has no position, and a reader never invents one (the profile, serial 89).
-                    if (after < 0 || after > (cfg.Bundles?.Months?.Names.Count ?? 0)) return null;
+                    // A day placed after a month the year does not have (past the last, below the first) has no
+                    // position, and a reader never invents one (the profile, serial 89); with no months there is no
+                    // place between months at all, so any intercalary day refuses, 0 included.
+                    long monthCount = cfg.Bundles?.Months?.Names.Count ?? 0;
+                    if (monthCount == 0 || after < 0 || after > monthCount) return null;
                     var ic = new CalendarIntercalary
                     {
                         Name = (string)iname,

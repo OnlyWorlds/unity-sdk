@@ -25,9 +25,10 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   string with something left after trimming Unicode's White_Space (the room profile's trim, as the marks read it),
   so the field reads as no calendar and a tool shows the bare step. Before, such a grain read as a calendar.
 - `OWCalendar.ReadConfig` refuses a calendar with an intercalary day whose `after_month` names a month the year does
-  not have: past the last month, below 0, or above 0 in a calendar with no months (the profile, serial 89). Such a
-  day has no position. Before, it read as a calendar: the day counted in the year's length but sat in no month, and
-  with no months it was ignored.
+  not have: past the last month or below 0 (the profile, serial 89), and any intercalary day at all in a calendar
+  with no months, `after_month` 0 included, since there is no place between months (ruled for the next serial). Such
+  a day has no position. Before, it read as a calendar: the day counted in the year's length but sat in no month,
+  and with no months it was ignored, or, with `every_years`, added a leap step.
 - `OWCalendar.ReadConfig` refuses an era whose `start`, `end` or `year_base` is a whole number past the ones a
   double holds exactly (beyond 2^53 - 1 either way), as the TypeScript reader does. Before, anything within a
   `long` read.

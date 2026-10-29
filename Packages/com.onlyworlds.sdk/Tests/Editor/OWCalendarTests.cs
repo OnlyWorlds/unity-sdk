@@ -580,7 +580,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [Test]
         public void Validation_RejectsIntercalaryWithoutMonths()
         {
-            var bad = Read(@"{ version: 1, grain: 'year', intercalary: [{ name: 'Floating Day', after_month: 0 }] }");
+            // The reader refuses this value since serial 90's ruling; a config built by hand still reaches Validate.
+            var bad = new CalendarConfig
+            {
+                Version = 1,
+                Grain = "year",
+                Intercalary = new List<CalendarIntercalary> { new CalendarIntercalary { Name = "Floating Day", AfterMonth = 0 } },
+            };
             Assert.IsTrue(OWCalendar.Validate(bad).Any(e => e.Contains("Festival days need months")));
         }
 
@@ -669,10 +675,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [Test]
         public void DefensiveRead_AnAfterMonthNamesAMonthTheYearHas()
         {
-            // Serial 89: the last month and 0 (before the first) are positions; with no months, 0 is the only one.
+            // Serial 89: the last month and 0 (before the first) are positions; with no months there are none, so any
+            // intercalary day refuses, 0 included (ruled ahead of its fixture case).
             Assert.IsNotNull(OWCalendar.ReadConfig(JObject.Parse("{ version: 1, grain: 'day', bundles: { months: { names: ['A', 'B'], lengths: [2, 2] } }, intercalary: [{ name: 'Last', after_month: 2 }, { name: 'First', after_month: 0 }] }")));
             Assert.IsNull(OWCalendar.ReadConfig(JObject.Parse("{ version: 1, grain: 'day', bundles: { months: { names: ['A', 'B'], lengths: [2, 2] } }, intercalary: [{ name: 'Past', after_month: 3 }] }")));
-            Assert.IsNotNull(OWCalendar.ReadConfig(JObject.Parse("{ version: 1, grain: 'year', intercalary: [{ name: 'Floating Day', after_month: 0 }] }")));
+            Assert.IsNull(OWCalendar.ReadConfig(JObject.Parse("{ version: 1, grain: 'year', intercalary: [{ name: 'Floating Day', after_month: 0 }] }")));
+            Assert.IsNull(OWCalendar.ReadConfig(JObject.Parse("{ version: 1, grain: 'day', bundles: { year: { steps: 3 } }, intercalary: [{ name: 'Leap', after_month: 0, every_years: 2 }] }")));
+            Assert.IsNotNull(OWCalendar.ReadConfig(JObject.Parse("{ version: 1, grain: 'year', intercalary: [] }")));
         }
 
         [Test]
