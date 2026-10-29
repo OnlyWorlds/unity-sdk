@@ -8,6 +8,20 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Added
 
+- `OWOpeners.For(tools, kind, address, surface)`: the rows of an "Open with" menu for a world (`"world"`) or one of
+  its elements (`"element"`), a port of the TypeScript SDK's `openersFor` and the Python package's `openers_for`.
+  The site's page comes first, then each listed tool with a link for that kind, in the list's order, each an
+  `OWOpener` (`Id`, `Name`, `Href`, `State`, the row's word in sentence case or null). The address is an
+  `OWAddressReading`, the parts as JSON, or a world's id with a type word and an id; `OWOpenerSurface` says what the
+  surface knows (`Audience` required, `SignedIn`, `Browser`, `Phone`, `Tool`). A refused address throws
+  `OWAddressException`; the rest throws `ArgumentException` naming the key. Tested by the packages' shared fixture
+  (41 cases, held by its sha256).
+- `OWTools.All`: the OnlyWorlds tools list (github.com/OnlyWorlds/tools, `tools.json` format 1) baked in at commit
+  `86208c8`, the keys `OWOpeners` reads. The list is vendored at `codegen/tools/tools.json` and pinned in
+  `codegen/tools-pin.json`; `codegen/generate_tools.py` writes the table and `--check` (also run by
+  `check_drift.py`) fails when the two disagree. A tool listed after a release is offered from the next one.
+- `OWTool.FromJson` and `OWOpenerSurface.FromJson` read a tools row and a surface as JSON, refusing a wrong key or
+  type by name.
 - `OWListParams.Filter`: list by any single link of the type, by field name, as the API now filters:
   `{"parent_location": id}` lists a place's rooms, and an empty value lists the rows with none. Fields go out in
   ordinal order after the named filters; a key that is not a field name (lowercase letters, digits, `_`) throws

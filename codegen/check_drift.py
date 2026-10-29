@@ -106,6 +106,8 @@ def main() -> int:
         [str(CODEGEN / "generate_models.py"), "--check"],
         [str(root / "tools" / "gen_casefold.py"), "--file", str(unicode_dir / "CaseFolding-15.1.0.txt"), "--check"],
         [str(root / "tools" / "gen_nfc.py"), "--dir", str(unicode_dir), "--check"],
+        # The tools list OWOpeners reads: pinned on its own (codegen/tools-pin.json), not by the dist.
+        [str(CODEGEN / "generate_tools.py"), "--check"],
     ):
         failed |= subprocess.run([sys.executable] + args, cwd=str(root)).returncode
     return failed

@@ -160,7 +160,7 @@ namespace OnlyWorlds.Sdk
         public const string LensKey = "lens";
 
         /// <summary>The keys of an address as JSON: its parts, and a reading's two flags.</summary>
-        private static readonly string[] JsonKeys = { "form", "world", "type", "id", "lens", "moment", "world_is_slug", "canonical" };
+        internal static readonly string[] JsonKeys = { "form", "world", "type", "id", "lens", "moment", "world_is_slug", "canonical" };
 
         /// <summary>The reading of <paramref name="text"/>, or null when the profile refuses it.</summary>
         public static OWAddressReading ParseLink(string text) => TryParseLink(text, out var reading, out _) ? reading : null;
@@ -425,7 +425,7 @@ namespace OnlyWorlds.Sdk
         /// A part of a JSON address: a string, or null when missing or JSON null. An empty string is present, and
         /// refuses as that part would.
         /// </summary>
-        private static string Part(JObject address, string key)
+        internal static string Part(JObject address, string key)
         {
             if (!address.TryGetValue(key, out var token) || token.Type == JTokenType.Null) return null;
             if (token.Type != JTokenType.String) return key == "form" ? string.Empty : token.ToString();

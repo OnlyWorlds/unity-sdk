@@ -133,6 +133,25 @@ powershell -ExecutionPolicy Bypass -File "%LOCALAPPDATA%\OnlyWorlds\ow-link\inst
 
 This is for local development: no public page offers it.
 
+## Open with
+
+The rows of an "Open with" menu for a world or one of its elements: the site's page first, then each listed tool that
+has a link for it, in the tools list's order, each with the word it says when it cannot open now. `OWTools.All` is the
+[OnlyWorlds tools list](https://github.com/OnlyWorlds/tools) as of this release.
+
+```csharp
+var surface = new OWOpenerSurface { Audience = OWOpenerSurface.Member, SignedIn = null, Browser = false };
+foreach (var row in OWOpeners.For(OWTools.All, OWOpeners.Element, OWAddress.ParseLink(link), surface))
+    AddMenuItem(row.Name, row.Href, row.State); // State: null, or e.g. "Opens in your browser"
+```
+
+The surface says what your game knows and nothing is guessed: `Audience` (`member` or `public`; the public sees only
+rows that need nothing first), `SignedIn` (null when you cannot know, and then no row says so), `Browser` (false in a
+game or a desktop app, which cannot see the browser's sign-in), `Phone`, and `Tool`, your own client name, whose row
+says "You are here". A refused address throws `OWAddressException` with its reason; the rest throws
+`ArgumentException` naming what is wrong. The TypeScript SDK's `openersFor` and the Python package's `openers_for` give
+the same rows.
+
 ## Things that will bite you
 
 **Only `name` is required.** Every other field is optional, and the API sends its empty value explicitly (`null`,

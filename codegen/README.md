@@ -17,6 +17,8 @@ python codegen/check_drift.py                # verify the dist, THEN diff
 | `generate_models.py` | The emitter. Reads the walk, applies the rulings, writes C#. |
 | `check_drift.py` | CI guard: hashes the vendored dist, then re-generates and diffs. |
 | `schema-dist/` | The vendored distribution, verbatim. **Never edit anything in it.** |
+| `generate_tools.py` | The OnlyWorlds tools list → `Runtime/Core/OWTools.cs` (`OWTools.All`, the rows `OWOpeners` reads). `--check` exits 1 when the table and the vendored list disagree; `--repin COMMIT` re-vendors. `test_generate_tools.py` holds `--check` red on a one-byte change. |
+| `tools/tools.json`, `tools-pin.json` | The tools list, byte for byte at the pinned commit, and the pin (the commit and the file's sha256), equal to the npm SDK's and the Python package's. |
 
 `schema-dist/` is vendored from `github.com/OnlyWorlds/schema-dist` at the tag
 this package pins. The pin lives in C#, in `Runtime/Core/OWSchemaPin.cs`, as
