@@ -16,9 +16,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Fixed
 
-- `OWCalendar.ReadConfig` refuses a calendar whose `grain` is an empty string: the profile's grain is a string, and
-  an empty one is no grain, so the field reads as no calendar and a tool shows the bare step. Before, an empty grain
-  read as a calendar.
+- `OWCalendar.ReadConfig` refuses a calendar whose `grain` is empty or white space alone: the profile's grain is a
+  string with something left after trimming Unicode's White_Space (the room profile's trim, as the marks read it),
+  so the field reads as no calendar and a tool shows the bare step. Before, such a grain read as a calendar.
 
 ## [0.25.0] - 2026-10-29
 

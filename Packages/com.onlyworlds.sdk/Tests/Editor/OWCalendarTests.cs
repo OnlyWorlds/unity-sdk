@@ -648,6 +648,16 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public void DefensiveRead_AGrainOfWhiteSpaceIsNoGrain()
+        {
+            // Something must be left after trimming the room profile's White_Space set, as for the marks.
+            Assert.IsNull(OWCalendar.ReadConfig(JObject.Parse("{ version: 1, grain: ' \\t\\n' }")), "ASCII white space");
+            Assert.IsNull(OWCalendar.ReadConfig(JObject.Parse("{ version: 2, grain: '\\u00a0\\u3000\\u2028' }")), "Unicode White_Space");
+            Assert.IsNotNull(OWCalendar.ReadConfig(JObject.Parse("{ version: 1, grain: ' day ' }")), "a padded grain");
+            Assert.IsNotNull(OWCalendar.ReadConfig(JObject.Parse("{ version: 1, grain: '\\u200b' }")), "U+200B is not White_Space");
+        }
+
+        [Test]
         public void DefensiveRead_AcceptsEveryFixture()
         {
             // JS: readCalendarConfig(JSON.parse(JSON.stringify(cfg))): a strict-JSON round trip.

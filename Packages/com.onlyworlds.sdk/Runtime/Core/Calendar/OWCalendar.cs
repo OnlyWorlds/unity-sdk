@@ -292,8 +292,9 @@ namespace OnlyWorlds.Sdk
         {
             if (!(value is JObject o)) return null;
             if (!TryNumber(o["version"], out double version) || (version != 1 && version != 2)) return null;
-            // The profile's grain is a string, and an empty string is no grain.
-            if (!(o["grain"] is JValue g) || g.Type != JTokenType.String || (string)g == "") return null;
+            // The profile's grain is a string with something left after trimming the room profile's White_Space set.
+            if (!(o["grain"] is JValue g) || g.Type != JTokenType.String
+                || OWProfileText.TrimWhiteSpace((string)g).Length == 0) return null;
 
             var cfg = new CalendarConfig
             {
