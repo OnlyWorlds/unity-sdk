@@ -292,7 +292,8 @@ namespace OnlyWorlds.Sdk
         {
             if (!(value is JObject o)) return null;
             if (!TryNumber(o["version"], out double version) || (version != 1 && version != 2)) return null;
-            if (!(o["grain"] is JValue g) || g.Type != JTokenType.String) return null;
+            // The profile's grain is a string, and an empty string is no grain.
+            if (!(o["grain"] is JValue g) || g.Type != JTokenType.String || (string)g == "") return null;
 
             var cfg = new CalendarConfig
             {

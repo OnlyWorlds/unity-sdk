@@ -14,6 +14,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 - `GetMeAsync`'s summary says what `name` is: your agent's or your player's name, served on those seats only, as
   the server serves it. Docs only; parity with the TypeScript SDK 4.102.4.
 
+### Fixed
+
+- `OWCalendar.ReadConfig` refuses a calendar whose `grain` is an empty string: the profile's grain is a string, and
+  an empty one is no grain, so the field reads as no calendar and a tool shows the bare step. Before, an empty grain
+  read as a calendar.
+
 ## [0.25.0] - 2026-10-29
 
 Serials 86 and 87 in Unity: the presentation sidecar names each type's colour group by its colour word, an empty

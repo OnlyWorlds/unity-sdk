@@ -639,6 +639,15 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public void DefensiveRead_AnEmptyGrainIsNoGrain()
+        {
+            // The profile's grain is a string, and an empty string is no grain (ruled ahead of the fixture's own case).
+            Assert.IsNull(OWCalendar.ReadConfig(JObject.Parse("{ version: 1, grain: '' }")));
+            Assert.IsNull(OWCalendar.ReadConfig(JObject.Parse("{ version: 2, grain: '', eras: [{ name: 'X', start: 0 }] }")));
+            Assert.IsNotNull(OWCalendar.ReadConfig(JObject.Parse("{ version: 1, grain: 'day' }")));
+        }
+
+        [Test]
         public void DefensiveRead_AcceptsEveryFixture()
         {
             // JS: readCalendarConfig(JSON.parse(JSON.stringify(cfg))): a strict-JSON round trip.
