@@ -23,7 +23,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   White_Space only, `[]` or `{}` as a doubt. Every reader built on them follows: `OWLens` and `OWGraph` keep an
   element whose mark is empty in every reader's view, and `OWMessage.NoteOf` takes a Note whose mark is empty as a
   Character's line. A number, a boolean, a list with an entry, and a string with anything left after the trim (a byte
-  order mark alone included) stay doubts; an object with any key stays a mark.
+  order mark alone included) stay doubts; an object with any key stays a mark. A caller can feel this: an element
+  marked `{}` now reads as settled to both. `IsProposed` still answers true only for an object, so a caller that
+  casts the mark to `JObject` after it stays safe; a string, a number or a list never counted and still does not.
 
 ### Added
 

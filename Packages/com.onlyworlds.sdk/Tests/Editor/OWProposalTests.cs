@@ -581,6 +581,58 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             }
         }
 
+        private static string Chars(params int[] codePoints) => new string(codePoints.Select(c => (char)c).ToArray());
+
+        /// <summary>
+        /// The packages' 24 review cases (the TypeScript SDK's <c>test/review.test.mjs</c>, 4.102.1, and the Python
+        /// package's <c>tests/test_review.py</c>, 0.84.1, the same names in the same order): the mark (null: no key),
+        /// whether <c>proposedMarkOf</c> shows a mark (<see cref="OWPayload.IsProposed"/>), and whether
+        /// <c>handsOnAsProposed</c> leaves the element out (<see cref="OWPayload.IsProposedOrInDoubt"/>). This SDK reads
+        /// no mark's <c>by</c>, <c>expires</c> or lapse from an element, so only those two answers are held.
+        /// </summary>
+        private static readonly (string What, Func<JToken> Mark, bool Shown, bool HandedOn)[] PackageCases =
+        {
+            ("no key", () => null, false, false),
+            ("null: settled", () => JValue.CreateNull(), false, false),
+            ("a string: not a mark, a doubt", () => "yes", false, true),
+            ("an empty string: an empty mark, settled", () => "", false, false),
+            ("ASCII spaces only: an empty mark, settled", () => "   ", false, false),
+            ("an empty array: an empty mark, settled", () => new JArray(), false, false),
+            ("an array holding an empty array: present, not a mark, a doubt", () => JArray.Parse("[[]]"), false, true),
+            ("false: a value, a doubt", () => false, false, true),
+            ("zero: a value, a doubt", () => 0, false, true),
+            ("an empty object: an empty mark, settled", () => new JObject(), false, false),
+            ("an object with no key the profile names: present, a mark", () => JObject.Parse(@"{""x"":null}"), true, true),
+            ("a whole mark, open", () => JObject.Parse(@"{""by"":""m1"",""evidence"":""seen"",""expires"":""2026-11-01""}"), true, true),
+            ("trimmed by and expires", () => JObject.Parse(@"{""by"":""  m1 "",""expires"":"" 2026-11-01 ""}"), true, true),
+            ("lapses on its own day", () => JObject.Parse(@"{""by"":""m1"",""expires"":""2026-10-26""}"), true, true),
+            ("lapsed before today", () => JObject.Parse(@"{""by"":""m1"",""expires"":""2026-10-01""}"), true, true),
+            ("an expires not shaped as a day", () => JObject.Parse(@"{""by"":""m1"",""expires"":""2026-1-1""}"), true, true),
+            ("a blank or non-string by", () => JObject.Parse(@"{""by"":""   "",""expires"":7}"), true, true),
+            ("U+3000 only: White_Space, an empty mark, settled", () => Chars(0x3000), false, false),
+            ("U+001C only: not White_Space, present, a doubt", () => Chars(0x1C), false, true),
+            ("a byte order mark only: not White_Space, present, a doubt", () => Chars(0xFEFF), false, true),
+            ("a by wrapped in U+001C keeps it", () => new JObject { ["by"] = Chars(0x1C) + "m1" + Chars(0x1C) }, true, true),
+            ("a by wrapped in a byte order mark keeps it", () => new JObject { ["by"] = Chars(0xFEFF) + "m1" }, true, true),
+            ("an expires in Arabic-Indic digits is no day", () => new JObject { ["by"] = "m1", ["expires"] = Chars(0x662, 0x660, 0x662, 0x666) + "-10-01" }, true, true),
+            ("an expires wrapped in a no-break space is trimmed", () => new JObject { ["expires"] = Chars(0xA0) + "2026-10-01" }, true, true),
+        };
+
+        public static IEnumerable<TestCaseData> PackageCaseNames() =>
+            PackageCases.Select(c => new TestCaseData(c.What).SetName("Review_" + c.What));
+
+        [Test]
+        public void ThePackagesReviewCases_AreTwentyFour() => Assert.AreEqual(24, PackageCases.Length);
+
+        [TestCaseSource(nameof(PackageCaseNames))]
+        public void ThePackagesReviewCase_ReadsAsTheyReadIt(string what)
+        {
+            var c = PackageCases.Single(x => x.What == what);
+            var body = Marked(c.Mark());
+            Assert.AreEqual(c.Shown, OWPayload.IsProposed(body), what + ": shown as a mark");
+            Assert.AreEqual(c.HandedOn, OWPayload.IsProposedOrInDoubt(body), what + ": left out by a reader that hands a world on");
+        }
+
         [Test]
         public void ATypedElement_ReadsTheMarkFromItsExtensions_AndWritesItBackAsItCame()
         {
