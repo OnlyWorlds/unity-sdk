@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -1041,6 +1042,30 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             StringAssert.Contains("name=Admiral%20Fluffington", t.Last.Url);
             StringAssert.Contains("supertype=Admiral", t.Last.Url);
             StringAssert.Contains("subtype=Puddle%20Navy", t.Last.Url);
+        }
+
+        [Test]
+        public async Task List_SendsSingleLinkFilters_AndAnEmptyValueForNone()
+        {
+            var t = new FakeTransport { ResponseBody = @"{""data"":[],""has_more"":false}" };
+            await Make(t).ListAsync<OWElement>("location", new OWListParams
+            {
+                Filter = new Dictionary<string, string> { ["zone"] = "", ["parent_location"] = "0192f1a2-0000-7000-8000-000000000001" },
+            });
+
+            StringAssert.Contains("parent_location=0192f1a2-0000-7000-8000-000000000001&zone=", t.Last.Url,
+                "Sent in field order; an empty value asks for the rows with none.");
+            Assert.That(t.Last.Url, Does.EndWith("zone="), "The empty value is sent, not dropped: dropping it lists every row.");
+        }
+
+        [Test]
+        public void List_RefusesAFilterThatIsNotAFieldName()
+        {
+            var t = new FakeTransport { ResponseBody = @"{""data"":[],""has_more"":false}" };
+            foreach (var bad in new[] { "", "Parent", "parent location", "a&b", "x=y", "1st" })
+                Assert.Throws<ArgumentException>(() => Make(t).ListAsync<OWElement>("location",
+                    new OWListParams { Filter = new Dictionary<string, string> { [bad] = "x" } }), bad);
+            Assert.AreEqual(0, t.Calls.Count, "Nothing reaches the wire.");
         }
 
         [Test]

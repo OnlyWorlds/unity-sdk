@@ -50,6 +50,14 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Exact match on subtype.</summary>
         public string Subtype;
+
+        /// <summary>
+        /// Filters on the type's single links, by field name: <c>{"parent_location": id}</c> lists a place's rooms,
+        /// and an empty value lists the rows with none (<c>parent_location=</c>). Keel answers 422 for a malformed id or
+        /// a field the type does not filter on, naming every filter it takes; a container the reader cannot see gives
+        /// an empty page. Sent in field order, after the named filters above.
+        /// </summary>
+        public IDictionary<string, string> Filter;
     }
 
     /// <summary>A single entry from the <c>/changes</c> feed.</summary>

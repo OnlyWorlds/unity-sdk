@@ -371,8 +371,28 @@ namespace OnlyWorlds.Sdk
                 query.Add("name__icontains=" + Uri.EscapeDataString(p.NameContains));
             if (!string.IsNullOrEmpty(p.Supertype)) query.Add("supertype=" + Uri.EscapeDataString(p.Supertype));
             if (!string.IsNullOrEmpty(p.Subtype)) query.Add("subtype=" + Uri.EscapeDataString(p.Subtype));
+            if (p.Filter != null)
+            {
+                var fields = new List<string>(p.Filter.Keys);
+                fields.Sort(StringComparer.Ordinal);
+                foreach (var field in fields)
+                {
+                    if (string.IsNullOrEmpty(field) || !IsFieldName(field))
+                        throw new ArgumentException($"'{field}' is not a field name to filter on", nameof(p));
+                    query.Add(field + "=" + Uri.EscapeDataString(p.Filter[field] ?? ""));
+                }
+            }
 
             return RequestAsync<OWPage<T>>("GET", $"/{type}/", query: string.Join("&", query), ct: ct, worldRead: true);
+        }
+
+        /// <summary>A schema field's shape (<c>parent_location</c>): a lowercase letter, then lowercase letters, digits and <c>_</c>.</summary>
+        private static bool IsFieldName(string s)
+        {
+            if (s[0] < 'a' || s[0] > 'z') return false;
+            foreach (var c in s)
+                if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_')) return false;
+            return true;
         }
 
         /// <summary>

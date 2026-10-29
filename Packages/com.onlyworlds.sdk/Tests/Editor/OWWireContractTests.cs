@@ -109,6 +109,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 Limit = 5, Cursor = "c", Fields = new[] { "name" }, Name = "n", NameContains = "m",
                 Supertype = "s", Subtype = "u",
             });
+            // Single-link filters: each field must be one keel declares on that list operation.
+            await c.ListAsync<JObject>("location", new OWListParams
+            {
+                Filter = new System.Collections.Generic.Dictionary<string, string> { ["parent_location"] = "p1", ["zone"] = "" },
+            });
             t.ResponseBody = "{}";
             await c.GetAsync<JObject>("character", "c1");
             await c.CreateAsync<JObject>("character", new JObject { ["name"] = "N" });
@@ -523,7 +528,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             // An empty recording would pass the checks above with nothing checked.
             var calls = await RecordEveryCall();
-            Assert.AreEqual(38, calls.Count);
+            Assert.AreEqual(39, calls.Count);
 
             // The lens routes are on the wire here, so the checks above saw them.
             Assert.That(calls.Any(c => c.Method == "PUT" && new Uri(c.Url).AbsolutePath.EndsWith("/me/lenses")), "PUT /me/lenses is recorded");

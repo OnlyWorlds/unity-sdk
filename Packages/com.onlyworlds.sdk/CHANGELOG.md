@@ -8,6 +8,10 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Added
 
+- `OWListParams.Filter`: list by any single link of the type, by field name, as the API now filters:
+  `{"parent_location": id}` lists a place's rooms, and an empty value lists the rows with none. Fields go out in
+  ordinal order after the named filters; a key that is not a field name (lowercase letters, digits, `_`) throws
+  `ArgumentException` before anything is sent. The wire fixture follows the API document that declares them.
 - `OWLinkListener`: a listener on 127.0.0.1, never another interface, for an address link clicked outside Unity.
   One connection carries one line, the link, read whole by `OWAddress.TryParseLink`; it answers `ok` or
   `refused <reason>` (the address profile's own word, or `too_long` past 4096 bytes, `no_line`, `no_receiver`) and
