@@ -271,7 +271,8 @@ namespace OnlyWorlds.Sdk
         /// <c>player</c>); <c>role</c> is <c>owner</c>, <c>co_builder</c>, <c>contributor</c> or <c>guest</c>;
         /// <c>character</c> is the Character id the key acts as, or null (also when it is hidden from this key);
         /// <c>lenses</c> is the lens ids its holder chose (<see cref="SetMyLensesAsync"/>), in order, empty for none, which
-        /// is a choice (<see cref="OWLens.LensesFor"/> takes it as the membership's).
+        /// is a choice (<see cref="OWLens.LensesFor"/> takes it as the membership's); <c>name</c> is served on agent and
+        /// player seats only: your agent's or your player's name.
         /// </summary>
         public Task<JObject> GetMeAsync(CancellationToken ct = default)
             => RequestAsync<JObject>("GET", "/me/", ct: ct);

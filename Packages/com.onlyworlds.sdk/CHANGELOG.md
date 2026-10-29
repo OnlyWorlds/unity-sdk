@@ -11,6 +11,8 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 - The schema pin moves to dist.88 (`v0.33.0-dist.88`). Nothing in the schema or the readers moved: the lens fixture
   gains a graph case whose elements carry an empty review mark, an object and a string, both nodes with no proposed
   mark, which `OWGraph` passes.
+- `GetMeAsync`'s summary says what `name` is: your agent's or your player's name, served on those seats only, as
+  the server serves it. Docs only; parity with the TypeScript SDK 4.102.4.
 
 ## [0.25.0] - 2026-10-29
 
