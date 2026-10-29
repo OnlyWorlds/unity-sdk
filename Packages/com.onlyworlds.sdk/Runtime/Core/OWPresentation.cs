@@ -31,9 +31,13 @@ namespace OnlyWorlds.Sdk
             Type = type;
         }
 
-        /// <summary>A word in <c>colors.order</c> whose colour is missing or not a hex: <paramref name="reason"/> says which.</summary>
-        internal OWPresentationException(string word, string reason)
-            : base($"[OnlyWorlds] presentation.json: the colour word '{word}' is in colors.order but {reason}. A reader never "
+        /// <summary>
+        /// A word in <c>colors.order</c> whose colour is missing or not a hex: <paramref name="reason"/> says which, and
+        /// <paramref name="types"/> are the types the sidecar draws in that word.
+        /// </summary>
+        internal OWPresentationException(string word, IReadOnlyList<string> types, string reason)
+            : base($"[OnlyWorlds] presentation.json: the colour word '{word}' is in colors.order but {reason}"
+                   + $" (the types drawn in it: {(types.Count == 0 ? "none" : string.Join(", ", types))}). A reader never "
                    + "draws a default colour: re-vendor Runtime/Resources/ow-presentation.json from the pinned schema-dist.")
         {
             Word = word;
@@ -239,12 +243,12 @@ namespace OnlyWorlds.Sdk
             foreach (var word in _familyOrder)
             {
                 if (!(families?[word] is JObject entry))
-                    throw new OWPresentationException(word, "it has no entry in colors.families");
+                    throw new OWPresentationException(word, TypesOf(word), "it has no entry in colors.families");
                 foreach (var mode in Modes)
                 {
                     var hex = entry[mode] is JValue v && v.Type == JTokenType.String ? (string)v : null;
-                    if (hex == null) throw new OWPresentationException(word, $"it has no {mode} colour in colors.families");
-                    if (!IsHex(hex)) throw new OWPresentationException(word, $"its {mode} colour '{hex}' is not a #rrggbb hex");
+                    if (hex == null) throw new OWPresentationException(word, TypesOf(word), $"it has no {mode} colour in colors.families");
+                    if (!IsHex(hex)) throw new OWPresentationException(word, TypesOf(word), $"its {mode} colour '{hex}' is not a #rrggbb hex");
                 }
             }
 
@@ -261,6 +265,15 @@ namespace OnlyWorlds.Sdk
 
         private static readonly string[] Modes = { "light", "dark" };
 
+        /// <summary>The types the sidecar draws in a word, in its order, for a failure's message.</summary>
+        private static List<string> TypesOf(string word)
+        {
+            var types = new List<string>();
+            foreach (var pair in _familyByType)
+                if (pair.Value == word) types.Add(pair.Key);
+            return types;
+        }
+
         /// <summary>A <c>#</c> and six hex digits, the sidecar's shape for a colour.</summary>
         private static bool IsHex(string hex)
         {
@@ -276,7 +289,7 @@ namespace OnlyWorlds.Sdk
         private static Color ParseHex(string word, string mode, string hex)
         {
             if (!ColorUtility.TryParseHtmlString(hex, out var color))
-                throw new OWPresentationException(word, $"its {mode} colour '{hex}' does not parse");
+                throw new OWPresentationException(word, TypesOf(word), $"its {mode} colour '{hex}' does not parse");
             return color;
         }
 
