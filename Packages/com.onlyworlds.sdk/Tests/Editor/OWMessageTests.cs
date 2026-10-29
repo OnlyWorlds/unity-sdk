@@ -10,7 +10,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// The message profile's conformance fixture (schema-dist <c>profiles/message.fixture.json</c>, vendored byte for
-    /// byte in <c>Tests/Editor/Fixtures/message/</c> from dist.79), read case by case through <see cref="OWMessage"/>'s
+    /// byte in <c>Tests/Editor/Fixtures/message/</c> from dist.89), read case by case through <see cref="OWMessage"/>'s
     /// readers, and its pair and read mark held equal to <see cref="OWMessage.Pair"/> and the read mark's constants. The
     /// TypeScript SDK and the Python package run the same cases; the tests beside the fixture are the TypeScript SDK's
     /// (test/message.test.mjs, 4.81.0) and the Python package's (tests/test_message.py, 0.64.0). When the dist moves
@@ -18,14 +18,14 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </summary>
     public class OWMessageTests
     {
-        /// <summary>The fixture's sha256 as dist.79's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "3fef3487adc7d5df65bb29b0be0ccfde82e2df0411ea209ff4272ec1a0949b4b";
+        /// <summary>The fixture's sha256 as dist.89's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "7d7ea66e4c987fe39f208dba9e80b6ede85d6c65097727226a9253a0058ca206";
 
-        /// <summary>The fixture's cases by kind, as dist.79 holds them (85 in all).</summary>
+        /// <summary>The fixture's cases by kind, as dist.89 holds them (87 in all).</summary>
         private static readonly Dictionary<string, int> Counts = new Dictionary<string, int>
         {
             ["pair"] = 10, ["addressed"] = 11, ["unseen"] = 3, ["everyone"] = 3, ["sent_by"] = 3, ["sender"] = 14,
-            ["unread"] = 16, ["mark"] = 10, ["thread"] = 4, ["edited"] = 4, ["note"] = 7,
+            ["unread"] = 17, ["mark"] = 10, ["thread"] = 4, ["edited"] = 4, ["note"] = 8,
         };
 
         /// <summary>The keys of a case that hold its answer, by kind.</summary>
@@ -94,7 +94,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.79's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.89's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
@@ -115,11 +115,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
-        public void TheFixture_HoldsDist79sCases()
+        public void TheFixture_HoldsDist89sCases()
         {
             Assert.IsNotNull(Fixture, "the vendored message fixture was not found");
             var cases = Fixture["cases"].Cast<JObject>().ToList();
-            Assert.AreEqual(85, cases.Count, "dist.79's fixture holds 85 cases");
+            Assert.AreEqual(87, cases.Count, "dist.89's fixture holds 87 cases");
             var counts = cases.GroupBy(c => (string)c["kind"]).ToDictionary(g => g.Key, g => g.Count());
             CollectionAssert.AreEquivalent(Counts, counts);
         }

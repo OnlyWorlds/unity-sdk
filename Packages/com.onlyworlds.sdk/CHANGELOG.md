@@ -8,9 +8,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
-- The schema pin moves to dist.88 (`v0.33.0-dist.88`). Nothing in the schema or the readers moved: the lens fixture
-  gains a graph case whose elements carry an empty review mark, an object and a string, both nodes with no proposed
-  mark, which `OWGraph` passes.
+- The schema pin moves to dist.89 (`v0.33.0-dist.89`), by way of dist.88. dist.88 moved nothing in the schema or
+  the readers: the lens fixture gains a graph case whose elements carry an empty review mark, an object and a string,
+  both nodes with no proposed mark, which `OWGraph` passes. dist.89 amends the calendar and message profiles (below);
+  the calendar fixture grows to 75 cases (41 refusals, 209 steps, one case that finds calendars in a world's
+  elements) and the message fixture to 87, and every case passes. Three of its rulings the readers already kept:
+  `OWMessage` reads `created_at` as an instant (an offset and a fraction of a second counted) and takes the newest
+  Note wherever it stands in the list, and a `format` or `format_intercalary` that is not a string is ignored, so
+  the default template prints.
 - `GetMeAsync`'s summary says what `name` is: your agent's or your player's name, served on those seats only, as
   the server serves it. Docs only; parity with the TypeScript SDK 4.102.4.
 
@@ -19,7 +24,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 - `OWCalendar.ReadConfig` refuses a calendar whose `grain` is empty or white space alone: the profile's grain is a
   string with something left after trimming Unicode's White_Space (the room profile's trim, as the marks read it),
   so the field reads as no calendar and a tool shows the bare step. Before, such a grain read as a calendar.
-
+- `OWCalendar.ReadConfig` refuses a calendar with an intercalary day whose `after_month` names a month the year does
+  not have: past the last month, below 0, or above 0 in a calendar with no months (the profile, serial 89). Such a
+  day has no position. Before, it read as a calendar: the day counted in the year's length but sat in no month, and
+  with no months it was ignored.
+- `OWCalendar.ReadConfig` refuses an era whose `start`, `end` or `year_base` is a whole number past the ones a
+  double holds exactly (beyond 2^53 - 1 either way), as the TypeScript reader does. Before, anything within a
+  `long` read.
 ## [0.25.0] - 2026-10-29
 
 Serials 86 and 87 in Unity: the presentation sidecar names each type's colour group by its colour word, an empty
