@@ -541,8 +541,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             var mark = JObject.Parse(@"{""by"":""0d4e8a2c"",""evidence"":""the Harbour Ledger, entry 14"",""expires"":""2026-11-21""}");
 
-            // py 0.36.0's vector (tests/test_pack.py): a mark, an empty object; null and absent are settled.
-            foreach (var marked in new[] { Marked(mark), Marked(new JObject()) })
+            // py 0.36.0's vector (tests/test_pack.py): a mark; null and absent are settled.
+            foreach (var marked in new[] { Marked(mark), Marked(new JObject { ["by"] = null }), Marked(new JObject { ["x"] = null }) })
             {
                 Assert.IsTrue(OWPayload.IsProposed(marked), marked.ToString());
                 Assert.IsTrue(OWPayload.IsProposedOrInDoubt(marked), marked.ToString());
@@ -555,11 +555,29 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             }
 
             // keel's vector (tests/test_proposed_readers_580.py, amendment A): a doubt is no mark for the queue and the
-            // review route, and counts with one for a reader that hands a world on.
-            foreach (var doubt in new JToken[] { Doubt, 0, new JArray(), false })
+            // review route, and counts with one for a reader that hands a world on. A string holding brackets is still
+            // a doubt (keel's tests/test_empty_review_mark_790.py).
+            foreach (var doubt in new JToken[] { Doubt, 0, false, new JArray("x"), JArray.Parse("[[]]"), " x ", "{}", "\uFEFF", "\u001C" })
             {
-                Assert.IsFalse(OWPayload.IsProposed(Marked(doubt)), doubt.ToString());
-                Assert.IsTrue(OWPayload.IsProposedOrInDoubt(Marked(doubt)), doubt.ToString());
+                Assert.IsFalse(OWPayload.IsProposed(Marked(doubt)), doubt.ToString(Newtonsoft.Json.Formatting.None));
+                Assert.IsTrue(OWPayload.IsProposedOrInDoubt(Marked(doubt)), doubt.ToString(Newtonsoft.Json.Formatting.None));
+            }
+        }
+
+        /// <summary>
+        /// Serial 87, the review profile's rule 1: the mark is read by presence, as the room and charter profiles read
+        /// theirs, and an empty list or an empty object is absent too. An empty mark is settled for both readers, never a
+        /// doubt and never a mark. keel's vector (<c>tests/test_empty_review_mark_790.py</c>, <c>EMPTIES</c>), which keel
+        /// refuses on a write with 422 <c>review_mark_empty</c>.
+        /// </summary>
+        [Test]
+        public void AnEmptyMark_IsSettled_ForTheQueueAndForAReaderThatHandsAWorldOn()
+        {
+            foreach (var empty in new JToken[] { "", " \t\n", "\u3000 ", new JArray(), new JObject() })
+            {
+                var label = empty.ToString(Newtonsoft.Json.Formatting.None);
+                Assert.IsFalse(OWPayload.IsProposed(Marked(empty)), label + " is no mark");
+                Assert.IsFalse(OWPayload.IsProposedOrInDoubt(Marked(empty)), label + " is no doubt");
             }
         }
 
@@ -577,7 +595,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsFalse(doubted.IsProposed);
             Assert.IsTrue(doubted.IsProposedOrInDoubt);
 
-            foreach (var json in new[] { @"{""id"":""c1"",""name"":""Pal"",""x_review_proposed"":null}", @"{""id"":""c1"",""name"":""Pal""}" })
+            foreach (var json in new[]
+                     {
+                         @"{""id"":""c1"",""name"":""Pal"",""x_review_proposed"":null}", @"{""id"":""c1"",""name"":""Pal""}",
+                         // Serial 87: an empty mark is settled (the review profile's rule 1, by presence).
+                         @"{""id"":""c1"",""name"":""Pal"",""x_review_proposed"":{}}", @"{""id"":""c1"",""name"":""Pal"",""x_review_proposed"":[]}",
+                         @"{""id"":""c1"",""name"":""Pal"",""x_review_proposed"":"" ""}",
+                     })
             {
                 var settled = OWJson.Deserialize<OWCharacter>(json);
                 Assert.IsFalse(settled.IsProposed, json);
@@ -620,6 +644,28 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 var e400 = Assert.ThrowsAsync<OWApiError>(() => Make(off).AcceptProposalAsync("location", El, Pid));
                 Assert.IsFalse(Codes.First(c => c.Name == name).Is(e400), $"{name} at 400");
             }
+        }
+
+        /// <summary>
+        /// A write carrying an empty mark is keel's 422 <c>review_mark_empty</c> (serial 87, Keel #790): the helper is true
+        /// for that status and code only, and the error is none of the proposal codes'.
+        /// </summary>
+        [Test]
+        public void AWriteWithAnEmptyMark_Is422ReviewMarkEmpty()
+        {
+            var t = new FakeTransport { Status = 422, ResponseBody = Envelope("invalid_request", "review_mark_empty") };
+            var e = Assert.ThrowsAsync<OWApiError>(() =>
+                Make(t).PatchAsync<JObject>("location", El, new JObject { [OWPayload.ReviewProposed] = new JObject() }));
+            Assert.IsTrue(e.IsReviewMarkEmpty);
+            foreach (var other in Codes) Assert.IsFalse(other.Is(e), other.Name);
+
+            var off = new FakeTransport { Status = 400, ResponseBody = Envelope("invalid_request", "review_mark_empty") };
+            Assert.IsFalse(Assert.ThrowsAsync<OWApiError>(() =>
+                Make(off).PatchAsync<JObject>("location", El, new JObject { ["name"] = "x" })).IsReviewMarkEmpty, "at 400");
+
+            var notProposed = new FakeTransport { Status = 422, ResponseBody = Envelope("invalid_request", "not_proposed") };
+            Assert.IsFalse(Assert.ThrowsAsync<OWApiError>(() =>
+                Make(notProposed).PatchAsync<JObject>("location", El, new JObject { ["name"] = "x" })).IsReviewMarkEmpty, "not_proposed");
         }
 
         [Test]

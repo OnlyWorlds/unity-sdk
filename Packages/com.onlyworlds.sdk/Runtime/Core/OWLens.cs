@@ -1078,7 +1078,7 @@ namespace OnlyWorlds.Sdk
                             break;
                     }
 
-                    // The review profile's rule for a reader that hands a world on: a mark or a doubt, any value but null.
+                    // The review profile's rule for a reader that hands a world on: a mark or a doubt, any value but null or an empty one (serial 87).
                     // Keel's public rung alone leaves it out of what a body links to (without_proposed).
                     var proposed = OWPayload.IsProposedOrInDoubt(e);
                     if ((whole || knownOf) && !(proposed && reader.Rung == OWLensRung.Public)) Scoped.Add(id);

@@ -12,15 +12,15 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// <summary>
     /// The message profile's shared edge cases: inputs the official fixture leaves open (what a Note is to every
     /// reader, the <c>created_at</c> order and its readable rule, an edit, a Character's line), answers written by
-    /// hand. The file is the TypeScript SDK's <c>test/fixtures/message-edges.json</c> from release 4.89.1 (commit
-    /// 7afdd17), the same bytes the Python package holds, vendored in <c>Tests/Editor/Fixtures/message/edges.json</c>.
+    /// hand. The file is the TypeScript SDK's <c>test/fixtures/message-edges.json</c> from release 4.102.1 (commit
+    /// 4972443; serial 87 moved one case's empty mark <c>{}</c> to a mark), the same bytes the Python package holds, vendored in <c>Tests/Editor/Fixtures/message/edges.json</c>.
     /// Each case names its reader; the readers run here as they run in the TypeScript SDK's replay
     /// (<c>test/message.test.mjs</c>). When the file moves, re-vendor it and update the hash and the count below.
     /// </summary>
     public class OWMessageEdgeTests
     {
-        /// <summary>The edge file's sha256: <c>test/fixtures/message-edges.json</c> in the TypeScript SDK 4.89.1 (7afdd17).</summary>
-        private const string EdgesSha256 = "b4b93ec587045c5b1e672df93337544f4b039ef129378ff53e59d4fa4a21de2e";
+        /// <summary>The edge file's sha256: <c>test/fixtures/message-edges.json</c> in the TypeScript SDK 4.102.1 (4972443).</summary>
+        private const string EdgesSha256 = "48fffaf28bced5faa49024f7d541a195938e03ebde4f2a71d21099c1d10a1980";
 
         private const int EdgeCount = 26;
 
@@ -78,7 +78,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             {
                 var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
                 Assert.AreEqual(EdgesSha256, hash,
-                    "the vendored edge file is not the TypeScript SDK 4.89.1's: re-vendor it (a checkout's line endings change the bytes)");
+                    "the vendored edge file is not the TypeScript SDK 4.102.1's: re-vendor it (a checkout's line endings change the bytes)");
             }
 
             Assert.AreEqual(EdgeCount, Edges.Count);

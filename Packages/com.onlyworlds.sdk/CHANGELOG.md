@@ -17,6 +17,18 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   presentation sidecar's `_meta.groups` line say how a reader reads an empty review mark and an unknown colour word
   (below). The lens fixture gains a graph case holding one element of each of the 22 types, each node with its colour
   word and icon, which `OWGraph` passes.
+- An empty review mark is settled (the review profile's rule 1 at dist.87: the mark is read by presence, as the room
+  and charter profiles read theirs). `OWPayload.IsProposed` and `OWElement.IsProposed` no longer count `{}` as a
+  mark, and `OWPayload.IsProposedOrInDoubt` and `OWElement.IsProposedOrInDoubt` no longer count `""`, a string of
+  White_Space only, `[]` or `{}` as a doubt. Every reader built on them follows: `OWLens` and `OWGraph` keep an
+  element whose mark is empty in every reader's view, and `OWMessage.NoteOf` takes a Note whose mark is empty as a
+  Character's line. A number, a boolean, a list with an entry, and a string with anything left after the trim (a byte
+  order mark alone included) stay doubts; an object with any key stays a mark.
+
+### Added
+
+- `OWApiError.IsReviewMarkEmpty`: keel refuses a write whose `x_review_proposed` is empty with 422
+  `review_mark_empty`. Send the mark as an object, or `null` to clear it.
 
 ## [0.24.0] - 2026-10-29
 

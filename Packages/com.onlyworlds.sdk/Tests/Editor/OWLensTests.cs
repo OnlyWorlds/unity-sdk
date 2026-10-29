@@ -282,6 +282,30 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(1, got.Cut.TryGetValue(OWLensCut.NotVisible, out var n) ? n : 0, "the owner counts it as not visible");
         }
 
+        /// <summary>
+        /// An empty mark (<c>{}</c>, <c>[]</c>, a string of White_Space) is no mark and no doubt (the review profile's
+        /// rule 1, serial 87, as keel's lens reader reads it through <c>doubt_or_mark_q</c>): the element is in every
+        /// reader's view and a hop reaches it.
+        /// </summary>
+        [Test]
+        public void AnEmptyMark_IsInTheView()
+        {
+            foreach (var empty in new JToken[] { new JObject(), new JArray(), " \t" })
+            {
+                var world = new List<JObject>
+                {
+                    new JObject { ["id"] = "c1", ["type"] = "character", ["name"] = "Ada", ["location"] = "p1" },
+                    new JObject { ["id"] = "p1", ["type"] = "location", ["name"] = "Settled Keep", [OWPayload.ReviewProposed] = empty },
+                };
+                var lens = new JObject { ["id"] = "L", ["type"] = "construct", ["supertype"] = "Lens", ["characters"] = new JArray("c1") };
+                foreach (var reader in new[] { OWLensReader.Owner(), OWLensReader.Public() })
+                {
+                    var got = OWLens.Resolve(world, lens, reader);
+                    CollectionAssert.AreEqual(new[] { "c1", "p1" }, got.Kept, empty.ToString(Newtonsoft.Json.Formatting.None) + " is no mark");
+                }
+            }
+        }
+
         /// <summary>An entry whose type is not one of the standard's is not in the world: a filter lens never keeps it.</summary>
         [Test]
         public void AnElementOfNoStandardType_IsNotInTheWorld()

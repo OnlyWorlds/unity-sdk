@@ -410,7 +410,7 @@ namespace OnlyWorlds.Sdk
         /// The Character's line: the id of its newest Note in its own hand, or null when it has none. A Note
         /// (<see cref="IsNote"/>) with a string id, whose <c>narrator</c> is the Character, neither hidden
         /// (<see cref="OWPayload.IsHidden"/>, the one hidden mark every reader reads, ruled 2026-10-27) nor proposed (<see cref="OWPayload.IsProposed"/>:
-        /// <c>x_review_proposed</c> an object), and in its author's hand: where it carries no
+        /// <c>x_review_proposed</c> an object, not empty), and in its author's hand: where it carries no
         /// <c>created_by</c> (a folder, an export) its <c>narrator</c> is trusted; on the wire only a verified sender
         /// counts (<see cref="SenderStatus"/>), so a mismatch or an unverifiable Note is nobody's line. The newest is the
         /// last in <c>created_at</c> order whose time can be read, or the last in the list when none can. A message is

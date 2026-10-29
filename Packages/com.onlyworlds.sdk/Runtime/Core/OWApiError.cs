@@ -243,6 +243,16 @@ namespace OnlyWorlds.Sdk
         public bool IsNotProposed => StatusCode == 422 && Code == "not_proposed";
 
         /// <summary>
+        /// A write whose <c>x_review_proposed</c> was empty (422 <c>review_mark_empty</c>, <c>param</c> the field): an
+        /// empty string, one of White_Space only, <c>[]</c> or <c>{}</c>. The mark is read by presence, so an empty one
+        /// marks nothing and keel never stores it; send the mark as an object (<c>by</c>, <c>evidence</c>,
+        /// <c>expires</c>), or <c>null</c> to clear it. On every element write, a bulk write item by item. The review
+        /// profile's rule 1 (schema-dist serial 87); <see cref="OWPayload.IsProposedOrInDoubt"/> reads a stored empty
+        /// mark as settled.
+        /// </summary>
+        public bool IsReviewMarkEmpty => StatusCode == 422 && Code == "review_mark_empty";
+
+        /// <summary>
         /// Seconds to wait before retrying, from the <c>Retry-After</c> header (a delay in seconds,
         /// or an HTTP date turned into one), else null. keel sends it on 503 <c>server_busy</c>,
         /// 429 <c>rate_limited</c> and <c>quota_exceeded</c>, and 409 <c>idempotency_in_flight</c>.

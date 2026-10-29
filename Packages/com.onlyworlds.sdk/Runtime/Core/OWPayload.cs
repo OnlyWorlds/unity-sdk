@@ -117,8 +117,9 @@ namespace OnlyWorlds.Sdk
         public const string ReviewProposed = "x_review_proposed";
 
         /// <summary>
-        /// True for a proposed element, one whose <c>x_review_proposed</c> is an object: not canon until a keeper settles
-        /// it (<see cref="OWClient.ReviewNewElementAsync"/>). Absent, <c>null</c> or any other value is settled.
+        /// True for a proposed element, one whose <c>x_review_proposed</c> is an object with something in it: not canon
+        /// until a keeper settles it (<see cref="OWClient.ReviewNewElementAsync"/>). Absent, <c>null</c>, an empty mark
+        /// (<see cref="IsEmptyMark"/>: <c>{}</c> too) or any other value is settled.
         /// </summary>
         /// <remarks>
         /// The review profile's rules 1 and 4, and keel's own <c>has_mark</c> (<c>proposals/marked.py</c>): the rule of the
@@ -129,9 +130,10 @@ namespace OnlyWorlds.Sdk
         public static bool IsProposed(JObject body) => IsAMark(body?[ReviewProposed]);
 
         /// <summary>
-        /// True when <c>x_review_proposed</c> is there with any value but <c>null</c>: a mark (an object) or a doubt (a
-        /// string, a number, a list). The rule of a reader that hands a world on, which leaves such an element out
-        /// unless asked, so a doubt never reaches an AI as canon.
+        /// True when <c>x_review_proposed</c> is there and not empty (<see cref="IsEmptyMark"/>): a mark (an object) or a
+        /// doubt (a string with something left after trimming, a number, a boolean, a list with something in it). The rule
+        /// of a reader that hands a world on, which leaves such an element out unless asked, so a doubt never reaches an
+        /// AI as canon.
         /// </summary>
         /// <remarks>
         /// keel's <c>doubt_or_mark</c> (<c>proposals/marked.py</c>, as amended on 2026-10-23), which its
@@ -141,9 +143,38 @@ namespace OnlyWorlds.Sdk
         public static bool IsProposedOrInDoubt(JObject body) => IsMarkOrDoubt(body?[ReviewProposed]);
 
         /// <summary><see cref="IsProposed"/>'s rule on the mark's own value.</summary>
-        internal static bool IsAMark(JToken mark) => mark != null && mark.Type == JTokenType.Object;
+        internal static bool IsAMark(JToken mark) => mark != null && mark.Type == JTokenType.Object && !IsEmptyMark(mark);
 
         /// <summary><see cref="IsProposedOrInDoubt"/>'s rule on the mark's own value.</summary>
-        internal static bool IsMarkOrDoubt(JToken mark) => mark != null && mark.Type != JTokenType.Null;
+        internal static bool IsMarkOrDoubt(JToken mark) => !IsEmptyMark(mark);
+
+        /// <summary>
+        /// True when the review mark's value reads as absent: missing, <c>null</c>, a string with nothing left after
+        /// trimming White_Space, an empty list or an empty object. An empty mark is settled for every reader, never a
+        /// doubt, and keel refuses a write carrying one (<see cref="OWApiError.IsReviewMarkEmpty"/>).
+        /// </summary>
+        /// <remarks>
+        /// The review profile's rule 1 (schema-dist serial 87): the mark is read by presence as the room and charter
+        /// profiles read theirs (<see cref="OWRoom.IsRoomElement"/>), the value never compared, and for this mark an
+        /// empty list or object is absent too, since a compact reader leaves both out. keel's <c>empty</c>
+        /// (<c>proposals/marked.py</c>, Keel #790).
+        /// </remarks>
+        internal static bool IsEmptyMark(JToken mark)
+        {
+            if (mark == null) return true;
+            switch (mark.Type)
+            {
+                case JTokenType.Null:
+                case JTokenType.Undefined:
+                    return true;
+                case JTokenType.String:
+                    return OWProfileText.TrimWhiteSpace((string)mark).Length == 0;
+                case JTokenType.Array:
+                case JTokenType.Object:
+                    return !mark.HasValues;
+                default:
+                    return false;
+            }
+        }
     }
 }
