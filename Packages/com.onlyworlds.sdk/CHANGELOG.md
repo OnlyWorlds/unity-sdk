@@ -8,6 +8,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
+- The schema pin moves to dist.90 (`v0.33.0-dist.90`). The calendar profile now says in words what the reader
+  already did: an intercalary entry on a calendar with no months is not a calendar, whatever its `after_month`, 0
+  included. The calendar fixture grows to 76 cases (42 refusals, 209 steps) with one new refusal,
+  `refuse-intercalary-no-months-after-month-0`, which `OWCalendar` passes unchanged. The lens profile's founder
+  sentence (a lens names its founder only where the writer has a Character of their own) concerns writers; this
+  SDK writes no lens. The `supertype` and `subtype` descriptions now say "within its type"; the generated models
+  carry neither description, so only the serial stamps change.
 - The schema pin moves to dist.89 (`v0.33.0-dist.89`), by way of dist.88. dist.88 moved nothing in the schema or
   the readers: the lens fixture gains a graph case whose elements carry an empty review mark, an object and a string,
   both nodes with no proposed mark, which `OWGraph` passes. dist.89 amends the calendar and message profiles (below);
