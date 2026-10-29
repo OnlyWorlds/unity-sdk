@@ -541,8 +541,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             var mark = JObject.Parse(@"{""by"":""0d4e8a2c"",""evidence"":""the Harbour Ledger, entry 14"",""expires"":""2026-11-21""}");
 
-            // py 0.36.0's vector (tests/test_pack.py): a mark, an empty object; null and absent are settled.
-            foreach (var marked in new[] { Marked(mark), Marked(new JObject()) })
+            // py 0.36.0's vector (tests/test_pack.py): a mark; null and absent are settled.
+            foreach (var marked in new[] { Marked(mark), Marked(new JObject { ["by"] = null }), Marked(new JObject { ["x"] = null }) })
             {
                 Assert.IsTrue(OWPayload.IsProposed(marked), marked.ToString());
                 Assert.IsTrue(OWPayload.IsProposedOrInDoubt(marked), marked.ToString());
@@ -555,12 +555,82 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             }
 
             // keel's vector (tests/test_proposed_readers_580.py, amendment A): a doubt is no mark for the queue and the
-            // review route, and counts with one for a reader that hands a world on.
-            foreach (var doubt in new JToken[] { Doubt, 0, new JArray(), false })
+            // review route, and counts with one for a reader that hands a world on. A string holding brackets is still
+            // a doubt (keel's tests/test_empty_review_mark_790.py).
+            foreach (var doubt in new JToken[] { Doubt, 0, false, new JArray("x"), JArray.Parse("[[]]"), " x ", "{}", "\uFEFF", "\u001C" })
             {
-                Assert.IsFalse(OWPayload.IsProposed(Marked(doubt)), doubt.ToString());
-                Assert.IsTrue(OWPayload.IsProposedOrInDoubt(Marked(doubt)), doubt.ToString());
+                Assert.IsFalse(OWPayload.IsProposed(Marked(doubt)), doubt.ToString(Newtonsoft.Json.Formatting.None));
+                Assert.IsTrue(OWPayload.IsProposedOrInDoubt(Marked(doubt)), doubt.ToString(Newtonsoft.Json.Formatting.None));
             }
+        }
+
+        /// <summary>
+        /// Serial 87, the review profile's rule 1: the mark is read by presence, as the room and charter profiles read
+        /// theirs, and an empty list or an empty object is absent too. An empty mark is settled for both readers, never a
+        /// doubt and never a mark. keel's vector (<c>tests/test_empty_review_mark_790.py</c>, <c>EMPTIES</c>), which keel
+        /// refuses on a write with 422 <c>review_mark_empty</c>.
+        /// </summary>
+        [Test]
+        public void AnEmptyMark_IsSettled_ForTheQueueAndForAReaderThatHandsAWorldOn()
+        {
+            foreach (var empty in new JToken[] { "", " \t\n", "\u3000 ", new JArray(), new JObject() })
+            {
+                var label = empty.ToString(Newtonsoft.Json.Formatting.None);
+                Assert.IsFalse(OWPayload.IsProposed(Marked(empty)), label + " is no mark");
+                Assert.IsFalse(OWPayload.IsProposedOrInDoubt(Marked(empty)), label + " is no doubt");
+            }
+        }
+
+        private static string Chars(params int[] codePoints) => new string(codePoints.Select(c => (char)c).ToArray());
+
+        /// <summary>
+        /// The packages' 24 review cases (the TypeScript SDK's <c>test/review.test.mjs</c>, 4.102.1, and the Python
+        /// package's <c>tests/test_review.py</c>, 0.84.1, the same names in the same order): the mark (null: no key),
+        /// whether <c>proposedMarkOf</c> shows a mark (<see cref="OWPayload.IsProposed"/>), and whether
+        /// <c>handsOnAsProposed</c> leaves the element out (<see cref="OWPayload.IsProposedOrInDoubt"/>). This SDK reads
+        /// no mark's <c>by</c>, <c>expires</c> or lapse from an element, so only those two answers are held.
+        /// </summary>
+        private static readonly (string What, Func<JToken> Mark, bool Shown, bool HandedOn)[] PackageCases =
+        {
+            ("no key", () => null, false, false),
+            ("null: settled", () => JValue.CreateNull(), false, false),
+            ("a string: not a mark, a doubt", () => "yes", false, true),
+            ("an empty string: an empty mark, settled", () => "", false, false),
+            ("ASCII spaces only: an empty mark, settled", () => "   ", false, false),
+            ("an empty array: an empty mark, settled", () => new JArray(), false, false),
+            ("an array holding an empty array: present, not a mark, a doubt", () => JArray.Parse("[[]]"), false, true),
+            ("false: a value, a doubt", () => false, false, true),
+            ("zero: a value, a doubt", () => 0, false, true),
+            ("an empty object: an empty mark, settled", () => new JObject(), false, false),
+            ("an object with no key the profile names: present, a mark", () => JObject.Parse(@"{""x"":null}"), true, true),
+            ("a whole mark, open", () => JObject.Parse(@"{""by"":""m1"",""evidence"":""seen"",""expires"":""2026-11-01""}"), true, true),
+            ("trimmed by and expires", () => JObject.Parse(@"{""by"":""  m1 "",""expires"":"" 2026-11-01 ""}"), true, true),
+            ("lapses on its own day", () => JObject.Parse(@"{""by"":""m1"",""expires"":""2026-10-26""}"), true, true),
+            ("lapsed before today", () => JObject.Parse(@"{""by"":""m1"",""expires"":""2026-10-01""}"), true, true),
+            ("an expires not shaped as a day", () => JObject.Parse(@"{""by"":""m1"",""expires"":""2026-1-1""}"), true, true),
+            ("a blank or non-string by", () => JObject.Parse(@"{""by"":""   "",""expires"":7}"), true, true),
+            ("U+3000 only: White_Space, an empty mark, settled", () => Chars(0x3000), false, false),
+            ("U+001C only: not White_Space, present, a doubt", () => Chars(0x1C), false, true),
+            ("a byte order mark only: not White_Space, present, a doubt", () => Chars(0xFEFF), false, true),
+            ("a by wrapped in U+001C keeps it", () => new JObject { ["by"] = Chars(0x1C) + "m1" + Chars(0x1C) }, true, true),
+            ("a by wrapped in a byte order mark keeps it", () => new JObject { ["by"] = Chars(0xFEFF) + "m1" }, true, true),
+            ("an expires in Arabic-Indic digits is no day", () => new JObject { ["by"] = "m1", ["expires"] = Chars(0x662, 0x660, 0x662, 0x666) + "-10-01" }, true, true),
+            ("an expires wrapped in a no-break space is trimmed", () => new JObject { ["expires"] = Chars(0xA0) + "2026-10-01" }, true, true),
+        };
+
+        public static IEnumerable<TestCaseData> PackageCaseNames() =>
+            PackageCases.Select(c => new TestCaseData(c.What).SetName("Review_" + c.What));
+
+        [Test]
+        public void ThePackagesReviewCases_AreTwentyFour() => Assert.AreEqual(24, PackageCases.Length);
+
+        [TestCaseSource(nameof(PackageCaseNames))]
+        public void ThePackagesReviewCase_ReadsAsTheyReadIt(string what)
+        {
+            var c = PackageCases.Single(x => x.What == what);
+            var body = Marked(c.Mark());
+            Assert.AreEqual(c.Shown, OWPayload.IsProposed(body), what + ": shown as a mark");
+            Assert.AreEqual(c.HandedOn, OWPayload.IsProposedOrInDoubt(body), what + ": left out by a reader that hands a world on");
         }
 
         [Test]
@@ -577,7 +647,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsFalse(doubted.IsProposed);
             Assert.IsTrue(doubted.IsProposedOrInDoubt);
 
-            foreach (var json in new[] { @"{""id"":""c1"",""name"":""Pal"",""x_review_proposed"":null}", @"{""id"":""c1"",""name"":""Pal""}" })
+            foreach (var json in new[]
+                     {
+                         @"{""id"":""c1"",""name"":""Pal"",""x_review_proposed"":null}", @"{""id"":""c1"",""name"":""Pal""}",
+                         // Serial 87: an empty mark is settled (the review profile's rule 1, by presence).
+                         @"{""id"":""c1"",""name"":""Pal"",""x_review_proposed"":{}}", @"{""id"":""c1"",""name"":""Pal"",""x_review_proposed"":[]}",
+                         @"{""id"":""c1"",""name"":""Pal"",""x_review_proposed"":"" ""}",
+                     })
             {
                 var settled = OWJson.Deserialize<OWCharacter>(json);
                 Assert.IsFalse(settled.IsProposed, json);
@@ -620,6 +696,28 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 var e400 = Assert.ThrowsAsync<OWApiError>(() => Make(off).AcceptProposalAsync("location", El, Pid));
                 Assert.IsFalse(Codes.First(c => c.Name == name).Is(e400), $"{name} at 400");
             }
+        }
+
+        /// <summary>
+        /// A write carrying an empty mark is keel's 422 <c>review_mark_empty</c> (serial 87, Keel #790): the helper is true
+        /// for that status and code only, and the error is none of the proposal codes'.
+        /// </summary>
+        [Test]
+        public void AWriteWithAnEmptyMark_Is422ReviewMarkEmpty()
+        {
+            var t = new FakeTransport { Status = 422, ResponseBody = Envelope("invalid_request", "review_mark_empty") };
+            var e = Assert.ThrowsAsync<OWApiError>(() =>
+                Make(t).PatchAsync<JObject>("location", El, new JObject { [OWPayload.ReviewProposed] = new JObject() }));
+            Assert.IsTrue(e.IsReviewMarkEmpty);
+            foreach (var other in Codes) Assert.IsFalse(other.Is(e), other.Name);
+
+            var off = new FakeTransport { Status = 400, ResponseBody = Envelope("invalid_request", "review_mark_empty") };
+            Assert.IsFalse(Assert.ThrowsAsync<OWApiError>(() =>
+                Make(off).PatchAsync<JObject>("location", El, new JObject { ["name"] = "x" })).IsReviewMarkEmpty, "at 400");
+
+            var notProposed = new FakeTransport { Status = 422, ResponseBody = Envelope("invalid_request", "not_proposed") };
+            Assert.IsFalse(Assert.ThrowsAsync<OWApiError>(() =>
+                Make(notProposed).PatchAsync<JObject>("location", El, new JObject { ["name"] = "x" })).IsReviewMarkEmpty, "not_proposed");
         }
 
         [Test]

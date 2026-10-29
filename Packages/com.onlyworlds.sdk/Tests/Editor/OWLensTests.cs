@@ -13,7 +13,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// The lens profile's conformance fixture (schema-dist <c>profiles/lens.fixture.json</c>, vendored byte for byte in
-    /// <c>Tests/Editor/Fixtures/lens/</c> from dist.84), replayed case by case through <see cref="OWLens"/>: the pair and
+    /// <c>Tests/Editor/Fixtures/lens/</c> from dist.87), replayed case by case through <see cref="OWLens"/>: the pair and
     /// the template (<see cref="OWLens.IsLens"/>, <see cref="OWLens.IsTemplate"/>), the legal values of <c>x_lens</c>
     /// (<see cref="OWLens.CheckKeys"/>), every resolution over the fixture's worlds and their readers
     /// (<see cref="OWLens.Resolve(IEnumerable{JToken}, JObject, OWLensReader, OWLensOptions)"/>), the invariants, and
@@ -28,13 +28,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </remarks>
     public class OWLensTests
     {
-        /// <summary>The fixture's sha256 as dist.86's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "2cf7d9878f1746f889e83275a2aa217e0c59d2e784fbba616759457115c72165";
+        /// <summary>The fixture's sha256 as dist.87's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "ef071a800b4d012d493fcf9c602e92c749016a01fab8fabe2b44acf46f8dd792";
 
-        /// <summary>The fixture's cases by kind, as dist.84 holds them (151 in all; the graph kind is the graph reader's).</summary>
+        /// <summary>The fixture's cases by kind, as dist.87 holds them (152 in all; the graph kind is the graph reader's).</summary>
         private static readonly Dictionary<string, int> Counts = new Dictionary<string, int>
         {
-            ["shape"] = 6, ["keys"] = 25, ["resolve"] = 75, ["invariant"] = 4, ["uses"] = 4, ["graph"] = 37,
+            ["shape"] = 6, ["keys"] = 25, ["resolve"] = 75, ["invariant"] = 4, ["uses"] = 4, ["graph"] = 38,
         };
 
         private static JObject _fixture;
@@ -84,15 +84,15 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.86's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.87's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
-        public void TheFixture_HoldsDist84sCases()
+        public void TheFixture_HoldsDist87sCases()
         {
             Assert.IsNotNull(Fixture, "the vendored lens fixture was not found");
             var cases = Fixture["cases"].Cast<JObject>().ToList();
-            Assert.AreEqual(151, cases.Count, "dist.84's fixture holds 151 cases");
+            Assert.AreEqual(152, cases.Count, "dist.87's fixture holds 152 cases");
             var counts = cases.GroupBy(c => (string)c["kind"]).ToDictionary(g => g.Key, g => g.Count());
             CollectionAssert.AreEquivalent(Counts, counts);
         }
@@ -280,6 +280,30 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var got = OWLens.Resolve(world, lens, OWLensReader.Owner());
             CollectionAssert.AreEqual(new[] { "c1" }, got.Kept, "a doubt is not there to hop to");
             Assert.AreEqual(1, got.Cut.TryGetValue(OWLensCut.NotVisible, out var n) ? n : 0, "the owner counts it as not visible");
+        }
+
+        /// <summary>
+        /// An empty mark (<c>{}</c>, <c>[]</c>, a string of White_Space) is no mark and no doubt (the review profile's
+        /// rule 1, serial 87, as keel's lens reader reads it through <c>doubt_or_mark_q</c>): the element is in every
+        /// reader's view and a hop reaches it.
+        /// </summary>
+        [Test]
+        public void AnEmptyMark_IsInTheView()
+        {
+            foreach (var empty in new JToken[] { new JObject(), new JArray(), " \t" })
+            {
+                var world = new List<JObject>
+                {
+                    new JObject { ["id"] = "c1", ["type"] = "character", ["name"] = "Ada", ["location"] = "p1" },
+                    new JObject { ["id"] = "p1", ["type"] = "location", ["name"] = "Settled Keep", [OWPayload.ReviewProposed] = empty },
+                };
+                var lens = new JObject { ["id"] = "L", ["type"] = "construct", ["supertype"] = "Lens", ["characters"] = new JArray("c1") };
+                foreach (var reader in new[] { OWLensReader.Owner(), OWLensReader.Public() })
+                {
+                    var got = OWLens.Resolve(world, lens, reader);
+                    CollectionAssert.AreEqual(new[] { "c1", "p1" }, got.Kept, empty.ToString(Newtonsoft.Json.Formatting.None) + " is no mark");
+                }
+            }
         }
 
         /// <summary>An entry whose type is not one of the standard's is not in the world: a filter lens never keeps it.</summary>

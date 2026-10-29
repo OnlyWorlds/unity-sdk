@@ -57,6 +57,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         private static readonly Dictionary<string, string> Reserved = new Dictionary<string, string>
         {
             ["world_gone"] = "OWApiError.IsAuthError names it as reserved (keel has no world_gone row yet)",
+            // keel's source lists it (core/errors.py, Keel #790, 2026-10-29); this fixture was fetched before it shipped.
+            ["review_mark_empty"] = "OWApiError.IsReviewMarkEmpty, the review profile's rule 1 at serial 87 (422)",
         };
 
         private static JObject _wire;

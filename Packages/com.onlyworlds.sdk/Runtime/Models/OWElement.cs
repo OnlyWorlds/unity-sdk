@@ -188,7 +188,7 @@ namespace OnlyWorlds.Sdk
                && OWPayload.IsHiddenMark(mark);
 
         /// <summary>
-        /// True for a proposed element (<c>x_review_proposed</c> an object): not canon until a keeper settles
+        /// True for a proposed element (<c>x_review_proposed</c> an object, not empty): not canon until a keeper settles
         /// it. The queue's and a viewer's rule (<see cref="OWPayload.IsProposed"/>); the mark stays in the extensions bag.
         /// </summary>
         public bool IsProposed
@@ -197,7 +197,7 @@ namespace OnlyWorlds.Sdk
                && OWPayload.IsAMark(mark);
 
         /// <summary>
-        /// True for a proposed element or one whose mark is in doubt (<c>x_review_proposed</c> there and not null): the
+        /// True for a proposed element or one whose mark is in doubt (<c>x_review_proposed</c> there and not empty): the
         /// rule of a reader that hands a world on (<see cref="OWPayload.IsProposedOrInDoubt"/>).
         /// </summary>
         public bool IsProposedOrInDoubt

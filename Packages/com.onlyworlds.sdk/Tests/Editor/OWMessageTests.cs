@@ -519,6 +519,22 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public void NoteOf_PassesByAProposedNote_AndTakesOneWhoseMarkIsEmpty()
+        {
+            JObject Note(string id, JToken mark)
+            {
+                var n = J("{'id': '" + id + "', 'type': 'narrative', 'supertype': 'Note', 'narrator': '" + Ada + "'}");
+                n[OWPayload.ReviewProposed] = mark;
+                return n;
+            }
+
+            Assert.IsNull(OWMessage.NoteOf(new[] { Note("p", new JObject { ["by"] = "seat" }) }, Ada, null), "a proposed Note is no line");
+            // Serial 87: an empty mark is settled (the review profile's rule 1, by presence).
+            foreach (var empty in new JToken[] { new JObject(), new JArray(), "  " })
+                Assert.AreEqual("e", OWMessage.NoteOf(new[] { Note("e", empty) }, Ada, null), empty.ToString(Newtonsoft.Json.Formatting.None) + " is no mark");
+        }
+
+        [Test]
         public void ABodyParsedWithDates_OrdersAsItsText()
         {
             // JObject.Parse reads an ISO time as a Date token, not a string; the order is the same instant's.

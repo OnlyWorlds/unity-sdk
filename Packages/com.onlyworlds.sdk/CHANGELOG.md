@@ -13,6 +13,32 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   `world`, `abstract` or `temporal`, and `FamilyOrder` lists the four colour words. Construct moves to pink and
   Ability to amber; the colours themselves are unchanged. A graph node's `Family` follows, as the lens profile's
   fixture now asserts. Code that compared a family to one of the old words compares to the colour word instead.
+- The schema pin moves to dist.87 (`v0.33.0-dist.87`). No schema file moved; the review and lens profiles and the
+  presentation sidecar's `_meta.groups` line say how a reader reads an empty review mark and an unknown colour word
+  (below). The lens fixture gains a graph case holding one element of each of the 22 types, each node with its colour
+  word and icon, which `OWGraph` passes.
+- An empty review mark is settled (the review profile's rule 1 at dist.87: the mark is read by presence, as the room
+  and charter profiles read theirs). `OWPayload.IsProposed` and `OWElement.IsProposed` no longer count `{}` as a
+  mark, and `OWPayload.IsProposedOrInDoubt` and `OWElement.IsProposedOrInDoubt` no longer count `""`, a string of
+  White_Space only, `[]` or `{}` as a doubt. Every reader built on them follows: `OWLens` and `OWGraph` keep an
+  element whose mark is empty in every reader's view, and `OWMessage.NoteOf` takes a Note whose mark is empty as a
+  Character's line. A number, a boolean, a list with an entry, and a string with anything left after the trim (a byte
+  order mark alone included) stay doubts; an object with any key stays a mark. A caller can feel this: an element
+  marked `{}` now reads as settled to both. `IsProposed` still answers true only for an object, so a caller that
+  casts the mark to `JObject` after it stays safe; a string, a number or a list never counted and still does not.
+
+### Added
+
+- `OWApiError.IsReviewMarkEmpty`: keel refuses a write whose `x_review_proposed` is empty with 422
+  `review_mark_empty`. Send the mark as an object, or `null` to clear it.
+- `OWPresentationException`: a colour word not in the presentation sidecar's `colors.order` fails loudly, naming the
+  word (`Word`) and the type it was given to (`Type`), and never draws a default colour (the lens profile and the
+  sidecar's `_meta.groups` line at dist.87). The sidecar's load throws it for a type's word or a colour's key outside
+  the order, and every later read of that sidecar (`FamilyOf`, `IconOf`, `ColorFor`, a graph node) throws it again
+  until the sidecar is re-vendored and `OWPresentation.Reload` runs. `ColorOfFamily` throws it for a word outside the
+  order, where it answered null; a null word still answers null, and `ColorFor` still draws an unknown type grey.
+  The load throws it too for a word in the order whose colour is missing (no `colors.families` entry, or no `light`
+  or `dark`) or is not a `#rrggbb` hex, naming the word and the hex, where a known type was drawn grey.
 
 ## [0.24.0] - 2026-10-29
 
