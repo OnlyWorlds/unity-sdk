@@ -90,6 +90,44 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public void AWordInTheOrderWithNoColour_FailsTheLoad_NamingTheWord()
+        {
+            var sidecar = Shipped();
+            ((JObject)sidecar["colors"]["families"]).Remove("pink");
+            var ex = Assert.Catch<Exception>(() => Load(sidecar));
+            StringAssert.Contains("'pink'", ex.Message);
+            StringAssert.Contains("colors.families", ex.Message);
+
+            // Never a grey for a known type: the failure is the answer for every type, a pink one and any other.
+            StringAssert.Contains("'pink'", Assert.Catch<Exception>(() => OWPresentation.ColorFor("language", true)).Message);
+            StringAssert.Contains("'pink'", Assert.Catch<Exception>(() => OWPresentation.ColorFor("character", false)).Message);
+        }
+
+        [Test]
+        public void AColourMissingOneMode_FailsTheLoad_NamingTheWordAndTheMode()
+        {
+            var sidecar = Shipped();
+            ((JObject)sidecar["colors"]["families"]["blue"]).Remove("dark");
+            var ex = Assert.Catch<Exception>(() => Load(sidecar));
+            StringAssert.Contains("'blue'", ex.Message);
+            StringAssert.Contains("dark", ex.Message);
+        }
+
+        [Test]
+        public void AHexThatWillNotParse_FailsTheLoad_NamingTheHex()
+        {
+            foreach (var hex in new[] { "#c98z00", "c98500", "#c985", "", "amber" })
+            {
+                var sidecar = Shipped();
+                sidecar["colors"]["families"]["amber"]["dark"] = hex;
+                var ex = Assert.Catch<Exception>(() => Load(sidecar), hex);
+                StringAssert.Contains("'" + hex + "'", ex.Message, hex);
+                StringAssert.Contains("'amber'", ex.Message, hex);
+                OWPresentation.Reload();
+            }
+        }
+
+        [Test]
         public void AColourAskedForAWordNotInTheOrder_FailsNamingTheWord()
         {
             Load(Shipped());

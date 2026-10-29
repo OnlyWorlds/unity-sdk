@@ -37,6 +37,8 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   the order, and every later read of that sidecar (`FamilyOf`, `IconOf`, `ColorFor`, a graph node) throws it again
   until the sidecar is re-vendored and `OWPresentation.Reload` runs. `ColorOfFamily` throws it for a word outside the
   order, where it answered null; a null word still answers null, and `ColorFor` still draws an unknown type grey.
+  The load throws it too for a word in the order whose colour is missing (no `colors.families` entry, or no `light`
+  or `dark`) or is not a `#rrggbb` hex, naming the word and the hex, where a known type was drawn grey.
 
 ## [0.24.0] - 2026-10-29
 

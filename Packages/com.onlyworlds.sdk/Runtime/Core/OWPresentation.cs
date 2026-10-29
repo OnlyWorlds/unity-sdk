@@ -7,8 +7,10 @@ namespace OnlyWorlds.Sdk
 {
     /// <summary>
     /// A colour word the presentation sidecar does not list in <c>colors.order</c>: on a type, as a colour's key, or asked
-    /// of <see cref="OWPresentation.ColorOfFamily"/>. The reader fails, naming the word, and never draws a default colour
-    /// (the lens profile's Nodes bullet and the sidecar's <c>_meta.groups</c> line, schema-dist serial 87).
+    /// of <see cref="OWPresentation.ColorOfFamily"/>. Or a word it lists whose colour is missing (no
+    /// <c>colors.families</c> entry, no <c>light</c> or <c>dark</c>) or not a <c>#rrggbb</c> hex. The reader fails,
+    /// naming the word (and the hex), and never draws a default colour (the lens profile's Nodes bullet and the
+    /// sidecar's <c>_meta.groups</c> line, schema-dist serial 87).
     /// </summary>
     /// <remarks>
     /// A sidecar that fails this way fails every later read of it the same way (<see cref="OWPresentation.FamilyOf"/>,
@@ -27,6 +29,14 @@ namespace OnlyWorlds.Sdk
         {
             Word = word;
             Type = type;
+        }
+
+        /// <summary>A word in <c>colors.order</c> whose colour is missing or not a hex: <paramref name="reason"/> says which.</summary>
+        internal OWPresentationException(string word, string reason)
+            : base($"[OnlyWorlds] presentation.json: the colour word '{word}' is in colors.order but {reason}. A reader never "
+                   + "draws a default colour: re-vendor Runtime/Resources/ow-presentation.json from the pinned schema-dist.")
+        {
+            Word = word;
         }
 
         /// <summary>The word that is not in <c>colors.order</c>.</summary>
@@ -110,7 +120,7 @@ namespace OnlyWorlds.Sdk
             return typeSlug != null && _iconByType.TryGetValue(typeSlug, out var i) ? i : null;
         }
 
-        /// <summary>Colour for a family, or null for no family (a null word) or a word the sidecar gives no colour.</summary>
+        /// <summary>Colour for a family, or null for no family (a null word) or when the sidecar did not load.</summary>
         /// <exception cref="OWPresentationException">The word is not in <c>colors.order</c>.</exception>
         public static OWFamilyColor? ColorOfFamily(string family)
         {
@@ -212,33 +222,62 @@ namespace OnlyWorlds.Sdk
 
             if (colors == null) return;
 
-            if (colors["families"] is JObject families)
+            var families = colors["families"] as JObject;
+            if (families != null)
             {
                 foreach (var pair in families)
                 {
                     if (Array.IndexOf(_familyOrder, pair.Key) < 0)
                         throw new OWPresentationException(pair.Key, null, _familyOrder);
-
-                    var entry = pair.Value as JObject;
-                    if (entry == null) continue;
-
-                    // Both modes are required. Taking one variant and reusing it for both surfaces
-                    // is a surface-specific CHOICE, not reading the palette -- the pairs were
-                    // measured against near-white and near-black separately.
-                    if (TryParseHex(entry["light"]?.ToString(), out var light) &&
-                        TryParseHex(entry["dark"]?.ToString(), out var dark))
-                    {
-                        _colorByFamily[pair.Key] = new OWFamilyColor { Light = light, Dark = dark };
-                    }
                 }
+            }
+
+            // Every word in the order has both modes, each a #rrggbb hex, checked before any is parsed (the parse needs
+            // the engine), so a known type is never drawn in a default grey. Both modes are required: taking one variant
+            // and reusing it for both surfaces is a surface-specific CHOICE, not reading the palette -- the pairs were
+            // measured against near-white and near-black separately.
+            foreach (var word in _familyOrder)
+            {
+                if (!(families?[word] is JObject entry))
+                    throw new OWPresentationException(word, "it has no entry in colors.families");
+                foreach (var mode in Modes)
+                {
+                    var hex = entry[mode] is JValue v && v.Type == JTokenType.String ? (string)v : null;
+                    if (hex == null) throw new OWPresentationException(word, $"it has no {mode} colour in colors.families");
+                    if (!IsHex(hex)) throw new OWPresentationException(word, $"its {mode} colour '{hex}' is not a #rrggbb hex");
+                }
+            }
+
+            foreach (var word in _familyOrder)
+            {
+                var entry = (JObject)families[word];
+                _colorByFamily[word] = new OWFamilyColor
+                {
+                    Light = ParseHex(word, "light", (string)entry["light"]),
+                    Dark = ParseHex(word, "dark", (string)entry["dark"]),
+                };
             }
         }
 
-        private static bool TryParseHex(string hex, out Color color)
+        private static readonly string[] Modes = { "light", "dark" };
+
+        /// <summary>A <c>#</c> and six hex digits, the sidecar's shape for a colour.</summary>
+        private static bool IsHex(string hex)
         {
-            color = default;
-            if (string.IsNullOrEmpty(hex)) return false;
-            return ColorUtility.TryParseHtmlString(hex, out color);
+            if (hex.Length != 7 || hex[0] != '#') return false;
+            for (var i = 1; i < 7; i++)
+            {
+                var c = hex[i];
+                if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'))) return false;
+            }
+            return true;
+        }
+
+        private static Color ParseHex(string word, string mode, string hex)
+        {
+            if (!ColorUtility.TryParseHtmlString(hex, out var color))
+                throw new OWPresentationException(word, $"its {mode} colour '{hex}' does not parse");
+            return color;
         }
 
         /// <summary>Forces a reload, a failed load's <see cref="OWPresentationException"/> included. For tests and for a re-vendored sidecar.</summary>
