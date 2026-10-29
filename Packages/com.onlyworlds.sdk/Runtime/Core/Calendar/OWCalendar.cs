@@ -358,7 +358,8 @@ namespace OnlyWorlds.Sdk
                 {
                     if (!(e is JObject eo)) return null;
                     if (!(eo["name"] is JValue en) || en.Type != JTokenType.String) return null;
-                    if (!TryInteger(eo["start"], out long start)) return null;
+                    // Whole numbers a double holds exactly (Number.isSafeInteger), as the TypeScript reader takes them.
+                    if (!IsSafeInt(eo["start"], out long start)) return null;
                     var era = new CalendarEra
                     {
                         Name = (string)en,
@@ -371,13 +372,13 @@ namespace OnlyWorlds.Sdk
                     var end = eo["end"];
                     if (!IsNullish(end))
                     {
-                        if (!TryInteger(end, out long endValue)) return null;
+                        if (!IsSafeInt(end, out long endValue)) return null;
                         era.End = endValue;
                     }
                     var yb = eo["year_base"];
                     if (!IsNullish(yb))
                     {
-                        if (!TryInteger(yb, out long baseValue)) return null;
+                        if (!IsSafeInt(yb, out long baseValue)) return null;
                         era.YearBase = baseValue;
                     }
                     cfg.Eras.Add(era);
@@ -393,6 +394,9 @@ namespace OnlyWorlds.Sdk
                     if (!(i is JObject io)) return null;
                     if (!(io["name"] is JValue iname) || iname.Type != JTokenType.String) return null;
                     if (!TryInteger(io["after_month"], out long after)) return null;
+                    // A day placed after a month the year does not have (past the last, below the first; with no
+                    // months, anything above 0) has no position, and a reader never invents one (the profile, serial 89).
+                    if (after < 0 || after > (cfg.Bundles?.Months?.Names.Count ?? 0)) return null;
                     var ic = new CalendarIntercalary
                     {
                         Name = (string)iname,
@@ -732,7 +736,8 @@ namespace OnlyWorlds.Sdk
             long skippedInYear = 0;
             if (pos.Slots != null)
             {
-                // TS reads slots[i] unguarded; past the end it would throw (only a config that slips the reader).
+                // TS reads slots[i] unguarded; past the end it would throw. Since serial 89 the reader refuses the one
+                // value that got there (an after_month past the last month); a config built by hand still can.
                 for (long i = 0; i < pos.Offset && i < pos.Slots.Count; i++)
                 {
                     var s = pos.Slots[(int)i];

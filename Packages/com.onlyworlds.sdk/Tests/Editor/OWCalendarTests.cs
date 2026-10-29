@@ -658,6 +658,24 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public void DefensiveRead_AnErasWholeNumbersAreTheSafeIntegers()
+        {
+            // The fixture refuses a start of 2^53; the profile's "whole number" is one word for start, end and year_base.
+            Assert.IsNull(OWCalendar.ReadConfig(JObject.Parse("{ version: 1, grain: 'year', eras: [{ name: 'E', start: 0, end: 9007199254740992 }] }")), "end");
+            Assert.IsNull(OWCalendar.ReadConfig(JObject.Parse("{ version: 1, grain: 'year', eras: [{ name: 'E', start: 0, year_base: -9007199254740992 }] }")), "year_base");
+            Assert.IsNotNull(OWCalendar.ReadConfig(JObject.Parse("{ version: 1, grain: 'year', eras: [{ name: 'E', start: -9007199254740991, end: 9007199254740991 }] }")), "the edges");
+        }
+
+        [Test]
+        public void DefensiveRead_AnAfterMonthNamesAMonthTheYearHas()
+        {
+            // Serial 89: the last month and 0 (before the first) are positions; with no months, 0 is the only one.
+            Assert.IsNotNull(OWCalendar.ReadConfig(JObject.Parse("{ version: 1, grain: 'day', bundles: { months: { names: ['A', 'B'], lengths: [2, 2] } }, intercalary: [{ name: 'Last', after_month: 2 }, { name: 'First', after_month: 0 }] }")));
+            Assert.IsNull(OWCalendar.ReadConfig(JObject.Parse("{ version: 1, grain: 'day', bundles: { months: { names: ['A', 'B'], lengths: [2, 2] } }, intercalary: [{ name: 'Past', after_month: 3 }] }")));
+            Assert.IsNotNull(OWCalendar.ReadConfig(JObject.Parse("{ version: 1, grain: 'year', intercalary: [{ name: 'Floating Day', after_month: 0 }] }")));
+        }
+
+        [Test]
         public void DefensiveRead_AcceptsEveryFixture()
         {
             // JS: readCalendarConfig(JSON.parse(JSON.stringify(cfg))): a strict-JSON round trip.
