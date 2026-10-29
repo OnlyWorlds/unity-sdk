@@ -5,6 +5,37 @@ using UnityEngine;
 
 namespace OnlyWorlds.Sdk
 {
+    /// <summary>
+    /// A colour word the presentation sidecar does not list in <c>colors.order</c>: on a type, as a colour's key, or asked
+    /// of <see cref="OWPresentation.ColorOfFamily"/>. The reader fails, naming the word, and never draws a default colour
+    /// (the lens profile's Nodes bullet and the sidecar's <c>_meta.groups</c> line, schema-dist serial 87).
+    /// </summary>
+    /// <remarks>
+    /// A sidecar that fails this way fails every later read of it the same way (<see cref="OWPresentation.FamilyOf"/>,
+    /// <see cref="OWPresentation.IconOf"/>, <see cref="OWPresentation.ColorFor"/>, a graph node), until it is re-vendored
+    /// and <see cref="OWPresentation.Reload"/> runs. Most often it is a copy that kept an older serial's words (before
+    /// serial 86 the groups were <c>agents</c>, <c>world</c>, <c>abstract</c> and <c>temporal</c>).
+    /// </remarks>
+    public sealed class OWPresentationException : Exception
+    {
+        internal OWPresentationException(string word, string type, IReadOnlyList<string> order)
+            : base((type == null
+                       ? $"[OnlyWorlds] the colour word '{word}' is not in colors.order"
+                       : $"[OnlyWorlds] presentation.json gives the type '{type}' the colour word '{word}', which is not in colors.order")
+                   + $" ({(order.Count == 0 ? "none listed" : string.Join(", ", order))}). A reader never draws a default colour: "
+                   + "re-vendor Runtime/Resources/ow-presentation.json from the pinned schema-dist.")
+        {
+            Word = word;
+            Type = type;
+        }
+
+        /// <summary>The word that is not in <c>colors.order</c>.</summary>
+        public string Word { get; }
+
+        /// <summary>The type slug the sidecar gave the word to; null for a colour's key or a word asked for.</summary>
+        public string Type { get; }
+    }
+
     /// <summary>A family's colour in both surface modes.</summary>
     public struct OWFamilyColor
     {
@@ -44,6 +75,7 @@ namespace OnlyWorlds.Sdk
         private static Dictionary<string, OWFamilyColor> _colorByFamily;
         private static string[] _familyOrder = Array.Empty<string>();
         private static bool _loaded;
+        private static OWPresentationException _failure;
 
         /// <summary>
         /// Family names in their published order.
@@ -78,11 +110,14 @@ namespace OnlyWorlds.Sdk
             return typeSlug != null && _iconByType.TryGetValue(typeSlug, out var i) ? i : null;
         }
 
-        /// <summary>Colour for a family, or null if unknown.</summary>
+        /// <summary>Colour for a family, or null for no family (a null word) or a word the sidecar gives no colour.</summary>
+        /// <exception cref="OWPresentationException">The word is not in <c>colors.order</c>.</exception>
         public static OWFamilyColor? ColorOfFamily(string family)
         {
             EnsureLoaded();
-            if (family != null && _colorByFamily.TryGetValue(family, out var c)) return c;
+            if (family == null) return null;
+            if (Array.IndexOf(_familyOrder, family) < 0) throw new OWPresentationException(family, null, _familyOrder);
+            if (_colorByFamily.TryGetValue(family, out var c)) return c;
             return null;
         }
 
@@ -95,7 +130,9 @@ namespace OnlyWorlds.Sdk
         /// <remarks>
         /// Falls back to grey rather than throwing. An unrecognised type is a normal condition --
         /// the standard can add one before this SDK ships an updated sidecar -- and a viewer that
-        /// crashes on an unknown type is worse than one that draws it plainly.
+        /// crashes on an unknown type is worse than one that draws it plainly. A colour word not in
+        /// <c>colors.order</c> is not that condition: the sidecar is wrong, and it throws
+        /// (<see cref="OWPresentationException"/>) rather than draw grey.
         /// </remarks>
         public static Color ColorFor(string typeSlug, bool darkSurface)
         {
@@ -105,6 +142,7 @@ namespace OnlyWorlds.Sdk
 
         private static void EnsureLoaded()
         {
+            if (_failure != null) throw _failure;
             if (_loaded) return;
             _loaded = true;
 
@@ -125,14 +163,33 @@ namespace OnlyWorlds.Sdk
             {
                 Parse(JObject.Parse(asset.text));
             }
+            catch (OWPresentationException e)
+            {
+                // Loud and kept: a word not in colors.order never degrades to a default colour.
+                _failure = e;
+                throw;
+            }
             catch (Exception e)
             {
                 Debug.LogError($"[OnlyWorlds] Could not parse presentation defaults: {e.Message}");
             }
         }
 
+        /// <summary>
+        /// Reads the order first, so every word the sidecar uses is checked against it as it is read: a type's word and
+        /// a colour's key. One not in the order throws <see cref="OWPresentationException"/>, naming it.
+        /// </summary>
         private static void Parse(JObject root)
         {
+            var colors = root["colors"] as JObject;
+
+            if (colors?["order"] is JArray order)
+            {
+                var list = new List<string>(order.Count);
+                foreach (var item in order) list.Add(item.ToString());
+                _familyOrder = list.ToArray();
+            }
+
             if (root["types"] is JObject types)
             {
                 foreach (var pair in types)
@@ -143,25 +200,25 @@ namespace OnlyWorlds.Sdk
                     var family = entry["family"]?.ToString();
                     var icon = entry["icon"]?.ToString();
 
-                    if (!string.IsNullOrEmpty(family)) _familyByType[pair.Key] = family;
+                    if (!string.IsNullOrEmpty(family))
+                    {
+                        if (Array.IndexOf(_familyOrder, family) < 0)
+                            throw new OWPresentationException(family, pair.Key, _familyOrder);
+                        _familyByType[pair.Key] = family;
+                    }
                     if (!string.IsNullOrEmpty(icon)) _iconByType[pair.Key] = icon;
                 }
             }
 
-            var colors = root["colors"] as JObject;
             if (colors == null) return;
-
-            if (colors["order"] is JArray order)
-            {
-                var list = new List<string>(order.Count);
-                foreach (var item in order) list.Add(item.ToString());
-                _familyOrder = list.ToArray();
-            }
 
             if (colors["families"] is JObject families)
             {
                 foreach (var pair in families)
                 {
+                    if (Array.IndexOf(_familyOrder, pair.Key) < 0)
+                        throw new OWPresentationException(pair.Key, null, _familyOrder);
+
                     var entry = pair.Value as JObject;
                     if (entry == null) continue;
 
@@ -184,8 +241,12 @@ namespace OnlyWorlds.Sdk
             return ColorUtility.TryParseHtmlString(hex, out color);
         }
 
-        /// <summary>Forces a reload. For tests and for a re-vendored sidecar.</summary>
-        public static void Reload() => _loaded = false;
+        /// <summary>Forces a reload, a failed load's <see cref="OWPresentationException"/> included. For tests and for a re-vendored sidecar.</summary>
+        public static void Reload()
+        {
+            _loaded = false;
+            _failure = null;
+        }
 
         /// <summary>
         /// Reads the sidecar from its text, as the resource is read: for a test run outside the Editor, where
@@ -198,7 +259,16 @@ namespace OnlyWorlds.Sdk
             _iconByType = new Dictionary<string, string>();
             _colorByFamily = new Dictionary<string, OWFamilyColor>();
             _familyOrder = Array.Empty<string>();
-            Parse(JObject.Parse(json));
+            _failure = null;
+            try
+            {
+                Parse(JObject.Parse(json));
+            }
+            catch (OWPresentationException e)
+            {
+                _failure = e;
+                throw;
+            }
         }
     }
 }

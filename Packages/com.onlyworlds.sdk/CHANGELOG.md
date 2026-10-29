@@ -29,6 +29,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 - `OWApiError.IsReviewMarkEmpty`: keel refuses a write whose `x_review_proposed` is empty with 422
   `review_mark_empty`. Send the mark as an object, or `null` to clear it.
+- `OWPresentationException`: a colour word not in the presentation sidecar's `colors.order` fails loudly, naming the
+  word (`Word`) and the type it was given to (`Type`), and never draws a default colour (the lens profile and the
+  sidecar's `_meta.groups` line at dist.87). The sidecar's load throws it for a type's word or a colour's key outside
+  the order, and every later read of that sidecar (`FamilyOf`, `IconOf`, `ColorFor`, a graph node) throws it again
+  until the sidecar is re-vendored and `OWPresentation.Reload` runs. `ColorOfFamily` throws it for a word outside the
+  order, where it answered null; a null word still answers null, and `ColorFor` still draws an unknown type grey.
 
 ## [0.24.0] - 2026-10-29
 
