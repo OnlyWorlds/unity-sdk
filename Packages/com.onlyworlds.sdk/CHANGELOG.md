@@ -6,6 +6,20 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- `OWLens.Resolve` (and `OWGraph.Read` with a lens) follows the lens profile owner's rulings on readings no fixture
+  case decided yet, ahead of the fixture's next serial, which carries a case for each: a link reaches only an element
+  of its field's target type, and a Pin's `element_type`/`element_id` pair only when its type names one of the 22
+  (rulings 1, 2); an anchor id no element of its field's type holds, a lens's own id under another type's field among
+  them, is counted for the owner as `anchor_not_visible`, never skipped (3); a known-of stub keeps the base fields
+  (`change_seq` too) and its type's public fields, a public link as the reader is served it, every other field at its
+  unset value and no extension key (7); the mail part orders two messages with one `created_at` by id by code point
+  (11); a whole float in an `x_lens` key reads whole (`depth: 2.0` is 2), and only a fraction is refused (13). The
+  fixture's `keys-an-integral-float-is-refused-where-the-text-shows` still passes (7.0 is past `depth`'s table) and is
+  expected to be replaced at that serial. Rulings 4 and 5 (an umbrella's hop keeps a child it reaches before entering
+  it; a cut lens id stays counted) were already this reader's. Each change is held by a test named for its ruling.
+
 ### Added
 
 - `OWOpeners.For(tools, kind, address, surface)`: the rows of an "Open with" menu for a world (`"world"`) or one of

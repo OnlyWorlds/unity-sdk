@@ -17,11 +17,16 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     {
         // --- The lens read, and every lens entered, is never in its own result (profile rule 3) ---
 
+        /// <summary>
+        /// The lens names itself and an Object under their own types' fields. Under <c>characters</c> they read as
+        /// anchors no element of that type holds, counted <c>anchor_not_visible</c> (the profile owner's rulings 1 and 3,
+        /// ahead of its next serial): <c>Ruling3_ADanglingAnchorIsCountedForTheOwner</c>.
+        /// </summary>
         [Test]
         public void ALensThatAnchorsItself_IsNotInItsOwnResult()
         {
             var r = Read(@"[{""id"":""L"",""type"":""construct"",""name"":""L"",""supertype"":""Lens"",""x_lens"":{},
-                ""characters"":[""L"",""a""]},{""id"":""a"",""type"":""object"",""name"":""a""}]", "L", OWLensReader.Owner());
+                ""constructs"":[""L""],""objects"":[""a""]},{""id"":""a"",""type"":""object"",""name"":""a""}]", "L", OWLensReader.Owner());
             Same(@"[""a""]", Kept(r));
             Same("{}", Cut(r));
         }
@@ -54,15 +59,16 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Same("{}", Cut(r));
         }
 
-        // --- An anchor in no element is skipped, never counted ---
+        // --- An anchor in no element is counted for the owner, never skipped ---
+        // (keel's reader, where the packages skipped it; the profile owner's ruling 3 reverses this case's old answer)
 
         [Test]
-        public void AnAnchorInNoElement_IsSkippedUncounted()
+        public void AnAnchorInNoElement_IsCountedAnchorNotVisible()
         {
             var r = Read(@"[{""id"":""L"",""type"":""construct"",""name"":""L"",""supertype"":""Lens"",""x_lens"":{""depth"":0},
                 ""characters"":[""a"",""missing""]},{""id"":""a"",""type"":""character"",""name"":""a""}]", "L", OWLensReader.Owner());
             Same(@"[""a""]", Kept(r));
-            Same("{}", Cut(r));
+            Same(@"{""anchor_not_visible"":1}", Cut(r));
         }
 
         // --- A served lens or message names the link fields its reader's view trimmed ---
@@ -70,7 +76,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [Test]
         public void AServedMessage_NamesItsTrimmedField()
         {
-            var r = Read(@"[{""id"":""L"",""type"":""construct"",""name"":""L"",""supertype"":""Lens"",""x_lens"":{},""characters"":[""m""]},
+            var r = Read(@"[{""id"":""L"",""type"":""construct"",""name"":""L"",""supertype"":""Lens"",""x_lens"":{},""narratives"":[""m""]},
                 {""id"":""m"",""type"":""narrative"",""name"":""m"",""supertype"":""Message"",""characters"":[""c1"",""h""]},
                 {""id"":""c1"",""type"":""character"",""name"":""c1""},
                 {""id"":""h"",""type"":""character"",""name"":""h"",""hidden"":true}]", "L", OWLensReader.Contributor());
@@ -148,13 +154,19 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
         // --- A known-of stub's body ---
 
+        /// <summary>
+        /// keel's stub (the profile owner's ruling 7, ahead of its next serial; the packages served only the base and the
+        /// public fields that are not links): <c>change_seq</c> and the public link <c>species</c> kept, as the guest is
+        /// served it, the date at its unset value.
+        /// </summary>
         [Test]
-        public void AStub_KeepsItsTypesPublicFields_AndNoChangeSeq()
+        public void AStub_KeepsItsBaseAndPublicFields_TheRestUnset()
         {
             var r = Read(@"[{""id"":""L"",""type"":""construct"",""name"":""L"",""supertype"":""Lens"",""x_lens"":{""depth"":0},""characters"":[""k""]},
                 {""id"":""k"",""type"":""character"",""name"":""k"",""physicality"":""tall"",""height"":180,""change_seq"":7,
                 ""birth_date"":1190,""species"":[""s""]}]", "L", OWLensReader.Guest(new[] { "L" }, new[] { "k" }));
-            Same(@"[{""id"":""k"",""type"":""character"",""name"":""k"",""physicality"":""tall"",""height"":180,""known_of"":true}]", Rows(r));
+            Same(@"[{""id"":""k"",""type"":""character"",""name"":""k"",""physicality"":""tall"",""height"":180,""change_seq"":7,
+                ""birth_date"":null,""species"":[],""known_of"":true}]", Rows(r));
         }
 
         [Test]
@@ -166,8 +178,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 System.IO.Path.Combine(root, "Runtime", "Resources", "ow-presentation.json")));
             foreach (var slug in OWElementTypes.Slugs)
             {
-                var links = new HashSet<string>(OWLens.LinkFieldsOf(slug).Select(l => l.field));
-                var want = ((JArray)sidecar["types"][slug]["public"]).Select(t => (string)t).Where(f => !links.Contains(f));
+                var want = ((JArray)sidecar["types"][slug]["public"]).Select(t => (string)t);
                 CollectionAssert.AreEqual(want.ToArray(), OWLens.StubPublicFields(slug).ToArray(), slug);
             }
         }

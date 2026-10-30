@@ -171,6 +171,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 }
                 case "keys":
                 {
+                    // Expected to change at the fixture's next serial: keys-an-integral-float-is-refused-where-the-text-shows
+                    // (text_only; this reader sees the text, so it runs). Ruling 13 retires the refusal it was written for;
+                    // its want (depth refused) still holds, now because 7.0 reads as 7, past depth's table.
                     var bad = OWLens.CheckKeys(c["x_lens"]);
                     Assert.AreEqual(c["bad"].Type == JTokenType.Null ? null : (string)c["bad"], bad, name + ": the key refused");
                     Assert.AreEqual((bool)c["legal"], bad == null, name + ": legal");
@@ -850,28 +853,37 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(1, r.NotesIgnored);
         }
 
-        // A float in an x_lens key is refused, even with no fraction (keel's reader; the ruling rides serial 83's fixture):
-        // the lens is unreadable and the key is named. An element's date still reads 7.0 as 7. Kills: depth 2.0 read as
-        // 2, a date of 7.0 read as undated.
+        // Ruling 13 (the lens profile's owner, ahead of its next serial): a whole float as an x_lens key value reads whole
+        // in every reader, as an element's date does (depth 2.0 is 2); only a fraction is refused, the key named. It
+        // retires serial 83's refusal of 2.0 where a reader sees the text. Kills: depth 2.0 refused, 2.5 read, a date of
+        // 7.0 read as undated.
         [Test]
-        public void AFloatInAnXLensKey_IsRefused_ButAnElementsDateOf7Point0Is7()
+        public void Ruling13_AWholeFloatInAnXLensKey_ReadsWhole_AFractionIsRefused()
         {
             foreach (var (key, value) in new[]
                      {
                          ("depth", "2.0"), ("window", "3.0"), ("budget", "10.0"), ("changed_within", "7.0"),
                      })
-                Assert.AreEqual(key, OWLens.CheckKeys(JObject.Parse("{\"" + key + "\":" + value + "}")), key + " " + value);
-            Assert.AreEqual("from", OWLens.CheckKeys(JObject.Parse(@"{""from"":1.0,""to"":5}")));
-            Assert.AreEqual("to", OWLens.CheckKeys(JObject.Parse(@"{""from"":1,""to"":5.0}")));
+                Assert.IsNull(OWLens.CheckKeys(JObject.Parse("{\"" + key + "\":" + value + "}")), key + " " + value);
+            Assert.IsNull(OWLens.CheckKeys(JObject.Parse(@"{""from"":1.0,""to"":5}")), "from 1.0");
+            Assert.IsNull(OWLens.CheckKeys(JObject.Parse(@"{""from"":1,""to"":5.0}")), "to 5.0");
+            foreach (var key in new[] { "depth", "window", "budget", "changed_within", "from" })
+                Assert.AreEqual(key, OWLens.CheckKeys(JObject.Parse("{\"" + key + "\":1.5}")), key + " 1.5");
+            Assert.AreEqual("depth", OWLens.CheckKeys(JObject.Parse(@"{""depth"":3.0}")), "3.0 is 3, past depth's table");
 
             var world = new List<JObject>
             {
                 JObject.Parse(@"{""id"":""e"",""type"":""event"",""name"":""After"",""start_date"":1300.0}"),
-                JObject.Parse(@"{""id"":""c"",""type"":""character"",""name"":""c""}"),
+                JObject.Parse(@"{""id"":""c"",""type"":""character"",""name"":""c"",""friends"":[""f""]}"),
+                JObject.Parse(@"{""id"":""f"",""type"":""character"",""name"":""f""}"),
             };
-            var lens = JObject.Parse(@"{""id"":""L"",""type"":""construct"",""supertype"":""Lens"",""events"":[""e""],""characters"":[""c""],""x_lens"":{""depth"":2.0}}");
-            Assert.AreEqual("depth", OWLens.Resolve(world, lens, OWLensReader.Owner()).RefusedKey, "an unreadable lens names the key");
+            var lens = JObject.Parse(@"{""id"":""L"",""type"":""construct"",""supertype"":""Lens"",""characters"":[""c""],""x_lens"":{""depth"":1.0,""budget"":1.0}}");
+            var read = OWLens.Resolve(world, lens, OWLensReader.Owner());
+            Assert.IsNull(read.RefusedKey, "depth 1.0 and budget 1.0 read");
+            CollectionAssert.AreEqual(new[] { "c" }, read.Kept, "budget 1.0 is 1");
+            CollectionAssert.AreEquivalent(new Dictionary<string, int> { [OWLensCut.Budget] = 1 }, read.Cut, "depth 1.0 reached f");
 
+            lens = JObject.Parse(@"{""id"":""L"",""type"":""construct"",""supertype"":""Lens"",""events"":[""e""],""characters"":[""c""]}");
             lens["x_lens"] = new JObject { ["depth"] = 0 };
             var r = OWLens.Resolve(world, lens, OWLensReader.Owner(), new OWLensOptions { AsOf = 1200 });
             CollectionAssert.AreEqual(new[] { "c" }, r.Kept);
@@ -980,6 +992,133 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 "a folder stamp, where one reads, wins over updated_at");
             Assert.IsTrue(Kept(@",""updated_at"":""2026-10-26T00:00:00Z"",""local_updated_at"":""soon"""),
                 "an unreadable folder stamp is no stamp");
+        }
+
+        // -- The lens profile owner's rulings on readings no fixture case decided yet (each a case in its next serial) ---
+        // Rulings 4 and 5 (an umbrella's children are not in its hop's known set; a cut lens id stays counted once
+        // entered) were already this reader's: AnUmbrellasSiblingLens_ReachedByAChildsHop_IsKept_UnlessEnteredFirst.
+
+        /// <summary>
+        /// Ruling 1: a link reaches only an element of its field's target type. Ada's species names a Location and an
+        /// Event's locations names Ada: neither is a hop, either way. Her location is. Kills: a hop that follows any id.
+        /// </summary>
+        [Test]
+        public void Ruling1_ALinkReachesOnlyAnElementOfItsFieldsTargetType()
+        {
+            var world = new List<JObject>
+            {
+                Lens("L", "{}", @"""characters"":[""a""]"),
+                Character("a", @"""species"":[""port""],""location"":""home"""),
+                JObject.Parse(@"{""id"":""port"",""type"":""location"",""name"":""Port""}"),
+                JObject.Parse(@"{""id"":""home"",""type"":""location"",""name"":""Home""}"),
+                JObject.Parse(@"{""id"":""fair"",""type"":""event"",""name"":""Fair"",""locations"":[""a""]}"),
+            };
+            var r = OWLens.Resolve(world, "L", OWLensReader.Owner());
+            CollectionAssert.AreEqual(new[] { "a", "home" }, r.Kept, "Ada and her location only");
+            CollectionAssert.IsEmpty(r.Cut, "a wrongly typed id is no hop, so nothing to count");
+        }
+
+        /// <summary>
+        /// Ruling 2: a generic pair links only when its type key names one of the 22, and then only to an element of that
+        /// type. Kills: a Pin's <c>element_id</c> followed by its id alone.
+        /// </summary>
+        [Test]
+        public void Ruling2_AGenericPairLinksOnlyByOneOfThe22()
+        {
+            var world = new List<JObject>
+            {
+                Lens("L", "{}", @"""characters"":[""a""]"),
+                Character("a"),
+                JObject.Parse(@"{""id"":""p1"",""type"":""pin"",""name"":""Dragon pin"",""element_type"":""dragon"",""element_id"":""a""}"),
+                JObject.Parse(@"{""id"":""p2"",""type"":""pin"",""name"":""Ada's pin"",""element_type"":""character"",""element_id"":""a""}"),
+                JObject.Parse(@"{""id"":""p3"",""type"":""pin"",""name"":""Wrong pin"",""element_type"":""location"",""element_id"":""a""}"),
+                JObject.Parse(@"{""id"":""p4"",""type"":""pin"",""name"":""Bare pin"",""element_id"":""a""}"),
+            };
+            CollectionAssert.AreEqual(new[] { "a", "p2" }, OWLens.Resolve(world, "L", OWLensReader.Owner()).Kept,
+                "only the pin whose pair names a Character");
+        }
+
+        /// <summary>
+        /// Ruling 3: an anchor id no element holds is counted for the owner as <c>anchor_not_visible</c>, never skipped; so
+        /// is one of another type than its field's. Below the owner nothing is counted. Kills: a dangling anchor skipped.
+        /// </summary>
+        [Test]
+        public void Ruling3_ADanglingAnchorIsCountedForTheOwner()
+        {
+            var world = new List<JObject>
+            {
+                Lens("L", @"{""depth"":0}", @"""characters"":[""a"",""ghost"",""port""]"),
+                Character("a"),
+                JObject.Parse(@"{""id"":""port"",""type"":""location"",""name"":""Port""}"),
+            };
+            var r = OWLens.Resolve(world, "L", OWLensReader.Owner());
+            CollectionAssert.AreEqual(new[] { "a" }, r.Kept);
+            CollectionAssert.AreEquivalent(new Dictionary<string, int> { [OWLensCut.AnchorNotVisible] = 2 }, r.Cut,
+                "the missing id and the Location under characters");
+            CollectionAssert.IsEmpty(OWLens.Resolve(world, "L", OWLensReader.Contributor()).Cut, "a contributor is not told");
+
+            // The lens's own id under characters is no lens of the reading (keel keys an anchor by its field's type).
+            world[0] = Lens("L", @"{""depth"":0}", @"""characters"":[""L"",""a""]");
+            r = OWLens.Resolve(world, "L", OWLensReader.Owner());
+            CollectionAssert.AreEqual(new[] { "a" }, r.Kept, "never in its own result");
+            CollectionAssert.AreEquivalent(new Dictionary<string, int> { [OWLensCut.AnchorNotVisible] = 1 }, r.Cut,
+                "the lens's id under characters, counted too");
+        }
+
+        /// <summary>
+        /// Ruling 7: a known-of stub is shaped as keel serves it: the base and public fields kept (a public link redacted to
+        /// what the reader sees), every other field at its unset value, extension keys dropped, <c>known_of</c> true.
+        /// Kills: a stub that drops its unset fields, its public link, or <c>change_seq</c>.
+        /// </summary>
+        [Test]
+        public void Ruling7_AStubKeepsBaseAndPublic_AndUnsetsTheRest()
+        {
+            var world = new List<JObject>
+            {
+                Lens("L", @"{""depth"":0}", @"""characters"":[""s""]"),
+                JObject.Parse(@"{""id"":""s"",""type"":""character"",""name"":""Sable"",""description"":""Quiet."",""supertype"":""Smith"",
+                    ""change_seq"":5,""physicality"":""Tall"",""height"":180,""species"":[""sp1"",""sp2""],""mentality"":""Calm"",
+                    ""background"":""Secret."",""birth_date"":12,""birthplace"":""loc"",""friends"":[""sp1""],""x_custom"":""kept nowhere"",
+                    ""created_by"":""m1"",""world"":""w1""}"),
+                JObject.Parse(@"{""id"":""sp1"",""type"":""species"",""name"":""Elves""}"),
+                JObject.Parse(@"{""id"":""sp2"",""type"":""species"",""name"":""Hidden kin""}"),
+                JObject.Parse(@"{""id"":""loc"",""type"":""location"",""name"":""Forge""}"),
+            };
+            var row = OWLens.Resolve(world, "L", OWLensReader.Guest(new[] { "L", "sp1" }, new[] { "s" })).Rows.Single();
+            var want = JObject.Parse(@"{""id"":""s"",""type"":""character"",""name"":""Sable"",""description"":""Quiet."",""supertype"":""Smith"",
+                ""change_seq"":5,""physicality"":""Tall"",""height"":180,""species"":[""sp1""],""mentality"":"""",""background"":"""",
+                ""birth_date"":null,""birthplace"":null,""friends"":[],""created_by"":null,""known_of"":true}");
+            Assert.IsTrue(JToken.DeepEquals(want, row), "keel's stub: " + row.ToString(Formatting.None));
+        }
+
+        /// <summary>
+        /// Ruling 11: two messages with one <c>created_at</c> order by id, by code point as keel's reader orders ids (a
+        /// world has no order on the wire). U+FF01 comes before U+1F600 by code point; UTF-16's ordinal order puts the
+        /// surrogate pair first. Kills: a tie kept in the world's order, or ordered by UTF-16 unit.
+        /// </summary>
+        [Test]
+        public void Ruling11_AMailTieOrdersById_ByCodePoint()
+        {
+            const string bang = "m！", smile = "m\U0001F600";
+            JObject Letter(string id) => new JObject
+            {
+                ["id"] = id, ["type"] = "narrative", ["name"] = id, ["supertype"] = "Message", ["narrator"] = "a",
+                ["characters"] = new JArray("me"), ["created_at"] = "2026-10-20T12:00:00Z",
+            };
+            var world = new List<JObject>
+            {
+                Lens("L", @"{""types"":[""narrative/message""],""mail"":""all""}", null),
+                Character("me"),
+                Character("a"),
+                Letter(smile),
+                Letter(bang),
+            };
+            var options = new OWLensOptions { Clock = new DateTimeOffset(2026, 10, 28, 0, 0, 0, TimeSpan.Zero) };
+            var r = OWLens.Resolve(world, "L", OWLensReader.Owner("me"), options);
+            CollectionAssert.AreEqual(new[] { bang, smile }, r.Mail.Unread, "U+FF01 before U+1F600");
+            world.Reverse(3, 2);
+            CollectionAssert.AreEqual(new[] { bang, smile }, OWLens.Resolve(world, "L", OWLensReader.Owner("me"), options).Mail.Unread,
+                "whatever the world's order");
         }
 
         /// <summary>The case's lens, a body or the id of a lens in the world.</summary>

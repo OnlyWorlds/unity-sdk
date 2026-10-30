@@ -362,11 +362,17 @@ namespace OnlyWorlds.Sdk
         private static readonly string[] ShowValues = { "full", "first_line", "name" };
         private static readonly string[] MailValues = { "unread_full_read_titles", "all", "none" };
 
-        /// <summary>The keys every known-of stub keeps, beside its type's public fields (<see cref="StubPublicFields"/>).</summary>
+        /// <summary>
+        /// The keys every known-of stub keeps, beside its type's public fields (<see cref="StubPublicFields"/>): keel's
+        /// base (<c>KNOWN_OF_BASE</c>). Every other field a stub serves at its unset value.
+        /// </summary>
         private static readonly string[] StubKeys =
         {
-            "type", "id", "name", "description", "supertype", "subtype", "image_url", "created_at", "updated_at",
+            "type", "id", "name", "description", "supertype", "subtype", "image_url", "created_at", "updated_at", "change_seq",
         };
+
+        /// <summary>The server's hands, which a known-of stub serves as null (keel's <c>_known_of_value</c>).</summary>
+        private static readonly string[] Hands = { "created_by", "changed_by", "changed_via", "changed_client" };
 
         /// <summary>
         /// Each type's public fields, the ones the platform shows on a known-of element: the presentation sidecar's
@@ -379,14 +385,12 @@ namespace OnlyWorlds.Sdk
         };
 
         /// <summary>
-        /// The fields a known-of stub of this type keeps beside <see cref="StubKeys"/>: its public fields that are not
-        /// links (a stub carries no links), as the TypeScript SDK and the Python package serve a stub.
+        /// The fields a known-of stub of this type keeps beside <see cref="StubKeys"/>: its public fields, a public link
+        /// among them as the reader is served it (keel's <c>KNOWN_OF_KEEPS</c>; the profile's ruling 7).
         /// </summary>
         internal static IReadOnlyList<string> StubPublicFields(string type)
         {
-            if (type == null || !PublicFields.TryGetValue(type, out var fields)) return Array.Empty<string>();
-            var links = new HashSet<string>(LinkFieldsOf(type).Select(l => l.field));
-            return fields.Where(f => !links.Contains(f)).ToArray();
+            return type != null && PublicFields.TryGetValue(type, out var fields) ? fields : Array.Empty<string>();
         }
 
         /// <summary>
@@ -426,8 +430,8 @@ namespace OnlyWorlds.Sdk
         /// <c>undated</c> <c>include</c> or <c>exclude</c>; <c>changed_within</c> a whole number of days from 1;
         /// <c>show</c> <c>full</c>, <c>first_line</c> or <c>name</c>; <c>budget</c> 1 to 1000;
         /// <c>mail</c> <c>unread_full_read_titles</c>, <c>all</c> or <c>none</c>; <c>notes</c> an object of strings. A
-        /// whole number is a JSON integer (a boolean or a float is not, <c>2.0</c> included, as keel's reader reads it); one
-        /// beyond the 64-bit range is refused.
+        /// whole number is a JSON number with no fraction (<c>2.0</c> is 2, the profile's ruling 13; a boolean or a string
+        /// is not); one beyond the 64-bit range is refused.
         /// </remarks>
         public static string CheckKeys(JToken xLens)
         {
@@ -436,20 +440,20 @@ namespace OnlyWorlds.Sdk
 
             bool Has(string key, out JToken value) => x.TryGetValue(key, out value) && value.Type != JTokenType.Null;
 
-            if (Has("depth", out var depth) && !(Integer(depth, out var d) && d >= 0 && d <= 2)) return "depth";
+            if (Has("depth", out var depth) && !(Whole(depth, out var d) && d >= 0 && d <= 2)) return "depth";
             if (Has("types", out var types) && !(types is JArray list && list.All(IsTypeWord))) return "types";
             var hasWindow = Has("window", out var window);
-            if (hasWindow && !(Integer(window, out var w) && w >= 0)) return "window";
+            if (hasWindow && !(Whole(window, out var w) && w >= 0)) return "window";
             var hasFrom = Has("from", out var from);
             var hasTo = Has("to", out var to);
             if (hasWindow && (hasFrom || hasTo)) return "window";
             long f = 0;
-            if (hasFrom && !Integer(from, out f)) return "from";
-            if (hasTo && !(Integer(to, out var t) && hasFrom && f < t)) return "to";
+            if (hasFrom && !Whole(from, out f)) return "from";
+            if (hasTo && !(Whole(to, out var t) && hasFrom && f < t)) return "to";
             if (Has("undated", out var undated) && !IsOneOf(undated, UndatedValues)) return "undated";
-            if (Has("changed_within", out var changed) && !(Integer(changed, out var c) && c >= 1)) return "changed_within";
+            if (Has("changed_within", out var changed) && !(Whole(changed, out var c) && c >= 1)) return "changed_within";
             if (Has("show", out var show) && !IsOneOf(show, ShowValues)) return "show";
-            if (Has("budget", out var budget) && !(Integer(budget, out var b) && b >= 1 && b <= 1000)) return "budget";
+            if (Has("budget", out var budget) && !(Whole(budget, out var b) && b >= 1 && b <= 1000)) return "budget";
             if (Has("mail", out var mail) && !IsOneOf(mail, MailValues)) return "mail";
             if (Has("notes", out var notes)
                 && !(notes is JObject n && n.Properties().All(p => p.Value.Type == JTokenType.String)))
@@ -600,12 +604,11 @@ namespace OnlyWorlds.Sdk
             var cut = part.Cut;
             Anchors(view, lens, out var anchors, out var children, out var unseen);
             part.Anchors.UnionWith(anchors);
+            // Every anchor the reader cannot see is counted, a lens's own id under a field of another type among them (keel
+            // keys an anchor by its field's type, so that is no lens of the reading; the profile's ruling 3).
             if (view.OwnerCounts)
             {
-                foreach (var i in unseen)
-                {
-                    if (!visited.Contains(i)) SetDefault(cut, i, OWLensCut.AnchorNotVisible);
-                }
+                foreach (var i in unseen) SetDefault(cut, i, OWLensCut.AnchorNotVisible);
             }
 
             var kept = new List<string>();
@@ -763,7 +766,9 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// The lens's anchors in its link order (the anchor fields in order, each field's array in order, each id once):
-        /// those the reader sees, the child lenses it is served whole (an umbrella's), and those it cannot see.
+        /// those the reader sees, the child lenses it is served whole (an umbrella's), and those it cannot see. An id no
+        /// element of the field's type holds is one it cannot see (the profile's ruling 3: counted for the owner as
+        /// <c>anchor_not_visible</c>, never skipped).
         /// </summary>
         private static void Anchors(View view, JObject lens, out List<string> anchors, out List<string> children,
             out List<string> unseen)
@@ -775,13 +780,13 @@ namespace OnlyWorlds.Sdk
             foreach (var field in AnchorFields)
             {
                 if (!(lens[field] is JArray list)) continue;
+                var target = OWElementTypes.LinkTarget(Pair.type, field);
                 foreach (var entry in list)
                 {
                     var i = StringOf(entry);
                     if (string.IsNullOrEmpty(i) || !seen.Add(i)) continue;
-                    // An anchor in no element is a dangling link: skipped, and never counted as not visible.
-                    if (!view.Els.TryGetValue(i, out var element)) continue;
-                    if (field == "constructs" && IsLens(element))
+                    if (!view.Els.TryGetValue(i, out var element) || view.TypeOf(i) != target) unseen.Add(i);
+                    else if (field == "constructs" && IsLens(element))
                         (view.Whole.Contains(i) ? children : unseen).Add(i);
                     else if (view.Sees(i)) anchors.Add(i);
                     else unseen.Add(i);
@@ -1092,7 +1097,9 @@ namespace OnlyWorlds.Sdk
                     else if (knownOf) KnownOf.Add(id);
                 }
 
-                WholeSorted = Whole.OrderBy(i => i, StringComparer.Ordinal).ToList();
+                // By id by code point: the mail part reads its messages in this order, so two with one created_at order by
+                // id as keel orders them (the profile's ruling 11).
+                WholeSorted = Whole.OrderBy(i => i, CodePointOrder).ToList();
                 foreach (var id in Order)
                 {
                     foreach (var y in LinksOf(id).Distinct())
@@ -1142,28 +1149,38 @@ namespace OnlyWorlds.Sdk
             /// <summary>A room element or a reading aid: kept only by its pair, never by its type alone (rule 4).</summary>
             public bool StandsApart(string i) => IsRoom(i) || IsReadingAid(i);
 
-            /// <summary>Every id the element's own body links to, in the schema's field order (each field's list in order).</summary>
+            /// <summary>
+            /// Every id the element's own body links to, in the schema's field order (each field's list in order). A link
+            /// reaches only an element of its field's target type, and the generic pair only when its <c>element_type</c>,
+            /// folded, names the type of one of the 22 (the profile's rulings 1 and 2, keel's reading): a wrongly typed id,
+            /// or one no element holds, is no link.
+            /// </summary>
             public List<string> LinksOf(string i)
             {
                 if (_links.TryGetValue(i, out var cached)) return cached;
                 var list = new List<string>();
                 var body = Els[i];
-                foreach (var (field, many) in LinkFieldsOf(TypeOf(i)))
+                var type = TypeOf(i);
+                foreach (var (field, many) in LinkFieldsOf(type))
                 {
                     var value = body[field];
+                    var target = field == GenericId && HasGenericPair(type)
+                        ? OWProfileText.Fold(StringOf(body[GenericType]) ?? "")
+                        : OWElementTypes.LinkTarget(type, field);
+                    bool Reaches(string id) => !string.IsNullOrEmpty(id) && Els.ContainsKey(id) && TypeOf(id) == target;
                     if (many)
                     {
                         if (!(value is JArray array)) continue;
                         foreach (var entry in array)
                         {
                             var id = StringOf(entry);
-                            if (!string.IsNullOrEmpty(id)) list.Add(id);
+                            if (Reaches(id)) list.Add(id);
                         }
                     }
                     else
                     {
                         var id = StringOf(value);
-                        if (!string.IsNullOrEmpty(id)) list.Add(id);
+                        if (Reaches(id)) list.Add(id);
                     }
                 }
 
@@ -1181,33 +1198,47 @@ namespace OnlyWorlds.Sdk
 
             /// <summary>
             /// The body this reader is served, a copy, as keel serves it (<c>elements/serialize.py</c>, the visibility
-            /// module's <c>redact</c>): the owner's body as stored; a stub's keys and <c>known_of: true</c>; or, for any
-            /// other reader, the whole body trimmed (<see cref="Trim"/>).
+            /// module's <c>redact</c>): the owner's body as stored; for any other reader, the whole body trimmed
+            /// (<see cref="Trim"/>); a known-of element as its stub (<see cref="ToKnownOf"/>).
             /// </summary>
             public JObject Served(string i)
             {
-                var e = Els[i];
-                if (KnownOf.Contains(i))
-                {
-                    var stub = new JObject();
-                    var publicFields = StubPublicFields(TypeOf(i));
-                    foreach (var p in e.Properties())
-                    {
-                        if (Array.IndexOf(StubKeys, p.Name) >= 0 || publicFields.Contains(p.Name)) stub[p.Name] = p.Value.DeepClone();
-                    }
-
-                    stub[OWPayload.KnownOf] = true;
-                    return stub;
-                }
-
-                var body = (JObject)e.DeepClone();
+                var body = (JObject)Els[i].DeepClone();
                 // x_served_trimmed is the server's key, never a stored one: a body that stores it serves none of it, to
                 // any reader (keel pops it before the trim). Only a key's served bodies carry the server's own mark.
                 if (Rung != OWLensRung.Served) body.Remove(OWMessage.ServedTrimmedKey);
                 // The owner reading as itself is served what it stored, a link to a proposed element too: nothing is
                 // trimmed and nothing marked (keel's reader with no view). Reading as another reader, it gets theirs.
                 if (Rung != OWLensRung.Owner) Trim(body, TypeOf(i));
-                return body;
+                return KnownOf.Contains(i) ? ToKnownOf(body, TypeOf(i)) : body;
+            }
+
+            /// <summary>
+            /// A served body as its known-of stub (keel's <c>known_of</c>, the visibility module; the profile's ruling 7):
+            /// <see cref="StubKeys"/> and the type's public fields kept (a public link as the trim left it), every other
+            /// field at its unset value (a scalar string <c>""</c>, a number or a single link null, a list <c>[]</c>, the
+            /// generic pair <c>""</c> and null, the server's hands null), every other key dropped (an extension, the
+            /// trimmed mark, <c>world</c>), and <c>known_of: true</c>.
+            /// </summary>
+            private static JObject ToKnownOf(JObject body, string type)
+            {
+                var stub = new JObject();
+                var publicFields = StubPublicFields(type);
+                var links = LinkFieldsOf(type).ToDictionary(l => l.field, l => l.many);
+                var fields = type != null && OWElementTypes.FieldNames.TryGetValue(type, out var names) ? names : Array.Empty<string>();
+                foreach (var p in body.Properties())
+                {
+                    var key = p.Name;
+                    if (Array.IndexOf(StubKeys, key) >= 0 || publicFields.Contains(key)) stub[key] = p.Value.DeepClone();
+                    else if (Array.IndexOf(Hands, key) >= 0) stub[key] = JValue.CreateNull();
+                    else if (key == GenericType && HasGenericPair(type)) stub[key] = "";
+                    else if (links.TryGetValue(key, out var many)) stub[key] = many ? (JToken)new JArray() : JValue.CreateNull();
+                    else if (OWElementTypes.IsStringField(type, key)) stub[key] = "";
+                    else if (Array.IndexOf(fields, key) >= 0) stub[key] = JValue.CreateNull();
+                }
+
+                stub[OWPayload.KnownOf] = true;
+                return stub;
             }
 
             /// <summary>
@@ -1384,8 +1415,8 @@ namespace OnlyWorlds.Sdk
             {
                 var r = new Recipe();
                 if (!(lens?[Field] is JObject x)) return r;
-                if (Integer(x["depth"], out var depth)) r.Depth = (int)depth;
-                if (Integer(x["budget"], out var budget)) r.Budget = (int)budget;
+                if (Whole(x["depth"], out var depth)) r.Depth = (int)depth;
+                if (Whole(x["budget"], out var budget)) r.Budget = (int)budget;
                 r.Undated = StringOf(x["undated"]) ?? r.Undated;
                 r.Show = StringOf(x["show"]) ?? r.Show;
                 r.Mail = StringOf(x["mail"]) ?? r.Mail;
@@ -1394,10 +1425,10 @@ namespace OnlyWorlds.Sdk
                     foreach (var word in types) r.Types.Add(OWProfileText.Fold(StringOf(word) ?? ""));
                 }
 
-                if (Integer(x["window"], out var window)) r.Window = window;
-                if (Integer(x["from"], out var from)) r.From = from;
-                if (Integer(x["to"], out var to)) r.To = to;
-                if (Integer(x["changed_within"], out var changed)) r.ChangedWithin = changed;
+                if (Whole(x["window"], out var window)) r.Window = window;
+                if (Whole(x["from"], out var from)) r.From = from;
+                if (Whole(x["to"], out var to)) r.To = to;
+                if (Whole(x["changed_within"], out var changed)) r.ChangedWithin = changed;
                 if (x["notes"] is JObject notes)
                 {
                     foreach (var p in notes.Properties())
@@ -1465,20 +1496,10 @@ namespace OnlyWorlds.Sdk
         // -- Small readers ---------------------------------------------------------------
 
         /// <summary>
-        /// An <c>x_lens</c> key's whole number: a JSON integer only, as keel's reader reads the recipe. A float is refused
-        /// even with no fraction (<c>2.0</c>), so the lens is unreadable and the key is named; an element's date reads
-        /// through <see cref="Whole"/>, which takes <c>7.0</c> as 7.
-        /// </summary>
-        private static bool Integer(JToken token, out long value)
-        {
-            value = 0;
-            return token is JValue v && v.Type == JTokenType.Integer && Whole(v, out value);
-        }
-
-        /// <summary>
         /// A JSON number with no fraction as a long (<c>7</c> and <c>7.0</c> alike, as the TypeScript SDK and the Python
         /// package read it); a boolean, a string, a fraction, NaN or a number past 64 bits is not a whole number. An
-        /// element's date reads through it; an <c>x_lens</c> key through the strict <see cref="Integer"/>.
+        /// element's date reads through it, and so does an <c>x_lens</c> key (the profile's ruling 13: <c>depth</c>
+        /// <c>2.0</c> is 2).
         /// </summary>
         private static bool Whole(JToken token, out long value)
         {
