@@ -6,6 +6,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Schema pin to `v0.33.0-dist.97`: the address profile's four format cases on an empty string, one per part (an
+  empty world, type, id or lens refuses by that part's own reason; only null or a missing key is absent), which
+  `OWAddress` already answered so.
+
 ## [0.26.0] - 2026-10-30
 
 Serials 88 to 96 in Unity, with the lens and graph readers on every reading the lens profile's owner ruled ahead of

@@ -10,7 +10,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// The address profile's conformance fixture (schema-dist <c>profiles/address.fixture.json</c>, vendored byte for
-    /// byte in <c>Tests/Editor/Fixtures/address/</c> from dist.77), read case by case through
+    /// byte in <c>Tests/Editor/Fixtures/address/</c> from dist.97), read case by case through
     /// <see cref="OWAddress.ElementAddress(JObject)"/> (a format case) and <see cref="OWAddress.TryParseLink"/> (a parse
     /// case), each refusal by the reason the fixture names. The TypeScript SDK and the Python package replay the same
     /// cases through <c>elementAddress</c> and <c>parseOwLink</c>. When the dist moves the fixture, re-vendor it and
@@ -18,8 +18,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </summary>
     public class OWAddressTests
     {
-        /// <summary>The fixture's sha256 as dist.77's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "13b321c8244d3d4bce28e25e29b6d8c57b2450187be0cdfcd7380bea36c1ea72";
+        /// <summary>The fixture's sha256 as dist.97's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "897e2bf6091ffccbe280c904f5f890d0f09ee38ed25e40f24519b96abe6887d0";
 
         private const string World = "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e0f";
         private const string Element = "019a1f3c-2b4e-7d10-8c3a-6f2e9b0d4a71";
@@ -71,7 +71,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.77's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.97's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
@@ -80,10 +80,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsNotNull(Fixture, "the vendored address fixture was not found");
             Assert.AreEqual("address", (string)Fixture["profile"]);
             var cases = Fixture["cases"].Cast<JObject>().ToList();
-            Assert.AreEqual(133, cases.Count, "dist.77's fixture holds 133 cases");
-            Assert.AreEqual(32, cases.Count(c => (string)c["kind"] == "format"));
+            Assert.AreEqual(137, cases.Count, "dist.97's fixture holds 137 cases");
+            Assert.AreEqual(36, cases.Count(c => (string)c["kind"] == "format"));
             Assert.AreEqual(101, cases.Count(c => (string)c["kind"] == "parse"));
-            Assert.AreEqual(70, cases.Count(c => c["refuse"] != null), "16 format refusals and 54 parse refusals");
+            Assert.AreEqual(74, cases.Count(c => c["refuse"] != null), "20 format refusals and 54 parse refusals");
         }
 
         [Test]
