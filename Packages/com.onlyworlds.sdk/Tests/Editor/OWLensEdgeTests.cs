@@ -149,7 +149,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         /// <c>as_of</c>, the world's <c>now</c> (else its <c>time_current</c>) as the fence's edge, the case's
         /// <c>clock</c>, the world's members list.
         /// </summary>
-        private static OWLensOptions OptionsOf(JObject e)
+        internal static OWLensOptions OptionsOf(JObject e)
         {
             var world = (JObject)e["world"];
             return new OWLensOptions
@@ -164,7 +164,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         /// <summary>A result in the file's words: kept, cut (a reason with no count absent), rows, notes_ignored, mail.</summary>
-        private static JObject Json(OWLensResult r)
+        internal static JObject Json(OWLensResult r)
         {
             var o = new JObject
             {

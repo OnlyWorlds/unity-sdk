@@ -567,7 +567,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         /// <summary>A case reader: its rung, its Character, a guest's lists; <c>as</c> is the owner reading as that reader.</summary>
-        private static OWLensReader ReaderOf(JObject r)
+        internal static OWLensReader ReaderOf(JObject r)
         {
             if (r["as"] is JObject asReader) return ReaderOf(asReader).WithOwnerCounts();
             var character = r["character"]?.Type == JTokenType.String ? (string)r["character"] : null;
@@ -582,7 +582,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         /// <summary>A case's options in <see cref="OWGraphOptions"/>' words; the world's members ride along for the mail rule.</summary>
-        private static OWGraphOptions OptionsOf(JObject c)
+        internal static OWGraphOptions OptionsOf(JObject c)
         {
             var o = c["options"] as JObject ?? new JObject();
             bool On(string key) => o[key]?.Type == JTokenType.Boolean && (bool)o[key];
