@@ -15,6 +15,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   the account, browser and phone words, then "Opens the world". A row whose link opens an app on the device keeps its
   own word, and every row keeps its href. The shared fixture moves to 54 cases (sha256 `5a9ebbc8…`), the same bytes as
   the TypeScript SDK 4.118.0's and the Python package 0.96.0's.
+- `OWClient.GetMembersAsync` (GET /members): the world's roster, the rows a message reader takes as `members`
+  (`OWMessage.SenderStatus`, `ReadMarkOf`), each row's id (null for the owner), kind, role, Character, status (removed
+  rows stay), lenses and, where this key is served it, name. A world key reads its own world's, with no `world` and no
+  PIN; an account token the world `World` names (`world=<id>`, its Bearer), refused before sending without `World`; a
+  keyless client is refused, since the roster has no public reader. Mirrors the TypeScript SDK's `members()` (4.22.0;
+  on an account token from 4.116.0).
 
 ### Changed
 

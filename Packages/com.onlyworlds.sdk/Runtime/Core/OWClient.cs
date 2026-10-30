@@ -277,6 +277,30 @@ namespace OnlyWorlds.Sdk
         public Task<JObject> GetMeAsync(CancellationToken ct = default)
             => RequestAsync<JObject>("GET", "/me/", ct: ct);
 
+        /// <summary>
+        /// GET /members -- the world's roster, the rows of keel's <c>{data}</c> (no paging): each row's <c>id</c> (the
+        /// membership id that <c>created_by</c> holds, null for the owner), <c>kind</c> (<c>owner</c>, <c>person</c>,
+        /// <c>agent</c>, <c>player</c>), <c>role</c>, <c>character</c> (null too when it is hidden from this key),
+        /// <c>status</c> (<c>active</c>, or <c>removed</c>: removed rows stay, so their elements keep <c>created_by</c>),
+        /// <c>lenses</c> and <c>lenses_from</c>, and <c>name</c> where this key is served it. The list the message readers
+        /// take as <c>members</c> (<see cref="OWMessage.SenderStatus"/>, <see cref="OWMessage.ReadMarkOf"/>).
+        /// </summary>
+        /// <param name="ct">Cancels the request.</param>
+        /// <remarks>
+        /// A world key reads its own world's roster, sending no <c>world</c> and no PIN. An account token reads the roster
+        /// of the world <see cref="World"/> names, sending <c>world=&lt;id&gt;</c> and its Bearer, with the token's grant
+        /// there (a world where it has none answers 404); without <see cref="World"/> set it is an
+        /// <see cref="InvalidOperationException"/>, and nothing is sent. A keyless client is refused, and nothing is sent:
+        /// the roster has no public reader. Mirrors the TypeScript SDK's <c>members()</c> (4.22.0; on an account token
+        /// from 4.116.0).
+        /// </remarks>
+        public async Task<JArray> GetMembersAsync(CancellationToken ct = default)
+        {
+            var page = await RequestAsync<JObject>("GET", "/members/", ct: ct, accountToken: AccountTokenRoute.World)
+                .ConfigureAwait(false);
+            return page?["data"] as JArray ?? new JArray();
+        }
+
         // -- Lenses -----------------------------------------------------------
         //
         // A lens is a Construct with supertype Lens (OWLens reads one). These are the server's own lens routes: the
@@ -1132,7 +1156,7 @@ namespace OnlyWorlds.Sdk
                 {
                     throw new InvalidOperationException(
                         $"{method} {path} needs a world key: an account token sends the /account routes, "
-                        + $"WorldLensesAsync and SetMyLensesAsync, and with World set reads a world through {WorldReads} "
+                        + $"WorldLensesAsync, SetMyLensesAsync and GetMembersAsync, and with World set reads a world through {WorldReads} "
                         + "only. Nothing was sent.");
                 }
 

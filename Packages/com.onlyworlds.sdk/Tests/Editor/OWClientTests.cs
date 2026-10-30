@@ -100,6 +100,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("changes head", "GET", false, false, c => c.ChangesAsync(headOnly: true)),
             ("world", "GET", false, true, c => c.GetWorldAsync()),
             ("world lenses", "GET", false, true, c => c.WorldLensesAsync("w1", resolve: true)),
+            ("members", "GET", false, true, c => c.GetMembersAsync()),
             // the one read keel checks a PIN on
             ("me", "GET", true, false, c => c.GetMeAsync()),
             // writes, each verb
@@ -181,7 +182,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public async Task ApiPin_AccountToken_Never_EvenWithAPinConfigured_BearerAndNoApiKey()
         {
             var all = await PinSweep("ow_a_acct", "1234", "w1");
-            Assert.AreEqual(6, all.Count, "the four world reads and the two lens routes sent");
+            Assert.AreEqual(7, all.Count, "the four world reads, the two lens routes and the roster sent");
             foreach (var (name, _, sent) in all)
             {
                 Assert.AreEqual("Bearer ow_a_acct", sent.Headers["Authorization"], name);
@@ -1556,6 +1557,41 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         // -- Construction guards ----------------------------------------------
+
+        // The TypeScript SDK's members() (4.22.0, the account token from 4.116.0). Kills: the rows not unwrapped from
+        // {data}, a missing data read as an error, world= sent on a world key or left off an account token's, a PIN on
+        // the read, and an account token without World or a keyless client reaching the transport.
+        [Test]
+        public async Task GetMembers_ReturnsTheRoster_WorldKeyAndAccountToken_RefusedWithoutAWorldOrAKey()
+        {
+            const string roster = @"{""data"":[{""id"":null,""kind"":""owner"",""role"":""owner"",""character"":null,""status"":""active"",""lenses"":[],""lenses_from"":""chosen""},{""id"":""m1"",""kind"":""agent"",""role"":""contributor"",""character"":""c1"",""status"":""removed"",""lenses"":[""l1""],""lenses_from"":""titles"",""name"":""Rigger""}]}";
+
+            var t = new FakeTransport { ResponseBody = roster };
+            var rows = await Make(t, "ow_w_test", "1234").GetMembersAsync();
+            Assert.IsTrue(JToken.DeepEquals(JObject.Parse(roster)["data"], rows), "the rows as served: " + rows);
+            Assert.AreEqual("GET", t.Last.Method);
+            Assert.AreEqual("/api/v2/members/", new Uri(t.Last.Url).AbsolutePath);
+            Assert.AreEqual("", new Uri(t.Last.Url).Query, "a world key names its world: no world=");
+            Assert.AreEqual("ow_w_test", t.Last.Headers["API-Key"]);
+            Assert.IsFalse(t.Last.Headers.ContainsKey("API-Pin"), "no PIN on the read");
+
+            t.ResponseBody = "{}";
+            CollectionAssert.IsEmpty(await Make(t).GetMembersAsync(), "no data: no rows");
+
+            t.ResponseBody = roster;
+            var account = await Make(t, "ow_a_test", "1234", "w 1").GetMembersAsync();
+            Assert.AreEqual(2, account.Count);
+            Assert.AreEqual("?world=w%201", new Uri(t.Last.Url).Query);
+            Assert.AreEqual("Bearer ow_a_test", t.Last.Headers["Authorization"]);
+            Assert.IsFalse(t.Last.Headers.ContainsKey("API-Pin"), "an account token sends no PIN");
+
+            var calls = t.Calls.Count;
+            var noWorld = Assert.ThrowsAsync<InvalidOperationException>(() => Make(t, "ow_a_test", null).GetMembersAsync());
+            StringAssert.Contains("names the world it sends to with World", noWorld.Message);
+            var keyless = Assert.ThrowsAsync<InvalidOperationException>(() => Make(t, null, null, "w1").GetMembersAsync());
+            StringAssert.Contains("needs a key", keyless.Message);
+            Assert.AreEqual(calls, t.Calls.Count, "neither refused call was sent");
+        }
 
         [Test]
         public void RequiresKeyAndTransport()

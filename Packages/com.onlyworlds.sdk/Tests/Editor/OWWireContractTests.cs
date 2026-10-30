@@ -100,6 +100,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 ["x_names"] = new JObject { ["version"] = 1 },
             });
             await c.GetMeAsync();
+            await c.GetMembersAsync();
             // The lens routes: the holder's choice (PUT, a body) and the world's lenses with both options.
             await c.SetMyLensesAsync(new[] { "l1", "l2" });
             await c.WorldLensesAsync("w1", resolve: true, readAs: "guest");
@@ -161,6 +162,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             await lenses.SetMyLensesAsync(new[] { "l1" });
             await lenses.WorldLensesAsync("w1", resolve: true, readAs: "guest");
             await lenses.SetMemberLensesAsync("w1", "owner", new[] { "l1" });
+            await lenses.GetMembersAsync();
 
             // The world reads an account token, or no key, sends with World set: world= beside each read's own query.
             foreach (var reader in new[]
@@ -544,7 +546,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             // An empty recording would pass the checks above with nothing checked.
             var calls = await RecordEveryCall();
-            Assert.AreEqual(39, calls.Count);
+            Assert.AreEqual(41, calls.Count);
 
             // The lens routes are on the wire here, so the checks above saw them.
             Assert.That(calls.Any(c => c.Method == "PUT" && new Uri(c.Url).AbsolutePath.EndsWith("/me/lenses")), "PUT /me/lenses is recorded");
@@ -554,10 +556,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 && new Uri(c.Url).Query.Contains("world=")), "PUT /me/lenses on an account token, with world=, is recorded");
             Assert.That(calls.Any(c => c.Method == "PATCH" && new Uri(c.Url).AbsolutePath.EndsWith("/account/worlds/w1/members/owner")),
                 "PATCH /account/worlds/{world_id}/members/{member_id} is recorded");
+            Assert.AreEqual(2, calls.Count(c => c.Method == "GET" && new Uri(c.Url).AbsolutePath.EndsWith("/api/v2/members/")),
+                "GET /members on a world key and on an account token is recorded");
 
-            // The world reads of an account token and of no key, and the account token's PUT /me/lenses, so the query
-            // check above saw world=.
-            Assert.AreEqual(7, calls.Count(c => new Uri(c.Url).Query.Contains("world=")), "the world reads are recorded");
+            // The world reads of an account token and of no key, and the account token's PUT /me/lenses and GET /members,
+            // so the query check above saw world=.
+            Assert.AreEqual(8, calls.Count(c => new Uri(c.Url).Query.Contains("world=")), "the world reads are recorded");
 
             // The conditional headers are on the wire here, so the header check above saw them.
             Assert.That(calls.Any(c => c.Headers.ContainsKey("If-Match")), "a delete with ifMatch is recorded");
