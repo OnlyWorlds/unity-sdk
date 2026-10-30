@@ -126,6 +126,18 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public void ANullTypesOrSupertypes_IsPresent_AndRefusesTheMap()
+        {
+            // "Present and not an object" refuses the map, and a JSON null is present (ruled with npm's reading).
+            Assert.IsNull(OWNames.TypeWord(World(@"{""version"":1,""types"":null,""supertypes"":{""character"":{""Agent"":{""one"":""AI agent""}}}}"),
+                "character", "Agent"), "types null");
+            Assert.IsNull(OWNames.TypeWord(World(@"{""version"":1,""types"":{""character"":{""one"":""Employee""}},""supertypes"":null}"),
+                "character"), "supertypes null");
+            Assert.AreEqual("Employee", OWNames.TypeWord(World(@"{""version"":1,""types"":{""character"":{""one"":""Employee""}}}"),
+                "character"), "supertypes absent");
+        }
+
+        [Test]
         public void TheSupertype_IsTrimmedByUnicodeWhiteSpace_NotTheRuntimesTrim()
         {
             var world = World(Agent);
