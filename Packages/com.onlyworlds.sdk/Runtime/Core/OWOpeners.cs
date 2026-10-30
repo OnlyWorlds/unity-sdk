@@ -308,16 +308,23 @@ namespace OnlyWorlds.Sdk
                     Fail($"unknown key '{p.Name}' in the address. The keys are {string.Join(", ", OWAddress.JsonKeys)}.", nameof(address));
             }
 
+            // The address's checks are the writer's: the whole address in its own form (the site's when it has none), so
+            // a bad form, a slug, a bad type, id, moment or lens refuse as there; then Rows writes the site's page, where
+            // a missing world refuses.
+            var whole = (JObject)address.DeepClone();
+            if (!whole.TryGetValue("form", out var form) || form.Type == JTokenType.Null) whole["form"] = OWAddress.Human;
+            OWAddress.ElementAddress(whole);
             return Rows(tools, kind, OWAddress.Part(address, "world"), OWAddress.Part(address, "type"), OWAddress.Part(address, "id"), surface);
         }
 
         /// <summary>The rows for a reading from <see cref="OWAddress.ParseLink"/>.</summary>
-        /// <exception cref="OWAddressException">The reading names its world by slug (<c>bad_world</c>), or no world (<c>no_world</c>).</exception>
+        /// <exception cref="OWAddressException">The reading names its world by slug (<c>bad_world</c>), or no world (<c>no_world</c>), or the writer refuses its form, lens or moment.</exception>
         /// <exception cref="ArgumentException">The rest, named; see the class remarks.</exception>
         public static List<OWOpener> For(IReadOnlyList<OWTool> tools, string kind, OWAddressReading address, OWOpenerSurface surface)
         {
             CheckToolsAndKind(tools, kind);
             if (address == null) throw new ArgumentNullException(nameof(address), "OWOpeners.For: the address is a reading, as OWAddress.ParseLink reads it");
+            OWAddress.ElementAddress(address.Form ?? OWAddress.Human, address.World, address.Type, address.Id, address.Lens, address.Moment);
             return Rows(tools, kind, address.World, address.Type, address.Id, surface);
         }
 

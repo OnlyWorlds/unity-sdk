@@ -19,9 +19,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     public class OWOpenersTests
     {
         /// <summary>The fixture's sha256, as both packages' suites hold it.</summary>
-        private const string FixtureSha256 = "d10485997d9149805284eb1d2b907a4e349dedd7524f514f923ad25bf50e7e45";
+        private const string FixtureSha256 = "93cb3f121cb1eef5ba4c6951c414399c13136c3896f864221a29a3802b82d266";
 
-        private const int CaseCount = 41;
+        private const int CaseCount = 45;
 
         private const string World = "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e0f";
         private const string Element = "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e1a";
@@ -80,7 +80,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             Assert.IsNotNull(Fixture, "the vendored openers fixture was not found");
             var cases = Fixture["cases"].Cast<JObject>().ToList();
-            Assert.AreEqual(CaseCount, cases.Count, "the fixture holds 41 cases");
+            Assert.AreEqual(CaseCount, cases.Count, "the fixture holds 45 cases");
             Assert.AreEqual(CaseCount, cases.Select(c => (string)c["name"]).Distinct().Count(), "every case's name is its own");
             var wrong = new List<string>();
             var answered = 0;

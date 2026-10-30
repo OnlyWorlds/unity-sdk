@@ -13,9 +13,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   The site's page comes first, then each listed tool with a link for that kind, in the list's order, each an
   `OWOpener` (`Id`, `Name`, `Href`, `State`, the row's word in sentence case or null). The address is an
   `OWAddressReading`, the parts as JSON, or a world's id with a type word and an id; `OWOpenerSurface` says what the
-  surface knows (`Audience` required, `SignedIn`, `Browser`, `Phone`, `Tool`). A refused address throws
-  `OWAddressException`; the rest throws `ArgumentException` naming the key. Tested by the packages' shared fixture
-  (41 cases, held by its sha256).
+  surface knows (`Audience` required, `SignedIn`, `Browser`, `Phone`, `Tool`). The whole address is checked by the
+  writer in its own form (the site's when it has none), so a malformed form, lens or moment refuses (`bad_form`,
+  `bad_lens`, `bad_moment`) though neither rides on an href, as the TypeScript SDK 4.110.0 and the Python package
+  0.91.0 do. A refused address throws `OWAddressException`; the rest throws `ArgumentException` naming the key.
+  Tested by the packages' shared fixture (45 cases, held by its sha256).
 - `OWTools.All`: the OnlyWorlds tools list (github.com/OnlyWorlds/tools, `tools.json` format 1) baked in at commit
   `86208c8`, the keys `OWOpeners` reads. The list is vendored at `codegen/tools/tools.json` and pinned in
   `codegen/tools-pin.json`; `codegen/generate_tools.py` writes the table and `--check` (also run by
