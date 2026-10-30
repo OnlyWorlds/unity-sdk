@@ -244,9 +244,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         // -- Every public method, by what it does ------------------------------------
         //
         // `Read` sends world= (the Bearer on an account client, nothing on a keyless one), `Named` sends world= and the
-        // Bearer on an account client (SetMyLensesAsync, the one write that names its world so) and is refused on a keyless
-        // one, `Path` sends the Bearer to a world route whose path names the world, without world= (WorldLensesAsync),
-        // `Account` sends the Bearer to an /account route, `Refused` is an InvalidOperationException before the transport
+        // Bearer on an account client (SetMyLensesAsync, the one write that names its world so, and GetMembersAsync, the
+        // roster) and is refused on a keyless one, `Path` sends the Bearer to a world route whose path names the world,
+        // without world= (WorldLensesAsync), `Account` sends the Bearer to an /account route, `Refused` is an InvalidOperationException before the transport
         // is called. A method the table does not hold fails the sweep, so a new call is classified when it is added.
 
         private enum Does { Read, Named, Path, Account, Refused }
@@ -258,6 +258,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 ["PatchWorldAsync"] = (Does.Refused, c => c.PatchWorldAsync(new JObject { ["name"] = "W" })),
                 ["GetMeAsync"] = (Does.Refused, c => c.GetMeAsync()),
                 ["SetMyLensesAsync"] = (Does.Named, c => c.SetMyLensesAsync(new string[0])),
+                ["GetMembersAsync"] = (Does.Named, c => c.GetMembersAsync()),
                 ["WorldLensesAsync"] = (Does.Path, c => c.WorldLensesAsync(W)),
                 ["ListAsync"] = (Does.Read, c => c.ListAsync<JObject>("location")),
                 ["ListAllAsync"] = (Does.Read, c => c.ListAllAsync<JObject>("location")),
