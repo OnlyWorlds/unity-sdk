@@ -105,6 +105,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             await c.GetMembersAsync();
             // The lens routes: the holder's choice (PUT, a body) and the world's lenses with both options.
             await c.SetMyLensesAsync(new[] { "l1", "l2" });
+            await c.SetMyLensesAsync(null); // never chosen
             await c.WorldLensesAsync("w1", resolve: true, readAs: "guest");
             // The member's own Character, an id and none.
             await c.SetMyCharacterAsync("c1");
@@ -174,6 +175,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             await lenses.SetMyLensesAsync(new[] { "l1" });
             await lenses.WorldLensesAsync("w1", resolve: true, readAs: "guest");
             await lenses.SetMemberLensesAsync("w1", "owner", new[] { "l1" });
+            await lenses.SetMemberLensesAsync("w1", "owner", null); // never chosen
             await lenses.GetMembersAsync();
 
             // The world reads an account token, or no key, sends with World set: world= beside each read's own query.
@@ -570,7 +572,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             // An empty recording would pass the checks above with nothing checked.
             var calls = await RecordEveryCall();
-            Assert.AreEqual(50, calls.Count);
+            Assert.AreEqual(52, calls.Count);
 
             // The lens routes are on the wire here, so the checks above saw them.
             Assert.That(calls.Any(c => c.Method == "PUT" && new Uri(c.Url).AbsolutePath.EndsWith("/me/lenses")), "PUT /me/lenses is recorded");

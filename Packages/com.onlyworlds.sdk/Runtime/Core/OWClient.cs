@@ -339,10 +339,14 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// PUT /me/lenses -- choose the lenses this key's holder starts with: lens ids in order, 0 to 20, repeats dropped
-        /// by the server; an empty list is a choice too. Answers GET /me's body (<see cref="GetMeAsync"/>), its
-        /// <c>lenses</c> the list as kept.
+        /// by the server; an empty list is a choice too, and keeps a seat off its Titles' lenses. Null goes back to never
+        /// chosen. Answers GET /me's body (<see cref="GetMeAsync"/>), its <c>lenses</c> the list as kept.
         /// </summary>
-        /// <param name="lensIds">The lens ids, in the order the holder reads them; empty for none.</param>
+        /// <param name="lensIds">
+        /// The lens ids, in the order the holder reads them; empty for none; null (sent as <c>null</c>) for never chosen,
+        /// so a seat playing a Character starts with its Titles' lenses again (<c>lenses_from</c> says where a list comes
+        /// from); on the owner's own keys null is the empty list.
+        /// </param>
         /// <param name="ct">Cancels the request.</param>
         /// <remarks>
         /// Any write key of the world, with its PIN, sets its own holder's list: a person member's, an agent seat's, or on
@@ -353,18 +357,11 @@ namespace OnlyWorlds.Sdk
         /// names, sending <c>world=&lt;id&gt;</c> and its Bearer, never a PIN; without <see cref="World"/> set it is an
         /// <see cref="InvalidOperationException"/>, and nothing is sent. A world key sends no <c>world</c>: the key names
         /// its world. A keyless client is refused, and nothing is sent. Mirrors the TypeScript SDK's
-        /// <c>setMyLenses</c> (4.92.0; on an account token from 4.94.0).
+        /// <c>setMyLenses</c> (4.92.0; on an account token from 4.94.0; null from 4.99.0).
         /// </remarks>
-        /// <exception cref="ArgumentNullException"><paramref name="lensIds"/> is null; nothing was sent.</exception>
         public Task<JObject> SetMyLensesAsync(IEnumerable<string> lensIds, CancellationToken ct = default)
         {
-            if (lensIds == null)
-            {
-                throw new ArgumentNullException(nameof(lensIds),
-                    "SetMyLensesAsync: lensIds is a list of lens ids (empty for none). Nothing was sent.");
-            }
-
-            var body = new JObject { ["lenses"] = new JArray(lensIds) };
+            var body = new JObject { ["lenses"] = LensList(lensIds) };
             return RequestAsync<JObject>("PUT", "/me/lenses", body: body, ct: ct, accountToken: AccountTokenRoute.World);
         }
 
@@ -1100,14 +1097,18 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// PATCH /account/worlds/{world_id}/members/{member_id} with <c>lenses</c> alone -- set the lenses a row of the
-        /// world starts with: lens ids in order, 0 to 20, repeats dropped by the server; an empty list is a choice too.
-        /// Answers the row as served, a <see cref="JObject"/>: <c>{id, role, kind, lenses}</c>, and
+        /// world starts with: lens ids in order, 0 to 20, repeats dropped by the server; an empty list is a choice too, and
+        /// keeps a seat off its Titles' lenses. Null puts the row back to never chosen. Answers the row as served, a
+        /// <see cref="JObject"/>: <c>{id, role, kind, lenses}</c>, and
         /// <c>x_served_trimmed</c> naming <c>lenses</c> when the list keeps a lens you cannot see (which stays at its
         /// place in the stored list and is left out of the answer's).
         /// </summary>
         /// <param name="worldId">The world. Escaped.</param>
         /// <param name="memberId">The membership's id, or <c>owner</c> for the owner's own list. Escaped.</param>
-        /// <param name="lensIds">The lens ids, in the order the row reads them; empty for none.</param>
+        /// <param name="lensIds">
+        /// The lens ids, in the order the row reads them; empty for none; null (sent as <c>null</c>) for never chosen, so a
+        /// seat playing a Character starts with its Titles' lenses again; for <c>owner</c>, null is the empty list.
+        /// </param>
         /// <param name="ct">Cancels the request.</param>
         /// <remarks>
         /// <para>
@@ -1121,11 +1122,11 @@ namespace OnlyWorlds.Sdk
         /// <para>
         /// The body is <c>{"lenses": [...]}</c> and nothing else: the route also takes a role, a Character or a sponsor,
         /// and none of them is sent here. An account token only, sent as its Bearer, never with <c>API-Pin</c>,
-        /// <c>X-OW-Agent</c> or <c>X-OW-Client</c>. Mirrors the TypeScript SDK's <c>setMemberLenses</c> (4.94.0).
+        /// <c>X-OW-Agent</c> or <c>X-OW-Client</c>. Mirrors the TypeScript SDK's <c>setMemberLenses</c> (4.94.0; null
+        /// from 4.99.0).
         /// </para>
         /// </remarks>
         /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
-        /// <exception cref="ArgumentNullException"><paramref name="lensIds"/> is null; nothing was sent.</exception>
         public Task<JObject> SetMemberLensesAsync(
             string worldId, string memberId, IEnumerable<string> lensIds, CancellationToken ct = default)
         {
@@ -1137,17 +1138,15 @@ namespace OnlyWorlds.Sdk
                     + ". A world key sets its own holder's list with SetMyLensesAsync. Nothing was sent.");
             }
 
-            if (lensIds == null)
-            {
-                throw new ArgumentNullException(nameof(lensIds),
-                    "SetMemberLensesAsync: lensIds is a list of lens ids (empty for none). Nothing was sent.");
-            }
-
-            var body = new JObject { ["lenses"] = new JArray(lensIds) };
+            var body = new JObject { ["lenses"] = LensList(lensIds) };
             return RequestAsync<JObject>("PATCH",
                 $"/account/worlds/{Uri.EscapeDataString(worldId)}/members/{Uri.EscapeDataString(memberId)}",
                 body: body, ct: ct);
         }
+
+        /// <summary>A lens list as the lens routes take it: the ids in order, or <c>null</c> for never chosen.</summary>
+        private static JToken LensList(IEnumerable<string> lensIds)
+            => lensIds == null ? JValue.CreateNull() : new JArray(lensIds);
 
         // -- Sync -------------------------------------------------------------
 
