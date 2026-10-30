@@ -129,6 +129,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             await c.EditLinksAsync<JObject>("character", "c1", "friends", add: new[] { "a1" });
             await c.BulkAsync(new[] { new OWBulkItem { Type = "character", Element = new JObject { ["name"] = "B" } } });
             await c.AdoptAsync<JObject>("character", "c1", "m1");
+            // The hidden mark on an agent client: neither write header goes, which the header check holds.
+            await c.HideAsync("character", "c1");
+            await c.UnhideAsync("character", "c1");
+            await c.ListHiddenAsync();
             t.ResponseBody = @"{""changes"":[],""has_more"":false,""head"":0}";
             await c.ChangesAsync("4:069620b9-0794-708d-8000-42b0ea685f38");
             t.ResponseHeaders = new Dictionary<string, string> { ["etag"] = "W/\"0:-\"" };
@@ -452,6 +456,17 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsEmpty(stale, "keel serves these now; drop them from NotServed: " + string.Join(", ", stale));
         }
 
+        [Test]
+        public void EveryKeyTheHiddenRowReads_IsOneTheHiddenListServes()
+        {
+            // ListHiddenAsync reads the rows of { data }, so the row's keys are checked one level down.
+            var served = Wire["paths"]["/api/v2/world/hidden"]["GET"]["response"].Values<string>().ToList();
+            var mapped = MappedKeys(typeof(OWHiddenRow), false).Select(k => "data[]." + k).ToList();
+
+            Assert.IsNotEmpty(mapped, "OWHiddenRow maps no keys");
+            CollectionAssert.AreEquivalent(served.Where(k => k.StartsWith("data[].")).ToList(), mapped);
+        }
+
         [TestCase(typeof(OWAccountWorldCreate), "/api/v2/account/worlds", "POST")]
         public void EveryKeyARequestModelMaps_IsOneKeelTakes(Type model, string path, string method)
         {
@@ -550,7 +565,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             // An empty recording would pass the checks above with nothing checked.
             var calls = await RecordEveryCall();
-            Assert.AreEqual(44, calls.Count);
+            Assert.AreEqual(47, calls.Count);
 
             // The lens routes are on the wire here, so the checks above saw them.
             Assert.That(calls.Any(c => c.Method == "PUT" && new Uri(c.Url).AbsolutePath.EndsWith("/me/lenses")), "PUT /me/lenses is recorded");

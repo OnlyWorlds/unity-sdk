@@ -755,6 +755,48 @@ namespace OnlyWorlds.Sdk
                 write: true, ct: ct);
         }
 
+        // -- The hidden mark -----------------------------------------------------
+        //
+        // A hidden element is seen only by the world's owner, its co-builders and the member who created it; to every
+        // other key it is a 404, left out of lists, search, counts and the link arrays that name it
+        // (OWPayload.IsHidden reads the mark on a body). keel's document declares no X-OW-Agent or X-OW-Client on these
+        // routes, so neither is sent. Mirrors the TypeScript SDK's hide, unhide (4.45.0) and listHidden (4.48.0).
+
+        /// <summary>
+        /// PUT /{type}/{id}/hidden -- hide an element. Hiding a hidden element again changes nothing, and the element's
+        /// body and <c>change_seq</c> do not move. Answers 204, no body.
+        /// </summary>
+        /// <remarks>
+        /// The owner's key or a co-builder's (a person's or a seat's), with its PIN. The body is <c>{}</c>; no
+        /// <c>Idempotency-Key</c>. The readers who still see the element get an upsert row on <c>/changes</c> carrying
+        /// <see cref="OWChange.ChangedAt"/>, <see cref="OWChange.ChangedBy"/> and <see cref="OWChange.ChangedVia"/>; the
+        /// others lose it from their copies as a delete.
+        /// </remarks>
+        public Task HideAsync(string type, string id, CancellationToken ct = default)
+            => RequestAsync<object>("PUT", $"/{type}/{id}/hidden", body: new JObject(), allowEmpty: true, ct: ct);
+
+        /// <summary>
+        /// DELETE /{type}/{id}/hidden -- clear the mark; an element that is not hidden stays as it is. Answers 204. The
+        /// same keys as <see cref="HideAsync"/>, with the PIN.
+        /// </summary>
+        public Task UnhideAsync(string type, string id, CancellationToken ct = default)
+            => RequestAsync<object>("DELETE", $"/{type}/{id}/hidden", allowEmpty: true, ct: ct);
+
+        /// <summary>
+        /// GET /world/hidden -- every hidden element of the world, newest first, the rows of keel's <c>{data}</c> (no
+        /// paging).
+        /// </summary>
+        /// <remarks>
+        /// Any key of the owner's or a co-builder's, a read key included (a read: no PIN); any other key is a 403. Served
+        /// <c>Cache-Control: no-store</c>: read it each time, keep no copy.
+        /// </remarks>
+        public async Task<List<OWHiddenRow>> ListHiddenAsync(CancellationToken ct = default)
+        {
+            var page = await RequestAsync<JObject>("GET", "/world/hidden", ct: ct).ConfigureAwait(false);
+            return (page?["data"] as JArray)?.ToObject<List<OWHiddenRow>>(Newtonsoft.Json.JsonSerializer.Create(OWJson.Settings))
+                ?? new List<OWHiddenRow>();
+        }
+
         // -- The proposed change -------------------------------------------------
         //
         // A proposal is a record kept beside an element, never in its body: the element does not change until the

@@ -8,7 +8,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// The TypeScript SDK's calls this client gained in its first tranche (0.27.0): <see cref="OWClient.HealthAsync"/>,
-    /// <see cref="OWClient.UpsertAsync{T}"/>, <see cref="OWClient.AdoptAsync{T}"/>.
+    /// <see cref="OWClient.UpsertAsync{T}"/>, <see cref="OWClient.AdoptAsync{T}"/>, <see cref="OWClient.HideAsync"/>,
+    /// <see cref="OWClient.UnhideAsync"/>, <see cref="OWClient.ListHiddenAsync"/>.
     /// What each sends, what it answers, and what is refused before anything is sent, on every kind of client.
     /// </summary>
     public class OWClientRouteTests
@@ -167,6 +168,69 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             }
 
             Assert.IsEmpty(t.Calls);
+        }
+
+        // -- HideAsync, UnhideAsync, ListHiddenAsync --------------------------------------------------------
+
+        // The TypeScript SDK's hide() (4.45.0): PUT /{type}/{id}/hidden with {}, the PIN, a 204 with no body. keel's
+        // document declares no header there, so neither X-OW-Agent nor X-OW-Client goes, where the TypeScript SDK sends
+        // X-OW-Agent on an agent client (the wire wins). Kills: the wrong verb or path, a body with keys or none, the PIN
+        // left off, a write header sent, or an empty 204 read as an error.
+        [Test]
+        public async Task Hide_SendsPutHidden_AnEmptyBody_WithThePin_NoAgentOrClientHeader()
+        {
+            var t = new FakeTransport { Status = 204, ResponseBody = "" };
+            await Make(t).HideAsync("location", "l1");
+
+            var a = t.Calls.Single();
+            Assert.AreEqual("PUT", a.Method);
+            Assert.AreEqual(Base + "/location/l1/hidden", a.Url, "the path, no query");
+            Assert.AreEqual("{}", a.Body);
+            CollectionAssert.AreEquivalent(new[] { "API-Key", "API-Pin", "Content-Type" }, a.Headers.Keys.ToArray());
+            Assert.AreEqual("1234", a.Headers["API-Pin"]);
+        }
+
+        // The TypeScript SDK's unhide() (4.45.0): DELETE /{type}/{id}/hidden, no body, the PIN; no write header, as on
+        // the hide. Kills: the wrong verb or path, a body sent, the PIN left off, or a write header sent.
+        [Test]
+        public async Task Unhide_SendsDeleteHidden_NoBody_WithThePin_NoAgentOrClientHeader()
+        {
+            var t = new FakeTransport { Status = 204, ResponseBody = "" };
+            await Make(t).UnhideAsync("location", "l1");
+
+            var a = t.Calls.Single();
+            Assert.AreEqual("DELETE", a.Method);
+            Assert.AreEqual(Base + "/location/l1/hidden", a.Url, "the path, no query");
+            Assert.IsNull(a.Body);
+            CollectionAssert.AreEquivalent(new[] { "API-Key", "API-Pin" }, a.Headers.Keys.ToArray());
+        }
+
+        // The TypeScript SDK's listHidden() (4.48.0): GET /world/hidden, the key alone (a read: no PIN), the rows of
+        // keel's { data } in its order, newest first. Kills: the wrong path, a query or the PIN sent, the rows reordered or
+        // a key misread, set_by's null (the owner) read as anything else, or an answer without data thrown on.
+        [Test]
+        public async Task ListHidden_SendsGetWorldHidden_TheKeyAlone_AndAnswersTheRowsInOrder()
+        {
+            var t = new FakeTransport
+            {
+                ResponseBody = @"{""data"":[{""type"":""location"",""id"":""l2"",""set_at"":""2026-10-25T08:30:00Z"",""set_by"":""m-42""},"
+                    + @"{""type"":""character"",""id"":""c1"",""set_at"":""2026-10-24T08:30:00Z"",""set_by"":null}]}",
+            };
+            var rows = await Make(t).ListHiddenAsync();
+
+            var a = t.Calls.Single();
+            Assert.AreEqual("GET", a.Method);
+            Assert.AreEqual(Base + "/world/hidden", a.Url, "the path, no query");
+            Assert.AreEqual(new[] { "API-Key" }, a.Headers.Keys.ToArray(), "a read: the key alone");
+
+            Assert.AreEqual(2, rows.Count);
+            Assert.AreEqual(("location", "l2", "2026-10-25T08:30:00Z", "m-42"), (rows[0].Type, rows[0].Id, rows[0].SetAt, rows[0].SetBy));
+            Assert.AreEqual(("character", "c1", "2026-10-24T08:30:00Z", (string)null), (rows[1].Type, rows[1].Id, rows[1].SetAt, rows[1].SetBy));
+
+            t.ResponseBody = @"{""data"":[]}";
+            CollectionAssert.IsEmpty(await Make(t).ListHiddenAsync(), "none hidden");
+            t.ResponseBody = "{}";
+            CollectionAssert.IsEmpty(await Make(t).ListHiddenAsync(), "no data: no rows");
         }
     }
 }

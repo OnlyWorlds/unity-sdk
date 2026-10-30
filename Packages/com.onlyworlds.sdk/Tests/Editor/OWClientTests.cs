@@ -103,12 +103,15 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("world", "GET", false, true, c => c.GetWorldAsync()),
             ("world lenses", "GET", false, true, c => c.WorldLensesAsync("w1", resolve: true)),
             ("members", "GET", false, true, c => c.GetMembersAsync()),
+            ("hidden list", "GET", false, false, c => c.ListHiddenAsync()),
             // the one read keel checks a PIN on
             ("me", "GET", true, false, c => c.GetMeAsync()),
             // writes, each verb
             ("create", "POST", true, false, c => c.CreateAsync<JObject>("location", new JObject { ["name"] = "Harbour" })),
             ("upsert", "PUT", true, false, c => c.UpsertAsync<JObject>("location", "l1", new JObject { ["name"] = "Harbour" })),
             ("adopt", "POST", true, false, c => c.AdoptAsync<JObject>("location", "l1", "m1")),
+            ("hide", "PUT", true, false, c => c.HideAsync("location", "l1")),
+            ("unhide", "DELETE", true, false, c => c.UnhideAsync("location", "l1")),
             ("patch", "PATCH", true, false, c => c.PatchAsync<JObject>("location", "l1", new JObject { ["description"] = "x" })),
             ("delete", "DELETE", true, false, c => c.DeleteAsync("location", "l1")),
             ("links", "POST", true, false, c => c.EditLinksAsync<JObject>("location", "l1", "zones", add: new[] { "z1" })),

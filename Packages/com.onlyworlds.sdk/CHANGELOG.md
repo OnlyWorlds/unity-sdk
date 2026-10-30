@@ -33,6 +33,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   the world or `owner` (`created_by` null); returns the element as written. The owner's key or a co-builder's, with
   its PIN; an element write, so `X-OW-Client` goes with it and `X-OW-Agent` on an agent client. A null or empty member
   is refused before sending. Mirrors the TypeScript SDK's `adopt()` (4.43.0).
+- The hidden mark on the client: `OWClient.HideAsync` (PUT /{type}/{id}/hidden, `{}`) and `UnhideAsync` (DELETE
+  /{type}/{id}/hidden), the owner's key or a co-builder's with its PIN, a 204; and `ListHiddenAsync` (GET
+  /world/hidden), every hidden element newest first as `OWHiddenRow`s (`Type`, `Id`, `SetAt`, `SetBy`, null when the
+  owner hid it), a read of the owner's or a co-builder's key. keel's document declares no header on the hide or the
+  unhide, so neither `X-OW-Agent` nor `X-OW-Client` goes there, where the TypeScript SDK sends `X-OW-Agent` on an
+  agent client. Mirrors the TypeScript SDK's `hide()`, `unhide()` (4.45.0) and `listHidden()` (4.48.0).
 
 ### Changed
 
