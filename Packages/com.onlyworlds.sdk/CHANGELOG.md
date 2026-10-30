@@ -13,10 +13,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   of its events (`Event`), that event's place (`Location`), the story's `protagonist` (`Character`), where the hero is
   now (`Now`), and whether then and now are one place by id (`Same`). Each slot `{id, name}` or null, `ToJson()` the
   profile's six keys. A slot holds only its own kind, no slot is filled from another, a list's order is never read,
-  and a story the reader knows only as a stub fills its own slot alone. A mark that is not an object of three strings
-  is no mark; a member that is an empty string is an empty slot (the page's words; the TypeScript and Python readers
-  read it as no mark). The fixture's 17 cases pass by name, the same bytes as the TypeScript SDK's and the Python
-  package's.
+  and a story the reader knows only as a stub fills its own slot alone. Only the story's id is required (serial 99):
+  the event and the place null or absent read as unset, a place with no event is an empty place, and any other value
+  there (an empty string, a number, an object) is no mark, as is a story that is not a string. A multi-link that is
+  not a list lists nothing; a nameless slot reads an empty string; the public rung reads only a world open to anyone.
+  The fixture's cases pass by name, the same bytes as the TypeScript SDK's and the Python package's.
 - `OWOpenerSurface.Online` (default true; `online` in `OWOpenerSurface.FromJson`, refused by name when not a
   boolean): with no connection, every row whose href is a web address (`http:` or `https:`, in any case, read from the
   row's own filled href) says `OWOpenerState.NeedsAConnection`, "Needs a connection", the site's own row included,

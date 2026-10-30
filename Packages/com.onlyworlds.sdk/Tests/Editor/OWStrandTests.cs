@@ -123,19 +123,24 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         /// <summary>
-        /// A mark that is not an object of three strings is no mark: a member missing, null, a number, the mark a list or
-        /// null. Kills: a mark read from whichever members are strings.
+        /// A value that is not the profile's shape is no mark (serial 99): the story's member missing, null or not a
+        /// string; the event's or the place's an empty string, a number or an object; the mark a list, a bare id or null.
+        /// Kills: a mark read from whichever members are strings, and one that refuses only the empty string.
         /// </summary>
         [Test]
-        public void AMarkThatIsNotThreeStrings_IsNoMark()
+        public void AMarkThatIsNotTheProfilesShape_IsNoMark()
         {
             var harbour = World("harbour");
             var m = (JObject)harbour[OWStrand.MarkField];
             var bad = new List<JToken>
             {
-                Without(m, "event"),
-                With(m, "location", JValue.CreateNull()),
+                Without(m, "narrative"),
+                With(m, "narrative", JValue.CreateNull()),
                 With(m, "narrative", new JValue(7)),
+                With(m, "event", new JValue(7)),
+                With(m, "location", new JValue(7)),
+                With(m, "event", new JObject()),
+                With(m, "location", new JArray()),
                 new JArray(m["narrative"], m["event"], m["location"]),
                 JValue.CreateNull(),
                 new JValue(Story),
@@ -154,22 +159,84 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         /// <summary>
-        /// The page's words on a member that is an empty string: a string, so the mark's shape holds, and an id that names
-        /// no element in the view, so its slot is empty and the rest still read (keel's <c>mark_of</c>). The TypeScript SDK
-        /// and the Python package read it as no mark; the difference is open with the profile's owner.
+        /// An empty string in the event's or the place's member is neither an id nor unset, so the whole value is no mark
+        /// (ruled for serial 99, the TypeScript and Python readers' reading). Kills: an empty string read as an empty slot.
         /// </summary>
         [Test]
-        public void AnEmptyStringMember_IsAnEmptySlot_NotNoMark()
+        public void AnEmptyStringMember_IsNoMark()
+        {
+            foreach (var member in new[] { "event", "location" })
+            {
+                var world = World("harbour");
+                world[OWStrand.MarkField] = With((JObject)world[OWStrand.MarkField], member, new JValue(""));
+                Assert.IsTrue(OWStrand.Of(world, ElementsOf(world), OWLensReader.Owner()).IsEmpty, member);
+            }
+        }
+
+        /// <summary>
+        /// Only the story is required (serial 99): the event and the place null or absent read as unset, so a story alone
+        /// is a strand begun, its hero and now read and its happening and place the next thing to make; a place named with
+        /// no event is an empty place. Kills: an unset member read as no mark, and a place read without its event.
+        /// </summary>
+        [Test]
+        public void AStoryAlone_IsAStrandBegun()
+        {
+            var m = (JObject)World("harbour")[OWStrand.MarkField];
+            var begun = new List<JObject>
+            {
+                With(With(m, "event", JValue.CreateNull()), "location", JValue.CreateNull()),
+                Without(Without(m, "event"), "location"),
+                With(m, "event", JValue.CreateNull()),
+                Without(m, "event"),
+            };
+            foreach (var mark in begun)
+            {
+                var world = World("harbour");
+                world[OWStrand.MarkField] = mark;
+                var got = OWStrand.Of(world, ElementsOf(world), OWLensReader.Owner());
+                var what = mark.ToString(Formatting.None);
+                Assert.AreEqual(Story, got.Narrative?.Id, what);
+                Assert.IsNull(got.Event, what);
+                Assert.IsNull(got.Location, what + ": a place with no happening is an empty place");
+                Assert.AreEqual("019a7f00-0000-7000-8000-000000000331", got.Character?.Id, what);
+                Assert.AreEqual("019a7f00-0000-7000-8000-000000000322", got.Now?.Id, what);
+                Assert.IsNull(got.Same, what);
+            }
+        }
+
+        /// <summary>
+        /// A multi-link that is not a list is empty (serial 99): the owner's stored body with a bare string in the story's
+        /// <c>events</c> lists nothing, so the event and the place are empty and the rest reads. Kills: keel's one-item
+        /// reading of a bare string.
+        /// </summary>
+        [Test]
+        public void AMultiLinkThatIsNotAList_IsEmpty()
         {
             var world = World("harbour");
-            world[OWStrand.MarkField] = With((JObject)world[OWStrand.MarkField], "event", new JValue(""));
-            var got = OWStrand.Of(world, ElementsOf(world), OWLensReader.Owner());
+            var elements = ElementsOf(world);
+            var story = elements.Single(e => (string)e["id"] == Story);
+            story["events"] = "019a7f00-0000-7000-8000-000000000311";
+            var got = OWStrand.Of(world, elements, OWLensReader.Owner());
             Assert.AreEqual(Story, got.Narrative?.Id);
             Assert.IsNull(got.Event);
-            Assert.IsNull(got.Location, "the place hangs off the event");
+            Assert.IsNull(got.Location);
             Assert.AreEqual("019a7f00-0000-7000-8000-000000000331", got.Character?.Id);
-            Assert.AreEqual("019a7f00-0000-7000-8000-000000000322", got.Now?.Id);
-            Assert.IsNull(got.Same);
+        }
+
+        /// <summary>A slot whose element has no name, a null one or one that is not text reads an empty string, never null (serial 99).</summary>
+        [Test]
+        public void ASlotWithoutAName_ReadsAnEmptyString()
+        {
+            foreach (var name in new JToken[] { null, JValue.CreateNull(), new JValue(7) })
+            {
+                var world = World("harbour");
+                var elements = ElementsOf(world);
+                var docks = elements.Single(e => (string)e["id"] == "019a7f00-0000-7000-8000-000000000322");
+                if (name == null) docks.Remove("name");
+                else docks["name"] = name;
+                var now = OWStrand.Of(world, elements, OWLensReader.Owner()).ToJson()["now"];
+                Assert.AreEqual(@"{""id"":""019a7f00-0000-7000-8000-000000000322"",""name"":""""}", now.ToString(Formatting.None));
+            }
         }
 
         /// <summary>

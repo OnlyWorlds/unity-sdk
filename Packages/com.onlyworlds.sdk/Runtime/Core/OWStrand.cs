@@ -43,7 +43,7 @@ namespace OnlyWorlds.Sdk
         /// <summary>The World's field that carries the mark: an object of three ids.</summary>
         public const string MarkField = "x_strand";
 
-        /// <summary>The mark's three members, in the profile's order.</summary>
+        /// <summary>The mark's three members, in the profile's order; only <c>narrative</c> is required.</summary>
         public static readonly IReadOnlyList<string> Members = new[] { "narrative", "event", "location" };
 
         private OWStrand(OWStrandSlot narrative, OWStrandSlot @event, OWStrandSlot location, OWStrandSlot character,
@@ -127,11 +127,17 @@ namespace OnlyWorlds.Sdk
         /// only as a stub fills its own slot and nothing past it, and a link the reader may not see is not followed.
         /// </para>
         /// <para>
-        /// <b>The mark.</b> An object whose three <see cref="Members"/> are each a string; any other shape (a bare string,
-        /// a member missing, null or not a string) is no mark, and the strand is empty. An id that names no element in the
-        /// reader's view, an empty string included, is an empty slot: there is no id-format test here (a malformed id is
-        /// the doctor's to name). A key the reader cannot resolve, as a folder or an export may hand on, reads as an
-        /// empty strand and leaks nothing.
+        /// <b>The mark.</b> An object whose <c>narrative</c> is a string; <c>event</c> and <c>location</c> are each a
+        /// string id, null or absent, and null or absent reads as unset (serial 99: a strand begins when a story is
+        /// chosen, and a place with no happening is an empty place). Any other shape is no mark, and the strand is empty:
+        /// a bare string, <c>narrative</c> missing or not a string, <c>event</c> or <c>location</c> an empty string, a
+        /// number or an object. An id that names no element in the reader's view is an empty slot: there is no id-format
+        /// test here (a malformed id is the doctor's to name). A key the reader cannot resolve, as a folder or an export
+        /// may hand on, reads as an empty strand and leaks nothing.
+        /// </para>
+        /// <para>
+        /// <b>Shapes.</b> A multi-link that is not a list lists nothing, and a slot whose element has no name reads an
+        /// empty string, never null.
         /// </para>
         /// </remarks>
         public static OWStrand Of(JObject world, IEnumerable<JToken> elements, OWLensReader reader, bool open = false,
@@ -140,12 +146,9 @@ namespace OnlyWorlds.Sdk
             if (reader == null) throw new ArgumentNullException(nameof(reader));
             var empty = new OWStrand(null, null, null, null, null);
             if (!(world?[MarkField] is JObject mark)) return empty;
-            var ids = new string[Members.Count];
-            for (var i = 0; i < ids.Length; i++)
-            {
-                ids[i] = StringOf(mark[Members[i]]);
-                if (ids[i] == null) return empty;
-            }
+            var story = StringOf(mark["narrative"]);
+            if (story == null || !MemberOf(mark["event"], out var happening) || !MemberOf(mark["location"], out var then))
+                return empty;
 
             if (reader.Rung == OWLensRung.Public && !open) return empty;
 
@@ -155,7 +158,6 @@ namespace OnlyWorlds.Sdk
             bool Listed(string holder, string field, string id) =>
                 view.Served(holder)[field] is JArray list && list.Any(entry => StringOf(entry) == id);
 
-            var (story, happening, then) = (ids[0], ids[1], ids[2]);
             if (!Seen(story, "narrative")) return empty;
 
             OWStrandSlot @event = null, location = null, character = null, now = null;
@@ -174,6 +176,18 @@ namespace OnlyWorlds.Sdk
             }
 
             return new OWStrand(SlotOf(story), @event, location, character, now);
+        }
+
+        /// <summary>
+        /// The event's or the place's member: true with its id for a non-empty string, true with null for null or absent
+        /// (unset), false for anything else (an empty string, a number, an object), which makes the whole value no mark.
+        /// </summary>
+        private static bool MemberOf(JToken token, out string id)
+        {
+            id = null;
+            if (token == null || token.Type == JTokenType.Null) return true;
+            id = StringOf(token);
+            return !string.IsNullOrEmpty(id);
         }
 
         private static JToken Slot(OWStrandSlot slot) => slot?.ToJson() ?? (JToken)JValue.CreateNull();
