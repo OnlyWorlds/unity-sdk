@@ -143,6 +143,42 @@ namespace OnlyWorlds.Sdk
             ["guide"] = Guide?.ToJson() ?? (JToken)JValue.CreateNull(),
             ["domains"] = new JArray(Domains.Select(d => d.ToJson())),
         };
+
+        /// <summary>
+        /// The packet keel serves as <c>reading_aids</c> beside <c>front_door</c> in a <c>GET /me</c> answer
+        /// (<see cref="OWClient.GetMeAsync"/>) or an agent's join answer (<see cref="OWJoined.ReadingAids"/>), read as
+        /// served: who sees what is keel's reading for the key, never recomputed here (<see cref="OWCharter.CharterOf"/>
+        /// reads the same packet from a world snapshot). Null when the answer carries none (an older keel).
+        /// </summary>
+        public static OWReadingAids Of(JObject answer) => Read(answer?["reading_aids"] as JObject);
+
+        internal static OWReadingAids Read(JObject aids)
+        {
+            if (aids == null) return null;
+
+            OWReadingAidsCharter charter = null;
+            if (aids["charter"] is JObject c)
+            {
+                var rules = c["rules"] == null || c["rules"].Type == JTokenType.Null ? new JArray() : c["rules"].DeepClone();
+                charter = new OWReadingAidsCharter(Text(c, "id"), Text(c, "name"), rules, Strings(c["skill"]));
+            }
+
+            var guide = aids["guide"] is JObject g ? new OWReadingAidsGuide(Text(g, "id"), Text(g, "name")) : null;
+
+            var domains = (aids["domains"] as JArray)?.OfType<JObject>()
+                .Select(d => new OWReadingAidsDomain(Text(d, "id"), Text(d, "name"), Text(d, "sentence"),
+                    (d["hubs"] as JArray)?.OfType<JObject>().Select(h => (Text(h, "type"), Text(h, "id"))).ToList()
+                    ?? new List<(string, string)>()))
+                .ToList() ?? new List<OWReadingAidsDomain>();
+
+            return new OWReadingAids(charter, guide, domains);
+        }
+
+        private static string Text(JObject body, string key) =>
+            body[key]?.Type == JTokenType.String ? (string)body[key] : "";
+
+        private static IReadOnlyList<string> Strings(JToken list) =>
+            (list as JArray)?.Where(v => v.Type == JTokenType.String).Select(v => (string)v).ToList() ?? new List<string>();
     }
 
     /// <summary>

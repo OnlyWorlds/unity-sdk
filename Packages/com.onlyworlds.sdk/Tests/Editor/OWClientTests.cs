@@ -834,6 +834,66 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
         // -- Errors -----------------------------------------------------------
 
+        // -- The reading aids beside it -------------------------------------
+
+        private const string ReadingAids = @"{""charter"":{""id"":""law-1"",""name"":""House rules"",""rules"":[{""rule"":""no-orphans""}],""skill"":[""obj-1""]},
+            ""guide"":{""id"":""con-g"",""name"":""Start here""},
+            ""domains"":[{""id"":""con-d1"",""name"":""The Harbour"",""sentence"":""Where the ships come in."",
+                ""hubs"":[{""type"":""location"",""id"":""loc-1""},{""type"":""character"",""id"":""c-1""}]},
+                {""id"":""con-d2"",""name"":""The Hills"",""sentence"":"""",""hubs"":[]}]}";
+
+        [Test]
+        public async Task Me_ReadsTheReadingAids()
+        {
+            var t = new FakeTransport
+            {
+                ResponseBody = @"{""world"":{""id"":""w1"",""name"":""W""},""scope"":""read"",""kind"":""owner"",
+                    ""front_door"":{""sponsor"":null,""sponsor_character"":null,""my_character"":null,""charter"":""law-1"",""charter_skill"":[""obj-1""]},
+                    ""reading_aids"":" + ReadingAids + "}",
+            };
+
+            var aids = OWReadingAids.Of(await Make(t).GetMeAsync());
+
+            Assert.IsNotNull(aids);
+            Assert.AreEqual("law-1", aids.Charter.Id);
+            Assert.AreEqual("House rules", aids.Charter.Name);
+            Assert.AreEqual("no-orphans", (string)aids.Charter.Rules[0]["rule"]);
+            CollectionAssert.AreEqual(new[] { "obj-1" }, aids.Charter.Skill);
+            Assert.AreEqual("con-g", aids.Guide.Id);
+            Assert.AreEqual("Start here", aids.Guide.Name);
+            Assert.AreEqual(2, aids.Domains.Count, "the Domains in the order served");
+            Assert.AreEqual("con-d1", aids.Domains[0].Id);
+            Assert.AreEqual("Where the ships come in.", aids.Domains[0].Sentence);
+            CollectionAssert.AreEqual(new[] { ("location", "loc-1"), ("character", "c-1") }, aids.Domains[0].Hubs);
+            Assert.AreEqual("con-d2", aids.Domains[1].Id);
+            Assert.IsEmpty(aids.Domains[1].Hubs);
+            Assert.IsTrue(JToken.DeepEquals(JObject.Parse(ReadingAids), aids.ToJson()), "read back, the packet as served");
+        }
+
+        [Test]
+        public void Me_AWorldWithNoAidsReadsAnEmptyPacket_AndAnOlderKeelNone()
+        {
+            var none = OWReadingAids.Of(JObject.Parse(@"{""reading_aids"":{""charter"":null,""guide"":null,""domains"":[]}}"));
+
+            Assert.IsNotNull(none, "a world with no aids still serves the packet");
+            Assert.IsNull(none.Charter);
+            Assert.IsNull(none.Guide);
+            Assert.IsEmpty(none.Domains);
+            Assert.IsNull(OWReadingAids.Of(JObject.Parse(@"{""kind"":""owner""}")), "an older keel sends none");
+            Assert.IsNull(OWReadingAids.Of(null));
+        }
+
+        [Test]
+        public void Me_ACharterServedWithoutRulesReadsAnEmptyList()
+        {
+            var aids = OWReadingAids.Of(JObject.Parse(
+                @"{""reading_aids"":{""charter"":{""id"":""law-1"",""name"":""House rules"",""rules"":null,""skill"":[]},""guide"":null,""domains"":[]}}"));
+
+            Assert.AreEqual(JTokenType.Array, aids.Charter.Rules.Type);
+            Assert.IsEmpty((JArray)aids.Charter.Rules);
+            Assert.IsEmpty(aids.Charter.Skill);
+        }
+
         [Test]
         public void NonSuccess_ThrowsWithFullEnvelope()
         {

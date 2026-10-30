@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Threading.Tasks;
 using NUnit.Framework;
 
@@ -23,7 +24,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ""with_character"":false,""character"":null,""key"":""ow_w_seat"",""pin"":""ow_s_secret"",
             ""base_url"":""https://example.test/api/v2"",""env"":""OW_KEY=ow_w_seat"",""next"":[],""members"":[],
             ""front_door"":{""sponsor"":{""id"":""m-sam"",""kind"":""person"",""name"":""The Mapmaker""},
-                ""sponsor_character"":""c-map"",""my_character"":null,""charter"":""law-1"",""charter_skill"":[""obj-1"",""obj-2""]}}";
+                ""sponsor_character"":""c-map"",""my_character"":null,""charter"":""law-1"",""charter_skill"":[""obj-1"",""obj-2""]},
+            ""reading_aids"":{""charter"":{""id"":""law-1"",""name"":""House rules"",""rules"":[],""skill"":[""obj-1"",""obj-2""]},
+                ""guide"":null,""domains"":[{""id"":""con-d1"",""name"":""The Harbour"",""sentence"":""Where the ships come in."",""hubs"":[]}]}}";
 
         private const string Preview = @"{""reader"":""player"",""world"":{""name"":""Moppetopia"",""description"":""A demo""},
             ""invited_by"":""Sam"",""owner_character"":""The Mapmaker"",""role"":""guest"",""with_character"":true,
@@ -179,10 +182,25 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public async Task AnAgentsAnswer_CarriesTheReadingAids()
+        {
+            // The same packet as GET /me's, as the new seat reads the world.
+            var t = new FakeTransport { Status = 201, ResponseBody = AgentJoined };
+            var aids = (await OWJoin.RedeemAsync(Code, t, agentName: "Scribe", baseUrl: Base)).ReadingAids;
+
+            Assert.IsNotNull(aids);
+            Assert.AreEqual("law-1", aids.Charter.Id);
+            CollectionAssert.AreEqual(new[] { "obj-1", "obj-2" }, aids.Charter.Skill);
+            Assert.IsNull(aids.Guide);
+            Assert.AreEqual("The Harbour", aids.Domains.Single().Name);
+        }
+
+        [Test]
         public async Task APlayersAnswer_HasNoFrontDoor()
         {
             var t = new FakeTransport { Status = 201, ResponseBody = PlayerJoined };
             Assert.IsNull((await OWJoin.RedeemAsync(Code, t, baseUrl: Base)).FrontDoor);
+            Assert.IsNull((await OWJoin.RedeemAsync(Code, t, baseUrl: Base)).ReadingAids, "nor the aids");
         }
 
         [Test]

@@ -179,6 +179,15 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("front_door")]
         public OWFrontDoor FrontDoor;
 
+        /// <summary>
+        /// An agent's: the world's reading aids as the new seat reads them, the Charter, the Guide and the Domains (the
+        /// same packet as <c>GET /me</c>'s, <see cref="OWReadingAids.Of"/>); null for a player or an older keel.
+        /// </summary>
+        public OWReadingAids ReadingAids => OWReadingAids.Read(_readingAids);
+
+        [JsonProperty("reading_aids")]
+        private JObject _readingAids;
+
         public bool IsPlayer => Kind == "player";
         public bool IsAgent => Kind == "agent";
 

@@ -476,6 +476,22 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [TestCase("/api/v2/me", "GET")]
+        [TestCase("/api/v2/join", "POST")]
+        public void TheReadingAids_AreThePacketOWReadingAidsReads(string path, string method)
+        {
+            // reading_aids beside front_door: OWReadingAids.Of reads {charter, guide, domains}, the packet ToJson writes.
+            var served = Wire["paths"][path][method]["response"].Values<string>()
+                .Where(k => k.StartsWith("reading_aids.")).ToList();
+            var read = OWReadingAids.Of(new JObject { ["reading_aids"] = new JObject
+                {
+                    ["charter"] = null, ["guide"] = null, ["domains"] = new JArray(),
+                } }).ToJson().Properties().Select(p => "reading_aids." + p.Name).ToList();
+
+            Assert.IsNotEmpty(served, $"{method} {path} serves no reading_aids keys in the fixture");
+            CollectionAssert.AreEquivalent(served, read);
+        }
+
+        [TestCase("/api/v2/me", "GET")]
         [TestCase("/api/v2/me/lenses", "PUT")]
         public void TheMeAnswer_ServesLenses(string path, string method)
         {

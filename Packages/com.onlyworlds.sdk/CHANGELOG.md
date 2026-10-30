@@ -38,6 +38,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Added
 
+- `OWReadingAids.Of(answer)`: the world's reading aids as keel serves them, `reading_aids` beside `front_door` in a
+  `GET /me` answer (`OWClient.GetMeAsync`): the Charter `{id, name, rules, skill}`, the Guide `{id, name}` and the
+  Domains `{id, name, sentence, hubs}`, read as served for the key (keel's reading, not recomputed); null from an
+  older keel. An agent's join answer carries the same packet as `OWJoined.ReadingAids`. `ToJson` writes it back
+  equal as JSON to what was served. The npm package's `OwReadingAids` on `OwMe` and `OwAgentJoined`.
 - `OWOpeners.For(tools, kind, address, surface)`: the rows of an "Open with" menu for a world (`"world"`) or one of
   its elements (`"element"`), a port of the TypeScript SDK's `openersFor` and the Python package's `openers_for`.
   The site's page comes first, then each listed tool with a link for that kind, in the list's order, each an
