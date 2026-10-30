@@ -1209,7 +1209,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         /// <summary>
         /// A row is the body as the wire serves it to that reader, and a served body of an element under the hidden mark
         /// carries <c>hidden: true</c>: the owner's full row of a hidden element, by the world's list or by its own key;
-        /// below the owner only a guest's row of its own hidden creation, never a stub. A <c>name</c> row never carries
+        /// below the owner only a guest's row of its own hidden creation. A <c>name</c> row never carries
         /// it. The world stays as it was.
         /// Kills: the row as stored, the world's list left off the row.
         /// </summary>
@@ -1230,14 +1230,45 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var guest = OWLens.Resolve(world, "L", OWLensReader.Guest(new[] { "L", "e05" }), options).Rows;
             Assert.AreEqual(@"[{""id"":""e05"",""type"":""collective"",""name"":""Guild"",""hidden"":true}]",
                 new JArray(guest).ToString(Formatting.None), "a guest's own hidden creation");
-            // Below the owner only a guest's own creation, which it sees whole, carries the mark: a stub never does.
-            var stub = OWLens.Resolve(world, "L", OWLensReader.Guest(new[] { "L" }, new[] { "e05" }), options).Rows.Single();
-            Assert.IsTrue((bool)stub[OWPayload.KnownOf], "the stub is kept");
-            Assert.IsNull(stub["hidden"], "a guest's known-of stub of a hidden element carries no hidden key");
             world[2] = Lens("L", @"{""show"":""name""}", null);
             Assert.IsNull(OWLens.Resolve(world, "L", OWLensReader.Owner(), options).Rows[0]["hidden"], "a name row");
             world[2] = Lens("L", "{}", null);
             Assert.AreEqual(before, new JArray(world.Select(e => e.DeepClone())).ToString(Formatting.None), "the world is not changed");
+        }
+
+        /// <summary>
+        /// Hidden beats known_of: a hidden element named in a guest's <c>known_of</c> that is not its own creation is not
+        /// in that guest's view, so no stub, no row, no count and no mark; a hidden id in <c>whole</c> stays its own
+        /// creation. A filter keeps nothing of it; an anchor on it is one the guest cannot see, counted only for the owner
+        /// reading as that guest; a link to it is left out of the guest's served list (no gap), no edge, counted only for
+        /// the owner as <c>not_visible</c>. Kills: the hidden element kept as a stub.
+        /// </summary>
+        [Test]
+        public void AHiddenElementInAGuestsKnownOf_IsNotInItsView_NoStubNoRowNoCountNoMark()
+        {
+            var world = new List<JObject>
+            {
+                JObject.Parse(@"{""id"":""e05"",""type"":""character"",""name"":""Heir"",""hidden"":true}"),
+                JObject.Parse(@"{""id"":""c1"",""type"":""character"",""name"":""Ada"",""friends"":[""e05"",""e06""]}"),
+                JObject.Parse(@"{""id"":""e06"",""type"":""character"",""name"":""Brin""}"),
+                Lens("F", @"{""types"":[""character""]}", null),
+                Lens("A", @"{""depth"":0}", @"""characters"":[""e05""]"),
+            };
+            var guest = OWLensReader.Guest(new[] { "F", "A", "c1", "e06" }, new[] { "e05" });
+            var filter = OWLens.Resolve(world, "F", guest);
+            CollectionAssert.AreEqual(new[] { "c1", "e06" }, filter.Kept, "a filter keeps no stub of it");
+            CollectionAssert.IsEmpty(filter.Cut);
+            var anchored = OWLens.Resolve(world, "A", guest);
+            CollectionAssert.IsEmpty(anchored.Kept, "no stub row");
+            CollectionAssert.IsEmpty(anchored.Cut, "nothing counted for the guest");
+            CollectionAssert.AreEquivalent(new Dictionary<string, int> { [OWLensCut.AnchorNotVisible] = 1 },
+                OWLens.Resolve(world, "A", guest.WithOwnerCounts()).Cut, "the owner reading as the guest counts the anchor");
+            var served = OWLens.ServedView(world, guest);
+            Assert.IsFalse(served.Any(b => (string)b["id"] == "e05"), "not in the guest's view");
+            Assert.AreEqual(@"[""e06""]", served.Single(b => (string)b["id"] == "c1")["friends"].ToString(Formatting.None),
+                "left out of the guest's served list");
+            var own = OWLens.Resolve(world, "F", OWLensReader.Guest(new[] { "F", "e05" })).Rows;
+            Assert.AreEqual(true, (bool)own.Single()["hidden"], "a hidden id in whole stays its own creation, marked");
         }
 
         /// <summary>

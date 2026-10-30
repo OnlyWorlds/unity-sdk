@@ -781,6 +781,28 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 new JArray(new JArray(g["nodes"].Select(n => n["id"])), g["cut"], g["edges_cut"]).ToString(Formatting.None));
         }
 
+        /// <summary>
+        /// Hidden beats known_of: a hidden element named in a guest's <c>known_of</c> is no node, and a link to it is left
+        /// out of the guest's served list, so the next edge's index has no gap; for the guest it is not counted, and for
+        /// the owner reading as the guest it is <c>not_visible</c>, a target the reader does not see. Kills: the hidden
+        /// element drawn as a known-of node.
+        /// </summary>
+        [Test]
+        public void AHiddenElementInAGuestsKnownOf_IsNoNode_AndALinkToItIsNotVisible()
+        {
+            var world = new JArray(
+                JObject.Parse(@"{""id"":""c1"",""type"":""character"",""name"":""Ada"",""friends"":[""h"",""b""]}"),
+                JObject.Parse(@"{""id"":""h"",""type"":""character"",""name"":""Hal"",""hidden"":true}"),
+                JObject.Parse(@"{""id"":""b"",""type"":""character"",""name"":""Brin""}"));
+            var guest = OWLensReader.Guest(new[] { "c1", "b" }, new[] { "h" });
+            var g = OWGraph.Read(world, guest).ToJson();
+            Assert.AreEqual(@"[[""b"",""c1""],[{""source"":""c1"",""field"":""friends"",""target"":""b"",""index"":0}],{}]",
+                new JArray(new JArray(g["nodes"].Select(n => n["id"])), g["edges"], g["edges_cut"]).ToString(Formatting.None));
+            var asGuest = OWGraph.Read(world, guest.WithOwnerCounts()).ToJson();
+            Assert.AreEqual(@"[[""b"",""c1""],{""not_visible"":1}]",
+                new JArray(new JArray(asGuest["nodes"].Select(n => n["id"])), asGuest["edges_cut"]).ToString(Formatting.None));
+        }
+
         private static OWGraphOptions Flag(string flag) => new OWGraphOptions
         {
             Rooms = flag == "rooms", Hidden = flag == "hidden", Proposed = flag == "proposed", MapSpace = flag == "map_space",

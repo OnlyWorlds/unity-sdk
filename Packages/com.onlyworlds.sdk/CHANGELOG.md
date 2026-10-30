@@ -8,6 +8,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
+- Hidden beats `known_of`: a hidden element named in a guest's `known_of` that is not its own creation is not in that
+  guest's view (`OWLens.Resolve`, `OWGraph.Read`, and the owner reading as that guest): no stub, no row, no node, no
+  count and no mark; a link to it is left out of the guest's served lists, and the owner reading as the guest counts
+  an edge to it `not_visible` and an anchor on it `anchor_not_visible`. A hidden id in a guest's `whole` stays its own
+  creation, served whole and marked.
 - Schema pin to `v0.33.0-dist.94`: the charter, lens and names fixtures' twenty-four new cases. `OWLens.Resolve` reads
   an anchor list's empty or White_Space-only string as no id, so a lens holding only such strings is a filter; a
   served body carries `hidden: true` where the hidden mark keeps the element (the owner's body, and below the owner

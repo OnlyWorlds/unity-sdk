@@ -1083,7 +1083,9 @@ namespace OnlyWorlds.Sdk
                             break;
                         case OWLensRung.Guest:
                             whole = reader.Whole.Contains(id);
-                            knownOf = !whole && reader.KnownOf.Contains(id);
+                            // Hidden beats known_of: a hidden element the guest did not make is not in its view (no
+                            // stub, no row, no count, no mark); a hidden id in whole is its own creation, served whole.
+                            knownOf = !whole && reader.KnownOf.Contains(id) && !Hidden.Contains(id);
                             break;
                         case OWLensRung.Served:
                             knownOf = OWPayload.IsKnownOf(e);
@@ -1220,8 +1222,8 @@ namespace OnlyWorlds.Sdk
                 var served = KnownOf.Contains(i) ? ToKnownOf(body, TypeOf(i)) : body;
                 // A body served of an element under the hidden mark (the world's list or its own key, one mark) carries
                 // hidden: true, and no other body a hidden key, a stored false included (keel #537, serialize.py). Below
-                // the owner only a guest's own creation carries it, a body it sees whole: never a known-of stub.
-                if (Hidden.Contains(i) && !KnownOf.Contains(i)) served[OWPayload.Hidden] = true;
+                // the owner only a guest's own creation carries it, a body it sees whole.
+                if (Hidden.Contains(i)) served[OWPayload.Hidden] = true;
                 else served.Remove(OWPayload.Hidden);
                 return served;
             }
