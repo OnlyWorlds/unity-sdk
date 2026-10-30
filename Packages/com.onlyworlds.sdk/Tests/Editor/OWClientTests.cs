@@ -92,6 +92,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         // the TypeScript SDK 4.94.0); every other call is a world key's.
         private static readonly (string Name, string Verb, bool Pin, bool Any, System.Func<OWClient, Task> Run)[] PinCalls =
         {
+            // the one call served with no credential: on every client, and no key, PIN or Bearer on any
+            ("health", "GET", false, true, c => c.HealthAsync()),
             // reads
             ("list", "GET", false, true, c => c.ListAsync<JObject>("location")),
             ("list (name search)", "GET", false, true, c => c.ListAsync<JObject>("location", new OWListParams { NameContains = "harb" })),
@@ -101,16 +103,22 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("world", "GET", false, true, c => c.GetWorldAsync()),
             ("world lenses", "GET", false, true, c => c.WorldLensesAsync("w1", resolve: true)),
             ("members", "GET", false, true, c => c.GetMembersAsync()),
+            ("hidden list", "GET", false, false, c => c.ListHiddenAsync()),
             // the one read keel checks a PIN on
             ("me", "GET", true, false, c => c.GetMeAsync()),
             // writes, each verb
             ("create", "POST", true, false, c => c.CreateAsync<JObject>("location", new JObject { ["name"] = "Harbour" })),
+            ("upsert", "PUT", true, false, c => c.UpsertAsync<JObject>("location", "l1", new JObject { ["name"] = "Harbour" })),
+            ("adopt", "POST", true, false, c => c.AdoptAsync<JObject>("location", "l1", "m1")),
+            ("hide", "PUT", true, false, c => c.HideAsync("location", "l1")),
+            ("unhide", "DELETE", true, false, c => c.UnhideAsync("location", "l1")),
             ("patch", "PATCH", true, false, c => c.PatchAsync<JObject>("location", "l1", new JObject { ["description"] = "x" })),
             ("delete", "DELETE", true, false, c => c.DeleteAsync("location", "l1")),
             ("links", "POST", true, false, c => c.EditLinksAsync<JObject>("location", "l1", "zones", add: new[] { "z1" })),
             ("bulk", "POST", true, false, c => c.BulkAsync(new[] { new OWBulkItem { Type = "location", Element = new JObject { ["name"] = "B" } } })),
             ("patch world", "PATCH", true, false, c => c.PatchWorldAsync(new JObject { ["name"] = "W" })),
             ("set my lenses", "PUT", true, true, c => c.SetMyLensesAsync(new[] { "l1" })),
+            ("set my character", "PUT", true, false, c => c.SetMyCharacterAsync("c1")),
         };
 
         /// <summary>
@@ -147,11 +155,24 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         private static string PinOf(OWRequest sent)
             => sent.Headers.TryGetValue("API-Pin", out var pin) ? pin : null;
 
+        /// <summary>The calls sent with no credential at all, whatever the client holds.</summary>
+        private static readonly string[] NoCredential = { "health" };
+
+        /// <summary>True for a call sent with no credential, after checking it carried none.</summary>
+        private static bool SentWithNone(string name, OWRequest sent)
+        {
+            if (!NoCredential.Contains(name)) return false;
+            foreach (var header in new[] { "API-Key", "API-Pin", "Authorization" })
+                Assert.IsFalse(sent.Headers.ContainsKey(header), $"{name}: no {header}");
+            return true;
+        }
+
         [Test]
         public async Task ApiPin_WorldKeyWithAPin_OnEveryWriteAndOnGetMe_OnNoOtherRead()
         {
             foreach (var (name, pin, sent) in await PinSweep("ow_w_test", "1234"))
             {
+                if (SentWithNone(name, sent)) continue;
                 Assert.AreEqual("ow_w_test", sent.Headers["API-Key"], name);
                 Assert.AreEqual(pin ? "1234" : null, PinOf(sent), $"{name} ({sent.Method} {sent.Url})");
             }
@@ -163,6 +184,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             // A legacy key needs it on reads of a world with a PIN (v1 parity).
             foreach (var (name, _, sent) in await PinSweep("0123456789", "1234"))
             {
+                if (SentWithNone(name, sent)) continue;
                 Assert.AreEqual("0123456789", sent.Headers["API-Key"], name);
                 Assert.AreEqual("1234", PinOf(sent), $"{name} ({sent.Method} {sent.Url})");
             }
@@ -173,6 +195,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             foreach (var (name, _, sent) in await PinSweep("ow_r_test", null))
             {
+                if (SentWithNone(name, sent)) continue;
                 Assert.AreEqual("ow_r_test", sent.Headers["API-Key"], name);
                 Assert.IsFalse(sent.Headers.ContainsKey("API-Pin"), name);
             }
@@ -182,9 +205,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public async Task ApiPin_AccountToken_Never_EvenWithAPinConfigured_BearerAndNoApiKey()
         {
             var all = await PinSweep("ow_a_acct", "1234", "w1");
-            Assert.AreEqual(7, all.Count, "the four world reads, the two lens routes and the roster sent");
+            Assert.AreEqual(8, all.Count, "the health pulse, the four world reads, the two lens routes and the roster sent");
             foreach (var (name, _, sent) in all)
             {
+                if (SentWithNone(name, sent)) continue;
                 Assert.AreEqual("Bearer ow_a_acct", sent.Headers["Authorization"], name);
                 Assert.IsFalse(sent.Headers.ContainsKey("API-Pin"), name);
                 Assert.IsFalse(sent.Headers.ContainsKey("API-Key"), name);
@@ -424,10 +448,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         private static async Task RunEveryWrite(OWClient c)
         {
             await c.CreateAsync<JObject>("character", new JObject { ["name"] = "N" });
+            await c.UpsertAsync<JObject>("character", "c1", new JObject { ["name"] = "U" });
             await c.PatchAsync<JObject>("character", "c1", new JObject { ["name"] = "M" });
             await c.DeleteAsync("character", "c1");
             await c.EditLinksAsync<JObject>("character", "c1", "friends", add: new[] { "a1" });
             await c.BulkAsync(new[] { new OWBulkItem { Type = "character", Element = new JObject { ["name"] = "B" } } });
+            await c.AdoptAsync<JObject>("character", "c1", "m1");
         }
 
         [Test]
@@ -436,7 +462,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var t = new FakeTransport();
             await RunEveryWrite(MakeAgent(t, true));
 
-            Assert.AreEqual(5, t.Calls.Count);
+            Assert.AreEqual(7, t.Calls.Count);
             foreach (var call in t.Calls)
             {
                 Assert.IsTrue(call.Headers.ContainsKey("X-OW-Agent"), $"{call.Method} {call.Url} should declare the agent.");
@@ -470,7 +496,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var t = new FakeTransport();
             await RunEveryWrite(MakeAgent(t, false));
 
-            Assert.AreEqual(5, t.Calls.Count);
+            Assert.AreEqual(7, t.Calls.Count);
             Assert.IsTrue(t.Calls.All(call => !call.Headers.ContainsKey("X-OW-Agent")),
                 "Off by default: a tool people use never declares itself an agent.");
         }
@@ -518,7 +544,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var t = new FakeTransport();
             await RunEveryWrite(MakeNamed(t, null));
 
-            Assert.AreEqual(5, t.Calls.Count);
+            Assert.AreEqual(7, t.Calls.Count);
             foreach (var call in t.Calls)
             {
                 Assert.IsTrue(call.Headers.ContainsKey("X-OW-Client"), $"{call.Method} {call.Url} should name the client.");
@@ -534,7 +560,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var t = new FakeTransport();
             await RunEveryWrite(MakeNamed(t, name));
 
-            Assert.AreEqual(5, t.Calls.Count);
+            Assert.AreEqual(7, t.Calls.Count);
             foreach (var call in t.Calls) Assert.AreEqual(name, call.Headers["X-OW-Client"], $"{call.Method} {call.Url}");
         }
 
@@ -1129,6 +1155,50 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(0, t.Calls.Count, "Nothing reaches the wire.");
         }
 
+        // The TypeScript SDK's list() refusal (4.88.0): `world` in a filter would go out beside the client's own world=, or
+        // to a world key that 422s it. Kills: a world filter sent on any client, by ListAsync or by ListAllAsync's walk.
+        [Test]
+        public void List_RefusesWorldAsAFilter_OnEveryClient_NothingSent()
+        {
+            var clients = new (string Key, string World)[] { ("ow_w_test", null), ("ow_a_acct", "w1"), (null, "w1") };
+            foreach (var (key, world) in clients)
+            {
+                var t = new FakeTransport { ResponseBody = @"{""data"":[],""has_more"":false}" };
+                var p = new OWListParams { Filter = new Dictionary<string, string> { ["world"] = "w2" } };
+
+                var e = Assert.Throws<ArgumentException>(() => Make(t, key, null, world).ListAsync<OWElement>("location", p), key ?? "no key");
+                StringAssert.Contains("world is not a filter", e.Message);
+                StringAssert.Contains("Nothing was sent", e.Message);
+
+                Assert.ThrowsAsync<ArgumentException>(() => Make(t, key, null, world).ListAllAsync<OWElement>("location", p), key ?? "no key");
+                Assert.AreEqual(0, t.Calls.Count, $"{key ?? "no key"}: nothing reaches the wire");
+            }
+        }
+
+        // -- A single get's query (the TypeScript SDK's get(type, id, { expand, fields, viewAs })) --------
+
+        // Kills: an option dropped, misnamed (viewAs goes as `as`), joined other than by commas or left unescaped, put in
+        // another order than the TypeScript SDK's (expand, fields, as), an empty one sent, or world= lost beside them.
+        [Test]
+        public async Task Get_SendsExpandFieldsAndViewAs_InTheTypeScriptOrder_AndNothingForNone()
+        {
+            var t = new FakeTransport();
+            await Make(t).GetAsync<JObject>("character", "c1",
+                expand: new[] { "friends", "location" }, fields: new[] { "name", "friends" }, viewAs: "m 1");
+            Assert.AreEqual("https://example.test/api/v2/character/c1/?expand=friends%2Clocation&fields=name%2Cfriends&as=m%201",
+                t.Last.Url);
+
+            await Make(t).GetAsync<JObject>("character", "c1", viewAs: "public");
+            Assert.AreEqual("https://example.test/api/v2/character/c1/?as=public", t.Last.Url);
+
+            await Make(t).GetAsync<JObject>("character", "c1", expand: new string[0], fields: new string[0], viewAs: "");
+            Assert.AreEqual("https://example.test/api/v2/character/c1/", t.Last.Url, "an empty option sends nothing");
+
+            await Make(t, "ow_a_acct", null, "w1").GetAsync<JObject>("character", "c1", fields: new[] { "name" });
+            Assert.AreEqual("https://example.test/api/v2/character/c1/?fields=name&world=w1", t.Last.Url,
+                "world= beside the get's own query on an account token");
+        }
+
         [Test]
         public async Task ListAll_CarriesFiltersOntoEveryPage()
         {
@@ -1170,6 +1240,38 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             StringAssert.Contains("head=true", t.Last.Url);
             StringAssert.DoesNotContain("limit=", t.Last.Url, "A tip read has no page to size.");
+        }
+
+        // The TypeScript SDK 4.44.0's `after`: only the changes made at or after a time, a filter beside since and limit,
+        // never a position. Kills: after dropped, misnamed, sent in local time, rounded up past the time asked for (which
+        // would lose a change), or moved before since and limit.
+        [Test]
+        public async Task Changes_SendsAfter_InUtc_ToTheMicrosecond_BesideSinceAndLimit()
+        {
+            var t = new FakeTransport { ResponseBody = @"{""changes"":[],""has_more"":false,""head"":0}" };
+            var c = Make(t);
+
+            await c.ChangesAsync("4:c", after: new DateTimeOffset(2026, 10, 22, 10, 30, 0, TimeSpan.FromHours(2)));
+            Assert.AreEqual("https://example.test/api/v2/changes/?since=4%3Ac&limit=100&after=2026-10-22T08%3A30%3A00Z", t.Last.Url);
+
+            await c.ChangesAsync(after: new DateTimeOffset(2026, 10, 22, 8, 30, 0, TimeSpan.Zero).AddTicks(1234567));
+            Assert.AreEqual("https://example.test/api/v2/changes/?limit=100&after=2026-10-22T08%3A30%3A00.123456Z", t.Last.Url,
+                "a fraction kept to the microsecond, cut, never rounded up");
+
+            await c.ChangesAsync();
+            StringAssert.DoesNotContain("after=", t.Last.Url, "no after, none sent");
+        }
+
+        // Kills: an after on the tip read sent (or dropped without a word): the tip read takes no filter.
+        [Test]
+        public void Changes_AfterOnTheTipRead_IsRefused_NothingSent()
+        {
+            var t = new FakeTransport();
+            var e = Assert.ThrowsAsync<ArgumentException>(
+                () => Make(t).ChangesAsync(headOnly: true, after: DateTimeOffset.UtcNow));
+            StringAssert.Contains("after", e.Message);
+            StringAssert.Contains("Nothing was sent", e.Message);
+            Assert.AreEqual(0, t.Calls.Count);
         }
 
         [Test]

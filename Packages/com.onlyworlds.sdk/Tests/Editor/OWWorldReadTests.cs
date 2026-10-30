@@ -246,25 +246,32 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         // `Read` sends world= (the Bearer on an account client, nothing on a keyless one), `Named` sends world= and the
         // Bearer on an account client (SetMyLensesAsync, the one write that names its world so, and GetMembersAsync, the
         // roster) and is refused on a keyless one, `Path` sends the Bearer to a world route whose path names the world,
-        // without world= (WorldLensesAsync), `Account` sends the Bearer to an /account route, `Refused` is an
-        // InvalidOperationException before the transport is called. A method the table does not hold fails the sweep, so a
-        // new call is classified when it is added.
+        // without world= (WorldLensesAsync), `Account` sends the Bearer to an /account route, `Open` sends no credential
+        // and no world= on any client (HealthAsync), `Refused` is an InvalidOperationException before the transport is
+        // called. A method the table does not hold fails the sweep, so a new call is classified when it is added.
 
-        private enum Does { Read, Named, Path, Account, Refused }
+        private enum Does { Read, Named, Path, Account, Open, Refused }
 
         private static readonly Dictionary<string, (Does Does, Func<OWClient, Task> Run)> Methods =
             new Dictionary<string, (Does, Func<OWClient, Task>)>
             {
+                ["HealthAsync"] = (Does.Open, c => c.HealthAsync()),
                 ["GetWorldAsync"] = (Does.Read, c => c.GetWorldAsync()),
                 ["PatchWorldAsync"] = (Does.Refused, c => c.PatchWorldAsync(new JObject { ["name"] = "W" })),
                 ["GetMeAsync"] = (Does.Refused, c => c.GetMeAsync()),
                 ["SetMyLensesAsync"] = (Does.Named, c => c.SetMyLensesAsync(new string[0])),
+                ["SetMyCharacterAsync"] = (Does.Refused, c => c.SetMyCharacterAsync(El)),
                 ["GetMembersAsync"] = (Does.Named, c => c.GetMembersAsync()),
                 ["WorldLensesAsync"] = (Does.Path, c => c.WorldLensesAsync(W)),
                 ["ListAsync"] = (Does.Read, c => c.ListAsync<JObject>("location")),
                 ["ListAllAsync"] = (Does.Read, c => c.ListAllAsync<JObject>("location")),
                 ["GetAsync"] = (Does.Read, c => c.GetAsync<JObject>("location", El)),
                 ["CreateAsync"] = (Does.Refused, c => c.CreateAsync<JObject>("location", new JObject { ["name"] = "H" })),
+                ["UpsertAsync"] = (Does.Refused, c => c.UpsertAsync<JObject>("location", El, new JObject { ["name"] = "H" })),
+                ["AdoptAsync"] = (Does.Refused, c => c.AdoptAsync<JObject>("location", El, "owner")),
+                ["HideAsync"] = (Does.Refused, c => c.HideAsync("location", El)),
+                ["UnhideAsync"] = (Does.Refused, c => c.UnhideAsync("location", El)),
+                ["ListHiddenAsync"] = (Does.Refused, c => c.ListHiddenAsync()),
                 ["PatchAsync"] = (Does.Refused, c => c.PatchAsync<JObject>("location", El, new JObject { ["name"] = "H" })),
                 ["DeleteAsync"] = (Does.Refused, c => c.DeleteAsync("location", El)),
                 ["BulkAsync"] = (Does.Refused, c => c.BulkAsync(new[] { new OWBulkItem { Type = "location", Element = new JObject { ["name"] = "H" } } })),
@@ -322,6 +329,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
                 foreach (var sent in t.Calls)
                 {
+                    if (row.Value.Does == Does.Open)
+                    {
+                        CollectionAssert.IsEmpty(sent.Headers.Keys, $"{name}: no header");
+                        Assert.IsEmpty(Values(sent, "world"), $"{name}: no world=");
+                        continue;
+                    }
+
                     Assert.AreEqual("Bearer ow_a_acct", sent.Headers["Authorization"], name);
                     Assert.IsFalse(sent.Headers.ContainsKey("API-Key") || sent.Headers.ContainsKey("API-Pin"), $"{name}: no API-Key or API-Pin");
 
@@ -352,7 +366,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 var name = row.Key;
                 var t = Answering();
 
-                if (row.Value.Does != Does.Read)
+                if (row.Value.Does != Does.Read && row.Value.Does != Does.Open)
                 {
                     var e = Assert.ThrowsAsync<InvalidOperationException>(() => row.Value.Run(Keyless(t)), name);
                     StringAssert.Contains("holds none", e.Message, name);
@@ -364,7 +378,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 await row.Value.Run(Keyless(t));
                 Assert.AreEqual(1, t.Calls.Count, name);
                 CollectionAssert.IsEmpty(t.Last.Headers.Keys, $"{name}: no header");
-                Assert.AreEqual(W, One(t.Last, "world"), $"{name}: world=");
+                if (row.Value.Does == Does.Open) Assert.IsEmpty(Values(t.Last, "world"), $"{name}: no world=");
+                else Assert.AreEqual(W, One(t.Last, "world"), $"{name}: world=");
             }
         }
 

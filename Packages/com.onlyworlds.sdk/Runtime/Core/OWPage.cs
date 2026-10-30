@@ -55,7 +55,8 @@ namespace OnlyWorlds.Sdk
         /// Filters on the type's single links, by field name: <c>{"parent_location": id}</c> lists a place's rooms,
         /// and an empty value lists the rows with none (<c>parent_location=</c>). Keel answers 422 for a malformed id or
         /// a field the type does not filter on, naming every filter it takes; a container the reader cannot see gives
-        /// an empty page. Sent in field order, after the named filters above.
+        /// an empty page. Sent in field order, after the named filters above. <c>world</c> is no filter: an
+        /// <see cref="ArgumentException"/> before sending (the client's <see cref="OWClientConfig.World"/> names it).
         /// </summary>
         public IDictionary<string, string> Filter;
     }

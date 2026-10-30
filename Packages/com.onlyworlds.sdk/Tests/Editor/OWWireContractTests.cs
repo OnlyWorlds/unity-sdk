@@ -92,6 +92,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 Agent = true,
             });
 
+            // The health pulse, sent with no credential.
+            await c.HealthAsync();
             await c.GetWorldAsync();
             // The world's origin written as its two plain keys, and an extension key.
             await c.PatchWorldAsync(new JObject
@@ -103,7 +105,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             await c.GetMembersAsync();
             // The lens routes: the holder's choice (PUT, a body) and the world's lenses with both options.
             await c.SetMyLensesAsync(new[] { "l1", "l2" });
+            await c.SetMyLensesAsync(null); // never chosen
             await c.WorldLensesAsync("w1", resolve: true, readAs: "guest");
+            // The member's own Character, an id and none.
+            await c.SetMyCharacterAsync("c1");
+            await c.SetMyCharacterAsync(null);
             t.ResponseBody = @"{""data"":[],""has_more"":false}";
             await c.ListAsync<JObject>("character", new OWListParams
             {
@@ -117,7 +123,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             });
             t.ResponseBody = "{}";
             await c.GetAsync<JObject>("character", "c1");
+            await c.GetAsync<JObject>("character", "c1", expand: new[] { "friends" }, fields: new[] { "name" }, viewAs: "public");
             await c.CreateAsync<JObject>("character", new JObject { ["name"] = "N" });
+            await c.UpsertAsync<JObject>("character", "c1", new JObject { ["name"] = "U" });
             await c.PatchAsync<JObject>("character", "c1", new JObject { ["name"] = "M" });
             await c.DeleteAsync("character", "c1");
             await c.DeleteAsync("character", "c1", ifMatch: 7);
@@ -125,8 +133,14 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             await c.EditLinksAsync<JObject>("character", "c1", "friends", add: new[] { "a1" }, ifMatch: 7);
             await c.EditLinksAsync<JObject>("character", "c1", "friends", add: new[] { "a1" });
             await c.BulkAsync(new[] { new OWBulkItem { Type = "character", Element = new JObject { ["name"] = "B" } } });
+            await c.AdoptAsync<JObject>("character", "c1", "m1");
+            // The hidden mark on an agent client: neither write header goes, which the header check holds.
+            await c.HideAsync("character", "c1");
+            await c.UnhideAsync("character", "c1");
+            await c.ListHiddenAsync();
             t.ResponseBody = @"{""changes"":[],""has_more"":false,""head"":0}";
             await c.ChangesAsync("4:069620b9-0794-708d-8000-42b0ea685f38");
+            await c.ChangesAsync("4:069620b9-0794-708d-8000-42b0ea685f38", after: new DateTimeOffset(2026, 10, 22, 0, 0, 0, TimeSpan.Zero));
             t.ResponseHeaders = new Dictionary<string, string> { ["etag"] = "W/\"0:-\"" };
             await c.ChangesAsync(headOnly: true);
             await c.ChangesAsync(headOnly: true); // sends If-None-Match
@@ -162,6 +176,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             await lenses.SetMyLensesAsync(new[] { "l1" });
             await lenses.WorldLensesAsync("w1", resolve: true, readAs: "guest");
             await lenses.SetMemberLensesAsync("w1", "owner", new[] { "l1" });
+            await lenses.SetMemberLensesAsync("w1", "owner", null); // never chosen
             await lenses.GetMembersAsync();
 
             // The world reads an account token, or no key, sends with World set: world= beside each read's own query.
@@ -384,6 +399,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.That(checkedOps, Does.Contain("PATCH /api/v2/world"));
             Assert.That(checkedOps, Does.Contain("POST /api/v2/account/worlds"));
             Assert.That(checkedOps, Does.Contain("PUT /api/v2/me/lenses"));
+            Assert.That(checkedOps, Does.Contain("PUT /api/v2/me/character"));
             Assert.That(checkedOps, Does.Contain("PATCH /api/v2/account/worlds/w1/members/owner"));
         }
 
@@ -446,6 +462,17 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             var stale = NotServed.Keys.Where(k => k.StartsWith(path + " ")).Where(k => served.Contains(k.Substring(path.Length + 1)));
             Assert.IsEmpty(stale, "keel serves these now; drop them from NotServed: " + string.Join(", ", stale));
+        }
+
+        [Test]
+        public void EveryKeyTheHiddenRowReads_IsOneTheHiddenListServes()
+        {
+            // ListHiddenAsync reads the rows of { data }, so the row's keys are checked one level down.
+            var served = Wire["paths"]["/api/v2/world/hidden"]["GET"]["response"].Values<string>().ToList();
+            var mapped = MappedKeys(typeof(OWHiddenRow), false).Select(k => "data[]." + k).ToList();
+
+            Assert.IsNotEmpty(mapped, "OWHiddenRow maps no keys");
+            CollectionAssert.AreEquivalent(served.Where(k => k.StartsWith("data[].")).ToList(), mapped);
         }
 
         [TestCase(typeof(OWAccountWorldCreate), "/api/v2/account/worlds", "POST")]
@@ -546,7 +573,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             // An empty recording would pass the checks above with nothing checked.
             var calls = await RecordEveryCall();
-            Assert.AreEqual(41, calls.Count);
+            Assert.AreEqual(53, calls.Count);
 
             // The lens routes are on the wire here, so the checks above saw them.
             Assert.That(calls.Any(c => c.Method == "PUT" && new Uri(c.Url).AbsolutePath.EndsWith("/me/lenses")), "PUT /me/lenses is recorded");

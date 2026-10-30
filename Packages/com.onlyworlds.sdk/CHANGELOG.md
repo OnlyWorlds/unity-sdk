@@ -31,6 +31,29 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   PIN; an account token the world `World` names (`world=<id>`, its Bearer), refused before sending without `World`; a
   keyless client is refused, since the roster has no public reader. Mirrors the TypeScript SDK's `members()` (4.22.0;
   on an account token from 4.116.0).
+- `OWClient.HealthAsync` (GET /health): keel's liveness answer, as served. Sent with no credential on every client (no
+  key, PIN or Bearer, and no `world`), so an account token and a keyless client call it too. Mirrors the TypeScript
+  SDK's `health()` (3.0.0; on a keyless client from 4.30.0).
+- `OWClient.UpsertAsync<T>` (PUT /{type}/{id}/): creates the element under the caller's own id, or writes it whole.
+  The body is cleaned as every element write's is (the read-only fields left out, a null scalar string sent as `""`),
+  sent with the PIN, `X-OW-Client` and, on an agent client, `X-OW-Agent`; a known-of stub is refused before sending,
+  and an agent seat's PUT that became a proposal (202) throws `OWProposedError`. Mirrors the TypeScript SDK's
+  `upsert()` (3.0.0).
+- `OWClient.AdoptAsync<T>` (POST /{type}/{id}/adopt `{member}`): changes who made an element, to a membership id of
+  the world or `owner` (`created_by` null); returns the element as written. The owner's key or a co-builder's, with
+  its PIN; an element write, so `X-OW-Client` goes with it and `X-OW-Agent` on an agent client. A null or empty member
+  is refused before sending. Mirrors the TypeScript SDK's `adopt()` (4.43.0).
+- The hidden mark on the client: `OWClient.HideAsync` (PUT /{type}/{id}/hidden, `{}`) and `UnhideAsync` (DELETE
+  /{type}/{id}/hidden), the owner's key or a co-builder's with its PIN, a 204; and `ListHiddenAsync` (GET
+  /world/hidden), every hidden element newest first as `OWHiddenRow`s (`Type`, `Id`, `SetAt`, `SetBy`, null when the
+  owner hid it), a read of the owner's or a co-builder's key. keel's document declares no header on the hide or the
+  unhide, so neither `X-OW-Agent` nor `X-OW-Client` goes there, where the TypeScript SDK sends `X-OW-Agent` on an
+  agent client. Mirrors the TypeScript SDK's `hide()`, `unhide()` (4.45.0) and `listHidden()` (4.48.0).
+- `OWClient.SetMyCharacterAsync` (PUT /me/character `{character}`): a person member picks the roster Character that is
+  them in this world, or none (null, sent as `null`); answers GET /me's body. With the PIN, and without `X-OW-Agent`
+  or `X-OW-Client`, which keel's document declares on neither (the TypeScript SDK sends `X-OW-Agent` on an agent
+  client). An account token and a keyless client are refused before sending. Mirrors the TypeScript SDK's
+  `setMyCharacter()` (4.50.0).
 
 ### Changed
 
@@ -40,6 +63,24 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 - Schema pin to `v0.33.0-dist.98`: the strand profile, new (`profiles/strand.md` and its fixture, 17 cases): one
   story in a world in miniature, named on the World by `x_strand`'s three ids and read through four existing links.
   No schema file moved; the generated models' headers move with the serial.
+- `OWClient.GetAsync<T>` takes `expand`, `fields` and `viewAs`, after `ct` so a caller passing it by position keeps
+  working: sent as `expand` and `fields` (joined by commas) and `as`, in the TypeScript SDK's order, beside `world=`
+  on a client with `World` set; null or empty sends nothing. Until now a single get could send none of them. Mirrors
+  the TypeScript SDK's `get` options (`viewAs` from 4.37.0).
+- `OWListParams.Filter` refuses a `world` key with an `ArgumentException` before sending, on every client and on
+  every page of `ListAllAsync`: it would go out beside the client's own `world=`, or to a world key that answers 422.
+  The world an account token or a keyless client reads is `OWClientConfig.World`. Mirrors the TypeScript SDK's
+  `list()` refusal (4.88.0).
+- `OWClient.SetMyLensesAsync` and `SetMemberLensesAsync` take a null list: sent as `{"lenses": null}`, it puts the
+  list back to never chosen, so a seat playing a Character starts with its Titles' lenses again, while an empty list
+  keeps it off them (on the owner's own list null is the empty list). Until now a null was an
+  `ArgumentNullException`, so a list once chosen could not be put back from Unity. Mirrors the TypeScript SDK's
+  `setMyLenses(null)` and `setMemberLenses(world, member, null)` (4.99.0).
+- `OWClient.ChangesAsync` takes `after` (a `DateTimeOffset`, last, so a caller passing `ct` by position keeps
+  working): only the changes made at or after that time, sent as `after` in UTC to the microsecond (a finer fraction
+  is cut, never rounded up), beside `since` and `limit`. A filter, not a position: pass each page's cursor back with
+  the same `after` to read the whole window. With `headOnly` it is an `ArgumentException` before sending. Mirrors the
+  TypeScript SDK's `after` on `changes()` (4.44.0).
 - Schema pin to `v0.33.0-dist.97`: the address profile's four format cases on an empty string, one per part (an
   empty world, type, id or lens refuses by that part's own reason; only null or a missing key is absent), which
   `OWAddress` already answered so.

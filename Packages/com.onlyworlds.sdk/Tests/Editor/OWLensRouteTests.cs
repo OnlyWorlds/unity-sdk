@@ -70,16 +70,23 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsTrue(JToken.DeepEquals(JObject.Parse(@"{""lenses"":[]}"), JObject.Parse(t.Calls[1].Body)), t.Calls[1].Body);
         }
 
-        // Kills: a null sent as a list (or as no list at all) instead of refused. The TypeScript SDK refuses anything but
-        // a list; here the parameter's type takes only a list, so null is the one thing left to refuse.
+        // The TypeScript SDK 4.99.0's vector: null puts the holder's list back to never chosen, sent as { lenses: null },
+        // which keel tells apart from an empty list (a choice). Kills: a null refused (as before 0.27.0), sent as [] or
+        // left out of the body, on a world key or on an account token.
         [Test]
-        public void SetMyLenses_NullIsRefused_NothingSent()
+        public async Task SetMyLenses_Null_IsSentAsNeverChosen_OnAWorldKeyAndAnAccountToken()
         {
             var t = new FakeTransport { ResponseBody = MeBody };
-            var e = Assert.ThrowsAsync<ArgumentNullException>(() => Make(t).SetMyLensesAsync(null));
-            StringAssert.Contains("list of lens ids", e.Message);
-            StringAssert.Contains("Nothing was sent", e.Message);
-            Assert.IsEmpty(t.Calls);
+            await Make(t).SetMyLensesAsync(null);
+            await Make(t, "ow_a_test", null, "w1").SetMyLensesAsync(null);
+
+            Assert.AreEqual(2, t.Calls.Count);
+            foreach (var a in t.Calls)
+            {
+                Assert.AreEqual("PUT", a.Method);
+                Assert.AreEqual("/api/v2/me/lenses", new Uri(a.Url).AbsolutePath);
+                Assert.AreEqual(@"{""lenses"":null}", a.Body, "null, not [] and not left out");
+            }
         }
 
         // The TypeScript SDK 4.94.0's vector: an account token sets its own list in the world World names, sending
@@ -226,16 +233,25 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(@"{""lenses"":[]}", b.Body, "an empty list is a choice, sent as one");
         }
 
-        // Kills: a null list sent, or a world key, a read key, a legacy key or a keyless client reaching the transport.
+        // The TypeScript SDK 4.99.0's vector: null puts the row back to never chosen, { lenses: null } and nothing else.
+        // Kills: a null refused (as before 0.27.0), sent as [] or left out of the body.
         [Test]
-        public void SetMemberLenses_ANullList_OrAnyKeyButAnAccountToken_IsRefused_NothingSent()
+        public async Task SetMemberLenses_Null_IsSentAsNeverChosen()
+        {
+            var t = new FakeTransport { ResponseBody = @"{""id"":""m1"",""role"":""guest"",""kind"":""agent"",""lenses"":[]}" };
+            await Make(t, "ow_a_test", null).SetMemberLensesAsync("w1", "m1", null);
+
+            var a = t.Calls.Single();
+            Assert.AreEqual("PATCH", a.Method);
+            Assert.AreEqual(Base + "/account/worlds/w1/members/m1", a.Url);
+            Assert.AreEqual(@"{""lenses"":null}", a.Body, "null, not [] and not left out");
+        }
+
+        // Kills: a world key, a read key, a legacy key or a keyless client reaching the transport.
+        [Test]
+        public void SetMemberLenses_AnyKeyButAnAccountToken_IsRefused_NothingSent()
         {
             var t = new FakeTransport();
-            var e = Assert.ThrowsAsync<ArgumentNullException>(() => Make(t, "ow_a_test", null).SetMemberLensesAsync("w1", "m1", null));
-            StringAssert.Contains("SetMemberLensesAsync: lensIds is a list of lens ids", e.Message);
-            StringAssert.Contains("Nothing was sent", e.Message);
-            Assert.IsEmpty(t.Calls, "a null list: nothing sent");
-
             foreach (var key in new[] { "ow_w_test", "ow_r_test", "0123456789", null })
             {
                 var refused = Assert.ThrowsAsync<InvalidOperationException>(
