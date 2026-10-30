@@ -118,6 +118,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("bulk", "POST", true, false, c => c.BulkAsync(new[] { new OWBulkItem { Type = "location", Element = new JObject { ["name"] = "B" } } })),
             ("patch world", "PATCH", true, false, c => c.PatchWorldAsync(new JObject { ["name"] = "W" })),
             ("set my lenses", "PUT", true, true, c => c.SetMyLensesAsync(new[] { "l1" })),
+            ("set my character", "PUT", true, false, c => c.SetMyCharacterAsync("c1")),
         };
 
         /// <summary>

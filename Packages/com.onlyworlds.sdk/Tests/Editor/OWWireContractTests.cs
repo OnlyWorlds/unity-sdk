@@ -106,6 +106,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             // The lens routes: the holder's choice (PUT, a body) and the world's lenses with both options.
             await c.SetMyLensesAsync(new[] { "l1", "l2" });
             await c.WorldLensesAsync("w1", resolve: true, readAs: "guest");
+            // The member's own Character, an id and none.
+            await c.SetMyCharacterAsync("c1");
+            await c.SetMyCharacterAsync(null);
             t.ResponseBody = @"{""data"":[],""has_more"":false}";
             await c.ListAsync<JObject>("character", new OWListParams
             {
@@ -392,6 +395,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.That(checkedOps, Does.Contain("PATCH /api/v2/world"));
             Assert.That(checkedOps, Does.Contain("POST /api/v2/account/worlds"));
             Assert.That(checkedOps, Does.Contain("PUT /api/v2/me/lenses"));
+            Assert.That(checkedOps, Does.Contain("PUT /api/v2/me/character"));
             Assert.That(checkedOps, Does.Contain("PATCH /api/v2/account/worlds/w1/members/owner"));
         }
 
@@ -565,7 +569,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             // An empty recording would pass the checks above with nothing checked.
             var calls = await RecordEveryCall();
-            Assert.AreEqual(47, calls.Count);
+            Assert.AreEqual(49, calls.Count);
 
             // The lens routes are on the wire here, so the checks above saw them.
             Assert.That(calls.Any(c => c.Method == "PUT" && new Uri(c.Url).AbsolutePath.EndsWith("/me/lenses")), "PUT /me/lenses is recorded");

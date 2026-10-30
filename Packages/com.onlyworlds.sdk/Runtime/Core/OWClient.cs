@@ -290,6 +290,24 @@ namespace OnlyWorlds.Sdk
             => RequestAsync<JObject>("GET", "/me/", ct: ct);
 
         /// <summary>
+        /// PUT /me/character -- pick the roster Character that is you in this world, or none. Answers GET /me's body
+        /// (<see cref="GetMeAsync"/>), its <c>character</c> the pick as kept.
+        /// </summary>
+        /// <param name="character">The Character's id, or null for none (sent as <c>null</c>).</param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <remarks>
+        /// A person member's write key, with its PIN. keel answers 422 for a hidden Character (<c>character_hidden</c>), a
+        /// guest's pick it did not make, or a Character someone else holds (<c>param</c> <c>character</c>); 404 for one
+        /// this key cannot see; 403 for an agent seat, a player, the owner (whose own is the world's
+        /// <c>owner_character</c>, set with <see cref="PatchWorldAsync"/>) or a read key. A guest's view resets once. Sent
+        /// without <c>X-OW-Agent</c> or <c>X-OW-Client</c>, which keel's document declares on neither. An account token
+        /// is no member of one world and a keyless client holds no key: each is refused, and nothing is sent. Mirrors the
+        /// TypeScript SDK's <c>setMyCharacter</c> (4.50.0).
+        /// </remarks>
+        public Task<JObject> SetMyCharacterAsync(string character, CancellationToken ct = default)
+            => RequestAsync<JObject>("PUT", "/me/character", body: new JObject { ["character"] = character }, ct: ct);
+
+        /// <summary>
         /// GET /members -- the world's roster, the rows of keel's <c>{data}</c> (no paging): each row's <c>id</c> (the
         /// membership id that <c>created_by</c> holds, null for the owner), <c>kind</c> (<c>owner</c>, <c>person</c>,
         /// <c>agent</c>, <c>player</c>), <c>role</c>, <c>character</c> (null too when it is hidden from this key),

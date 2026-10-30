@@ -39,6 +39,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   owner hid it), a read of the owner's or a co-builder's key. keel's document declares no header on the hide or the
   unhide, so neither `X-OW-Agent` nor `X-OW-Client` goes there, where the TypeScript SDK sends `X-OW-Agent` on an
   agent client. Mirrors the TypeScript SDK's `hide()`, `unhide()` (4.45.0) and `listHidden()` (4.48.0).
+- `OWClient.SetMyCharacterAsync` (PUT /me/character `{character}`): a person member picks the roster Character that is
+  them in this world, or none (null, sent as `null`); answers GET /me's body. With the PIN, and without `X-OW-Agent`
+  or `X-OW-Client`, which keel's document declares on neither (the TypeScript SDK sends `X-OW-Agent` on an agent
+  client). An account token and a keyless client are refused before sending. Mirrors the TypeScript SDK's
+  `setMyCharacter()` (4.50.0).
 
 ### Changed
 

@@ -9,7 +9,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// <summary>
     /// The TypeScript SDK's calls this client gained in its first tranche (0.27.0): <see cref="OWClient.HealthAsync"/>,
     /// <see cref="OWClient.UpsertAsync{T}"/>, <see cref="OWClient.AdoptAsync{T}"/>, <see cref="OWClient.HideAsync"/>,
-    /// <see cref="OWClient.UnhideAsync"/>, <see cref="OWClient.ListHiddenAsync"/>.
+    /// <see cref="OWClient.UnhideAsync"/>, <see cref="OWClient.ListHiddenAsync"/>, <see cref="OWClient.SetMyCharacterAsync"/>.
     /// What each sends, what it answers, and what is refused before anything is sent, on every kind of client.
     /// </summary>
     public class OWClientRouteTests
@@ -231,6 +231,51 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             CollectionAssert.IsEmpty(await Make(t).ListHiddenAsync(), "none hidden");
             t.ResponseBody = "{}";
             CollectionAssert.IsEmpty(await Make(t).ListHiddenAsync(), "no data: no rows");
+        }
+
+        // -- SetMyCharacterAsync ----------------------------------------------------------------------------
+
+        private const string MeBody = @"{""kind"":""person"",""role"":""contributor"",""membership"":""m1"",""character"":""c1"",""lenses"":[]}";
+
+        // The TypeScript SDK's setMyCharacter() (4.50.0): PUT /me/character with { character }, an id or null (none),
+        // the PIN; keel's document declares no header there, so neither X-OW-Agent nor X-OW-Client goes, where the
+        // TypeScript SDK sends X-OW-Agent on an agent client. Kills: the wrong verb or path, a null left out of the body
+        // or sent as "", the PIN left off, a write header sent, or an answer other than GET /me's body as served.
+        [Test]
+        public async Task SetMyCharacter_SendsPutMeCharacter_TheIdOrNull_WithThePin_NoAgentOrClientHeader_AndAnswersTheMeBody()
+        {
+            var t = new FakeTransport { ResponseBody = MeBody };
+            var c = Make(t);
+
+            var me = await c.SetMyCharacterAsync("c1");
+            Assert.IsTrue(JToken.DeepEquals(JObject.Parse(MeBody), me), "the /me body as served: " + me);
+            await c.SetMyCharacterAsync(null);
+
+            Assert.AreEqual(2, t.Calls.Count);
+            var a = t.Calls[0];
+            Assert.AreEqual("PUT", a.Method);
+            Assert.AreEqual(Base + "/me/character", a.Url, "the path, no query");
+            Assert.AreEqual(@"{""character"":""c1""}", a.Body);
+            CollectionAssert.AreEquivalent(new[] { "API-Key", "API-Pin", "Content-Type" }, a.Headers.Keys.ToArray());
+            Assert.AreEqual("1234", a.Headers["API-Pin"]);
+
+            Assert.AreEqual(@"{""character"":null}", t.Calls[1].Body, "none is sent as null");
+        }
+
+        // Kills: an account token (with World or without) or a keyless client reaching the transport: the pick is a
+        // member's own, and an account token is no member of one world.
+        [Test]
+        public void SetMyCharacter_OnAnAccountToken_OrNoKey_IsRefused_NothingSent()
+        {
+            foreach (var (key, world) in new[] { ("ow_a_test", (string)null), ("ow_a_test", "w1"), (null, "w1") })
+            {
+                var t = new FakeTransport { ResponseBody = MeBody };
+                var e = Assert.ThrowsAsync<InvalidOperationException>(() => Make(t, key, null, world).SetMyCharacterAsync("c1"),
+                    $"{key ?? "no key"}, World {world ?? "null"}");
+                StringAssert.Contains(key == null ? "needs a key" : "needs a world key", e.Message);
+                StringAssert.Contains("Nothing was sent", e.Message);
+                Assert.IsEmpty(t.Calls);
+            }
         }
     }
 }
