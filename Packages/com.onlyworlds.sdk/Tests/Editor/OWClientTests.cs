@@ -92,6 +92,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         // the TypeScript SDK 4.94.0); every other call is a world key's.
         private static readonly (string Name, string Verb, bool Pin, bool Any, System.Func<OWClient, Task> Run)[] PinCalls =
         {
+            // the one call served with no credential: on every client, and no key, PIN or Bearer on any
+            ("health", "GET", false, true, c => c.HealthAsync()),
             // reads
             ("list", "GET", false, true, c => c.ListAsync<JObject>("location")),
             ("list (name search)", "GET", false, true, c => c.ListAsync<JObject>("location", new OWListParams { NameContains = "harb" })),
@@ -147,11 +149,24 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         private static string PinOf(OWRequest sent)
             => sent.Headers.TryGetValue("API-Pin", out var pin) ? pin : null;
 
+        /// <summary>The calls sent with no credential at all, whatever the client holds.</summary>
+        private static readonly string[] NoCredential = { "health" };
+
+        /// <summary>True for a call sent with no credential, after checking it carried none.</summary>
+        private static bool SentWithNone(string name, OWRequest sent)
+        {
+            if (!NoCredential.Contains(name)) return false;
+            foreach (var header in new[] { "API-Key", "API-Pin", "Authorization" })
+                Assert.IsFalse(sent.Headers.ContainsKey(header), $"{name}: no {header}");
+            return true;
+        }
+
         [Test]
         public async Task ApiPin_WorldKeyWithAPin_OnEveryWriteAndOnGetMe_OnNoOtherRead()
         {
             foreach (var (name, pin, sent) in await PinSweep("ow_w_test", "1234"))
             {
+                if (SentWithNone(name, sent)) continue;
                 Assert.AreEqual("ow_w_test", sent.Headers["API-Key"], name);
                 Assert.AreEqual(pin ? "1234" : null, PinOf(sent), $"{name} ({sent.Method} {sent.Url})");
             }
@@ -163,6 +178,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             // A legacy key needs it on reads of a world with a PIN (v1 parity).
             foreach (var (name, _, sent) in await PinSweep("0123456789", "1234"))
             {
+                if (SentWithNone(name, sent)) continue;
                 Assert.AreEqual("0123456789", sent.Headers["API-Key"], name);
                 Assert.AreEqual("1234", PinOf(sent), $"{name} ({sent.Method} {sent.Url})");
             }
@@ -173,6 +189,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             foreach (var (name, _, sent) in await PinSweep("ow_r_test", null))
             {
+                if (SentWithNone(name, sent)) continue;
                 Assert.AreEqual("ow_r_test", sent.Headers["API-Key"], name);
                 Assert.IsFalse(sent.Headers.ContainsKey("API-Pin"), name);
             }
@@ -182,9 +199,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public async Task ApiPin_AccountToken_Never_EvenWithAPinConfigured_BearerAndNoApiKey()
         {
             var all = await PinSweep("ow_a_acct", "1234", "w1");
-            Assert.AreEqual(7, all.Count, "the four world reads, the two lens routes and the roster sent");
+            Assert.AreEqual(8, all.Count, "the health pulse, the four world reads, the two lens routes and the roster sent");
             foreach (var (name, _, sent) in all)
             {
+                if (SentWithNone(name, sent)) continue;
                 Assert.AreEqual("Bearer ow_a_acct", sent.Headers["Authorization"], name);
                 Assert.IsFalse(sent.Headers.ContainsKey("API-Pin"), name);
                 Assert.IsFalse(sent.Headers.ContainsKey("API-Key"), name);

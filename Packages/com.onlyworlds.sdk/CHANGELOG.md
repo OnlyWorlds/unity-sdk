@@ -21,6 +21,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   PIN; an account token the world `World` names (`world=<id>`, its Bearer), refused before sending without `World`; a
   keyless client is refused, since the roster has no public reader. Mirrors the TypeScript SDK's `members()` (4.22.0;
   on an account token from 4.116.0).
+- `OWClient.HealthAsync` (GET /health): keel's liveness answer, as served. Sent with no credential on every client (no
+  key, PIN or Bearer, and no `world`), so an account token and a keyless client call it too. Mirrors the TypeScript
+  SDK's `health()` (3.0.0; on a keyless client from 4.30.0).
 
 ### Changed
 

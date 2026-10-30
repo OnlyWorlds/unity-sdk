@@ -205,7 +205,19 @@ namespace OnlyWorlds.Sdk
             return value;
         }
 
-        // -- World meta -------------------------------------------------------
+        // -- Health and world meta --------------------------------------------
+
+        /// <summary>
+        /// GET /health -- is the server up: keel's liveness answer, the body as served.
+        /// </summary>
+        /// <param name="ct">Cancels the request.</param>
+        /// <remarks>
+        /// Sent with no credential at all, on every client: no <c>API-Key</c>, PIN or Bearer, and no <c>world</c> on a
+        /// client with <see cref="World"/> set, so an account token and a keyless client call it as a world key does.
+        /// Mirrors the TypeScript SDK's <c>health</c> (3.0.0; on a keyless client from 4.30.0).
+        /// </remarks>
+        public Task<JObject> HealthAsync(CancellationToken ct = default)
+            => RequestAsync<JObject>("GET", "/health/", ct: ct, auth: false);
 
         /// <summary>
         /// GET /world -- world metadata.
@@ -1090,12 +1102,12 @@ namespace OnlyWorlds.Sdk
             string query = null, JObject body = null, string idempotencyKey = null,
             bool allowEmpty = false, bool write = false, CancellationToken ct = default, long? ifMatch = null,
             bool named = false, bool proposable = false, bool worldRead = false,
-            AccountTokenRoute accountToken = AccountTokenRoute.None)
+            AccountTokenRoute accountToken = AccountTokenRoute.None, bool auth = true)
         {
             var result = await RequestWithResponseAsync<T>(
                 method, path, query, body, idempotencyKey, allowEmpty, write, ct,
                 ifMatch: ifMatch, named: named, proposable: proposable, worldRead: worldRead,
-                accountToken: accountToken).ConfigureAwait(false);
+                accountToken: accountToken, auth: auth).ConfigureAwait(false);
 
             return result.Value;
         }
@@ -1127,30 +1139,34 @@ namespace OnlyWorlds.Sdk
         /// account client without it is refused before sending. A world key sends as without it; a keyless client is
         /// still refused.
         /// </param>
+        /// <param name="auth">
+        /// False for a route keel serves with no credential (the health pulse): no key, PIN or Bearer is sent, and no
+        /// client is refused for the key it holds.
+        /// </param>
         private async Task<(T Value, OWResponse Response)> RequestWithResponseAsync<T>(
             string method, string path,
             string query = null, JObject body = null, string idempotencyKey = null,
             bool allowEmpty = false, bool write = false, CancellationToken ct = default,
             string ifNoneMatch = null, bool notModified = false, long? ifMatch = null,
             bool named = false, bool proposable = false, bool worldRead = false,
-            AccountTokenRoute accountToken = AccountTokenRoute.None)
+            AccountTokenRoute accountToken = AccountTokenRoute.None, bool auth = true)
         {
             // The one rule for what an account token or no key may send, read from the request itself (keel's
             // account reads, ruled 2026-10-26): an /account route, a GET marked as a world read, or a route marked as
             // one the account token is declared on (the lens routes). Anything else keel answers such a client with a
             // 401, so it is refused here and nothing is sent. Mirrors the TypeScript SDK's request() (4.88.0; the
             // account token's lens routes from 4.94.0).
-            var reads = worldRead && string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase);
-            var tokenRoute = KeyKind == OWKeyKind.Account ? accountToken : AccountTokenRoute.None;
+            var reads = auth && worldRead && string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase);
+            var tokenRoute = auth && KeyKind == OWKeyKind.Account ? accountToken : AccountTokenRoute.None;
 
-            if (_keyless && !(reads && World != null))
+            if (auth && _keyless && !(reads && World != null))
             {
                 throw new InvalidOperationException(
                     $"{method} {path} needs a key, and this client holds none: without one it reads the world World "
                     + $"names through {WorldReads} only. Nothing was sent.");
             }
 
-            if (KeyKind == OWKeyKind.Account && !IsAccountRoute(path))
+            if (auth && KeyKind == OWKeyKind.Account && !IsAccountRoute(path))
             {
                 if (!reads && tokenRoute == AccountTokenRoute.None)
                 {
@@ -1186,9 +1202,10 @@ namespace OnlyWorlds.Sdk
 
             var headers = new Dictionary<string, string>();
 
-            if (_keyless)
+            if (!auth || _keyless)
             {
-                // A keyless client reaches here only for a world read with World set: no credential at all.
+                // A route served with no credential, or a keyless client, which reaches here otherwise only for a world
+                // read with World set: no credential at all.
             }
             else if (OWKey.UsesBearer(KeyKind))
             {
