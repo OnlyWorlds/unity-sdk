@@ -492,10 +492,35 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// GET /{type}/{id}/. On a client with <see cref="World"/> set (an account token or no key), it reads that
-        /// world, sending <c>world=&lt;id&gt;</c>.
+        /// world, sending <c>world=&lt;id&gt;</c> beside the get's own parameters.
         /// </summary>
-        public Task<T> GetAsync<T>(string type, string id, CancellationToken ct = default)
-            => RequestAsync<T>("GET", $"/{type}/{id}/", ct: ct, worldRead: true);
+        /// <param name="ct">Cancels the request.</param>
+        /// <param name="expand">Link fields to expand one level into stubs (<c>friends</c>, <c>location</c>); sent as
+        /// <c>expand</c>, joined by commas. Null or empty sends nothing.</param>
+        /// <param name="fields">The fields to serve, a sparse body; sent as <c>fields</c>, joined by commas. Null or empty
+        /// sends nothing.</param>
+        /// <param name="viewAs">
+        /// View as, sent as <c>as</c>: the owner's key reads as another reader of this world would, a membership id as
+        /// that member's own key, a Character id as a guest of that Character, <c>public</c> as the public. A member key
+        /// gets a 403 <c>view_as_owner_only</c>; an element hidden from that reader is a 404, never a 410; an unknown
+        /// value is a 422 (<c>param</c> <c>as</c>). Null or empty sends nothing.
+        /// </param>
+        /// <remarks>
+        /// The three options come last, so a caller passing <paramref name="ct"/> by position keeps working. Mirrors the
+        /// TypeScript SDK's <c>get</c> options <c>expand</c>, <c>fields</c> and <c>viewAs</c> (<c>viewAs</c> from 4.37.0),
+        /// sent in its order.
+        /// </remarks>
+        public Task<T> GetAsync<T>(
+            string type, string id, CancellationToken ct = default,
+            string[] expand = null, string[] fields = null, string viewAs = null)
+        {
+            var query = new List<string>();
+            if (expand != null && expand.Length > 0) query.Add("expand=" + Uri.EscapeDataString(string.Join(",", expand)));
+            if (fields != null && fields.Length > 0) query.Add("fields=" + Uri.EscapeDataString(string.Join(",", fields)));
+            if (!string.IsNullOrEmpty(viewAs)) query.Add("as=" + Uri.EscapeDataString(viewAs));
+
+            return RequestAsync<T>("GET", $"/{type}/{id}/", query: string.Join("&", query), ct: ct, worldRead: true);
+        }
 
         // -- Element writes ---------------------------------------------------
 

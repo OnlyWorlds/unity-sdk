@@ -47,6 +47,10 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
+- `OWClient.GetAsync<T>` takes `expand`, `fields` and `viewAs`, after `ct` so a caller passing it by position keeps
+  working: sent as `expand` and `fields` (joined by commas) and `as`, in the TypeScript SDK's order, beside `world=`
+  on a client with `World` set; null or empty sends nothing. Until now a single get could send none of them. Mirrors
+  the TypeScript SDK's `get` options (`viewAs` from 4.37.0).
 - Schema pin to `v0.33.0-dist.97`: the address profile's four format cases on an empty string, one per part (an
   empty world, type, id or lens refuses by that part's own reason; only null or a missing key is absent), which
   `OWAddress` already answered so.

@@ -1155,6 +1155,30 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(0, t.Calls.Count, "Nothing reaches the wire.");
         }
 
+        // -- A single get's query (the TypeScript SDK's get(type, id, { expand, fields, viewAs })) --------
+
+        // Kills: an option dropped, misnamed (viewAs goes as `as`), joined other than by commas or left unescaped, put in
+        // another order than the TypeScript SDK's (expand, fields, as), an empty one sent, or world= lost beside them.
+        [Test]
+        public async Task Get_SendsExpandFieldsAndViewAs_InTheTypeScriptOrder_AndNothingForNone()
+        {
+            var t = new FakeTransport();
+            await Make(t).GetAsync<JObject>("character", "c1",
+                expand: new[] { "friends", "location" }, fields: new[] { "name", "friends" }, viewAs: "m 1");
+            Assert.AreEqual("https://example.test/api/v2/character/c1/?expand=friends%2Clocation&fields=name%2Cfriends&as=m%201",
+                t.Last.Url);
+
+            await Make(t).GetAsync<JObject>("character", "c1", viewAs: "public");
+            Assert.AreEqual("https://example.test/api/v2/character/c1/?as=public", t.Last.Url);
+
+            await Make(t).GetAsync<JObject>("character", "c1", expand: new string[0], fields: new string[0], viewAs: "");
+            Assert.AreEqual("https://example.test/api/v2/character/c1/", t.Last.Url, "an empty option sends nothing");
+
+            await Make(t, "ow_a_acct", null, "w1").GetAsync<JObject>("character", "c1", fields: new[] { "name" });
+            Assert.AreEqual("https://example.test/api/v2/character/c1/?fields=name&world=w1", t.Last.Url,
+                "world= beside the get's own query on an account token");
+        }
+
         [Test]
         public async Task ListAll_CarriesFiltersOntoEveryPage()
         {
