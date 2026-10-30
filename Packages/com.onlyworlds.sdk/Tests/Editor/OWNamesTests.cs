@@ -125,6 +125,36 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsNull(OWNames.TypeWord(World(@"{""version"":""1"",""types"":{""character"":{""one"":""Employee""}}}"), "character"));
         }
 
+        /// <summary>A key that is not one of the 22 slugs is ignored, and nothing else names it: asked for, it reads null.</summary>
+        [Test]
+        public void AnUnknownSlug_AskedForByType_ReadsNull()
+        {
+            var world = World(@"{""version"":1,""types"":{""employee"":{""one"":""Staff""},""character"":{""one"":""Employee""}}}");
+
+            Assert.IsNull(OWNames.TypeWord(world, "employee"));
+            Assert.AreEqual("Employee", OWNames.TypeWord(world, "character"), "the map's other entries stand");
+        }
+
+        /// <summary>A <c>version</c> of <c>1.0</c> is the number 1 and accepted; a fraction is refused.</summary>
+        [Test]
+        public void AVersionWithAFraction_IsRefused()
+        {
+            Assert.AreEqual("Employee", OWNames.TypeWord(World(@"{""version"":1e0,""types"":{""character"":{""one"":""Employee""}}}"), "character"));
+            Assert.IsNull(OWNames.TypeWord(World(@"{""version"":1.5,""types"":{""character"":{""one"":""Employee""}}}"), "character"));
+        }
+
+        /// <summary>
+        /// When two keys of <c>supertypes[type]</c> fold to the element's supertype, the first in the map's order that is
+        /// an entry (a string <c>one</c>) gives the word; one with no word is passed over.
+        /// </summary>
+        [Test]
+        public void TwoKeysThatFoldAlike_TheFirstEntryInTheMapsOrderGivesTheWord()
+        {
+            var world = World(@"{""version"":1,""supertypes"":{""character"":{""agent"":{""one"":""  ""},""AGENT"":{""one"":""Operative""},""Agent"":{""one"":""AI agent""}}}}");
+
+            Assert.AreEqual("Operative", OWNames.TypeWord(world, "character", "Agent"));
+        }
+
         [Test]
         public void ANullTypesOrSupertypes_IsPresent_AndRefusesTheMap()
         {

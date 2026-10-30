@@ -1185,6 +1185,183 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             }
         }
 
+        /// <summary>
+        /// An empty string is no id, so a lens whose anchor fields hold only empty strings names no anchor and is a filter,
+        /// as rule 7 reads a lens with empty lists. One real id beside them anchors it, and a served lens whose
+        /// <c>x_served_trimmed</c> names an anchor field stays anchored. Kills: <c>[""]</c> read as naming an anchor.
+        /// </summary>
+        [Test]
+        public void ALensWhoseAnchorFieldsHoldOnlyEmptyStrings_NamesNoAnchor_AndIsAFilter()
+        {
+            var world = new List<JObject> { JObject.Parse(@"{""id"":""e03"",""type"":""law"",""name"":""Law""}"), Character("a") };
+            CollectionAssert.AreEqual(new[] { "a", "e03" },
+                OWLens.Resolve(world, Lens("L", "{}", @"""narratives"":[""""]"), OWLensReader.Owner()).Kept, "a filter");
+            CollectionAssert.AreEqual(new[] { "a", "e03" },
+                OWLens.Resolve(world, Lens("L", "{}", @"""characters"":["""",""""],""laws"":[""""]"), OWLensReader.Public()).Kept,
+                "a filter, for any reader");
+            CollectionAssert.AreEqual(new[] { "a" },
+                OWLens.Resolve(world, Lens("L", "{}", @"""characters"":["""",""a""]"), OWLensReader.Owner()).Kept, "one id anchors it");
+            CollectionAssert.IsEmpty(OWLens.Resolve(world,
+                    Lens("L", "{}", @"""narratives"":[""""],""x_served_trimmed"":[""narratives""]"), OWLensReader.Served()).Kept,
+                "an anchor field the server trimmed still names an anchor");
+        }
+
+        /// <summary>
+        /// A row is the body as the wire serves it to that reader, and a served body of an element under the hidden mark
+        /// carries <c>hidden: true</c>: the owner's full row of a hidden element, by the world's list or by its own key;
+        /// a guest's row of its own hidden creation. A <c>name</c> row never carries it. The world stays as it was.
+        /// Kills: the row as stored, the world's list left off the row.
+        /// </summary>
+        [Test]
+        public void AnOwnersFullRowOfAHiddenElement_CarriesHiddenTrue_AsServed()
+        {
+            var world = new List<JObject>
+            {
+                JObject.Parse(@"{""id"":""e05"",""type"":""collective"",""name"":""Guild""}"),
+                JObject.Parse(@"{""id"":""e06"",""type"":""collective"",""name"":""Choir"",""hidden"":true}"),
+                Lens("L", "{}", null),
+            };
+            var before = new JArray(world.Select(e => e.DeepClone())).ToString(Formatting.None);
+            var options = new OWLensOptions { HiddenIds = new[] { "e05" } };
+            var rows = OWLens.Resolve(world, "L", OWLensReader.Owner(), options).Rows;
+            Assert.AreEqual(@"[{""id"":""e05"",""type"":""collective"",""name"":""Guild"",""hidden"":true},{""id"":""e06"",""type"":""collective"",""name"":""Choir"",""hidden"":true}]",
+                new JArray(rows).ToString(Formatting.None), "the world's list and the element's own key, one mark");
+            var guest = OWLens.Resolve(world, "L", OWLensReader.Guest(new[] { "L", "e05" }), options).Rows;
+            Assert.AreEqual(@"[{""id"":""e05"",""type"":""collective"",""name"":""Guild"",""hidden"":true}]",
+                new JArray(guest).ToString(Formatting.None), "a guest's own hidden creation");
+            world[2] = Lens("L", @"{""show"":""name""}", null);
+            Assert.IsNull(OWLens.Resolve(world, "L", OWLensReader.Owner(), options).Rows[0]["hidden"], "a name row");
+            world[2] = Lens("L", "{}", null);
+            Assert.AreEqual(before, new JArray(world.Select(e => e.DeepClone())).ToString(Formatting.None), "the world is not changed");
+        }
+
+        /// <summary>
+        /// keel serves no <c>hidden</c> key on a body no mark hides, so a stored <c>hidden: false</c> is dropped from the
+        /// row, for the owner and every reader below it. Kills: the stored key carried onto the row.
+        /// </summary>
+        [Test]
+        public void AStoredHiddenFalse_IsDropped_FromTheRow()
+        {
+            var world = new List<JObject>
+            {
+                JObject.Parse(@"{""id"":""e05"",""type"":""collective"",""name"":""Guild"",""hidden"":false}"),
+                Lens("L", "{}", null),
+            };
+            foreach (var (name, reader) in new[]
+                     {
+                         ("owner", OWLensReader.Owner()), ("contributor", OWLensReader.Contributor()),
+                         ("guest", OWLensReader.Guest(new[] { "L", "e05" })), ("public", OWLensReader.Public()),
+                     })
+            {
+                Assert.AreEqual(@"[{""id"":""e05"",""type"":""collective"",""name"":""Guild""}]",
+                    new JArray(OWLens.Resolve(world, "L", reader).Rows).ToString(Formatting.None), name);
+            }
+        }
+
+        /// <summary>
+        /// The cut counts each element once under its first reason, and a kept element is never also counted as cut; an
+        /// anchor resolves by its field's type and the id. One id an umbrella and its child anchor under two wrong types
+        /// (a Location under <c>characters</c>, then <c>objects</c>) is one element, counted once; one the umbrella
+        /// anchors under the wrong type and the child under its own is kept and not counted, and so the other way round.
+        /// Guards what this reader already does (it keys the cut by id). Kills: the cut keyed by (type, id).
+        /// </summary>
+        [Test]
+        public void TheCutCountsEachElementOnce_AndAKeptElementIsNeverAlsoCut()
+        {
+            List<JObject> World(string childLinks) => new List<JObject>
+            {
+                Lens("C", @"{""depth"":0}", childLinks),
+                JObject.Parse(@"{""id"":""x"",""type"":""location"",""name"":""Harbour""}"),
+            };
+            var r = OWLens.Resolve(World(@"""objects"":[""x""]"), Lens("U", @"{""depth"":0}", @"""characters"":[""x""],""constructs"":[""C""]"),
+                OWLensReader.Owner());
+            CollectionAssert.IsEmpty(r.Kept);
+            CollectionAssert.AreEquivalent(new Dictionary<string, int> { [OWLensCut.AnchorNotVisible] = 1 }, r.Cut, "one element, once");
+            r = OWLens.Resolve(World(@"""locations"":[""x""]"), Lens("U", @"{""depth"":0}", @"""characters"":[""x""],""constructs"":[""C""]"),
+                OWLensReader.Owner());
+            CollectionAssert.AreEqual(new[] { "x" }, r.Kept);
+            CollectionAssert.IsEmpty(r.Cut, "kept by the child, so never also cut");
+            r = OWLens.Resolve(World(@"""characters"":[""x""]"), Lens("U", @"{""depth"":0}", @"""locations"":[""x""],""constructs"":[""C""]"),
+                OWLensReader.Owner());
+            CollectionAssert.AreEqual(new[] { "x" }, r.Kept);
+            CollectionAssert.IsEmpty(r.Cut, "kept by the umbrella, the child's wrong type not counted");
+        }
+
+        /// <summary>
+        /// Counts are per reader: below the owner an element whose owner-side reason was <c>anchor_not_visible</c> (a
+        /// Location the umbrella names under <c>characters</c>) and which a child cuts by <c>types</c> is counted under
+        /// the child's reason; for the owner <c>anchor_not_visible</c> comes first and it is counted once there. Guards
+        /// what this reader already does. Kills: the unseen anchor recorded for every reader and dropped at the count.
+        /// </summary>
+        [Test]
+        public void BelowTheOwner_AnUnseenAnchorACutChildReaches_IsCountedUnderTheChildsReason()
+        {
+            var world = new List<JObject>
+            {
+                Lens("U", @"{""depth"":0}", @"""characters"":[""x""],""constructs"":[""C""]"),
+                Lens("C", @"{""types"":[""character""]}", @"""characters"":[""y""]"),
+                Character("y", @"""birthplace"":""x"""),
+                JObject.Parse(@"{""id"":""x"",""type"":""location"",""name"":""Harbour""}"),
+            };
+            var contributor = OWLens.Resolve(world, "U", OWLensReader.Contributor());
+            CollectionAssert.AreEqual(new[] { "y" }, contributor.Kept);
+            CollectionAssert.AreEquivalent(new Dictionary<string, int> { [OWLensCut.Types] = 1 }, contributor.Cut, "the child's reason");
+            CollectionAssert.AreEquivalent(new Dictionary<string, int> { [OWLensCut.Types] = 1 },
+                OWLens.Resolve(world, "U", OWLensReader.Public()).Cut, "the public reader's too");
+            CollectionAssert.AreEquivalent(new Dictionary<string, int> { [OWLensCut.AnchorNotVisible] = 1 },
+                OWLens.Resolve(world, "U", OWLensReader.Owner()).Cut, "the owner's first reason, once");
+        }
+
+        /// <summary>
+        /// A note goes with its anchor: an anchor that reaches nothing (a Language named under <c>constructs</c>) carries
+        /// its note onto no row, even where another path (a child filter) keeps the element, for the owner and below it;
+        /// and the note is not counted ignored. Guards what this reader already does. Kills: an unseen id among the
+        /// anchors whose notes ride.
+        /// </summary>
+        [Test]
+        public void ANoteGoesWithItsAnchor_AnAnchorThatReachesNothingCarriesItOntoNoRow()
+        {
+            var world = new List<JObject>
+            {
+                Lens("U", @"{""notes"":{""e08"":""the old tongue""}}", @"""constructs"":[""e08"",""L1""]"),
+                Lens("L1", "{}", null),
+                JObject.Parse(@"{""id"":""e08"",""type"":""language"",""name"":""Old""}"),
+            };
+            foreach (var (name, reader) in new[] { ("owner", OWLensReader.Owner()), ("contributor", OWLensReader.Contributor()) })
+            {
+                var r = OWLens.Resolve(world, "U", reader);
+                CollectionAssert.AreEqual(new[] { "e08" }, r.Kept, name + ": kept by the child");
+                Assert.IsNull(r.Rows[0]["note"], name + ": no note rides");
+                Assert.AreEqual(0, r.NotesIgnored, name + ": a note on an anchor is never counted ignored");
+            }
+        }
+
+        /// <summary>
+        /// Visited never comes before visibility, for any anchor: a hidden lens in its own <c>constructs</c>, read as a
+        /// body through a contributor's view, counts itself for the owner as <c>anchor_not_visible</c>; so does a child
+        /// lens pointing back at its hidden umbrella, its own objects kept. Guards what this reader already does. Kills:
+        /// an anchor already visited skipped before it is counted.
+        /// </summary>
+        [Test]
+        public void AnUnseenAnchor_IsCountedBeforeTheVisitedCheck_TheLensItselfIncluded()
+        {
+            var reader = OWLensReader.Contributor().WithOwnerCounts();
+            var self = JObject.Parse(@"{""id"":""L0"",""type"":""construct"",""name"":""L0"",""supertype"":""Lens"",""hidden"":true,""constructs"":[""L0""],""x_lens"":{}}");
+            var r = OWLens.Resolve(new List<JObject> { self }, self, reader);
+            CollectionAssert.AreEquivalent(new Dictionary<string, int> { [OWLensCut.AnchorNotVisible] = 1 }, r.Cut, "the lens's own id");
+
+            var umbrella = JObject.Parse(@"{""id"":""U"",""type"":""construct"",""name"":""U"",""supertype"":""Lens"",""hidden"":true,""constructs"":[""C""],""x_lens"":{""depth"":0}}");
+            var world = new List<JObject>
+            {
+                umbrella,
+                Lens("C", @"{""depth"":0}", @"""constructs"":[""U""],""objects"":[""o1""]"),
+                JObject.Parse(@"{""id"":""o1"",""type"":""object"",""name"":""Cup""}"),
+            };
+            r = OWLens.Resolve(world, umbrella, reader);
+            CollectionAssert.AreEqual(new[] { "o1" }, r.Kept, "the child's own objects");
+            CollectionAssert.AreEquivalent(new Dictionary<string, int> { [OWLensCut.AnchorNotVisible] = 1 }, r.Cut, "the hidden umbrella, once");
+        }
+
         /// <summary>The case's lens, a body or the id of a lens in the world.</summary>
         private static OWLensResult ResolveCase(List<JObject> world, JObject c, OWLensReader reader, OWLensOptions options)
         {

@@ -724,6 +724,42 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 new JArray(c.Edges.Select(e => e.ToJson())).ToString(Formatting.None), "a contributor is served friends [D]");
         }
 
+        /// <summary>
+        /// The cut counts each element once, so an edge to an element the lens cut only as a wrongly typed anchor (a
+        /// Location named under <c>characters</c>) reads the lens's reason, never <c>outside_lens</c>. Guards what this
+        /// reader already does. Kills: the edge's target looked up by its own type and id.
+        /// </summary>
+        [Test]
+        public void AnEdgeToAnElementTheLensCutAsAWronglyTypedAnchor_ReadsTheLenssReason()
+        {
+            var world = new JArray(
+                JObject.Parse(@"{""id"":""o"",""type"":""object"",""name"":""Ledger"",""location"":""x""}"),
+                JObject.Parse(@"{""id"":""x"",""type"":""location"",""name"":""Harbour""}"));
+            var lens = JObject.Parse(@"{""id"":""L"",""type"":""construct"",""name"":""L"",""supertype"":""Lens"",""characters"":[""x""],""objects"":[""o""]}");
+            var g = OWGraph.Read(world, OWLensReader.Owner(), new OWGraphOptions { Lens = lens }).ToJson();
+            Assert.AreEqual(@"[[""o""],{""anchor_not_visible"":1},{""anchor_not_visible"":1}]",
+                new JArray(new JArray(g["nodes"].Select(n => n["id"])), g["cut"], g["edges_cut"]).ToString(Formatting.None));
+        }
+
+        /// <summary>
+        /// Counts are per reader, and an edge with them: below the owner an element whose owner-side reason was
+        /// <c>anchor_not_visible</c> and which a child cuts by <c>types</c> is cut by the child's reason, so the edge to
+        /// it is cut by that reason, never left uncounted. Guards what this reader already does. Kills: the unseen anchor
+        /// recorded for every reader and dropped at the count.
+        /// </summary>
+        [Test]
+        public void BelowTheOwner_AnEdgeToAnUnseenAnchorACutChildReaches_IsCutByTheChildsReason()
+        {
+            var world = new JArray(
+                JObject.Parse(@"{""id"":""U"",""type"":""construct"",""name"":""U"",""supertype"":""Lens"",""characters"":[""x""],""constructs"":[""C""],""x_lens"":{""depth"":0}}"),
+                JObject.Parse(@"{""id"":""C"",""type"":""construct"",""name"":""C"",""supertype"":""Lens"",""characters"":[""y""],""x_lens"":{""types"":[""character""]}}"),
+                JObject.Parse(@"{""id"":""y"",""type"":""character"",""name"":""Ysolde"",""birthplace"":""x""}"),
+                JObject.Parse(@"{""id"":""x"",""type"":""location"",""name"":""Harbour""}"));
+            var g = OWGraph.Read(world, OWLensReader.Contributor(), new OWGraphOptions { LensId = "U" }).ToJson();
+            Assert.AreEqual(@"[[""y""],{""types"":1},{""types"":1}]",
+                new JArray(new JArray(g["nodes"].Select(n => n["id"])), g["cut"], g["edges_cut"]).ToString(Formatting.None));
+        }
+
         private static OWGraphOptions Flag(string flag) => new OWGraphOptions
         {
             Rooms = flag == "rooms", Hidden = flag == "hidden", Proposed = flag == "proposed", MapSpace = flag == "map_space",

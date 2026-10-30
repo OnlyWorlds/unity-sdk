@@ -795,12 +795,15 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
-        /// True when the lens names an anchor, whoever reads it: an anchor field with an entry, or the server's
+        /// True when the lens names an anchor, whoever reads it: an anchor field with an id in it, or the server's
         /// <c>x_served_trimmed</c> naming one (its ids left out for this reader). Such a lens is never read as a filter.
+        /// An empty string is no id, so a lens whose anchor fields hold only empty strings names no anchor and is a
+        /// filter, as rule 7 reads a lens with empty lists (the profile's owner, ahead of its next serial).
         /// </summary>
         private static bool NamesAnchors(JObject lens)
         {
-            if (AnchorFields.Any(f => lens[f] is JArray list && list.Count > 0)) return true;
+            if (AnchorFields.Any(f => lens[f] is JArray list && list.Any(entry => !string.IsNullOrEmpty(StringOf(entry)))))
+                return true;
             return lens[OWMessage.ServedTrimmedKey] is JArray trimmed
                    && trimmed.Any(entry => StringOf(entry) is string f && AnchorFields.Contains(f));
         }
@@ -1200,7 +1203,8 @@ namespace OnlyWorlds.Sdk
             /// <summary>
             /// The body this reader is served, a copy, as keel serves it (<c>elements/serialize.py</c>, the visibility
             /// module's <c>redact</c>): the owner's body as stored; for any other reader, the whole body trimmed
-            /// (<see cref="Trim"/>); a known-of element as its stub (<see cref="ToKnownOf"/>).
+            /// (<see cref="Trim"/>); a known-of element as its stub (<see cref="ToKnownOf"/>); the hidden mark as
+            /// <c>hidden: true</c>, so a <c>full</c> row of a hidden element carries it for a reader who sees it.
             /// </summary>
             public JObject Served(string i)
             {
@@ -1211,7 +1215,12 @@ namespace OnlyWorlds.Sdk
                 // The owner reading as itself is served what it stored, a link to a proposed element too: nothing is
                 // trimmed and nothing marked (keel's reader with no view). Reading as another reader, it gets theirs.
                 if (Rung != OWLensRung.Owner) Trim(body, TypeOf(i));
-                return KnownOf.Contains(i) ? ToKnownOf(body, TypeOf(i)) : body;
+                var served = KnownOf.Contains(i) ? ToKnownOf(body, TypeOf(i)) : body;
+                // A body served of an element under the hidden mark (the world's list or its own key, one mark) carries
+                // hidden: true, and no other body a hidden key, a stored false included (keel #537, serialize.py).
+                if (Hidden.Contains(i)) served[OWPayload.Hidden] = true;
+                else served.Remove(OWPayload.Hidden);
+                return served;
             }
 
             /// <summary>
