@@ -24,6 +24,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
+- Schema pin to `v0.33.0-dist.98`: the strand profile, new (`profiles/strand.md` and its fixture, 17 cases): one
+  story in a world in miniature, named on the World by `x_strand`'s three ids and read through four existing links.
+  No schema file moved; the generated models' headers move with the serial.
 - Schema pin to `v0.33.0-dist.97`: the address profile's four format cases on an empty string, one per part (an
   empty world, type, id or lens refuses by that part's own reason; only null or a missing key is absent), which
   `OWAddress` already answered so.
