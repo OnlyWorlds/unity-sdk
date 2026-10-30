@@ -25,6 +25,10 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   `Index` is the target's place in the link list as served to that reader, so a contributor's counts a link to a
   proposed element (G5). An edge to an anchor the reader cannot see already carried the lens's `anchor_not_visible`
   (G1).
+- Schema pin to `v0.33.0-dist.92`: a Zone leaves map space in the lens profile's graph. Zones are nodes by default,
+  for a public reader too; Map, Pin and Marker stay out until `MapSpace` (`OWGraph.MapSpaceTypes`). The lens fixture
+  in `Tests/Editor/Fixtures/lens/` moves from dist.88 to dist.92 byte for byte with it; seven of its graph cases were red
+  on the old table and pass now.
 
 ### Added
 

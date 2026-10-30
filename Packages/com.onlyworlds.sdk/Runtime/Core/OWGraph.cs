@@ -46,7 +46,7 @@ namespace OnlyWorlds.Sdk
         /// <summary>An element written as proposed, out by default. The owner's count only.</summary>
         public const string Proposed = OWGraphMark.Proposed;
 
-        /// <summary>Map space (a Map, a Pin, a Marker or a Zone), out by default for size, not for standing.</summary>
+        /// <summary>Map space (a Map, a Pin or a Marker), out by default for size, not for standing.</summary>
         public const string MapSpace = "map_space";
 
         /// <summary>
@@ -111,7 +111,7 @@ namespace OnlyWorlds.Sdk
         /// <summary>Bring back elements written as proposed, marked <c>proposed</c>. The owner's alone.</summary>
         public bool Proposed { get; set; }
 
-        /// <summary>Bring back map space: Maps, Pins, Markers and Zones, with no mark. Refused for the public reader.</summary>
+        /// <summary>Bring back map space: Maps, Pins and Markers, with no mark. Refused for the public reader.</summary>
         public bool MapSpace { get; set; }
     }
 
@@ -309,8 +309,11 @@ namespace OnlyWorlds.Sdk
         /// </summary>
         public static readonly IReadOnlyList<string> DeclaredLinks = new[] { "x_lens_leads_to", "x_spine_depends_on" };
 
-        /// <summary>The map space types, out by default for size: Map, Pin, Marker and Zone.</summary>
-        public static readonly IReadOnlyList<string> MapSpaceTypes = new[] { "map", "pin", "marker", "zone" };
+        /// <summary>
+        /// The map space types, out by default for size: Map, Pin and Marker. A Zone is not map space (serial 92): content
+        /// with spatial presence through its Markers, a node like any other, for a public reader too.
+        /// </summary>
+        public static readonly IReadOnlyList<string> MapSpaceTypes = new[] { "map", "pin", "marker" };
 
         /// <summary>
         /// The flags, as the profile names them, in the order a refusal names the first unmet one: <c>hidden</c>,
