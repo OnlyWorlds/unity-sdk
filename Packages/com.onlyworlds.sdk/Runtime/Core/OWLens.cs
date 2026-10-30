@@ -784,7 +784,7 @@ namespace OnlyWorlds.Sdk
                 foreach (var entry in list)
                 {
                     var i = StringOf(entry);
-                    if (string.IsNullOrEmpty(i) || !seen.Add(i)) continue;
+                    if (!IsId(i) || !seen.Add(i)) continue;
                     if (!view.Els.TryGetValue(i, out var element) || view.TypeOf(i) != target) unseen.Add(i);
                     else if (field == "constructs" && IsLens(element))
                         (view.Whole.Contains(i) ? children : unseen).Add(i);
@@ -797,16 +797,18 @@ namespace OnlyWorlds.Sdk
         /// <summary>
         /// True when the lens names an anchor, whoever reads it: an anchor field with an id in it, or the server's
         /// <c>x_served_trimmed</c> naming one (its ids left out for this reader). Such a lens is never read as a filter.
-        /// An empty string is no id, so a lens whose anchor fields hold only empty strings names no anchor and is a
-        /// filter, as rule 7 reads a lens with empty lists (the profile's owner, ahead of its next serial).
+        /// An empty string, or one of White_Space alone, is no id, so a lens whose anchor fields hold only such strings
+        /// names no anchor and is a filter, as rule 7 reads a lens with empty lists.
         /// </summary>
         private static bool NamesAnchors(JObject lens)
         {
-            if (AnchorFields.Any(f => lens[f] is JArray list && list.Any(entry => !string.IsNullOrEmpty(StringOf(entry)))))
-                return true;
+            if (AnchorFields.Any(f => lens[f] is JArray list && list.Any(entry => IsId(StringOf(entry))))) return true;
             return lens[OWMessage.ServedTrimmedKey] is JArray trimmed
                    && trimmed.Any(entry => StringOf(entry) is string f && AnchorFields.Contains(f));
         }
+
+        /// <summary>An anchor list's entry that is an id: a string with something in it besides White_Space (rule 7).</summary>
+        private static bool IsId(string i) => !string.IsNullOrEmpty(i) && OWProfileText.TrimWhiteSpace(i).Length > 0;
 
         /// <summary>
         /// True when a hop goes on out of the element: served whole, not a room element, and not after the fence. Nothing
@@ -1217,8 +1219,9 @@ namespace OnlyWorlds.Sdk
                 if (Rung != OWLensRung.Owner) Trim(body, TypeOf(i));
                 var served = KnownOf.Contains(i) ? ToKnownOf(body, TypeOf(i)) : body;
                 // A body served of an element under the hidden mark (the world's list or its own key, one mark) carries
-                // hidden: true, and no other body a hidden key, a stored false included (keel #537, serialize.py).
-                if (Hidden.Contains(i)) served[OWPayload.Hidden] = true;
+                // hidden: true, and no other body a hidden key, a stored false included (keel #537, serialize.py). Below
+                // the owner only a guest's own creation carries it, a body it sees whole: never a known-of stub.
+                if (Hidden.Contains(i) && !KnownOf.Contains(i)) served[OWPayload.Hidden] = true;
                 else served.Remove(OWPayload.Hidden);
                 return served;
             }

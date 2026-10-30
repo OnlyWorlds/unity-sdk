@@ -8,6 +8,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
+- Schema pin to `v0.33.0-dist.94`: the charter, lens and names fixtures' twenty-four new cases. `OWLens.Resolve` reads
+  an anchor list's empty or White_Space-only string as no id, so a lens holding only such strings is a filter; a
+  served body carries `hidden: true` where the hidden mark keeps the element (the owner's body, and below the owner
+  a guest's own creation, never a stub), and no `hidden` key otherwise, a stored `false` dropped. `OWCharter`'s Domain
+  hubs leave out an element the reader does not see as the field's type, so a proposed Object is no hub, the owner's
+  view included.
 - A single link stored as `""` is served as stored to every reader below the owner, in `OWLens.Resolve`'s rows, its
   mail rows and the bodies a graph reads: `""`, never null, and never named in `x_served_trimmed`, since no id was
   left out, so a Message whose `narrator` is `""` no longer claims a hidden sender.

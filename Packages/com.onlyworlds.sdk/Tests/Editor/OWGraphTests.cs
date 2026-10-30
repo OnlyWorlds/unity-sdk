@@ -12,7 +12,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// The lens profile's graph section: <see cref="OWGraph.Read"/> on the graph kind of the lens fixture (schema-dist
-    /// <c>profiles/lens.fixture.json</c>, vendored byte for byte in <c>Tests/Editor/Fixtures/lens/</c> from dist.93, its
+    /// <c>profiles/lens.fixture.json</c>, vendored byte for byte in <c>Tests/Editor/Fixtures/lens/</c> from dist.94, its
     /// hash held by <see cref="OWLensTests"/>), each answer held to the section's invariants, the fixture's graph tables
     /// read back through the reader, and the TypeScript SDK's own vectors (<c>test/graph.test.mjs</c>, release 4.93.0)
     /// where C# can state them. The TypeScript SDK and the Python package (<c>world_graph</c>, 0.77.0) replay the same
@@ -27,8 +27,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </remarks>
     public class OWGraphTests
     {
-        /// <summary>The fixture's graph cases, as dist.93 holds them (the 38th: one element of each of the 22 types; the 39th: an empty review mark, an object and a string).</summary>
-        private const int GraphCount = 45;
+        /// <summary>The fixture's graph cases, as dist.94 holds them (the 38th: one element of each of the 22 types; the 39th: an empty review mark, an object and a string).</summary>
+        private const int GraphCount = 47;
 
         private static JObject _fixture;
 
@@ -106,7 +106,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public void TheFixture_HoldsDist88sGraphCases()
         {
             Assert.IsNotNull(Fixture, "the vendored lens fixture was not found");
-            Assert.AreEqual(GraphCount, GraphCases.Count(), "dist.93's fixture holds 45 graph cases");
+            Assert.AreEqual(GraphCount, GraphCases.Count(), "dist.94's fixture holds 47 graph cases");
         }
 
         [TestCaseSource(nameof(Cases))]
@@ -544,7 +544,28 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             var unseen = new[] { "not_visible", "anchor_not_visible" };
             Assert.AreEqual(links, go.Edges.Count + go.EdgesCut.Values.Sum(), name + ": every link from a kept node is an edge or counted");
-            var inView = links - go.EdgesCut.Where(p => unseen.Contains(p.Key)).Sum(p => p.Value);
+            // The reader's own links are those to an element it sees (a proposed one too, below the public rung: its link
+            // is served, its edge cut). Counts are per reader: an element the owner counts anchor_not_visible but the reader sees (an id
+            // under a field of another type) is the reader's outside_lens or a child's reason, never left uncounted.
+            var sees = new HashSet<string>(OWLens.ServedView(world, reader).Select(b => (string)b["id"]));
+            if (reader.Rung != OWLensRung.Public) sees.UnionWith(world.Where(OWPayload.IsProposedOrInDoubt).Select(e => (string)e["id"]));
+            var inView = 0;
+            foreach (var n in go.Nodes.Where(n => !n.KnownOf))
+            {
+                var el = world.First(x => (string)x["id"] == n.Id);
+                int Seen(JToken v) => Linked(v) == 1 && sees.Contains((string)v) ? 1 : 0;
+                foreach (var (field, many) in OWLens.LinkFieldsOf(n.Type))
+                {
+                    if (!many) inView += Seen(el[field]);
+                    else if (el[field] is JArray list) inView += list.Sum(Seen);
+                }
+
+                foreach (var field in new[] { "x_lens_leads_to", "x_spine_depends_on" })
+                {
+                    if (el[field] is JArray list) inView += list.Sum(Seen);
+                }
+            }
+
             Assert.AreEqual(inView, g.Edges.Count + g.EdgesCut.Where(p => !unseen.Contains(p.Key)).Sum(p => p.Value),
                 name + ": every link from a kept node to an element the reader sees is an edge or counted");
         }

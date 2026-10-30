@@ -13,7 +13,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// The lens profile's conformance fixture (schema-dist <c>profiles/lens.fixture.json</c>, vendored byte for byte in
-    /// <c>Tests/Editor/Fixtures/lens/</c> from dist.93), replayed case by case through <see cref="OWLens"/>: the pair and
+    /// <c>Tests/Editor/Fixtures/lens/</c> from dist.94), replayed case by case through <see cref="OWLens"/>: the pair and
     /// the template (<see cref="OWLens.IsLens"/>, <see cref="OWLens.IsTemplate"/>), the legal values of <c>x_lens</c>
     /// (<see cref="OWLens.CheckKeys"/>), every resolution over the fixture's worlds and their readers
     /// (<see cref="OWLens.Resolve(IEnumerable{JToken}, JObject, OWLensReader, OWLensOptions)"/>), the invariants, and
@@ -28,13 +28,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </remarks>
     public class OWLensTests
     {
-        /// <summary>The fixture's sha256 as dist.93's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "49e16262b5320bc922f23382fe17e5d5d73a9c78a4dd75059f334dc0b4516bd3";
+        /// <summary>The fixture's sha256 as dist.94's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "a7520d6470e5ac5b4ef87d8c6fa73a53dcf7b9fa4fbf3065eca9fe16865e4f09";
 
-        /// <summary>The fixture's cases by kind, as dist.93 holds them (171 in all; the graph kind is the graph reader's).</summary>
+        /// <summary>The fixture's cases by kind, as dist.94 holds them (186 in all; the graph kind is the graph reader's).</summary>
         private static readonly Dictionary<string, int> Counts = new Dictionary<string, int>
         {
-            ["shape"] = 6, ["keys"] = 25, ["resolve"] = 86, ["invariant"] = 4, ["uses"] = 5, ["graph"] = 45,
+            ["shape"] = 6, ["keys"] = 25, ["resolve"] = 99, ["invariant"] = 4, ["uses"] = 5, ["graph"] = 47,
         };
 
         private static JObject _fixture;
@@ -84,7 +84,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.93's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.94's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
@@ -92,7 +92,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             Assert.IsNotNull(Fixture, "the vendored lens fixture was not found");
             var cases = Fixture["cases"].Cast<JObject>().ToList();
-            Assert.AreEqual(171, cases.Count, "dist.93's fixture holds 171 cases");
+            Assert.AreEqual(186, cases.Count, "dist.94's fixture holds 186 cases");
             var counts = cases.GroupBy(c => (string)c["kind"]).ToDictionary(g => g.Key, g => g.Count());
             CollectionAssert.AreEquivalent(Counts, counts);
         }
@@ -1209,7 +1209,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         /// <summary>
         /// A row is the body as the wire serves it to that reader, and a served body of an element under the hidden mark
         /// carries <c>hidden: true</c>: the owner's full row of a hidden element, by the world's list or by its own key;
-        /// a guest's row of its own hidden creation. A <c>name</c> row never carries it. The world stays as it was.
+        /// below the owner only a guest's row of its own hidden creation, never a stub. A <c>name</c> row never carries
+        /// it. The world stays as it was.
         /// Kills: the row as stored, the world's list left off the row.
         /// </summary>
         [Test]
@@ -1229,6 +1230,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var guest = OWLens.Resolve(world, "L", OWLensReader.Guest(new[] { "L", "e05" }), options).Rows;
             Assert.AreEqual(@"[{""id"":""e05"",""type"":""collective"",""name"":""Guild"",""hidden"":true}]",
                 new JArray(guest).ToString(Formatting.None), "a guest's own hidden creation");
+            // Below the owner only a guest's own creation, which it sees whole, carries the mark: a stub never does.
+            var stub = OWLens.Resolve(world, "L", OWLensReader.Guest(new[] { "L" }, new[] { "e05" }), options).Rows.Single();
+            Assert.IsTrue((bool)stub[OWPayload.KnownOf], "the stub is kept");
+            Assert.IsNull(stub["hidden"], "a guest's known-of stub of a hidden element carries no hidden key");
             world[2] = Lens("L", @"{""show"":""name""}", null);
             Assert.IsNull(OWLens.Resolve(world, "L", OWLensReader.Owner(), options).Rows[0]["hidden"], "a name row");
             world[2] = Lens("L", "{}", null);

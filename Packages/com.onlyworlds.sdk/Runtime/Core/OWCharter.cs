@@ -315,7 +315,7 @@ namespace OnlyWorlds.Sdk
                 .OrderBy(i => OWProfileText.Fold(NameOf(bodies[i])), OWCodePointComparer.Instance)
                 .ThenBy(i => i, OWCodePointComparer.Instance);
             var domains = order.Concat(rest)
-                .Select(i => new OWReadingAidsDomain(i, NameOf(bodies[i]), SentenceOf(bodies[i]), HubsOf(i, bodies[i])))
+                .Select(i => new OWReadingAidsDomain(i, NameOf(bodies[i]), SentenceOf(bodies[i]), HubsOf(view, i, bodies[i])))
                 .ToList();
             return new OWReadingAids(charter, guide, domains);
         }
@@ -395,8 +395,12 @@ namespace OnlyWorlds.Sdk
             return OWProfileText.TrimWhiteSpace(lineBreak < 0 ? text : text.Substring(0, lineBreak));
         }
 
-        /// <summary>A served Domain's hubs: the distinct targets of its link fields, in <see cref="HubFields"/>' order, never itself; a stub's none.</summary>
-        private static IReadOnlyList<(string type, string id)> HubsOf(string id, JObject body)
+        /// <summary>
+        /// A served Domain's hubs: the distinct targets of its link fields, in <see cref="HubFields"/>' order, never itself;
+        /// a stub's none. Only an element of the field's type the reader sees: the owner's body keeps a link to a proposed
+        /// element as stored, and a proposed Object is in no reader's view, the owner's included, so it is no hub.
+        /// </summary>
+        private static IReadOnlyList<(string type, string id)> HubsOf(OWLens.View view, string id, JObject body)
         {
             var hubs = new List<(string type, string id)>();
             if (OWPayload.IsKnownOf(body)) return hubs;
@@ -407,7 +411,8 @@ namespace OnlyWorlds.Sdk
                 var targets = value is JArray list ? list.Select(StringOf) : new[] { StringOf(value) };
                 foreach (var target in targets)
                 {
-                    if (string.IsNullOrEmpty(target) || !seen.Add((type, target))) continue;
+                    if (string.IsNullOrEmpty(target) || !view.Sees(target) || view.TypeOf(target) != type
+                        || !seen.Add((type, target))) continue;
                     hubs.Add((type, target));
                 }
             }

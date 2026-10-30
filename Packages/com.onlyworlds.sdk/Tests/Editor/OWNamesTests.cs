@@ -10,15 +10,15 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// The names profile's conformance fixture (schema-dist <c>profiles/names.fixture.json</c>, tag
-    /// <c>v0.33.0-dist.48</c>), vendored byte for byte in <c>Tests/Editor/Fixtures/names/</c>, read case by case through
+    /// <c>v0.33.0-dist.94</c>), vendored byte for byte in <c>Tests/Editor/Fixtures/names/</c>, read case by case through
     /// <see cref="OWNames.TypeWord"/>. Each case is a names map, a type slug, an optional supertype and whether a plural
     /// is printed; its word is what every reader prints, or null for the standard's name. The TypeScript SDK and the
     /// Python package run the same cases. When the dist moves the fixture, re-vendor it and update the hash below.
     /// </summary>
     public class OWNamesTests
     {
-        /// <summary>The fixture's sha256 as dist.48's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "a3224ef265506869ca7aa0d4848ea6f62ce04b93d4b18588394be0d7982927af";
+        /// <summary>The fixture's sha256 as dist.94's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "7d012081b5df7bab3e2223333f87a347417c3061c62b38947fc952e8c4d2377a";
 
         private static JObject _fixture;
 
@@ -66,7 +66,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.48's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.94's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
@@ -74,7 +74,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             Assert.IsNotNull(Fixture, "the vendored names fixture was not found");
             Assert.AreEqual("x_names", (string)Fixture["profile"]);
-            Assert.AreEqual(23, ((JArray)Fixture["cases"]).Count, "dist.48's fixture holds 23 cases");
+            Assert.AreEqual(29, ((JArray)Fixture["cases"]).Count, "dist.94's fixture holds 29 cases");
         }
 
         [TestCaseSource(nameof(Cases))]
