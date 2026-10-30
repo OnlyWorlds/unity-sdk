@@ -291,7 +291,8 @@ namespace OnlyWorlds.Sdk
         /// list, names the reader's Character (<c>created_by</c> null is the owner's hand), and its last writer is its
         /// author: a mark that carries <c>changed_by</c> counts only beside an equal <c>created_by</c>, so one another
         /// hand has changed since, the owner's included, is ignored. A mark with neither key (a folder, an export) has
-        /// no hand to check and counts.
+        /// no hand to check and counts. A mark served without a credential is ignored: the keyless public reader is
+        /// served no <c>created_by</c> or <c>changed_by</c> on any body, so the hands were taken off, not missing.
         /// </summary>
         /// <remarks>
         /// Of several that count, the one with the newest <c>updated_at</c> is the mark (equal times: the first in the
@@ -301,9 +302,12 @@ namespace OnlyWorlds.Sdk
         /// <param name="relations">Relations, the Read marks among them (a list filtered by supertype is enough).</param>
         /// <param name="characterId">The reader's Character id.</param>
         /// <param name="members">The world's members list, as for <see cref="SenderStatus"/>; null when unreadable.</param>
-        public static JObject ReadMarkOf(IEnumerable<JToken> relations, string characterId, IEnumerable<JToken> members)
+        /// <param name="keyless">True for bodies read with no credential, as <see cref="IsToEveryone"/> takes it: no mark
+        /// counts, so the answer is null.</param>
+        public static JObject ReadMarkOf(IEnumerable<JToken> relations, string characterId, IEnumerable<JToken> members,
+            bool keyless = false)
         {
-            if (relations == null || string.IsNullOrEmpty(characterId)) return null;
+            if (relations == null || string.IsNullOrEmpty(characterId) || keyless) return null;
             JObject mark = null;
             long? markKey = null;
             foreach (var entry in relations)
