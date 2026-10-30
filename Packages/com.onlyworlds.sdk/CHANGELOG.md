@@ -24,6 +24,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 - `OWClient.HealthAsync` (GET /health): keel's liveness answer, as served. Sent with no credential on every client (no
   key, PIN or Bearer, and no `world`), so an account token and a keyless client call it too. Mirrors the TypeScript
   SDK's `health()` (3.0.0; on a keyless client from 4.30.0).
+- `OWClient.UpsertAsync<T>` (PUT /{type}/{id}/): creates the element under the caller's own id, or writes it whole.
+  The body is cleaned as every element write's is (the read-only fields left out, a null scalar string sent as `""`),
+  sent with the PIN, `X-OW-Client` and, on an agent client, `X-OW-Agent`; a known-of stub is refused before sending,
+  and an agent seat's PUT that became a proposal (202) throws `OWProposedError`. Mirrors the TypeScript SDK's
+  `upsert()` (3.0.0).
 
 ### Changed
 

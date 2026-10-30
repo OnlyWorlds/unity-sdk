@@ -53,8 +53,8 @@ namespace OnlyWorlds.Sdk
         public IOWTransport Transport;
 
         /// <summary>
-        /// Declare this client an AI agent: every element write (create, patch, delete, link edit,
-        /// bulk) carries <c>X-OW-Agent</c>, and keel records it as agent-made
+        /// Declare this client an AI agent: every element write (create, upsert, patch, delete,
+        /// link edit, bulk) carries <c>X-OW-Agent</c>, and keel records it as agent-made
         /// (<see cref="OWElement.ChangedVia"/> reads <see cref="OWWriteDoor.Declared"/>; keel stores that
         /// the header was there, never its value). Off by default, and it must stay off in a tool
         /// people use: it describes the caller, so only the caller can set it. An agent seat's key is
@@ -63,8 +63,8 @@ namespace OnlyWorlds.Sdk
         public bool Agent;
 
         /// <summary>
-        /// This client's own name, sent as <c>X-OW-Client</c> on every element write (create, patch, delete, link
-        /// edit, bulk) and on no read. keel stores it on the element as
+        /// This client's own name, sent as <c>X-OW-Client</c> on every element write (create, upsert, patch, delete,
+        /// link edit, bulk) and on no read. keel stores it on the element as
         /// <see cref="OWElement.ChangedClient"/>, and on a <c>/changes</c> delete as <see cref="OWChange.DeletedClient"/>,
         /// so a reader can tell which tool made a change. Null (the default) sends
         /// <see cref="OWClient.DefaultClientName"/>; a game or tool passes its own.
@@ -521,6 +521,37 @@ namespace OnlyWorlds.Sdk
 
             return RequestAsync<T>("POST", $"/{type}/", body: body,
                 idempotencyKey: idempotencyKey, write: true, ct: ct);
+        }
+
+        /// <summary>
+        /// PUT /{type}/{id}/ -- upsert by the client's own id: creates the element under <paramref name="id"/>, or
+        /// writes it whole when it is there. The local-first write.
+        /// </summary>
+        /// <param name="type">The element type slug.</param>
+        /// <param name="id">The element's id, minted by the caller (<see cref="OWId"/>).</param>
+        /// <param name="element">The element as it should be: a <see cref="JObject"/>, a model or any object.</param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <remarks>
+        /// The body is cleaned as every element write's is (<see cref="OWPayload.ReadOnlyFields"/> left out, a null scalar
+        /// string sent as <c>""</c>), and goes with the PIN, <c>X-OW-Client</c> and, on an agent client,
+        /// <c>X-OW-Agent</c>; keel's document declares no <c>Idempotency-Key</c> or <c>If-Match</c> here, so none is
+        /// sent. An agent seat's PUT on an existing element, in a world that takes its writes as proposals, answers 202
+        /// and throws an <see cref="OWProposedError"/>, as on <see cref="PatchAsync{T}"/>: the element did not change.
+        /// Mirrors the TypeScript SDK's <c>upsert</c> (3.0.0; the 202 from 4.58.0).
+        /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="element"/> is null; nothing was sent.</exception>
+        /// <exception cref="ArgumentException">
+        /// The element is a known-of stub (<see cref="OWPayload.IsKnownOf"/>), whose PUT would blank every field it does
+        /// not keep; nothing was sent.
+        /// </exception>
+        /// <exception cref="OWProposedError">The write became a proposal (202); nothing was written to the element.</exception>
+        public Task<T> UpsertAsync<T>(string type, string id, object element, CancellationToken ct = default)
+        {
+            if (element == null) throw new ArgumentNullException(nameof(element));
+
+            var raw = JObject.FromObject(element, Newtonsoft.Json.JsonSerializer.Create(OWJson.Settings));
+            RefuseKnownOf(raw, "upsert", nameof(element));
+            return RequestAsync<T>("PUT", $"/{type}/{id}/", body: Sanitize(raw, type), write: true, ct: ct, proposable: true);
         }
 
         /// <summary>

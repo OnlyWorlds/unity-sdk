@@ -120,6 +120,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             t.ResponseBody = "{}";
             await c.GetAsync<JObject>("character", "c1");
             await c.CreateAsync<JObject>("character", new JObject { ["name"] = "N" });
+            await c.UpsertAsync<JObject>("character", "c1", new JObject { ["name"] = "U" });
             await c.PatchAsync<JObject>("character", "c1", new JObject { ["name"] = "M" });
             await c.DeleteAsync("character", "c1");
             await c.DeleteAsync("character", "c1", ifMatch: 7);
@@ -548,7 +549,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             // An empty recording would pass the checks above with nothing checked.
             var calls = await RecordEveryCall();
-            Assert.AreEqual(42, calls.Count);
+            Assert.AreEqual(43, calls.Count);
 
             // The lens routes are on the wire here, so the checks above saw them.
             Assert.That(calls.Any(c => c.Method == "PUT" && new Uri(c.Url).AbsolutePath.EndsWith("/me/lenses")), "PUT /me/lenses is recorded");

@@ -107,6 +107,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("me", "GET", true, false, c => c.GetMeAsync()),
             // writes, each verb
             ("create", "POST", true, false, c => c.CreateAsync<JObject>("location", new JObject { ["name"] = "Harbour" })),
+            ("upsert", "PUT", true, false, c => c.UpsertAsync<JObject>("location", "l1", new JObject { ["name"] = "Harbour" })),
             ("patch", "PATCH", true, false, c => c.PatchAsync<JObject>("location", "l1", new JObject { ["description"] = "x" })),
             ("delete", "DELETE", true, false, c => c.DeleteAsync("location", "l1")),
             ("links", "POST", true, false, c => c.EditLinksAsync<JObject>("location", "l1", "zones", add: new[] { "z1" })),
@@ -442,6 +443,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         private static async Task RunEveryWrite(OWClient c)
         {
             await c.CreateAsync<JObject>("character", new JObject { ["name"] = "N" });
+            await c.UpsertAsync<JObject>("character", "c1", new JObject { ["name"] = "U" });
             await c.PatchAsync<JObject>("character", "c1", new JObject { ["name"] = "M" });
             await c.DeleteAsync("character", "c1");
             await c.EditLinksAsync<JObject>("character", "c1", "friends", add: new[] { "a1" });
@@ -454,7 +456,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var t = new FakeTransport();
             await RunEveryWrite(MakeAgent(t, true));
 
-            Assert.AreEqual(5, t.Calls.Count);
+            Assert.AreEqual(6, t.Calls.Count);
             foreach (var call in t.Calls)
             {
                 Assert.IsTrue(call.Headers.ContainsKey("X-OW-Agent"), $"{call.Method} {call.Url} should declare the agent.");
@@ -488,7 +490,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var t = new FakeTransport();
             await RunEveryWrite(MakeAgent(t, false));
 
-            Assert.AreEqual(5, t.Calls.Count);
+            Assert.AreEqual(6, t.Calls.Count);
             Assert.IsTrue(t.Calls.All(call => !call.Headers.ContainsKey("X-OW-Agent")),
                 "Off by default: a tool people use never declares itself an agent.");
         }
@@ -536,7 +538,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var t = new FakeTransport();
             await RunEveryWrite(MakeNamed(t, null));
 
-            Assert.AreEqual(5, t.Calls.Count);
+            Assert.AreEqual(6, t.Calls.Count);
             foreach (var call in t.Calls)
             {
                 Assert.IsTrue(call.Headers.ContainsKey("X-OW-Client"), $"{call.Method} {call.Url} should name the client.");
@@ -552,7 +554,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var t = new FakeTransport();
             await RunEveryWrite(MakeNamed(t, name));
 
-            Assert.AreEqual(5, t.Calls.Count);
+            Assert.AreEqual(6, t.Calls.Count);
             foreach (var call in t.Calls) Assert.AreEqual(name, call.Headers["X-OW-Client"], $"{call.Method} {call.Url}");
         }
 
