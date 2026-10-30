@@ -427,6 +427,15 @@ namespace OnlyWorlds.Sdk
             if (!string.IsNullOrEmpty(p.Subtype)) query.Add("subtype=" + Uri.EscapeDataString(p.Subtype));
             if (p.Filter != null)
             {
+                // world is the client's, set when it is built: in a filter it would go out twice beside World's world=,
+                // or to a world key that 422s it. Mirrors the TypeScript SDK's list() refusal (4.88.0).
+                if (p.Filter.ContainsKey("world"))
+                {
+                    throw new ArgumentException(
+                        "ListAsync: world is not a filter; an account token or no key names its world with World "
+                        + "(new OWClientConfig { ApiKey, World }). Nothing was sent.", nameof(p));
+                }
+
                 var fields = new List<string>(p.Filter.Keys);
                 fields.Sort(StringComparer.Ordinal);
                 foreach (var field in fields)

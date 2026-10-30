@@ -1155,6 +1155,26 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(0, t.Calls.Count, "Nothing reaches the wire.");
         }
 
+        // The TypeScript SDK's list() refusal (4.88.0): `world` in a filter would go out beside the client's own world=, or
+        // to a world key that 422s it. Kills: a world filter sent on any client, by ListAsync or by ListAllAsync's walk.
+        [Test]
+        public void List_RefusesWorldAsAFilter_OnEveryClient_NothingSent()
+        {
+            var clients = new (string Key, string World)[] { ("ow_w_test", null), ("ow_a_acct", "w1"), (null, "w1") };
+            foreach (var (key, world) in clients)
+            {
+                var t = new FakeTransport { ResponseBody = @"{""data"":[],""has_more"":false}" };
+                var p = new OWListParams { Filter = new Dictionary<string, string> { ["world"] = "w2" } };
+
+                var e = Assert.Throws<ArgumentException>(() => Make(t, key, null, world).ListAsync<OWElement>("location", p), key ?? "no key");
+                StringAssert.Contains("world is not a filter", e.Message);
+                StringAssert.Contains("Nothing was sent", e.Message);
+
+                Assert.ThrowsAsync<ArgumentException>(() => Make(t, key, null, world).ListAllAsync<OWElement>("location", p), key ?? "no key");
+                Assert.AreEqual(0, t.Calls.Count, $"{key ?? "no key"}: nothing reaches the wire");
+            }
+        }
+
         // -- A single get's query (the TypeScript SDK's get(type, id, { expand, fields, viewAs })) --------
 
         // Kills: an option dropped, misnamed (viewAs goes as `as`), joined other than by commas or left unescaped, put in
