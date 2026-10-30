@@ -91,9 +91,33 @@ def verify_manifest() -> int:
     return problems
 
 
+def verify_test_fixtures() -> int:
+    """Each profile fixture the tests hold a copy of is the pinned dist's own bytes.
+
+    A test pins its copy's sha256, so a repin that re-vendors codegen/schema-dist but not the copy leaves the test
+    green on an old fixture: the lens fixture's copy sat at dist.88 through the repins to 89, 90 and 91.
+    """
+    fixtures = CODEGEN.parent / "Packages" / "com.onlyworlds.sdk" / "Tests" / "Editor" / "Fixtures"
+    problems = checked = 0
+    for copy in sorted(fixtures.rglob("*.fixture.json")):
+        source = DIST_DIR / "profiles" / copy.name
+        if not source.exists():
+            continue  # a fixture of a package's own (the openers'), not the dist's
+        checked += 1
+        if copy.read_bytes() != source.read_bytes():
+            print(f"FAIL: {copy.relative_to(CODEGEN.parent).as_posix()} is not the pinned dist's profiles/{copy.name}")
+            print("      Copy the dist's bytes over it and move the test's sha256 with it.")
+            problems += 1
+    if problems == 0:
+        print(f"test fixtures OK: {checked} copies are the pinned dist's bytes")
+    return problems
+
+
 def main() -> int:
     if verify_manifest():
         print("\nThe generator's INPUT is not what it claims to be. Not regenerating.")
+        return 1
+    if verify_test_fixtures():
         return 1
 
     print()
