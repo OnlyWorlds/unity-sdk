@@ -29,6 +29,10 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   sent with the PIN, `X-OW-Client` and, on an agent client, `X-OW-Agent`; a known-of stub is refused before sending,
   and an agent seat's PUT that became a proposal (202) throws `OWProposedError`. Mirrors the TypeScript SDK's
   `upsert()` (3.0.0).
+- `OWClient.AdoptAsync<T>` (POST /{type}/{id}/adopt `{member}`): changes who made an element, to a membership id of
+  the world or `owner` (`created_by` null); returns the element as written. The owner's key or a co-builder's, with
+  its PIN; an element write, so `X-OW-Client` goes with it and `X-OW-Agent` on an agent client. A null or empty member
+  is refused before sending. Mirrors the TypeScript SDK's `adopt()` (4.43.0).
 
 ### Changed
 

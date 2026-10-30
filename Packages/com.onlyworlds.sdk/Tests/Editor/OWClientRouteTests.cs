@@ -8,7 +8,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// The TypeScript SDK's calls this client gained in its first tranche (0.27.0): <see cref="OWClient.HealthAsync"/>,
-    /// <see cref="OWClient.UpsertAsync{T}"/>.
+    /// <see cref="OWClient.UpsertAsync{T}"/>, <see cref="OWClient.AdoptAsync{T}"/>.
     /// What each sends, what it answers, and what is refused before anything is sent, on every kind of client.
     /// </summary>
     public class OWClientRouteTests
@@ -122,6 +122,50 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             StringAssert.StartsWith("upsert: this body is a known-of stub", stub.Message);
 
             Assert.ThrowsAsync<ArgumentNullException>(() => Make(t).UpsertAsync<JObject>("location", "l1", null));
+            Assert.IsEmpty(t.Calls);
+        }
+
+        // -- AdoptAsync -------------------------------------------------------------------------------------
+
+        // The TypeScript SDK's adopt() (4.43.0): POST /{type}/{id}/adopt with { member } alone, a membership id or
+        // 'owner', the PIN, X-OW-Agent and X-OW-Client (both declared there). Kills: the wrong verb or path, the member
+        // under another key or beside others, 'owner' turned into null, the PIN or either write header left off, or
+        // the answer reshaped.
+        [Test]
+        public async Task Adopt_SendsPostAdopt_TheMemberAlone_WithThePinAgentAndClient_AndAnswersTheElement()
+        {
+            var t = new FakeTransport { ResponseBody = @"{""id"":""l1"",""name"":""Harbour"",""created_by"":""m1""}" };
+            var c = Make(t);
+
+            var answer = await c.AdoptAsync<OWLocation>("location", "l1", "m1");
+            Assert.AreEqual("l1", answer.Id);
+            await c.AdoptAsync<JObject>("location", "l1", "owner");
+
+            Assert.AreEqual(2, t.Calls.Count);
+            var a = t.Calls[0];
+            Assert.AreEqual("POST", a.Method);
+            Assert.AreEqual(Base + "/location/l1/adopt", a.Url, "the path, no query");
+            Assert.AreEqual(@"{""member"":""m1""}", a.Body);
+            CollectionAssert.AreEquivalent(
+                new[] { "API-Key", "API-Pin", "Content-Type", "X-OW-Agent", "X-OW-Client" }, a.Headers.Keys.ToArray());
+            Assert.AreEqual("atlas", a.Headers["X-OW-Client"]);
+
+            Assert.AreEqual(@"{""member"":""owner""}", t.Calls[1].Body, "'owner' goes as the word");
+        }
+
+        // Kills: an adopt with no member reaching the transport (keel would 422; the TypeScript SDK refuses it first).
+        [Test]
+        public void Adopt_NoMember_IsRefused_NothingSent()
+        {
+            var t = new FakeTransport();
+            foreach (var member in new[] { null, "" })
+            {
+                var e = Assert.ThrowsAsync<ArgumentException>(() => Make(t).AdoptAsync<JObject>("location", "l1", member),
+                    member ?? "null");
+                StringAssert.Contains("member must be a membership id or 'owner'", e.Message);
+                StringAssert.Contains("Nothing was sent", e.Message);
+            }
+
             Assert.IsEmpty(t.Calls);
         }
     }

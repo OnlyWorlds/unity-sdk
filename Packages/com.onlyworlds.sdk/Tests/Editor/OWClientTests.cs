@@ -108,6 +108,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             // writes, each verb
             ("create", "POST", true, false, c => c.CreateAsync<JObject>("location", new JObject { ["name"] = "Harbour" })),
             ("upsert", "PUT", true, false, c => c.UpsertAsync<JObject>("location", "l1", new JObject { ["name"] = "Harbour" })),
+            ("adopt", "POST", true, false, c => c.AdoptAsync<JObject>("location", "l1", "m1")),
             ("patch", "PATCH", true, false, c => c.PatchAsync<JObject>("location", "l1", new JObject { ["description"] = "x" })),
             ("delete", "DELETE", true, false, c => c.DeleteAsync("location", "l1")),
             ("links", "POST", true, false, c => c.EditLinksAsync<JObject>("location", "l1", "zones", add: new[] { "z1" })),
@@ -448,6 +449,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             await c.DeleteAsync("character", "c1");
             await c.EditLinksAsync<JObject>("character", "c1", "friends", add: new[] { "a1" });
             await c.BulkAsync(new[] { new OWBulkItem { Type = "character", Element = new JObject { ["name"] = "B" } } });
+            await c.AdoptAsync<JObject>("character", "c1", "m1");
         }
 
         [Test]
@@ -456,7 +458,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var t = new FakeTransport();
             await RunEveryWrite(MakeAgent(t, true));
 
-            Assert.AreEqual(6, t.Calls.Count);
+            Assert.AreEqual(7, t.Calls.Count);
             foreach (var call in t.Calls)
             {
                 Assert.IsTrue(call.Headers.ContainsKey("X-OW-Agent"), $"{call.Method} {call.Url} should declare the agent.");
@@ -490,7 +492,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var t = new FakeTransport();
             await RunEveryWrite(MakeAgent(t, false));
 
-            Assert.AreEqual(6, t.Calls.Count);
+            Assert.AreEqual(7, t.Calls.Count);
             Assert.IsTrue(t.Calls.All(call => !call.Headers.ContainsKey("X-OW-Agent")),
                 "Off by default: a tool people use never declares itself an agent.");
         }
@@ -538,7 +540,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var t = new FakeTransport();
             await RunEveryWrite(MakeNamed(t, null));
 
-            Assert.AreEqual(6, t.Calls.Count);
+            Assert.AreEqual(7, t.Calls.Count);
             foreach (var call in t.Calls)
             {
                 Assert.IsTrue(call.Headers.ContainsKey("X-OW-Client"), $"{call.Method} {call.Url} should name the client.");
@@ -554,7 +556,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var t = new FakeTransport();
             await RunEveryWrite(MakeNamed(t, name));
 
-            Assert.AreEqual(6, t.Calls.Count);
+            Assert.AreEqual(7, t.Calls.Count);
             foreach (var call in t.Calls) Assert.AreEqual(name, call.Headers["X-OW-Client"], $"{call.Method} {call.Url}");
         }
 

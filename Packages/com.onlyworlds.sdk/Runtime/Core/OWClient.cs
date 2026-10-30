@@ -54,7 +54,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// Declare this client an AI agent: every element write (create, upsert, patch, delete,
-        /// link edit, bulk) carries <c>X-OW-Agent</c>, and keel records it as agent-made
+        /// link edit, bulk, adopt) carries <c>X-OW-Agent</c>, and keel records it as agent-made
         /// (<see cref="OWElement.ChangedVia"/> reads <see cref="OWWriteDoor.Declared"/>; keel stores that
         /// the header was there, never its value). Off by default, and it must stay off in a tool
         /// people use: it describes the caller, so only the caller can set it. An agent seat's key is
@@ -64,7 +64,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// This client's own name, sent as <c>X-OW-Client</c> on every element write (create, upsert, patch, delete,
-        /// link edit, bulk) and on no read. keel stores it on the element as
+        /// link edit, bulk, adopt) and on no read. keel stores it on the element as
         /// <see cref="OWElement.ChangedClient"/>, and on a <c>/changes</c> delete as <see cref="OWChange.DeletedClient"/>,
         /// so a reader can tell which tool made a change. Null (the default) sends
         /// <see cref="OWClient.DefaultClientName"/>; a game or tool passes its own.
@@ -724,6 +724,35 @@ namespace OnlyWorlds.Sdk
 
             return RequestAsync<T>("POST", $"/{type}/{id}/links/{Uri.EscapeDataString(field)}",
                 body: body, write: true, ct: ct, ifMatch: ifMatch, proposable: true);
+        }
+
+        /// <summary>
+        /// POST /{type}/{id}/adopt -- change who made an element: its <c>created_by</c> becomes
+        /// <paramref name="member"/>. Returns the element as written.
+        /// </summary>
+        /// <param name="member">
+        /// A membership id of this world (a person or a seat, as <see cref="GetMembersAsync"/> lists them), or
+        /// <c>owner</c>, which sets <c>created_by</c> to null.
+        /// </param>
+        /// <remarks>
+        /// The world's owner key or a co-builder's (a person's or a seat's), with its PIN; a contributor's is a 403
+        /// <c>not_author</c>, a member the world lacks a 404. Nothing else in the element changes, but the write stamps
+        /// <c>changed_by</c> and <c>changed_via</c> and takes a new <c>change_seq</c>, so the feed carries the element with
+        /// its new maker. A contributor changes only what it created, so this hands it an element someone else made, or
+        /// takes one back. An element write: <c>X-OW-Client</c> goes with it, and <c>X-OW-Agent</c> on an agent client.
+        /// Mirrors the TypeScript SDK's <c>adopt</c> (4.43.0).
+        /// </remarks>
+        /// <exception cref="ArgumentException"><paramref name="member"/> is null or empty; nothing was sent.</exception>
+        public Task<T> AdoptAsync<T>(string type, string id, string member, CancellationToken ct = default)
+        {
+            if (string.IsNullOrEmpty(member))
+            {
+                throw new ArgumentException(
+                    "adopt: member must be a membership id or 'owner'. Nothing was sent.", nameof(member));
+            }
+
+            return RequestAsync<T>("POST", $"/{type}/{id}/adopt", body: new JObject { ["member"] = member },
+                write: true, ct: ct);
         }
 
         // -- The proposed change -------------------------------------------------

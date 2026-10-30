@@ -267,6 +267,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 ["GetAsync"] = (Does.Read, c => c.GetAsync<JObject>("location", El)),
                 ["CreateAsync"] = (Does.Refused, c => c.CreateAsync<JObject>("location", new JObject { ["name"] = "H" })),
                 ["UpsertAsync"] = (Does.Refused, c => c.UpsertAsync<JObject>("location", El, new JObject { ["name"] = "H" })),
+                ["AdoptAsync"] = (Does.Refused, c => c.AdoptAsync<JObject>("location", El, "owner")),
                 ["PatchAsync"] = (Does.Refused, c => c.PatchAsync<JObject>("location", El, new JObject { ["name"] = "H" })),
                 ["DeleteAsync"] = (Does.Refused, c => c.DeleteAsync("location", El)),
                 ["BulkAsync"] = (Does.Refused, c => c.BulkAsync(new[] { new OWBulkItem { Type = "location", Element = new JObject { ["name"] = "H" } } })),
