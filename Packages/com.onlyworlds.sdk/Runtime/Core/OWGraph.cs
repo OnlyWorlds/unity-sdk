@@ -134,12 +134,13 @@ namespace OnlyWorlds.Sdk
     /// <summary>One element of the graph.</summary>
     public sealed class OWGraphNode
     {
-        internal OWGraphNode(string id, string type, string name, string family, string icon, IReadOnlyList<string> marks,
+        internal OWGraphNode(string id, string type, JToken name, string family, string icon, IReadOnlyList<string> marks,
             bool knownOf)
         {
             Id = id;
             Type = type;
-            Name = name;
+            _name = name?.DeepClone() ?? JValue.CreateNull();
+            Name = _name.Type == JTokenType.String ? (string)_name : null;
             Family = family;
             Icon = icon;
             Marks = marks;
@@ -149,11 +150,14 @@ namespace OnlyWorlds.Sdk
         /// <summary>The element's id.</summary>
         public string Id { get; }
 
-        /// <summary>The element's type, as its slug (<c>character</c>).</summary>
+        /// <summary>The element's type as stored, never folded (the profile's ruling G4); every source stores its slug (<c>character</c>).</summary>
         public string Type { get; }
 
-        /// <summary>The element's name, or null when it has none.</summary>
+        /// <summary>The element's name when it is a string, or null; <see cref="ToJson"/> writes the stored value whatever it is.</summary>
         public string Name { get; }
+
+        /// <summary>The stored name, null when absent: nothing invented (the profile's ruling G3).</summary>
+        private readonly JToken _name;
 
         /// <summary>The type's family, from the presentation sidecar (<see cref="OWPresentation.FamilyOf"/>).</summary>
         public string Family { get; }
@@ -174,7 +178,7 @@ namespace OnlyWorlds.Sdk
             {
                 ["id"] = Id,
                 ["type"] = Type,
-                ["name"] = OWGraph.Text(Name),
+                ["name"] = _name.DeepClone(),
                 ["family"] = OWGraph.Text(Family),
                 ["icon"] = OWGraph.Text(Icon),
             };
@@ -204,7 +208,7 @@ namespace OnlyWorlds.Sdk
         /// <summary>The element linked to.</summary>
         public string Target { get; }
 
-        /// <summary>The target's place in the field's list as the reader is served it: the owner's as stored, every other reader's less the ids outside its view.</summary>
+        /// <summary>The target's place in the field's list as the reader is served it: the owner's as stored, every other reader's as keel serves it (a contributor's keeps a link to a proposed element; the profile's ruling G5).</summary>
         public int Index { get; }
 
         /// <summary>The edge in the profile's words: <c>source</c>, <c>field</c>, <c>target</c>, <c>index</c>.</summary>
@@ -423,7 +427,7 @@ namespace OnlyWorlds.Sdk
             {
                 var type = view.TypeOf(id);
                 var marks = KindsOf(id).Where(k => OWGraphMark.All.Contains(k)).ToList();
-                return new OWGraphNode(id, type, StringOf(view.Els[id]["name"]),
+                return new OWGraphNode(id, StringOf(view.Els[id]["type"]), view.Els[id]["name"],
                     OWPresentation.FamilyOf(type), OWPresentation.IconOf(type),
                     marks, view.KnownOf.Contains(id));
             }).ToList();
@@ -451,9 +455,13 @@ namespace OnlyWorlds.Sdk
             {
                 if (view.KnownOf.Contains(source)) continue;
                 var body = view.Els[source];
-                // A schema link is served whole to the owner; any other view is served it less the ids outside that view.
+                // A schema link is served whole to the owner; any other reader is served the list as keel serves it, a link
+                // to a proposed element kept below the public rung, and the index is the place in that list (the profile's
+                // ruling G5). A Pin's generic pair is placement, never an edge (G2).
                 foreach (var (field, many) in OWLens.LinkFieldsOf(view.TypeOf(source)))
                 {
+                    var linkTarget = OWElementTypes.LinkTarget(view.TypeOf(source), field);
+                    if (linkTarget == null) continue;
                     var value = body[field];
                     var entries = many
                         ? (value is JArray array ? array.ToList() : new List<JToken>())
@@ -462,7 +470,7 @@ namespace OnlyWorlds.Sdk
                     for (var i = 0; i < entries.Count; i++)
                     {
                         var t = StringOf(entries[i]);
-                        var inServed = seenOwner || (t != null && view.Sees(t));
+                        var inServed = seenOwner || view.ServedAs(t, linkTarget);
                         Visit(source, field, entries[i], seenOwner ? i : served);
                         if (inServed) served++;
                     }

@@ -19,6 +19,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   fixture's `keys-an-integral-float-is-refused-where-the-text-shows` still passes (7.0 is past `depth`'s table) and is
   expected to be replaced at that serial. Rulings 4 and 5 (an umbrella's hop keeps a child it reaches before entering
   it; a cut lens id stays counted) were already this reader's. Each change is held by a test named for its ruling.
+- `OWGraph.Read` follows the owner's rulings on the graph section's silences, ahead of the same serial: a Pin's
+  generic pair is placement, never an edge (G2); a node's `name` is the stored value, null when absent, in `ToJson`
+  (`OWGraphNode.Name` stays the string, or null) (G3); `OWGraphNode.Type` is as stored, never folded (G4); an edge's
+  `Index` is the target's place in the link list as served to that reader, so a contributor's counts a link to a
+  proposed element (G5). An edge to an anchor the reader cannot see already carried the lens's `anchor_not_visible`
+  (G1).
 
 ### Added
 

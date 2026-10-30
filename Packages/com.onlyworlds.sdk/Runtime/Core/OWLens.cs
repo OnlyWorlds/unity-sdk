@@ -1246,7 +1246,7 @@ namespace OnlyWorlds.Sdk
             /// <see cref="Scoped"/> and of the field's <paramref name="target"/> type (keel asks per target type; null for
             /// no target). A hop does not read this: it follows the link as stored.
             /// </summary>
-            private bool ServedAs(string id, string target) =>
+            internal bool ServedAs(string id, string target) =>
                 id != null && Scoped.Contains(id) && (target == null || TypeOf(id) == target);
 
             /// <summary>

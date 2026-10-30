@@ -603,6 +603,62 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             };
         }
 
+        // -- The lens profile owner's rulings on the graph section's silences (each a case in its next serial) ----------
+        // G1 (an edge to an anchor the reader cannot see carries the lens's anchor_not_visible) was already this reader's:
+        // ALensCutReason_WinsOverNotVisible.
+
+        /// <summary>Ruling G2: a Pin's generic pair is placement, never an edge; its map link is. Kills: an edge to the pinned element.</summary>
+        [Test]
+        public void RulingG2_APinsPairIsPlacement_NeverAnEdge()
+        {
+            var world = new JArray(
+                JObject.Parse(@"{""id"":""m"",""type"":""map"",""name"":""Map""}"),
+                JObject.Parse(@"{""id"":""p"",""type"":""pin"",""name"":""Pin"",""map"":""m"",""element_type"":""character"",""element_id"":""a""}"),
+                JObject.Parse(@"{""id"":""a"",""type"":""character"",""name"":""Ada""}"));
+            var g = OWGraph.Read(world, OWLensReader.Owner(), new OWGraphOptions { MapSpace = true });
+            Assert.AreEqual(@"[{""source"":""p"",""field"":""map"",""target"":""m"",""index"":0}]",
+                new JArray(g.Edges.Select(e => e.ToJson())).ToString(Formatting.None));
+        }
+
+        /// <summary>Ruling G3: a node's name is the stored value, null when absent, nothing invented. Kills: a number's name read as null.</summary>
+        [Test]
+        public void RulingG3_ANodesName_IsTheStoredValue()
+        {
+            var world = new JArray(
+                JObject.Parse(@"{""id"":""a"",""type"":""character"",""name"":7}"),
+                JObject.Parse(@"{""id"":""b"",""type"":""character""}"),
+                JObject.Parse(@"{""id"":""c"",""type"":""character"",""name"":""""}"));
+            var names = new JArray(OWGraph.Read(world, OWLensReader.Owner()).Nodes.Select(n => n.ToJson()["name"]));
+            Assert.AreEqual(@"[7,null,""""]", names.ToString(Formatting.None));
+        }
+
+        /// <summary>Ruling G4: a node's type is as stored, never folded; its family is still read by the slug. Kills: the type folded.</summary>
+        [Test]
+        public void RulingG4_ANodesType_IsAsStored()
+        {
+            var node = OWGraph.Read(new JArray(JObject.Parse(@"{""id"":""a"",""type"":""Character"",""name"":""Ada""}")),
+                OWLensReader.Owner()).Nodes.Single();
+            Assert.AreEqual("Character", node.Type);
+            Assert.AreEqual(OWPresentation.FamilyOf("character"), node.Family);
+        }
+
+        /// <summary>
+        /// Ruling G5: an edge's index is the target's place in the link list as served to that reader; keel serves a
+        /// contributor the link to a proposed element, so the index counts it. A hidden id is not served, and the public
+        /// rung is served no proposed link. Kills: a contributor's index that skips the proposed link.
+        /// </summary>
+        [Test]
+        public void RulingG5_AContributorsIndex_CountsAServedProposedLink()
+        {
+            var world = new JArray(
+                JObject.Parse(@"{""id"":""a"",""type"":""character"",""name"":""Ada"",""friends"":[""h"",""px"",""b""]}"),
+                JObject.Parse(@"{""id"":""h"",""type"":""character"",""name"":""Hal"",""hidden"":true}"),
+                JObject.Parse(@"{""id"":""px"",""type"":""character"",""name"":""Pax"",""x_review_proposed"":{""by"":""m1""}}"),
+                JObject.Parse(@"{""id"":""b"",""type"":""character"",""name"":""Brin""}"));
+            Assert.AreEqual(1, OWGraph.Read(world, OWLensReader.Contributor()).Edges.Single().Index, "served [Pax, Brin]: Brin at 1");
+            Assert.AreEqual(0, OWGraph.Read(world, OWLensReader.Public()).Edges.Single().Index, "the public rung: Brin at 0");
+        }
+
         private static OWGraphOptions Flag(string flag) => new OWGraphOptions
         {
             Rooms = flag == "rooms", Hidden = flag == "hidden", Proposed = flag == "proposed", MapSpace = flag == "map_space",
