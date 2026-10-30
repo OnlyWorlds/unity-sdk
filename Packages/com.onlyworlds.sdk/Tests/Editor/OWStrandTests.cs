@@ -11,7 +11,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// The strand profile's conformance fixture (schema-dist <c>profiles/strand.fixture.json</c>, vendored byte for byte
-    /// in <c>Tests/Editor/Fixtures/strand/</c> from dist.98), replayed case by case through <see cref="OWStrand.Of"/>
+    /// in <c>Tests/Editor/Fixtures/strand/</c> from dist.99), replayed case by case through <see cref="OWStrand.Of"/>
     /// over the fixture's named worlds and their readers. keel's reader, the TypeScript SDK and the Python package answer
     /// the same cases. When the dist moves the fixture, re-vendor it and update the hash below.
     /// </summary>
@@ -22,8 +22,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </remarks>
     public class OWStrandTests
     {
-        /// <summary>The fixture's sha256 as dist.98's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "1cd184788c0ebfdde7fc5df36792e9a3c76d4ff54864ca6c7a43d666a90d3823";
+        /// <summary>The fixture's sha256 as dist.99's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "f5bd8d85fdec97883e403a407d30cfa8b0a236001616ef6fee246cad8410a975";
 
         private const string Story = "019a7f00-0000-7000-8000-000000000301";
 
@@ -73,15 +73,15 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.98's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.99's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
-        public void TheFixture_HoldsDist98sCases_AndItsMarkIsTheReaders()
+        public void TheFixture_HoldsDist99sCases_AndItsMarkIsTheReaders()
         {
             Assert.IsNotNull(Fixture, "the vendored strand fixture was not found");
             var cases = Fixture["cases"].Cast<JObject>().ToList();
-            Assert.AreEqual(17, cases.Count, "dist.98's fixture holds 17 cases");
+            Assert.AreEqual(26, cases.Count, "dist.99's fixture holds 26 cases");
             CollectionAssert.AreEqual(new[] { "strand" }, cases.Select(c => (string)c["kind"]).Distinct().ToArray());
             Assert.AreEqual("strand", (string)Fixture["profile"]);
             Assert.AreEqual((string)Fixture["mark"]["field"], OWStrand.MarkField);
@@ -259,7 +259,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 checkedWorlds++;
             }
 
-            Assert.AreEqual(15, checkedWorlds);
+            Assert.AreEqual(23, checkedWorlds);
         }
 
         /// <summary>The world's own hidden list hides as each element's own mark does, and the reading changes no body it is given.</summary>

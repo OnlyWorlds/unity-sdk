@@ -34,6 +34,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
+- Schema pin to `v0.33.0-dist.99`: the strand profile's mark relaxed (only the story's id required; the event and
+  the place null or absent read as unset, any other value there no mark) and its readings for a non-list multi-link,
+  a nameless slot and the public rung, nine new cases (26). `OWStrand.Of` already answered them so.
 - Schema pin to `v0.33.0-dist.98`: the strand profile, new (`profiles/strand.md` and its fixture, 17 cases): one
   story in a world in miniature, named on the World by `x_strand`'s three ids and read through four existing links.
   No schema file moved; the generated models' headers move with the serial.
