@@ -246,8 +246,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         // `Read` sends world= (the Bearer on an account client, nothing on a keyless one), `Named` sends world= and the
         // Bearer on an account client (SetMyLensesAsync, the one write that names its world so, and GetMembersAsync, the
         // roster) and is refused on a keyless one, `Path` sends the Bearer to a world route whose path names the world,
-        // without world= (WorldLensesAsync), `Account` sends the Bearer to an /account route, `Refused` is an InvalidOperationException before the transport
-        // is called. A method the table does not hold fails the sweep, so a new call is classified when it is added.
+        // without world= (WorldLensesAsync), `Account` sends the Bearer to an /account route, `Refused` is an
+        // InvalidOperationException before the transport is called. A method the table does not hold fails the sweep, so a
+        // new call is classified when it is added.
 
         private enum Does { Read, Named, Path, Account, Refused }
 
