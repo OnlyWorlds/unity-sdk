@@ -6,6 +6,15 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-10-30
+
+Serials 88 to 96 in Unity, with the lens and graph readers on every reading the lens profile's owner ruled ahead of
+them: a hidden element a guest only knows of is out of that guest's view, a lens whose anchors are empty strings is
+a filter, a served body carries the hidden mark as the wire serves it, and a link reaches only an element of its
+field's type. New: `OWOpeners.For` and `OWTools.All` (the rows of an "Open with" menu), `OWLinkListener` and an
+opt-in Windows forwarder for `ow://` links, `OWListParams.Filter` (list by a single link) and `OWReadingAids` (the
+Charter, Guide and Domains as the API serves them). A minor release because it adds public API (below).
+
 ### Changed
 
 - Schema pin to `v0.33.0-dist.96`: two graph cases on a guest's own hidden creation (out of an unlensed graph with no
@@ -59,6 +68,30 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   over a ninth world (171 in all: 86 resolve, 45 graph, 5 uses), and `profiles/lens.md` states each reading. The keys
   case `keys-an-integral-float-is-refused-where-the-text-shows` is retired for `keys-an-integral-float-reads-whole`.
   The fixture copy in `Tests/Editor/Fixtures/lens/` moves to dist.93 byte for byte; every case passes.
+- The schema pin moves to dist.91 (`v0.33.0-dist.91`), and folders declare format 0.3.21 (`OWFolderExport.FormatVersion`).
+  The folder lint now lists `doors`, the door history the API serves to a world's members, among the server-managed
+  keys an element file may carry: a member's snapshot keeps it as served and never sends it up. The export already
+  wrote a served body whole, so it kept `doors` before this change and a test now holds that, on a whole element and
+  on a stub that carries it; the reader keeps it in the extensions bag. Nothing else in the schema or the readers
+  moved. The folder export's expectations (the `world_for_disk` cases) were re-run against the Python package
+  0.88.0: only `format_version` changed.
+- The schema pin moves to dist.90 (`v0.33.0-dist.90`). The calendar profile now says in words what the reader
+  already did: an intercalary entry on a calendar with no months is not a calendar, whatever its `after_month`, 0
+  included. The calendar fixture grows to 76 cases (42 refusals, 209 steps) with one new refusal,
+  `refuse-intercalary-no-months-after-month-0`, which `OWCalendar` passes unchanged. The lens profile's founder
+  sentence (a lens names its founder only where the writer has a Character of their own) concerns writers; this
+  SDK writes no lens. The `supertype` and `subtype` descriptions now say "within its type"; the generated models
+  carry neither description, so only the serial stamps change.
+- The schema pin moves to dist.89 (`v0.33.0-dist.89`), by way of dist.88. dist.88 moved nothing in the schema or
+  the readers: the lens fixture gains a graph case whose elements carry an empty review mark, an object and a string,
+  both nodes with no proposed mark, which `OWGraph` passes. dist.89 amends the calendar and message profiles (below);
+  the calendar fixture grows to 75 cases (41 refusals, 209 steps, one case that finds calendars in a world's
+  elements) and the message fixture to 87, and every case passes. Three of its rulings the readers already kept:
+  `OWMessage` reads `created_at` as an instant (an offset and a fraction of a second counted) and takes the newest
+  Note wherever it stands in the list, and a `format` or `format_intercalary` that is not a string is ignored, so
+  the default template prints.
+- `GetMeAsync`'s summary says what `name` is: your agent's or your player's name, served on those seats only, as
+  the server serves it. Docs only; parity with the TypeScript SDK 4.102.4.
 
 ### Added
 
@@ -98,32 +131,6 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   with the link when none takes it. `install.ps1` registers it for the current user only (`HKCU`, no administrator)
   and `install.ps1 -Uninstall` removes it. Nothing is registered unless you run the installer.
 
-### Changed
-
-- The schema pin moves to dist.91 (`v0.33.0-dist.91`), and folders declare format 0.3.21 (`OWFolderExport.FormatVersion`).
-  The folder lint now lists `doors`, the door history the API serves to a world's members, among the server-managed
-  keys an element file may carry: a member's snapshot keeps it as served and never sends it up. The export already
-  wrote a served body whole, so it kept `doors` before this change and a test now holds that, on a whole element and
-  on a stub that carries it; the reader keeps it in the extensions bag. Nothing else in the schema or the readers
-  moved. The folder export's expectations (the `world_for_disk` cases) were re-run against the Python package
-  0.88.0: only `format_version` changed.
-- The schema pin moves to dist.90 (`v0.33.0-dist.90`). The calendar profile now says in words what the reader
-  already did: an intercalary entry on a calendar with no months is not a calendar, whatever its `after_month`, 0
-  included. The calendar fixture grows to 76 cases (42 refusals, 209 steps) with one new refusal,
-  `refuse-intercalary-no-months-after-month-0`, which `OWCalendar` passes unchanged. The lens profile's founder
-  sentence (a lens names its founder only where the writer has a Character of their own) concerns writers; this
-  SDK writes no lens. The `supertype` and `subtype` descriptions now say "within its type"; the generated models
-  carry neither description, so only the serial stamps change.
-- The schema pin moves to dist.89 (`v0.33.0-dist.89`), by way of dist.88. dist.88 moved nothing in the schema or
-  the readers: the lens fixture gains a graph case whose elements carry an empty review mark, an object and a string,
-  both nodes with no proposed mark, which `OWGraph` passes. dist.89 amends the calendar and message profiles (below);
-  the calendar fixture grows to 75 cases (41 refusals, 209 steps, one case that finds calendars in a world's
-  elements) and the message fixture to 87, and every case passes. Three of its rulings the readers already kept:
-  `OWMessage` reads `created_at` as an instant (an offset and a fraction of a second counted) and takes the newest
-  Note wherever it stands in the list, and a `format` or `format_intercalary` that is not a string is ignored, so
-  the default template prints.
-- `GetMeAsync`'s summary says what `name` is: your agent's or your player's name, served on those seats only, as
-  the server serves it. Docs only; parity with the TypeScript SDK 4.102.4.
 
 ### Fixed
 
@@ -143,6 +150,7 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 - `OWCalendar.ReadConfig` refuses an era whose `start`, `end` or `year_base` is a whole number past the ones a
   double holds exactly (beyond 2^53 - 1 either way), as the TypeScript reader does. Before, anything within a
   `long` read.
+
 ## [0.25.0] - 2026-10-29
 
 Serials 86 and 87 in Unity: the presentation sidecar names each type's colour group by its colour word, an empty
