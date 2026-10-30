@@ -19,9 +19,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     public class OWOpenersTests
     {
         /// <summary>The fixture's sha256, as both packages' suites hold it.</summary>
-        private const string FixtureSha256 = "93cb3f121cb1eef5ba4c6951c414399c13136c3896f864221a29a3802b82d266";
+        private const string FixtureSha256 = "5a9ebbc8604d2fc87078fef25156dd2e767605a1b08cb2bec43e37c6bc2fd9db";
 
-        private const int CaseCount = 45;
+        private const int CaseCount = 54;
 
         private const string World = "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e0f";
         private const string Element = "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e1a";
@@ -80,7 +80,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             Assert.IsNotNull(Fixture, "the vendored openers fixture was not found");
             var cases = Fixture["cases"].Cast<JObject>().ToList();
-            Assert.AreEqual(CaseCount, cases.Count, "the fixture holds 45 cases");
+            Assert.AreEqual(CaseCount, cases.Count, $"the fixture holds {CaseCount} cases");
             Assert.AreEqual(CaseCount, cases.Select(c => (string)c["name"]).Distinct().Count(), "every case's name is its own");
             var wrong = new List<string>();
             var answered = 0;
@@ -204,6 +204,54 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(2, rows.Count);
             Assert.AreEqual(OWOpenerState.OpensInYourBrowser, rows[1].State);
             Assert.AreEqual($"https://zephyr.example/{World}", rows[1].Href);
+        }
+
+        [TestCase("\"no\"")]
+        [TestCase("null")]
+        [TestCase("0")]
+        [TestCase("1")]
+        [TestCase("\"false\"")]
+        public void AnOnlineThatIsNotABoolean_IsRefusedByName(string value)
+        {
+            var e = Assert.Throws<ArgumentException>(() =>
+                OWOpenerSurface.FromJson(JObject.Parse("{\"audience\": \"member\", \"online\": " + value + "}")));
+            StringAssert.Contains("surface online is a boolean", e.Message);
+        }
+
+        [Test]
+        public void Offline_TheBakedList_KeepsEveryHref_AndOnlineIsTheDefault()
+        {
+            var on = new OWOpenerSurface { Audience = OWOpenerSurface.Member, SignedIn = true };
+            Assert.IsTrue(on.Online);
+            var online = OWOpeners.For(OWTools.All, OWOpeners.World, World, null, null, on).Select(Row).ToList();
+            var offline = OWOpeners.For(OWTools.All, OWOpeners.World, World, null, null,
+                new OWOpenerSurface { Audience = OWOpenerSurface.Member, SignedIn = true, Online = false });
+            var fromJson = OWOpeners.For(OWTools.All, OWOpeners.World, World, null, null,
+                OWOpenerSurface.FromJson(JObject.Parse("{\"audience\": \"member\", \"signed_in\": true, \"online\": true}")));
+            Assert.IsTrue(JToken.DeepEquals(new JArray(online), new JArray(fromJson.Select(Row))));
+            CollectionAssert.AreEqual(online.Select(r => (string)r["href"]).ToList(), offline.Select(r => r.Href).ToList());
+            foreach (var r in offline)
+            {
+                var web = r.Href.StartsWith("http:", StringComparison.OrdinalIgnoreCase) || r.Href.StartsWith("https:", StringComparison.OrdinalIgnoreCase);
+                Assert.AreEqual(web ? OWOpenerState.NeedsAConnection : null, r.State, r.Href);
+            }
+        }
+
+        [Test]
+        public void Offline_TheSchemeIsReadInAnyCase_AndALinkWithNoSchemeIsNotAWebAddress()
+        {
+            var tools = new[]
+            {
+                new OWTool("loud", "Loud", "https://loud.example", null, OWTool.Listed, new OWToolOpen("HTTPS://loud.example/{world}", null, null)),
+                new OWTool("plain", "Plain", "https://plain.example", null, OWTool.Listed, new OWToolOpen("Http://plain.example/{world}", null, null)),
+                new OWTool("bare", "Bare", "https://bare.example", null, OWTool.Listed, new OWToolOpen("//bare.example/{world}", null, null)),
+                new OWTool("app", "App", "https://app.example", null, OWTool.Listed, new OWToolOpen("app://open/{world}", null, null)),
+            };
+            var rows = OWOpeners.For(tools, OWOpeners.World, World, null, null,
+                new OWOpenerSurface { Audience = OWOpenerSurface.Member, Online = false });
+            CollectionAssert.AreEqual(
+                new[] { OWOpenerState.NeedsAConnection, OWOpenerState.NeedsAConnection, OWOpenerState.NeedsAConnection, null, null },
+                rows.Select(r => r.State).ToList());
         }
     }
 }

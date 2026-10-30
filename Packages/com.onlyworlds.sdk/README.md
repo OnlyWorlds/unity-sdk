@@ -147,8 +147,9 @@ foreach (var row in OWOpeners.For(OWTools.All, OWOpeners.Element, OWAddress.Pars
 
 The surface says what your game knows and nothing is guessed: `Audience` (`member` or `public`; the public sees only
 rows that need nothing first), `SignedIn` (null when you cannot know, and then no row says so), `Browser` (false in a
-game or a desktop app, which cannot see the browser's sign-in), `Phone`, and `Tool`, your own client name, whose row
-says "You are here". A refused address throws `OWAddressException` with its reason; the rest throws
+game or a desktop app, which cannot see the browser's sign-in), `Phone`, `Online` (false with no connection, as
+`Application.internetReachability` reports it: every row whose link is a web address then says "Needs a connection",
+and keeps its href), and `Tool`, your own client name, whose row says "You are here". A refused address throws `OWAddressException` with its reason; the rest throws
 `ArgumentException` naming what is wrong. The TypeScript SDK's `openersFor` and the Python package's `openers_for` give
 the same rows.
 

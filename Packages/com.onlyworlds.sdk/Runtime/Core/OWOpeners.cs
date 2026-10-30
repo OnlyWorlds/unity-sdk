@@ -140,7 +140,7 @@ namespace OnlyWorlds.Sdk
         public const string Public = "public";
 
         /// <summary>The keys of a surface as JSON, as the shared fixture writes them.</summary>
-        public static readonly IReadOnlyList<string> JsonKeys = Array.AsReadOnly(new[] { "tool", "audience", "signed_in", "browser", "phone" });
+        public static readonly IReadOnlyList<string> JsonKeys = Array.AsReadOnly(new[] { "tool", "audience", "signed_in", "browser", "phone", "online" });
 
         /// <summary>The client name of the surface's own tool, when it is a listed tool; its row says "You are here".</summary>
         public string Tool { get; set; }
@@ -158,8 +158,14 @@ namespace OnlyWorlds.Sdk
         public bool Phone { get; set; }
 
         /// <summary>
+        /// False when the device has no connection; then every row whose link is a web address says "Needs a connection".
+        /// Default true.
+        /// </summary>
+        public bool Online { get; set; } = true;
+
+        /// <summary>
         /// A surface written as JSON, with the shared fixture's snake_case keys (<c>tool</c>, <c>audience</c>,
-        /// <c>signed_in</c>, <c>browser</c>, <c>phone</c>). A missing <c>audience</c> stays null, and
+        /// <c>signed_in</c>, <c>browser</c>, <c>phone</c>, <c>online</c>). A missing <c>audience</c> stays null, and
         /// <see cref="OWOpeners"/> refuses it there.
         /// </summary>
         /// <exception cref="ArgumentException">An unknown key, or a value of the wrong type, named.</exception>
@@ -192,6 +198,10 @@ namespace OnlyWorlds.Sdk
                         if (v.Type != JTokenType.Boolean) Fail("surface phone is a boolean");
                         s.Phone = (bool)v;
                         break;
+                    case "online":
+                        if (v.Type != JTokenType.Boolean) Fail("surface online is a boolean");
+                        s.Online = (bool)v;
+                        break;
                     default:
                         Fail($"unknown key '{p.Name}' in the surface. The keys are {string.Join(", ", JsonKeys)}.");
                         break;
@@ -209,6 +219,9 @@ namespace OnlyWorlds.Sdk
     {
         /// <summary>The surface's own tool.</summary>
         public const string YouAreHere = "You are here";
+
+        /// <summary>The device has no connection and the row's link is a web address.</summary>
+        public const string NeedsAConnection = "Needs a connection";
 
         /// <summary>The tool needs an account and the surface is not a browser, which could see its sign-in.</summary>
         public const string OpensInYourBrowser = "Opens in your browser";
@@ -250,9 +263,9 @@ namespace OnlyWorlds.Sdk
     /// <remarks>
     /// <para>
     /// In order: first the site's own row (id <c>onlyworlds</c>, name <c>onlyworlds.com</c>, the world's or the
-    /// element's page on www.onlyworlds.com, never a word, for every audience), then one row per tools row, in the
-    /// list's order, that is <c>listed</c> and has a door for this kind. <c>tools</c> is <see cref="OWTools.All"/> or
-    /// the list as served (<see cref="OWTool.FromJson(JArray)"/>). The address is a reading from
+    /// element's page on www.onlyworlds.com, for every audience, its one word "Needs a connection" when offline), then
+    /// one row per tools row, in the list's order, that is <c>listed</c> and has a door for this kind. <c>tools</c> is
+    /// <see cref="OWTools.All"/> or the list as served (<see cref="OWTool.FromJson(JArray)"/>). The address is a reading from
     /// <see cref="OWAddress.ParseLink"/>, the parts as JSON that <see cref="OWAddress.ElementAddress(JObject)"/> takes,
     /// or the world's id with a type word and an id; a lens and a moment on it ride on no href.
     /// </para>
@@ -263,8 +276,11 @@ namespace OnlyWorlds.Sdk
     /// </para>
     /// <para>
     /// Each row's state, the first that holds: "You are here" for the surface's own tool (its <c>client</c> is
-    /// <see cref="OWOpenerSurface.Tool"/>); then what <c>needs</c> asks of this surface: <c>account</c> outside a
-    /// browser "Opens in your browser", in a browser signed out "Sign in to &lt;name&gt; first" (none when
+    /// <see cref="OWOpenerSurface.Tool"/>); then, when <see cref="OWOpenerSurface.Online"/> is false, "Needs a
+    /// connection" for a row whose href is a web address (scheme <c>http:</c> or <c>https:</c>, in any case; a row whose
+    /// link opens an app on the device is unaffected, and the href stays in the row either way); then what
+    /// <c>needs</c> asks of this surface: <c>account</c> outside a browser "Opens in your browser", in a browser signed
+    /// out "Sign in to &lt;name&gt; first" (none when
     /// <see cref="OWOpenerSurface.SignedIn"/> is null: a word shows only when the surface knows it is true),
     /// <c>device</c> on a phone "Needs the world on this phone"; then "Opens the world" (a world door on an element: a
     /// sign-in the row needs is the more urgent word); else null.
@@ -294,6 +310,9 @@ namespace OnlyWorlds.Sdk
         public const string SiteName = "onlyworlds.com";
 
         private static readonly Regex Placeholder = new Regex(@"\{(world|type|id)\}", RegexOptions.CultureInvariant);
+
+        /// <summary>A web address: its scheme is http or https. Read from the row's filled href.</summary>
+        private static readonly Regex Web = new Regex(@"^https?:", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
         /// <summary>The rows for an address given as JSON (<c>form</c>, <c>world</c>, <c>type</c>, <c>id</c>, <c>lens</c>, <c>moment</c>).</summary>
         /// <exception cref="OWAddressException">The address is refused; the reason says why.</exception>
@@ -363,11 +382,10 @@ namespace OnlyWorlds.Sdk
             if (audience != OWOpenerSurface.Member && audience != OWOpenerSurface.Public)
                 Fail($"surface audience is 'member' or 'public'; got {(audience == null ? "null" : "\"" + audience + "\"")}", nameof(surface));
             var tool = surface.Tool;
+            bool Offline(string href) => !surface.Online && Web.IsMatch(href);
 
-            var rows = new List<OWOpener>
-            {
-                new OWOpener(SiteId, SiteName, kind == Element ? page : OWAddress.ElementAddress(OWAddress.Human, world), null),
-            };
+            var site = kind == Element ? page : OWAddress.ElementAddress(OWAddress.Human, world);
+            var rows = new List<OWOpener> { new OWOpener(SiteId, SiteName, site, Offline(site) ? OWOpenerState.NeedsAConnection : null) };
             foreach (var r in tools)
             {
                 if (r == null || r.Id == null || r.Name == null) Fail("each tools row has an id and a name", nameof(tools));
@@ -381,14 +399,17 @@ namespace OnlyWorlds.Sdk
                 var template = kind == Element ? open.Element ?? open.World : open.World;
                 if (template == null) continue;
                 // The first that holds. A word the row needs (it cannot open now) comes before "Opens the world" (it
-                // opens, somewhere else), so a world door alone that needs a sign-in says the sign-in.
+                // opens, somewhere else), so a world door alone that needs a sign-in says the sign-in. With no
+                // connection a web link opens nothing, whatever else it needs.
+                var href = Placeholder.Replace(template, m => values[m.Groups[1].Value]);
                 string state = null;
                 if (tool != null && r.Client == tool) state = OWOpenerState.YouAreHere;
+                else if (Offline(href)) state = OWOpenerState.NeedsAConnection;
                 else if (needs == OWToolOpen.Account && !surface.Browser) state = OWOpenerState.OpensInYourBrowser;
                 else if (needs == OWToolOpen.Account && surface.SignedIn == false) state = OWOpenerState.SignInFirst(r.Name);
                 else if (needs == OWToolOpen.Device && surface.Phone) state = OWOpenerState.NeedsTheWorldOnThisPhone;
                 else if (kind == Element && open.Element == null) state = OWOpenerState.OpensTheWorld;
-                rows.Add(new OWOpener(r.Id, r.Name, Placeholder.Replace(template, m => values[m.Groups[1].Value]), state));
+                rows.Add(new OWOpener(r.Id, r.Name, href, state));
             }
 
             return rows;

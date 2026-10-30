@@ -6,6 +6,16 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- `OWOpenerSurface.Online` (default true; `online` in `OWOpenerSurface.FromJson`, refused by name when not a
+  boolean): with no connection, every row whose href is a web address (`http:` or `https:`, in any case, read from the
+  row's own filled href) says `OWOpenerState.NeedsAConnection`, "Needs a connection", the site's own row included,
+  which had no word before. The words in order, the first that holds: "You are here", then "Needs a connection", then
+  the account, browser and phone words, then "Opens the world". A row whose link opens an app on the device keeps its
+  own word, and every row keeps its href. The shared fixture moves to 54 cases (sha256 `5a9ebbc8…`), the same bytes as
+  the TypeScript SDK 4.118.0's and the Python package 0.96.0's.
+
 ### Changed
 
 - Schema pin to `v0.33.0-dist.97`: the address profile's four format cases on an empty string, one per part (an
