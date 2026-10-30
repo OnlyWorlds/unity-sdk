@@ -683,6 +683,26 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         /// <summary>
+        /// A public reader's served link lists leave a proposed id out, as keel's wire serves the public rung, so the
+        /// index has no gap: a visible target after a proposed one is at 0. Kills: a public list that keeps the proposed
+        /// id, or an index that counts it.
+        /// </summary>
+        [Test]
+        public void APublicReadersServedList_LeavesAProposedIdOut_AndItsIndexHasNoGap()
+        {
+            var world = new JArray(
+                JObject.Parse(@"{""id"":""a"",""type"":""character"",""name"":""Ada"",""friends"":[""px"",""b""]}"),
+                JObject.Parse(@"{""id"":""px"",""type"":""character"",""name"":""Pax"",""x_review_proposed"":{""by"":""m1""}}"),
+                JObject.Parse(@"{""id"":""b"",""type"":""character"",""name"":""Brin""}"));
+            var served = OWLens.ServedView(world, OWLensReader.Public());
+            CollectionAssert.AreEqual(new[] { "b" }, Strings(served.Single(e => (string)e["id"] == "a")["friends"]),
+                "the public rung is served [Brin]");
+            Assert.AreEqual(@"[{""source"":""a"",""field"":""friends"",""target"":""b"",""index"":0}]",
+                new JArray(OWGraph.Read(world, OWLensReader.Public()).Edges.Select(e => e.ToJson())).ToString(Formatting.None),
+                "Brin at 0");
+        }
+
+        /// <summary>
         /// Ruling 1 reaches the edge list: a link reaches only an element of its field's target type, so a Character's
         /// <c>friends</c> naming a Location's id names nothing, a dangling link, neither an edge nor counted. The owner's
         /// index is still the place in the list as stored. Kills: an edge, or a count, for a wrongly typed id.
