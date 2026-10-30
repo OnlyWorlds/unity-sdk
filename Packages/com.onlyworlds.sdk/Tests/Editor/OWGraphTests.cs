@@ -640,6 +640,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 OWLensReader.Owner()).Nodes.Single();
             Assert.AreEqual("Character", node.Type);
             Assert.AreEqual(OWPresentation.FamilyOf("character"), node.Family);
+            // The packages' twin run met a padded type too: as stored, its padding kept.
+            var padded = OWGraph.Read(new JArray(JObject.Parse(@"{""id"":""a"",""type"":"" character "",""name"":""Ada""}")),
+                OWLensReader.Public()).Nodes.Single();
+            Assert.AreEqual(" character ", padded.Type, "a public reader's node, as stored");
         }
 
         /// <summary>

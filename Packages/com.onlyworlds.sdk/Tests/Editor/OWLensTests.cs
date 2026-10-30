@@ -1146,6 +1146,45 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 "listed the other way, read the other way");
         }
 
+        /// <summary>
+        /// A single link stored as <c>""</c> is served as stored to every reader below the owner: <c>""</c>, never null,
+        /// and never named in <c>x_served_trimmed</c>, since no id was left out (keel's redact strips only an id the reader
+        /// cannot see). A Message whose <c>narrator</c> is <c>""</c> claims no hidden sender. Kills: <c>""</c> served as
+        /// null, or marked trimmed.
+        /// </summary>
+        [Test]
+        public void AnEmptySingleLink_IsServedAsStored_AndNeverMarkedTrimmed()
+        {
+            var world = new List<JObject>
+            {
+                JObject.Parse(@"{""id"":""o1"",""type"":""object"",""name"":""Cup"",""language"":""""}"),
+                Character("c1"),
+                JObject.Parse(@"{""id"":""m1"",""type"":""narrative"",""supertype"":""Message"",""name"":""Hi"",""narrator"":"""",""characters"":[""c1""]}"),
+                Lens("L", @"{""depth"":0}", @"""objects"":[""o1""],""narratives"":[""m1""]"),
+            };
+            var readers = new[]
+            {
+                ("contributor", OWLensReader.Contributor()), ("guest", OWLensReader.Guest(new[] { "o1", "c1", "m1", "L" })),
+                ("public", OWLensReader.Public()),
+            };
+            foreach (var (name, reader) in readers)
+            {
+                var served = OWLens.ServedView(world, reader);
+                foreach (var (id, field) in new[] { ("m1", "narrator"), ("o1", "language") })
+                {
+                    var body = served.Single(e => (string)e["id"] == id);
+                    Assert.AreEqual(JTokenType.String, body[field].Type, $"{name}: {id}.{field} served as \"\"");
+                    Assert.AreEqual("", (string)body[field], $"{name}: {id}.{field}");
+                    Assert.IsNull(body[OWMessage.ServedTrimmedKey], $"{name}: {id} carries no trimmed mark");
+                }
+
+                var rows = OWLens.Resolve(world, "L", reader).Rows;
+                var message = rows.Single(r => (string)r["id"] == "m1");
+                Assert.AreEqual("", (string)message["narrator"], $"{name}: the kept message's narrator");
+                Assert.IsNull(message[OWMessage.ServedTrimmedKey], $"{name}: the kept message claims no hidden sender");
+            }
+        }
+
         /// <summary>The case's lens, a body or the id of a lens in the world.</summary>
         private static OWLensResult ResolveCase(List<JObject> world, JObject c, OWLensReader reader, OWLensOptions options)
         {

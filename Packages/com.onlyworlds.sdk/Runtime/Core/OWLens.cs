@@ -1254,7 +1254,7 @@ namespace OnlyWorlds.Sdk
             /// A body's trim for a reader that is not the owner, in place. Every link to an id outside the reader's
             /// <see cref="Scoped"/>, or to an element that is not the field's target type
             /// (<see cref="OWElementTypes.LinkTarget"/>), is left out (a single link null, a list without the id, its
-            /// order kept); a generic pair whose target is out of it or not of its <c>element_type</c>, or whose
+            /// order kept; a single link stored as <c>""</c> names no id and is served as stored); a generic pair whose target is out of it or not of its <c>element_type</c>, or whose
             /// <c>element_type</c> is no slug as stored (<see cref="PairType"/>), reads <c>""</c> and null, an unset pair; a
             /// lens's <c>x_lens.notes</c> keeps the notes on its served anchors and on other ids in
             /// it (an anchor's note goes with the anchor).
@@ -1302,7 +1302,9 @@ namespace OnlyWorlds.Sdk
                     else
                     {
                         var id = StringOf(value);
-                        if (string.IsNullOrEmpty(id) || !ServedAs(id, linkTarget))
+                        // A link stored as "" names no id, so none is left out: served as stored, never marked.
+                        if (id == "") continue;
+                        if (id == null || !ServedAs(id, linkTarget))
                         {
                             body[field] = JValue.CreateNull();
                             if (id != null) changed.Add(field);

@@ -8,6 +8,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
+- A single link stored as `""` is served as stored to every reader below the owner, in `OWLens.Resolve`'s rows, its
+  mail rows and the bodies a graph reads: `""`, never null, and never named in `x_served_trimmed`, since no id was
+  left out, so a Message whose `narrator` is `""` no longer claims a hidden sender.
 - `OWLens.Resolve` (and `OWGraph.Read` with a lens) follows the lens profile owner's rulings on readings no fixture
   case decided yet, ahead of the fixture's next serial, which carries a case for each: a link reaches only an element
   of its field's target type, and a Pin's `element_type`/`element_id` pair only when its type is one of the 22 slugs
