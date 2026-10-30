@@ -12,7 +12,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// The lens profile's graph section: <see cref="OWGraph.Read"/> on the graph kind of the lens fixture (schema-dist
-    /// <c>profiles/lens.fixture.json</c>, vendored byte for byte in <c>Tests/Editor/Fixtures/lens/</c> from dist.92, its
+    /// <c>profiles/lens.fixture.json</c>, vendored byte for byte in <c>Tests/Editor/Fixtures/lens/</c> from dist.93, its
     /// hash held by <see cref="OWLensTests"/>), each answer held to the section's invariants, the fixture's graph tables
     /// read back through the reader, and the TypeScript SDK's own vectors (<c>test/graph.test.mjs</c>, release 4.93.0)
     /// where C# can state them. The TypeScript SDK and the Python package (<c>world_graph</c>, 0.77.0) replay the same
@@ -27,8 +27,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </remarks>
     public class OWGraphTests
     {
-        /// <summary>The fixture's graph cases, as dist.92 holds them (the 38th: one element of each of the 22 types; the 39th: an empty review mark, an object and a string).</summary>
-        private const int GraphCount = 39;
+        /// <summary>The fixture's graph cases, as dist.93 holds them (the 38th: one element of each of the 22 types; the 39th: an empty review mark, an object and a string).</summary>
+        private const int GraphCount = 45;
 
         private static JObject _fixture;
 
@@ -106,7 +106,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public void TheFixture_HoldsDist88sGraphCases()
         {
             Assert.IsNotNull(Fixture, "the vendored lens fixture was not found");
-            Assert.AreEqual(GraphCount, GraphCases.Count(), "dist.92's fixture holds 39 graph cases");
+            Assert.AreEqual(GraphCount, GraphCases.Count(), "dist.93's fixture holds 45 graph cases");
         }
 
         [TestCaseSource(nameof(Cases))]
@@ -657,6 +657,25 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 JObject.Parse(@"{""id"":""b"",""type"":""character"",""name"":""Brin""}"));
             Assert.AreEqual(1, OWGraph.Read(world, OWLensReader.Contributor()).Edges.Single().Index, "served [Pax, Brin]: Brin at 1");
             Assert.AreEqual(0, OWGraph.Read(world, OWLensReader.Public()).Edges.Single().Index, "the public rung: Brin at 0");
+        }
+
+        /// <summary>
+        /// Ruling G5 on bodies already served: a contributor's served <c>friends</c> keeps the proposed id, whose body it is
+        /// never served, so the served reader's list is the list as served and the index is the place in it. Kills: a
+        /// served reader's index that counts only the bodies it was given.
+        /// </summary>
+        [Test]
+        public void RulingG5_AServedReadersIndex_IsThePlaceInTheListAsGiven()
+        {
+            var world = new JArray(
+                JObject.Parse(@"{""id"":""a"",""type"":""character"",""name"":""Ada"",""friends"":[""h"",""px"",""b""]}"),
+                JObject.Parse(@"{""id"":""h"",""type"":""character"",""name"":""Hal"",""hidden"":true}"),
+                JObject.Parse(@"{""id"":""px"",""type"":""character"",""name"":""Pax"",""x_review_proposed"":{""by"":""m1""}}"),
+                JObject.Parse(@"{""id"":""b"",""type"":""character"",""name"":""Brin""}"));
+            var served = OWLens.ServedView(world, OWLensReader.Contributor());
+            CollectionAssert.AreEqual(new[] { "px", "b" }, Strings(served.Single(e => (string)e["id"] == "a")["friends"]),
+                "the contributor is served [Pax, Brin], Pax's body not");
+            Assert.AreEqual(1, OWGraph.Read(served, OWLensReader.Served()).Edges.Single().Index, "served [Pax, Brin]: Brin at 1");
         }
 
         /// <summary>

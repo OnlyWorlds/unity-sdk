@@ -13,7 +13,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// The lens profile's conformance fixture (schema-dist <c>profiles/lens.fixture.json</c>, vendored byte for byte in
-    /// <c>Tests/Editor/Fixtures/lens/</c> from dist.92), replayed case by case through <see cref="OWLens"/>: the pair and
+    /// <c>Tests/Editor/Fixtures/lens/</c> from dist.93), replayed case by case through <see cref="OWLens"/>: the pair and
     /// the template (<see cref="OWLens.IsLens"/>, <see cref="OWLens.IsTemplate"/>), the legal values of <c>x_lens</c>
     /// (<see cref="OWLens.CheckKeys"/>), every resolution over the fixture's worlds and their readers
     /// (<see cref="OWLens.Resolve(IEnumerable{JToken}, JObject, OWLensReader, OWLensOptions)"/>), the invariants, and
@@ -28,13 +28,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </remarks>
     public class OWLensTests
     {
-        /// <summary>The fixture's sha256 as dist.92's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "a54a7d434dc197e57b0f80c9050ee5f51ff619c2364de768884858b1c77fdf06";
+        /// <summary>The fixture's sha256 as dist.93's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "49e16262b5320bc922f23382fe17e5d5d73a9c78a4dd75059f334dc0b4516bd3";
 
-        /// <summary>The fixture's cases by kind, as dist.92 holds them (153 in all; the graph kind is the graph reader's).</summary>
+        /// <summary>The fixture's cases by kind, as dist.93 holds them (171 in all; the graph kind is the graph reader's).</summary>
         private static readonly Dictionary<string, int> Counts = new Dictionary<string, int>
         {
-            ["shape"] = 6, ["keys"] = 25, ["resolve"] = 75, ["invariant"] = 4, ["uses"] = 4, ["graph"] = 39,
+            ["shape"] = 6, ["keys"] = 25, ["resolve"] = 86, ["invariant"] = 4, ["uses"] = 5, ["graph"] = 45,
         };
 
         private static JObject _fixture;
@@ -84,7 +84,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.92's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.93's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
@@ -92,7 +92,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             Assert.IsNotNull(Fixture, "the vendored lens fixture was not found");
             var cases = Fixture["cases"].Cast<JObject>().ToList();
-            Assert.AreEqual(153, cases.Count, "dist.92's fixture holds 153 cases");
+            Assert.AreEqual(171, cases.Count, "dist.93's fixture holds 171 cases");
             var counts = cases.GroupBy(c => (string)c["kind"]).ToDictionary(g => g.Key, g => g.Count());
             CollectionAssert.AreEquivalent(Counts, counts);
         }
@@ -171,9 +171,6 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 }
                 case "keys":
                 {
-                    // Expected to change at the fixture's next serial: keys-an-integral-float-is-refused-where-the-text-shows
-                    // (text_only; this reader sees the text, so it runs). Ruling 13 retires the refusal it was written for;
-                    // its want (depth refused) still holds, now because 7.0 reads as 7, past depth's table.
                     var bad = OWLens.CheckKeys(c["x_lens"]);
                     Assert.AreEqual(c["bad"].Type == JTokenType.Null ? null : (string)c["bad"], bad, name + ": the key refused");
                     Assert.AreEqual((bool)c["legal"], bad == null, name + ": legal");

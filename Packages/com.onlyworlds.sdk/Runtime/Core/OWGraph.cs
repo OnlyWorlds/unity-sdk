@@ -208,7 +208,7 @@ namespace OnlyWorlds.Sdk
         /// <summary>The element linked to.</summary>
         public string Target { get; }
 
-        /// <summary>The target's place in the field's list as the reader is served it: the owner's as stored, every other reader's as keel serves it (a contributor's keeps a link to a proposed element; the profile's ruling G5).</summary>
+        /// <summary>The target's place in the field's list as the reader is served it: the owner's as stored, every other reader's as keel serves it (a contributor's keeps a link to a proposed element; the profile's ruling G5), and bodies already served (<see cref="OWLensRung.Served"/>) as given.</summary>
         public int Index { get; }
 
         /// <summary>The edge in the profile's words: <c>source</c>, <c>field</c>, <c>target</c>, <c>index</c>.</summary>
@@ -374,6 +374,7 @@ namespace OnlyWorlds.Sdk
                 [OWGraphCut.ReadingAid] = false,
             };
             var seenOwner = view.Rung == OWLensRung.Owner;
+            var asGiven = seenOwner || view.Rung == OWLensRung.Served;
 
             List<string> KindsOf(string id)
             {
@@ -463,7 +464,8 @@ namespace OnlyWorlds.Sdk
                 var body = view.Els[source];
                 // A schema link is served whole to the owner; any other reader is served the list as keel serves it, a link
                 // to a proposed element kept below the public rung, and the index is the place in that list (the profile's
-                // ruling G5). A Pin's generic pair is placement, never an edge (G2).
+                // ruling G5). Bodies already served hold that list as given, a proposed id with no body beside it among
+                // them (asGiven). A Pin's generic pair is placement, never an edge (G2).
                 foreach (var (field, many) in OWLens.LinkFieldsOf(view.TypeOf(source)))
                 {
                     var linkTarget = OWElementTypes.LinkTarget(view.TypeOf(source), field);
@@ -480,7 +482,7 @@ namespace OnlyWorlds.Sdk
                         // An id of another type than the field's target names nothing, as the lens reader keys a link
                         // (the profile's ruling 1): a dangling link, neither an edge nor counted.
                         if (t != null && view.Els.ContainsKey(t) && view.TypeOf(t) == linkTarget)
-                            Visit(source, field, entries[i], seenOwner ? i : served);
+                            Visit(source, field, entries[i], asGiven ? i : served);
                         if (inServed) served++;
                     }
                 }

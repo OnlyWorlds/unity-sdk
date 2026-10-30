@@ -18,8 +18,7 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   it, every other field at its unset value and no extension key (7); the mail part keeps two messages with one
   `created_at` in the order of the world's list, as the message profile rules, never by id (11, as the owner
   reversed it); a whole float in an `x_lens` key reads whole (`depth: 2.0` is 2), and only a fraction is refused
-  (13). The fixture's `keys-an-integral-float-is-refused-where-the-text-shows` still passes (7.0 is past `depth`'s table) and is
-  expected to be replaced at that serial. Rulings 4 and 5 (an umbrella's hop keeps a child it reaches before entering
+  (13). Rulings 4 and 5 (an umbrella's hop keeps a child it reaches before entering
   it; a cut lens id stays counted) were already this reader's. Each change is held by a test named for its ruling.
 - `OWGraph.Read` follows the owner's rulings on the graph section's silences, ahead of the same serial: a Pin's
   generic pair is placement, never an edge (G2); a node's `name` is the stored value, null when absent, in `ToJson`
@@ -35,6 +34,10 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   for a public reader too; Map, Pin and Marker stay out until `MapSpace` (`OWGraph.MapSpaceTypes`). The lens fixture
   in `Tests/Editor/Fixtures/lens/` moves from dist.88 to dist.92 byte for byte with it; seven of its graph cases were red
   on the old table and pass now.
+- Schema pin to `v0.33.0-dist.93`: the lens fixture carries a case for each of the rulings above, nineteen new cases
+  over a ninth world (171 in all: 86 resolve, 45 graph, 5 uses), and `profiles/lens.md` states each reading. The keys
+  case `keys-an-integral-float-is-refused-where-the-text-shows` is retired for `keys-an-integral-float-reads-whole`.
+  The fixture copy in `Tests/Editor/Fixtures/lens/` moves to dist.93 byte for byte; every case passes.
 
 ### Added
 
@@ -103,6 +106,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Fixed
 
+- `OWGraph.Read` on bodies already served (`OWLensReader.Served`) places an edge's `Index` at the target's place in
+  the list as given. A contributor's served list keeps a link to a proposed element whose body it is not served, and
+  the reader counted only the bodies it held, so a later target's index came out one short of the contributor's own
+  graph of the same world (ruling G5; dist.93's case `a contributor's index counts a proposed id its served list keeps`
+  read through the served view).
 - `OWCalendar.ReadConfig` refuses a calendar whose `grain` is empty or white space alone: the profile's grain is a
   string with something left after trimming Unicode's White_Space (the room profile's trim, as the marks read it),
   so the field reads as no calendar and a tool shows the bare step. Before, such a grain read as a calendar.
