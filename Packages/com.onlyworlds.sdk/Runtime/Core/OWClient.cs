@@ -1161,6 +1161,18 @@ namespace OnlyWorlds.Sdk
         /// with 409 <c>resync_required</c>: persist the cursor, not a number.
         /// </param>
         /// <param name="headOnly">Cheap tip check: returns <c>head</c>, a <c>cursor</c> to follow from, and <c>epoch</c>, with no changes.</param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <param name="after">
+        /// Only the changes made at or after this time (an upsert's <c>updated_at</c>, a delete's <c>deleted_at</c>), sent
+        /// as <c>after</c> in UTC, to the microsecond (a finer fraction is cut, never rounded up past the time asked for).
+        /// A filter, not a position: the order, <c>cursor</c>, <c>has_more</c> and <c>head</c> are as without it, so to
+        /// read the whole window pass each page's cursor back with the same <paramref name="after"/> until
+        /// <c>has_more</c> is false. "Since yesterday" by the clock; a kept cursor is still the exact "since my last
+        /// visit". Null sends nothing. Mirrors the TypeScript SDK's <c>after</c> on <c>changes</c> (4.44.0).
+        /// </param>
+        /// <exception cref="ArgumentException">
+        /// <paramref name="after"/> with <paramref name="headOnly"/>: the tip read takes no filter. Nothing was sent.
+        /// </exception>
         /// <remarks>
         /// <para>
         /// A page holds <see cref="PageSize"/> changes, at most 1000: the feed refuses a larger
@@ -1178,8 +1190,16 @@ namespace OnlyWorlds.Sdk
         /// status 304: the client never makes up a head.
         /// </para>
         /// </remarks>
-        public async Task<OWChangesPage> ChangesAsync(string cursor = null, bool headOnly = false, CancellationToken ct = default)
+        public async Task<OWChangesPage> ChangesAsync(
+            string cursor = null, bool headOnly = false, CancellationToken ct = default, DateTimeOffset? after = null)
         {
+            if (headOnly && after.HasValue)
+            {
+                throw new ArgumentException(
+                    "ChangesAsync: after filters a page of the feed; the tip read (headOnly) takes none. Nothing was sent.",
+                    nameof(after));
+            }
+
             var query = new List<string>();
             if (headOnly)
             {
@@ -1189,6 +1209,12 @@ namespace OnlyWorlds.Sdk
             {
                 if (!string.IsNullOrEmpty(cursor)) query.Add("since=" + Uri.EscapeDataString(cursor));
                 query.Add("limit=" + Math.Min(PageSize, MaxChangesLimit));
+                if (after.HasValue)
+                {
+                    var at = after.Value.ToUniversalTime()
+                        .ToString("yyyy-MM-dd'T'HH:mm:ss.FFFFFF'Z'", CultureInfo.InvariantCulture);
+                    query.Add("after=" + Uri.EscapeDataString(at));
+                }
             }
 
             // One reference, swapped whole, so a tip read racing another sees one poll's state or the other's.

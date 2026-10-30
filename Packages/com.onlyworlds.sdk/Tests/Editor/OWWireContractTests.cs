@@ -140,6 +140,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             await c.ListHiddenAsync();
             t.ResponseBody = @"{""changes"":[],""has_more"":false,""head"":0}";
             await c.ChangesAsync("4:069620b9-0794-708d-8000-42b0ea685f38");
+            await c.ChangesAsync("4:069620b9-0794-708d-8000-42b0ea685f38", after: new DateTimeOffset(2026, 10, 22, 0, 0, 0, TimeSpan.Zero));
             t.ResponseHeaders = new Dictionary<string, string> { ["etag"] = "W/\"0:-\"" };
             await c.ChangesAsync(headOnly: true);
             await c.ChangesAsync(headOnly: true); // sends If-None-Match
@@ -572,7 +573,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             // An empty recording would pass the checks above with nothing checked.
             var calls = await RecordEveryCall();
-            Assert.AreEqual(52, calls.Count);
+            Assert.AreEqual(53, calls.Count);
 
             // The lens routes are on the wire here, so the checks above saw them.
             Assert.That(calls.Any(c => c.Method == "PUT" && new Uri(c.Url).AbsolutePath.EndsWith("/me/lenses")), "PUT /me/lenses is recorded");

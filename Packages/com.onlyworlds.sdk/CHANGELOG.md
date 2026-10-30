@@ -60,6 +60,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   keeps it off them (on the owner's own list null is the empty list). Until now a null was an
   `ArgumentNullException`, so a list once chosen could not be put back from Unity. Mirrors the TypeScript SDK's
   `setMyLenses(null)` and `setMemberLenses(world, member, null)` (4.99.0).
+- `OWClient.ChangesAsync` takes `after` (a `DateTimeOffset`, last, so a caller passing `ct` by position keeps
+  working): only the changes made at or after that time, sent as `after` in UTC to the microsecond (a finer fraction
+  is cut, never rounded up), beside `since` and `limit`. A filter, not a position: pass each page's cursor back with
+  the same `after` to read the whole window. With `headOnly` it is an `ArgumentException` before sending. Mirrors the
+  TypeScript SDK's `after` on `changes()` (4.44.0).
 - Schema pin to `v0.33.0-dist.97`: the address profile's four format cases on an empty string, one per part (an
   empty world, type, id or lens refuses by that part's own reason; only null or a missing key is absent), which
   `OWAddress` already answered so.

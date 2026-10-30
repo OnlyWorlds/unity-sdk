@@ -1242,6 +1242,38 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             StringAssert.DoesNotContain("limit=", t.Last.Url, "A tip read has no page to size.");
         }
 
+        // The TypeScript SDK 4.44.0's `after`: only the changes made at or after a time, a filter beside since and limit,
+        // never a position. Kills: after dropped, misnamed, sent in local time, rounded up past the time asked for (which
+        // would lose a change), or moved before since and limit.
+        [Test]
+        public async Task Changes_SendsAfter_InUtc_ToTheMicrosecond_BesideSinceAndLimit()
+        {
+            var t = new FakeTransport { ResponseBody = @"{""changes"":[],""has_more"":false,""head"":0}" };
+            var c = Make(t);
+
+            await c.ChangesAsync("4:c", after: new DateTimeOffset(2026, 10, 22, 10, 30, 0, TimeSpan.FromHours(2)));
+            Assert.AreEqual("https://example.test/api/v2/changes/?since=4%3Ac&limit=100&after=2026-10-22T08%3A30%3A00Z", t.Last.Url);
+
+            await c.ChangesAsync(after: new DateTimeOffset(2026, 10, 22, 8, 30, 0, TimeSpan.Zero).AddTicks(1234567));
+            Assert.AreEqual("https://example.test/api/v2/changes/?limit=100&after=2026-10-22T08%3A30%3A00.123456Z", t.Last.Url,
+                "a fraction kept to the microsecond, cut, never rounded up");
+
+            await c.ChangesAsync();
+            StringAssert.DoesNotContain("after=", t.Last.Url, "no after, none sent");
+        }
+
+        // Kills: an after on the tip read sent (or dropped without a word): the tip read takes no filter.
+        [Test]
+        public void Changes_AfterOnTheTipRead_IsRefused_NothingSent()
+        {
+            var t = new FakeTransport();
+            var e = Assert.ThrowsAsync<ArgumentException>(
+                () => Make(t).ChangesAsync(headOnly: true, after: DateTimeOffset.UtcNow));
+            StringAssert.Contains("after", e.Message);
+            StringAssert.Contains("Nothing was sent", e.Message);
+            Assert.AreEqual(0, t.Calls.Count);
+        }
+
         [Test]
         public async Task Changes_ReadsTheOwnersNumericCursor_AndAGuestsEpoch()
         {
