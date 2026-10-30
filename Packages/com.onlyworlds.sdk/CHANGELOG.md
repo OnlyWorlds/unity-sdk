@@ -8,6 +8,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
+- Schema pin to `v0.33.0-dist.96`: two graph cases on a guest's own hidden creation (out of an unlensed graph with no
+  count and no counted cut edge; a node of a lensed graph that keeps it, marked hidden, its edge to an element the
+  lens never reached `outside_lens`), which `OWGraph.Read` already answered so.
 - Schema pin to `v0.33.0-dist.95`: five new cases across the charter, lens and message fixtures, and `pairs.json`
   beside `presentation.json` (vendored with the rest; no reader for it here yet). `OWMessage.ReadMarkOf` takes
   `keyless`, as `IsToEveryone` does: a mark served without a credential is ignored, since the keyless public reader
