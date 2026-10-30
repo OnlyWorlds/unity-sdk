@@ -659,6 +659,28 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(0, OWGraph.Read(world, OWLensReader.Public()).Edges.Single().Index, "the public rung: Brin at 0");
         }
 
+        /// <summary>
+        /// Ruling 1 reaches the edge list: a link reaches only an element of its field's target type, so a Character's
+        /// <c>friends</c> naming a Location's id names nothing, a dangling link, neither an edge nor counted. The owner's
+        /// index is still the place in the list as stored. Kills: an edge, or a count, for a wrongly typed id.
+        /// </summary>
+        [Test]
+        public void RulingB_AWronglyTypedId_DrawsNoEdge_AndIsNotCounted()
+        {
+            var world = new JArray(
+                JObject.Parse(@"{""id"":""c"",""type"":""character"",""name"":""C"",""friends"":[""p"",""h"",""d""],""location"":""p""}"),
+                JObject.Parse(@"{""id"":""p"",""type"":""location"",""name"":""P""}"),
+                JObject.Parse(@"{""id"":""h"",""type"":""location"",""name"":""H"",""hidden"":true}"),
+                JObject.Parse(@"{""id"":""d"",""type"":""character"",""name"":""D""}"));
+            var g = OWGraph.Read(world, OWLensReader.Owner());
+            Assert.AreEqual(@"[{""source"":""c"",""field"":""friends"",""target"":""d"",""index"":2},{""source"":""c"",""field"":""location"",""target"":""p"",""index"":0}]",
+                new JArray(g.Edges.Select(e => e.ToJson())).ToString(Formatting.None), "the friend D and the location, never P as a friend");
+            CollectionAssert.IsEmpty(g.EdgesCut, "the hidden Location under friends is no link, so not counted hidden");
+            var c = OWGraph.Read(world, OWLensReader.Contributor());
+            Assert.AreEqual(@"[{""source"":""c"",""field"":""friends"",""target"":""d"",""index"":0},{""source"":""c"",""field"":""location"",""target"":""p"",""index"":0}]",
+                new JArray(c.Edges.Select(e => e.ToJson())).ToString(Formatting.None), "a contributor is served friends [D]");
+        }
+
         private static OWGraphOptions Flag(string flag) => new OWGraphOptions
         {
             Rooms = flag == "rooms", Hidden = flag == "hidden", Proposed = flag == "proposed", MapSpace = flag == "map_space",

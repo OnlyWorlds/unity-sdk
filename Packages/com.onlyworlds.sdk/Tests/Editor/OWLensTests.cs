@@ -1039,6 +1039,34 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         /// <summary>
+        /// The generic pair's type key compares exact against the 22 slugs, as stored, nothing folded: a stored
+        /// <c>"Character"</c> or <c>" character "</c> links nothing, and a reader below the owner is served that pair
+        /// unset. Kills: the type key trimmed or case-folded before it is matched.
+        /// </summary>
+        [Test]
+        public void RulingA_AGenericPairsTypeKey_ComparesExact()
+        {
+            var world = new List<JObject>
+            {
+                Lens("L", "{}", @"""characters"":[""a""]"),
+                Character("a"),
+                JObject.Parse(@"{""id"":""p1"",""type"":""pin"",""name"":""Capital pin"",""element_type"":""Character"",""element_id"":""a""}"),
+                JObject.Parse(@"{""id"":""p2"",""type"":""pin"",""name"":""Ada's pin"",""element_type"":""character"",""element_id"":""a""}"),
+                JObject.Parse(@"{""id"":""p3"",""type"":""pin"",""name"":""Spaced pin"",""element_type"":"" character "",""element_id"":""a""}"),
+            };
+            CollectionAssert.AreEqual(new[] { "a", "p2" }, OWLens.Resolve(world, "L", OWLensReader.Owner()).Kept,
+                "only the pin whose type key is the slug as written");
+            var served = OWLens.ServedView(world, OWLensReader.Contributor()).ToDictionary(e => (string)e["id"]);
+            foreach (var pin in new[] { "p1", "p3" })
+            {
+                Assert.AreEqual("", (string)served[pin]["element_type"], pin + ": served an unset pair");
+                Assert.AreEqual(JTokenType.Null, served[pin]["element_id"].Type, pin + ": served an unset pair");
+            }
+
+            Assert.AreEqual("a", (string)served["p2"]["element_id"], "the slug as written is served whole");
+        }
+
+        /// <summary>
         /// Ruling 3: an anchor id no element holds is counted for the owner as <c>anchor_not_visible</c>, never skipped; so
         /// is one of another type than its field's. Below the owner nothing is counted. Kills: a dangling anchor skipped.
         /// </summary>
@@ -1092,14 +1120,14 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         /// <summary>
-        /// Ruling 11: two messages with one <c>created_at</c> order by id, by code point as keel's reader orders ids (a
-        /// world has no order on the wire). U+FF01 comes before U+1F600 by code point; UTF-16's ordinal order puts the
-        /// surrogate pair first. Kills: a tie kept in the world's order, or ordered by UTF-16 unit.
+        /// Ruling 11, as reversed by the profile's owner: two messages with one <c>created_at</c> keep the order of the list
+        /// they came in, as the message profile already rules; the mail part never orders them by id. A tie listed in
+        /// reverse id order stays as listed. Kills: a tie ordered by id.
         /// </summary>
         [Test]
-        public void Ruling11_AMailTieOrdersById_ByCodePoint()
+        public void Ruling11_AMailTieKeepsTheListsOrder()
         {
-            const string bang = "m！", smile = "m\U0001F600";
+            const string first = "m2", second = "m1";
             JObject Letter(string id) => new JObject
             {
                 ["id"] = id, ["type"] = "narrative", ["name"] = id, ["supertype"] = "Message", ["narrator"] = "a",
@@ -1110,15 +1138,15 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 Lens("L", @"{""types"":[""narrative/message""],""mail"":""all""}", null),
                 Character("me"),
                 Character("a"),
-                Letter(smile),
-                Letter(bang),
+                Letter(first),
+                Letter(second),
             };
             var options = new OWLensOptions { Clock = new DateTimeOffset(2026, 10, 28, 0, 0, 0, TimeSpan.Zero) };
             var r = OWLens.Resolve(world, "L", OWLensReader.Owner("me"), options);
-            CollectionAssert.AreEqual(new[] { bang, smile }, r.Mail.Unread, "U+FF01 before U+1F600");
+            CollectionAssert.AreEqual(new[] { first, second }, r.Mail.Unread, "m2 before m1, as listed");
             world.Reverse(3, 2);
-            CollectionAssert.AreEqual(new[] { bang, smile }, OWLens.Resolve(world, "L", OWLensReader.Owner("me"), options).Mail.Unread,
-                "whatever the world's order");
+            CollectionAssert.AreEqual(new[] { second, first }, OWLens.Resolve(world, "L", OWLensReader.Owner("me"), options).Mail.Unread,
+                "listed the other way, read the other way");
         }
 
         /// <summary>The case's lens, a body or the id of a lens in the world.</summary>

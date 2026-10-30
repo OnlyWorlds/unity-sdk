@@ -244,7 +244,8 @@ namespace OnlyWorlds.Sdk
         /// The links left out because their target is not a node, counted by the target's reason, in
         /// <see cref="OWGraphCut.All"/>'s order; a reason with no count is absent. A reader that is not the owner never
         /// carries <see cref="OWGraphCut.OwnerOnly"/>; every reader carries <c>outside_lens</c>. A link to an id that is
-        /// not in the world is a dangling link, left out and not counted.
+        /// not in the world, or a schema link to an element of another type than its field's target, is a dangling link,
+        /// left out and not counted.
         /// </summary>
         public IReadOnlyDictionary<string, int> EdgesCut { get; }
 
@@ -341,10 +342,12 @@ namespace OnlyWorlds.Sdk
         /// <para>
         /// Each schema link field, and each declared extension link (<see cref="DeclaredLinks"/>), gives one edge per
         /// target that is a node, both ends as stored (a mirror pair is two edges, never merged; a Relation is a node with
-        /// one edge per party). A known-of node has no edges out. A link to an element that is not a node is counted in
-        /// <see cref="OWWorldGraph.EdgesCut"/> by its target's reason: the lens's cut reason (which wins over
-        /// <c>not_visible</c>), else with a lens <c>outside_lens</c> for one the reader sees, else without one the first of
-        /// the kinds not brought back, and <c>not_visible</c> for one the reader does not see (the owner's count).
+        /// one edge per party). A known-of node has no edges out. A schema link names only an element of its field's
+        /// target type; one of another type is a dangling link (the lens profile's ruling 1). A link to an element that
+        /// is not a node is counted in <see cref="OWWorldGraph.EdgesCut"/> by its target's reason: the lens's cut reason
+        /// (which wins over <c>not_visible</c>), else with a lens <c>outside_lens</c> for one the reader sees, else without
+        /// one the first of the kinds not brought back, and <c>not_visible</c> for one the reader does not see (the owner's
+        /// count).
         /// </para>
         /// </remarks>
         /// <exception cref="ArgumentNullException">No reader.</exception>
@@ -474,7 +477,10 @@ namespace OnlyWorlds.Sdk
                     {
                         var t = StringOf(entries[i]);
                         var inServed = seenOwner || view.ServedAs(t, linkTarget);
-                        Visit(source, field, entries[i], seenOwner ? i : served);
+                        // An id of another type than the field's target names nothing, as the lens reader keys a link
+                        // (the profile's ruling 1): a dangling link, neither an edge nor counted.
+                        if (t != null && view.Els.ContainsKey(t) && view.TypeOf(t) == linkTarget)
+                            Visit(source, field, entries[i], seenOwner ? i : served);
                         if (inServed) served++;
                     }
                 }

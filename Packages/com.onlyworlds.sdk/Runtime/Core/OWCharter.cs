@@ -217,10 +217,12 @@ namespace OnlyWorlds.Sdk
         /// point; when the reader sees no Guide, by folded name and id alone.
         /// </para>
         /// <para>
-        /// <b>As served.</b> Each aid is read from the body the reader is served: a Domain known only as a stub is its name
-        /// and served sentence with no hubs, a hidden one is not there and nothing marks the gap, and a hub the reader
-        /// cannot see is not listed. The Charter is every member rung's to read whole on the platform; the public's only
-        /// on a world open to anyone. A superseded Charter or Guide is never in the packet.
+        /// <b>As served.</b> The Guide and the Domains are read from the body the reader is served: a Domain known only as
+        /// a stub is its name and served sentence with no hubs, a hidden one is not there and nothing marks the gap, and a
+        /// hub the reader cannot see is not listed. The Charter is every member rung's to read whole on the platform, the
+        /// public's only on a world open to anyone, so its name, rules and skill text are read from its body whole, a stub
+        /// the reader holds or not; a skill id matches an Object the reader sees whatever the case of either id. A
+        /// superseded Charter or Guide is never in the packet.
         /// </para>
         /// </remarks>
         public static OWReadingAids CharterOf(IEnumerable<JToken> world, OWLensReader reader, bool open = false,
@@ -238,12 +240,15 @@ namespace OnlyWorlds.Sdk
             var law = Newest(view, Seen("charter"));
             if (law != null)
             {
-                var body = view.Served(law);
+                // Read whole, as keel reads its row: the Charter is every member rung's to read whole, so a reader that
+                // holds it as a stub still gets its rules and skill text.
+                var body = view.Els[law];
                 var rules = body[RulesField];
-                var skill = IdsIn(StringOf(body["description"]))
-                    .Where(i => view.Els.ContainsKey(i) && view.Sees(i) && view.TypeOf(i) == "object")
-                    .Take(SkillMax)
-                    .ToList();
+                // Case never matters in an id, as keel compares UUIDs: both sides lowercase.
+                var objects = new HashSet<string>(view.Order
+                    .Where(i => view.Sees(i) && view.TypeOf(i) == "object")
+                    .Select(i => i.ToLowerInvariant()));
+                var skill = IdsIn(StringOf(body["description"])).Where(objects.Contains).Take(SkillMax).ToList();
                 charter = new OWReadingAidsCharter(law, NameOf(body),
                     rules == null || rules.Type == JTokenType.Null ? new JArray() : rules.DeepClone(), skill);
             }

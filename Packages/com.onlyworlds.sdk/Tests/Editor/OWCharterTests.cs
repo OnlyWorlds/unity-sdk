@@ -190,12 +190,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         /// <summary>
-        /// A Charter the reader holds only as a stub is read as the stub serves it: its name and its description (so its
-        /// skill), and no extension field, so no rules. The fixture's note on a stub's standing; no fixture case holds a stub
-        /// Charter, since the platform serves the Charter whole to every member rung.
+        /// A Charter the reader holds only as a stub is still read whole, as keel reads its row: its name, its rules and its
+        /// skill text are the Charter's own, since the Charter is every member rung's to read whole. No fixture case holds a
+        /// stub Charter. Kills: rules read from the stub, which serves no extension field.
         /// </summary>
         [Test]
-        public void AStubCharter_IsReadAsTheStubServesIt()
+        public void AStubCharter_IsReadWhole()
         {
             const string world = "019a7f00-0000-7000-8000-00000000f1aa";
             var elements = new List<JObject>
@@ -210,8 +210,28 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var charter = OWCharter.CharterOf(elements, guest).Charter;
             Assert.IsNotNull(charter, "a stub of a marked Charter is still the Charter, by its owner's body");
             Assert.AreEqual("Rules", charter.Name);
-            Assert.AreEqual("[]", charter.Rules.ToString(Formatting.None), "a stub serves no x_checks_rules");
+            Assert.AreEqual(@"[{""rule"":""r""}]", charter.Rules.ToString(Formatting.None), "the Charter's own rules, not the stub's none");
             CollectionAssert.AreEqual(new[] { "019a7f00-0000-7000-8000-0000000002a1" }, charter.Skill);
+        }
+
+        /// <summary>
+        /// A skill id's case never matters, as keel compares UUIDs: an Object stored with an uppercase id is named by the
+        /// Charter's lowercase text, and the skill lists the id lowercase. Kills: the text's id matched against the id as
+        /// stored.
+        /// </summary>
+        [Test]
+        public void ASkillId_MatchesWhateverItsCase()
+        {
+            var elements = new List<JObject>
+            {
+                JObject.Parse(@"{""id"":""019a7f00-0000-7000-8000-0000000002b0"",""type"":""law"",""name"":""Rules"",
+                    ""supertype"":""Charter"",""x_charter_of"":""w"",
+                    ""description"":""Read ow://object/019a7f00-0000-7000-8000-0000000002bf and 019A7F00-0000-7000-8000-0000000002BE.""}"),
+                JObject.Parse(@"{""id"":""019A7F00-0000-7000-8000-0000000002BF"",""type"":""object"",""name"":""Upper""}"),
+                JObject.Parse(@"{""id"":""019a7f00-0000-7000-8000-0000000002be"",""type"":""object"",""name"":""Lower""}"),
+            };
+            CollectionAssert.AreEqual(new[] { "019a7f00-0000-7000-8000-0000000002bf", "019a7f00-0000-7000-8000-0000000002be" },
+                OWCharter.CharterOf(elements, OWLensReader.Owner()).Charter.Skill);
         }
 
         /// <summary>

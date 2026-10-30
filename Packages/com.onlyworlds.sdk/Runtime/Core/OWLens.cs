@@ -941,8 +941,11 @@ namespace OnlyWorlds.Sdk
             var view = reading.View;
             var me = view.Character;
             var members = reading.Members;
-            var messages = view.WholeSorted.Where(i => OWMessage.IsMessage(view.Els[i])).Select(view.Served).ToList();
-            var relations = view.WholeSorted.Where(i => view.TypeOf(i) == "relation").Select(view.Served).ToList();
+            // In the order of the world's list, never by id: two messages with one created_at keep it, as the message
+            // profile rules (the lens profile's owner, ahead of its next serial).
+            var whole = view.Order.Where(view.Whole.Contains).ToList();
+            var messages = whole.Where(i => OWMessage.IsMessage(view.Els[i])).Select(view.Served).ToList();
+            var relations = whole.Where(i => view.TypeOf(i) == "relation").Select(view.Served).ToList();
             var unread = new HashSet<string>();
             var own = new HashSet<string>();
             var mine = new List<JObject>();
@@ -1097,8 +1100,6 @@ namespace OnlyWorlds.Sdk
                     else if (knownOf) KnownOf.Add(id);
                 }
 
-                // By id by code point: the mail part reads its messages in this order, so two with one created_at order by
-                // id as keel orders them (the profile's ruling 11).
                 WholeSorted = Whole.OrderBy(i => i, CodePointOrder).ToList();
                 foreach (var id in Order)
                 {
@@ -1151,9 +1152,9 @@ namespace OnlyWorlds.Sdk
 
             /// <summary>
             /// Every id the element's own body links to, in the schema's field order (each field's list in order). A link
-            /// reaches only an element of its field's target type, and the generic pair only when its <c>element_type</c>,
-            /// folded, names the type of one of the 22 (the profile's rulings 1 and 2, keel's reading): a wrongly typed id,
-            /// or one no element holds, is no link.
+            /// reaches only an element of its field's target type, and the generic pair only when its <c>element_type</c>
+            /// is one of the 22 slugs as stored (<see cref="PairType"/>; the profile's rulings 1 and 2, keel's reading): a
+            /// wrongly typed id, or one no element holds, is no link.
             /// </summary>
             public List<string> LinksOf(string i)
             {
@@ -1165,7 +1166,7 @@ namespace OnlyWorlds.Sdk
                 {
                     var value = body[field];
                     var target = field == GenericId && HasGenericPair(type)
-                        ? OWProfileText.Fold(StringOf(body[GenericType]) ?? "")
+                        ? PairType(body)
                         : OWElementTypes.LinkTarget(type, field);
                     bool Reaches(string id) => !string.IsNullOrEmpty(id) && Els.ContainsKey(id) && TypeOf(id) == target;
                     if (many)
@@ -1253,8 +1254,9 @@ namespace OnlyWorlds.Sdk
             /// A body's trim for a reader that is not the owner, in place. Every link to an id outside the reader's
             /// <see cref="Scoped"/>, or to an element that is not the field's target type
             /// (<see cref="OWElementTypes.LinkTarget"/>), is left out (a single link null, a list without the id, its
-            /// order kept); a generic pair whose target is out of it or not of its <c>element_type</c> reads <c>""</c> and
-            /// null, an unset pair; a lens's <c>x_lens.notes</c> keeps the notes on its served anchors and on other ids in
+            /// order kept); a generic pair whose target is out of it or not of its <c>element_type</c>, or whose
+            /// <c>element_type</c> is no slug as stored (<see cref="PairType"/>), reads <c>""</c> and null, an unset pair; a
+            /// lens's <c>x_lens.notes</c> keeps the notes on its served anchors and on other ids in
             /// it (an anchor's note goes with the anchor).
             /// Below co-builder and never on the public rung, <c>x_served_trimmed</c> names what the trim changed the
             /// meaning of, names only: a Message's <c>characters</c> and <c>narrator</c>, a lens's anchor fields and,
@@ -1265,8 +1267,8 @@ namespace OnlyWorlds.Sdk
                 var pair = HasGenericPair(type);
                 if (pair && StringOf(body[GenericId]) is string target && target.Length > 0)
                 {
-                    var of = StringOf(body[GenericType]);
-                    if (of == null || !ServedAs(target, OWProfileText.Fold(of)))
+                    var of = PairType(body);
+                    if (of == null || !ServedAs(target, of))
                     {
                         if (body.ContainsKey(GenericType)) body[GenericType] = "";
                         body[GenericId] = JValue.CreateNull();
@@ -1464,6 +1466,14 @@ namespace OnlyWorlds.Sdk
         /// <summary>True when the type carries the generic pair: <c>element_type</c> among its generated fields.</summary>
         private static bool HasGenericPair(string type) =>
             type != null && OWElementTypes.FieldNames.TryGetValue(type, out var names) && Array.IndexOf(names, GenericType) >= 0;
+
+        /// <summary>
+        /// The type a body's generic pair names: its <c>element_type</c> when that is one of the 22 slugs exactly as stored,
+        /// nothing trimmed or folded (keel's <c>et in _TYPES</c>; the profile's owner, ahead of its next serial); null
+        /// otherwise, so a stored <c>"Character"</c> or <c>" character "</c> names no type and links nothing.
+        /// </summary>
+        private static string PairType(JObject body) =>
+            StringOf(body[GenericType]) is string type && Array.IndexOf(OWElementTypes.Slugs, type) >= 0 ? type : null;
 
         private static Dictionary<string, (string field, bool many)[]> BuildLinkTable()
         {

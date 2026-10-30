@@ -10,13 +10,15 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 - `OWLens.Resolve` (and `OWGraph.Read` with a lens) follows the lens profile owner's rulings on readings no fixture
   case decided yet, ahead of the fixture's next serial, which carries a case for each: a link reaches only an element
-  of its field's target type, and a Pin's `element_type`/`element_id` pair only when its type names one of the 22
-  (rulings 1, 2); an anchor id no element of its field's type holds, a lens's own id under another type's field among
-  them, is counted for the owner as `anchor_not_visible`, never skipped (3); a known-of stub keeps the base fields
-  (`change_seq` too) and its type's public fields, a public link as the reader is served it, every other field at its
-  unset value and no extension key (7); the mail part orders two messages with one `created_at` by id by code point
-  (11); a whole float in an `x_lens` key reads whole (`depth: 2.0` is 2), and only a fraction is refused (13). The
-  fixture's `keys-an-integral-float-is-refused-where-the-text-shows` still passes (7.0 is past `depth`'s table) and is
+  of its field's target type, and a Pin's `element_type`/`element_id` pair only when its type is one of the 22 slugs
+  exactly as stored, nothing trimmed or folded, so a stored `"Character"` links nothing and is served to a reader below
+  the owner as an unset pair (rulings 1, 2); an anchor id no element of its field's type holds, a lens's own id under
+  another type's field among them, is counted for the owner as `anchor_not_visible`, never skipped (3); a known-of
+  stub keeps the base fields (`change_seq` too) and its type's public fields, a public link as the reader is served
+  it, every other field at its unset value and no extension key (7); the mail part keeps two messages with one
+  `created_at` in the order of the world's list, as the message profile rules, never by id (11, as the owner
+  reversed it); a whole float in an `x_lens` key reads whole (`depth: 2.0` is 2), and only a fraction is refused
+  (13). The fixture's `keys-an-integral-float-is-refused-where-the-text-shows` still passes (7.0 is past `depth`'s table) and is
   expected to be replaced at that serial. Rulings 4 and 5 (an umbrella's hop keeps a child it reaches before entering
   it; a cut lens id stays counted) were already this reader's. Each change is held by a test named for its ruling.
 - `OWGraph.Read` follows the owner's rulings on the graph section's silences, ahead of the same serial: a Pin's
@@ -24,7 +26,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   (`OWGraphNode.Name` stays the string, or null) (G3); `OWGraphNode.Type` is as stored, never folded (G4); an edge's
   `Index` is the target's place in the link list as served to that reader, so a contributor's counts a link to a
   proposed element (G5). An edge to an anchor the reader cannot see already carried the lens's `anchor_not_visible`
-  (G1).
+  (G1). Ruling 1 reaches the edge list too: a schema link to an element of another type than its field's target (a
+  Character's `friends` naming a Location) names nothing, a dangling link, neither an edge nor counted in `EdgesCut`.
+- `OWCharter.CharterOf` reads the Charter's name, rules and skill text from its body whole, as the platform does, so a
+  reader holding the Charter only as a known-of stub still gets its rules; and a skill id matches an Object whatever
+  the case of either id, as the platform compares UUIDs (an Object stored with an uppercase id was dropped).
 - Schema pin to `v0.33.0-dist.92`: a Zone leaves map space in the lens profile's graph. Zones are nodes by default,
   for a public reader too; Map, Pin and Marker stay out until `MapSpace` (`OWGraph.MapSpaceTypes`). The lens fixture
   in `Tests/Editor/Fixtures/lens/` moves from dist.88 to dist.92 byte for byte with it; seven of its graph cases were red
