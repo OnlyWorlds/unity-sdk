@@ -82,6 +82,11 @@ namespace OnlyWorlds.Sdk
             {
                 uwr.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(request.Body));
             }
+            else if (request.BodyBytes != null)
+            {
+                // An upload's bytes, sent as given (the media host's two-step calls).
+                uwr.uploadHandler = new UploadHandlerRaw(request.BodyBytes);
+            }
 
             if (request.Headers != null)
             {

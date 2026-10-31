@@ -89,8 +89,48 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   `Idempotency-Key` (keel takes none: a lost answer is mended with a rekey); any other key, and a seat with no name,
   is refused before sending. Mirrors the TypeScript SDK's `createSeat()`, `listSeats()`, `removeSeat()` (4.28.0) and
   `rekeySeat()` (4.29.0).
+- Images, in two steps: a ticket from keel, then one POST to the upload host the ticket names, with the ticket alone
+  as its Bearer. `OWClient.CreateMediaTicketAsync()` (POST /media/ticket, no body) answers an `OWMediaTicket`
+  (`Ticket`, `UploadUrl`, `Prefix`, `MaxBytes`, `Exp`, `Uses`, `IssuedTo`); `UploadImageAsync(bytes, key, ticket)` asks
+  for one (or uses the one given) and POSTs the raw bytes to its `UploadUrl` with `X-Key` when a key is given,
+  answering the host's `OWUploadedImage` (`Url`, the permanent public URL to set as `image_url`, `Key`, `Bytes`,
+  `Type`, `Etag`). `CreateRemovalTicketAsync(keyOrUrl)` (POST /media/remove-ticket `{key}`, a whole `image_url` cut to
+  its key) answers an `OWRemovalTicket` (`Ticket`, `RemoveUrl`, `Exp`, `Key`, `Referenced`), and
+  `RemoveImageAsync(keyOrUrl, ticket)` spends one at its `RemoveUrl`, answering `OWRemovedImage` (`Removed`, `Bytes`,
+  `Cache`). keel's requests go with the key and its PIN and no write header (keel's document lists none there); the
+  host's carry the ticket and nothing of this client's: no key, PIN, Bearer token, write header or Content-Type.
+  Bytes past the ticket's `MaxBytes` are a 413 `too_large` before any is sent; the host's refusals arrive as
+  `OWApiError` with its code (`ticket_used`, `exists`, `unsupported_type`, `not_removable`, ...); a host that does not
+  answer is an `OWTransportError` naming its host, never the ticket. A null image, an empty key and a ticket with no
+  ticket or no absolute http(s) URL are refused before sending. Mirrors the TypeScript SDK's `createMediaTicket()`,
+  `uploadImage()` (4.6.0), `createRemovalTicket()` and `removeImage()` (4.8.0).
+- Files on elements: `OWClient.ListFilesAsync(type, id)` (GET /{type}/{id}/files), the element's files newest first
+  as `OWFileRow`s (`Id`, `Name`, `Kind`, `Size`, `Label`, `AddedBy` with `Name`, `Membership` and `Agent`, `AddedAt`);
+  `WorldFilesAsync()` (GET /world/files), every file the key may see as `OWWorldFileRow`s (the row and its
+  `ElementType` and `ElementId`) with the world's `UsedBytes` of `CapBytes`; `CreateFileTicketAsync(type, id, name,
+  size, kind, label)` (POST /{type}/{id}/files `{name, kind, size, label?}`), an `OWFileTicket` (the image ticket's
+  shape, with its `Key`, `Kind` and `FileId`); `UploadFileAsync(type, id, bytes, name, kind, label, ticket, onProgress)`,
+  the ticket (with the bytes' length as its size) and then the raw bytes to its `UploadUrl` with the ticket alone,
+  answering the host's `OWUploadedFile` (`Key`, `Fid`, `Bytes`, `Type`, `Etag`); `FileDownloadLinkAsync(type, id,
+  fileId)` (GET …/files/{file_id}/download), an `OWFileDownload` whose `Url` is the credential until `Exp`; and
+  `RemoveFileAsync(type, id, fileId)` (DELETE …/files/{file_id}), a 204. The element's and the file's ids are
+  escaped. The ticket carries the PIN, no `Idempotency-Key` (keel's rule) and no `X-OW-Client`, and on an agent client
+  `X-OW-Agent`, the one files route keel's document lists it on; the other files routes and the upload host get no
+  write header. The kind is read from the name as keel reads it (`OWFileKinds.Of`, over `OWFileKinds.Extensions`:
+  `.yml` is yaml, `.markdown` md, case and folders ignored), and a name keel takes no file with, or none, is an
+  `ArgumentException` naming the extensions, before sending. `onProgress` is called once, with the total, when the
+  host has stored the file. `OWApiError.IsFileTooLarge` (413 `file_too_large`), `IsFilesFull` (403 `files_full`) and
+  `IsQuotaExceeded` (429 `quota_exceeded`) are new. Mirrors the TypeScript SDK's `listFiles()`, `worldFiles()`,
+  `createFileTicket()`, `uploadFile()`, `fileDownloadLink()` and `removeFile()` (4.32.0; `X-OW-Agent` on the ticket
+  from 4.33.1), and its `FILE_EXTENSIONS` and `fileKindOf` (4.33.0).
 
 ### Changed
+
+- `OWRequest.BodyBytes`: a request may carry raw bytes instead of a JSON `Body`, set only on an upload to the media
+  host. `UnityWebRequestTransport` sends them as the body; a transport of your own must too, or an upload goes out
+  empty. The JSON path is unchanged.
+- An error answer whose `error` is a string (`{"error": "ticket_used"}`, the upload host's shape) reads the string as
+  `OWApiError.Code`, as the TypeScript SDK's `parseErrorEnvelope` does; keel's envelope reads as before.
 
 - Schema pin to `v0.33.0-dist.99`: the strand profile's mark relaxed (only the story's id required; the event and
   the place null or absent read as unset, any other value there no mark) and its readings for a non-list multi-link,

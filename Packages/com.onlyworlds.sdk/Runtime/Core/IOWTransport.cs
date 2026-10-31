@@ -13,6 +13,13 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Serialized JSON body, or null for a bodiless request.</summary>
         public string Body;
+
+        /// <summary>
+        /// Raw bytes to send as the body, or null: only an upload to the media host (an image or a file, after its
+        /// ticket), never with <see cref="Body"/>. The client sets no Content-Type for them: the host reads the type from
+        /// the bytes.
+        /// </summary>
+        public byte[] BodyBytes;
     }
 
     /// <summary>What came back.</summary>

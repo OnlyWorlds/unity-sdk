@@ -881,6 +881,418 @@ namespace OnlyWorlds.Sdk
                 ?? new List<OWHiddenRow>();
         }
 
+        // -- Images --------------------------------------------------------------
+        //
+        // Two steps: a ticket from keel, then one POST to the upload host the ticket names, carrying the ticket alone as its
+        // Bearer. The key, the PIN and this client's write headers never leave for that host, and keel never sees the
+        // bytes. keel's document names the host only in the tickets' own words (send the ticket to upload_url, to
+        // remove_url as Authorization: Bearer); the host's answers are typed from the TypeScript SDK. Mirrors the TypeScript
+        // SDK's createMediaTicket, uploadImage (4.6.0), createRemovalTicket and removeImage (4.8.0).
+
+        /// <summary>
+        /// POST /media/ticket -- permission to upload one image into this world: short-lived
+        /// (<see cref="OWMediaTicket.Exp"/>), single-use, and counted toward the world's daily limit.
+        /// <see cref="UploadImageAsync"/> asks for one itself; ask here to send the bytes yourself (for a progress bar,
+        /// say): POST them to <see cref="OWMediaTicket.UploadUrl"/> with <c>Authorization: Bearer &lt;ticket&gt;</c>.
+        /// </summary>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="OWApiError">
+        /// keel refused: 403 <c>storage_full</c> (the account's image storage is used up), 429 <c>quota_exceeded</c> (the
+        /// world's daily limit, with <see cref="OWApiError.RetryAfter"/>) or <c>rate_limited</c> (wrong PINs), 503
+        /// <c>media_unavailable</c>.
+        /// </exception>
+        /// <remarks>
+        /// A write key with its PIN, and no body. No <c>X-OW-Agent</c> or <c>X-OW-Client</c>, which keel's document does
+        /// not list here. An account token or a keyless client is refused, and nothing is sent. The ticket is a credential:
+        /// keep it out of logs. Mirrors the TypeScript SDK's <c>createMediaTicket</c> (4.6.0).
+        /// </remarks>
+        public Task<OWMediaTicket> CreateMediaTicketAsync(CancellationToken ct = default)
+            => RequestAsync<OWMediaTicket>("POST", "/media/ticket", ct: ct);
+
+        /// <summary>
+        /// Upload one image and get its permanent public URL: a ticket from keel (<see cref="CreateMediaTicketAsync"/>),
+        /// then the bytes straight to the upload host. Answers the host's 201; set its <see cref="OWUploadedImage.Url"/> as
+        /// an element's <c>image_url</c> yourself (<see cref="PatchAsync{T}"/>).
+        /// </summary>
+        /// <param name="image">The image's bytes: webp, png, jpeg or avif, read from the bytes (never SVG or gif).</param>
+        /// <param name="key">
+        /// The object key, sent as <c>X-Key</c>; it must start with the ticket's <see cref="OWMediaTicket.Prefix"/>. Null
+        /// or empty: the host picks one.
+        /// </param>
+        /// <param name="ticket">A ticket from <see cref="CreateMediaTicketAsync"/> to use instead of asking keel for one.</param>
+        /// <param name="ct">Cancels the requests.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="image"/> is null; nothing was sent.</exception>
+        /// <exception cref="ArgumentException">
+        /// The ticket has no ticket, or no absolute http(s) <c>upload_url</c>; nothing was sent to the host.
+        /// </exception>
+        /// <exception cref="OWApiError">
+        /// An image larger than the ticket's <see cref="OWMediaTicket.MaxBytes"/> is a 413 <c>too_large</c> before any
+        /// byte is sent. keel's refusals are <see cref="CreateMediaTicketAsync"/>'s; the host's arrive with its code: 401
+        /// <c>ticket_expired</c>, <c>ticket_used</c> or <c>ticket_invalid</c>, 400 <c>bad_key</c>, 409 <c>exists</c>, 413
+        /// <c>too_large</c>, 415 <c>unsupported_type</c>, 502 <c>write_failed</c> (nothing stored; the ticket is still
+        /// unspent). A ticket is spent once the upload succeeds: a retry needs a new one.
+        /// </exception>
+        /// <exception cref="OWTransportError">The host did not answer; the message names its host, never the ticket.</exception>
+        /// <remarks>
+        /// The host's request is a POST of the raw bytes with <c>Authorization: Bearer &lt;ticket&gt;</c> and <c>X-Key</c>
+        /// when given, and nothing else of this client's: no key, PIN or write header, and no Content-Type (the host reads
+        /// the type from the bytes). Mirrors the TypeScript SDK's <c>uploadImage</c> (4.6.0).
+        /// </remarks>
+        public async Task<OWUploadedImage> UploadImageAsync(
+            byte[] image, string key = null, OWMediaTicket ticket = null, CancellationToken ct = default)
+        {
+            if (image == null) throw new ArgumentNullException(nameof(image), "UploadImageAsync: the image's bytes. Nothing was sent.");
+
+            ticket = ticket ?? await CreateMediaTicketAsync(ct).ConfigureAwait(false);
+            RequireHost(nameof(UploadImageAsync), ticket?.Ticket, ticket?.UploadUrl, "upload_url");
+            RefuseOverMax("Image", image.Length, ticket.MaxBytes);
+
+            var headers = new Dictionary<string, string>();
+            if (!string.IsNullOrEmpty(key)) headers["X-Key"] = key;
+
+            return await SendToHostAsync<OWUploadedImage>("image upload", ticket.UploadUrl, ticket.Ticket, image, headers, ct)
+                .ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// POST /media/remove-ticket -- permission to remove one uploaded image. The image's uploader may remove it, and so
+        /// may the world's owner key; an agent seat answers as its sponsor. Only images uploaded with a ticket qualify.
+        /// <see cref="OWRemovalTicket.Referenced"/> counts the world's elements still showing the image.
+        /// </summary>
+        /// <param name="keyOrUrl">The object key, or the whole <c>image_url</c> (its path after the host is taken, unescaped).</param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="ArgumentException"><paramref name="keyOrUrl"/> is null or empty; nothing was sent.</exception>
+        /// <exception cref="OWApiError">
+        /// keel refused: 403 <c>permission_error</c> (neither uploader nor owner), 404 <c>not_found</c> (no removable image
+        /// under this key), 409 <c>removal_in_flight</c> (a ticket for this image is already out) or <c>upload_pending</c>
+        /// (an upload is not yet recorded), both with <see cref="OWApiError.RetryAfter"/>.
+        /// </exception>
+        /// <remarks>
+        /// A write key with its PIN; the body is <c>{"key"}</c>. No <c>X-OW-Agent</c> or <c>X-OW-Client</c>, which keel's
+        /// document does not list here. Mirrors the TypeScript SDK's <c>createRemovalTicket</c> (4.8.0).
+        /// </remarks>
+        public Task<OWRemovalTicket> CreateRemovalTicketAsync(string keyOrUrl, CancellationToken ct = default)
+        {
+            if (string.IsNullOrEmpty(keyOrUrl))
+            {
+                throw new ArgumentException(
+                    "CreateRemovalTicketAsync: the image's object key or its image_url is required. Nothing was sent.",
+                    nameof(keyOrUrl));
+            }
+
+            return RequestAsync<OWRemovalTicket>("POST", "/media/remove-ticket",
+                body: new JObject { ["key"] = ObjectKey(keyOrUrl) }, ct: ct);
+        }
+
+        /// <summary>
+        /// Remove one uploaded image: a removal ticket from keel (<see cref="CreateRemovalTicketAsync"/>), then the removal
+        /// at the upload host. The bytes go back to the uploading account's storage. Answers the host's 200.
+        /// </summary>
+        /// <param name="keyOrUrl">The object key, or the whole <c>image_url</c>. Not read when a ticket is given.</param>
+        /// <param name="ticket">A ticket from <see cref="CreateRemovalTicketAsync"/> to use instead of asking keel for one.</param>
+        /// <param name="ct">Cancels the requests.</param>
+        /// <exception cref="ArgumentException">
+        /// No ticket and no key; or the ticket has no ticket, or no absolute http(s) <c>remove_url</c>. Nothing was sent to
+        /// the host.
+        /// </exception>
+        /// <exception cref="OWApiError">
+        /// keel's refusals are <see cref="CreateRemovalTicketAsync"/>'s; the host's arrive with its code: 401
+        /// <c>ticket_expired</c>, <c>ticket_used</c> or <c>ticket_invalid</c>, 403 <c>not_removable</c>, 502
+        /// <c>remove_failed</c> (nothing removed; the ticket is still unspent).
+        /// </exception>
+        /// <exception cref="OWTransportError">The host did not answer; the message names its host, never the ticket.</exception>
+        /// <remarks>
+        /// Removal does not touch elements: clear or replace their <c>image_url</c> yourself. A copy already cached by the
+        /// network or a browser can keep answering for a while (<see cref="OWRemovedImage.Cache"/> <c>may_linger</c>). The
+        /// host's request is a POST with <c>Authorization: Bearer &lt;ticket&gt;</c> alone and no body. Mirrors the
+        /// TypeScript SDK's <c>removeImage</c> (4.8.0).
+        /// </remarks>
+        public async Task<OWRemovedImage> RemoveImageAsync(string keyOrUrl, OWRemovalTicket ticket = null, CancellationToken ct = default)
+        {
+            ticket = ticket ?? await CreateRemovalTicketAsync(keyOrUrl, ct).ConfigureAwait(false);
+            RequireHost(nameof(RemoveImageAsync), ticket?.Ticket, ticket?.RemoveUrl, "remove_url");
+
+            return await SendToHostAsync<OWRemovedImage>("image removal", ticket.RemoveUrl, ticket.Ticket, null, null, ct)
+                .ConfigureAwait(false);
+        }
+
+        /// <summary>An image's object key: as given, or the path of a whole image_url without its leading slashes, unescaped.</summary>
+        private static string ObjectKey(string keyOrUrl)
+        {
+            var url = keyOrUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+                || keyOrUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
+
+            return url ? Uri.UnescapeDataString(new Uri(keyOrUrl).AbsolutePath.TrimStart('/')) : keyOrUrl;
+        }
+
+        /// <summary>
+        /// A ticket with somewhere to go: its secret, and an absolute http(s) URL on the upload host. Anything else is an
+        /// <see cref="ArgumentException"/>, and nothing goes to the host; the message names neither the ticket nor the URL.
+        /// </summary>
+        private static void RequireHost(string method, string ticket, string url, string urlKey)
+        {
+            if (!string.IsNullOrEmpty(ticket) && Uri.TryCreate(url, UriKind.Absolute, out var uri)
+                && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp))
+            {
+                return;
+            }
+
+            throw new ArgumentException(
+                $"{method}: the ticket needs its ticket and an absolute http(s) {urlKey}, the upload host's. Nothing was sent "
+                + "to the host.", "ticket");
+        }
+
+        /// <summary>
+        /// Bytes past a ticket's <c>max_bytes</c>: a 413 <c>too_large</c> before any byte is sent, as the host would answer,
+        /// with the TypeScript SDK's body.
+        /// </summary>
+        private static void RefuseOverMax(string what, long size, long max)
+        {
+            if (size <= max) return;
+
+            var body = new JObject { ["error"] = "too_large", ["max_bytes"] = max, ["got"] = size };
+            throw new OWApiError((HttpStatusCode)413,
+                $"{what} is {size} bytes; this ticket accepts at most {max}. Nothing was sent.",
+                code: "too_large", rawBody: body.ToString(Newtonsoft.Json.Formatting.None));
+        }
+
+        /// <summary>
+        /// The second step of a ticketed call: one POST to the upload host the ticket names, with the ticket as its Bearer
+        /// and nothing of this client's (no key, PIN, Bearer token or write header), the bytes when there are any. Not a
+        /// keel request, so none of <see cref="RequestWithResponseAsync{T}"/>'s rules apply. The host's refusal is an
+        /// <see cref="OWApiError"/> with its code (<see cref="BuildError"/> reads its <c>{"error": "code"}</c>); no answer
+        /// is an <see cref="OWTransportError"/> naming the host, never the ticket.
+        /// </summary>
+        private async Task<T> SendToHostAsync<T>(
+            string what, string url, string ticket, byte[] bytes, Dictionary<string, string> headers, CancellationToken ct)
+        {
+            headers = headers ?? new Dictionary<string, string>();
+            headers["Authorization"] = "Bearer " + ticket;
+
+            var request = new OWRequest { Method = "POST", Url = url, Headers = headers, BodyBytes = bytes };
+
+            OWResponse response;
+            try
+            {
+                response = await _transport.SendAsync(request, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception e)
+            {
+                throw new OWTransportError($"OnlyWorlds {what} failed: POST to {new Uri(url).Host} got no answer", e);
+            }
+
+            if (!response.IsSuccess) throw BuildError(response);
+
+            return OWJson.Deserialize<T>(response.Body);
+        }
+
+        // -- Files on elements -------------------------------------------------------
+        //
+        // A file is seen by whoever may see its element, and never rides on the element: it is not in its body, its
+        // change_seq or /changes. An upload is the image's two steps: a ticket from keel, then the raw bytes to the upload
+        // host with the ticket alone. Mirrors the TypeScript SDK's listFiles, worldFiles, createFileTicket, uploadFile,
+        // fileDownloadLink and removeFile (4.32.0).
+
+        /// <summary>
+        /// GET /{type}/{id}/files -- the element's files, newest first, the rows of keel's <c>{data}</c> (no paging): each
+        /// with its name, kind, size in bytes, label (or null), who added it (<see cref="OWFileAddedBy.Agent"/> true when an
+        /// agent did) and when.
+        /// </summary>
+        /// <param name="type">The element's type, as the routes spell it (<c>location</c>).</param>
+        /// <param name="id">The element's id. Escaped.</param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="OWApiError">An element this key cannot see is a 404 <c>not_found</c>.</exception>
+        /// <remarks>Any key that may read the element; a read, with no PIN. Mirrors the TypeScript SDK's <c>listFiles</c> (4.32.0).</remarks>
+        public async Task<List<OWFileRow>> ListFilesAsync(string type, string id, CancellationToken ct = default)
+        {
+            var page = await RequestAsync<JObject>("GET", FilesPath(type, id), ct: ct).ConfigureAwait(false);
+            return RowsOf<OWFileRow>(page);
+        }
+
+        /// <summary>
+        /// GET /world/files -- every file in the world this key may see, newest first, each with its element's
+        /// <see cref="OWWorldFileRow.ElementType"/> and <see cref="OWWorldFileRow.ElementId"/>; and the world's total,
+        /// <see cref="OWWorldFiles.UsedBytes"/> of <see cref="OWWorldFiles.CapBytes"/> (for a line like "41 MB of 250 MB").
+        /// <c>UsedBytes</c> counts all the world's files, also those on elements this key cannot see.
+        /// </summary>
+        /// <param name="ct">Cancels the request.</param>
+        /// <remarks>Any key; a read, with no PIN. Mirrors the TypeScript SDK's <c>worldFiles</c> (4.32.0).</remarks>
+        public Task<OWWorldFiles> WorldFilesAsync(CancellationToken ct = default)
+            => RequestAsync<OWWorldFiles>("GET", "/world/files", ct: ct);
+
+        /// <summary>
+        /// POST /{type}/{id}/files -- permission to upload one file onto this element: short-lived
+        /// (<see cref="OWFileTicket.Exp"/>, 10 minutes) and single-use. <see cref="UploadFileAsync"/> asks for one itself;
+        /// ask here to send the bytes yourself: POST them, raw, to <see cref="OWFileTicket.UploadUrl"/> with
+        /// <c>Authorization: Bearer &lt;ticket&gt;</c>.
+        /// </summary>
+        /// <param name="type">The element's type.</param>
+        /// <param name="id">The element's id. Escaped.</param>
+        /// <param name="name">The file's name with its extension, sent as given (keel cleans it).</param>
+        /// <param name="size">The file's size in bytes.</param>
+        /// <param name="kind">
+        /// The file's kind, sent as given; null reads it from <paramref name="name"/>'s extension
+        /// (<see cref="OWFileKinds.Of"/>).
+        /// </param>
+        /// <param name="label">
+        /// A field of the element's type the file belongs to, or your own words (at most 80 characters); null sends none.
+        /// </param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="ArgumentException">
+        /// No name, or a name whose extension keel takes no file with and no <paramref name="kind"/>; the message names the
+        /// extensions it takes. Nothing was sent.
+        /// </exception>
+        /// <exception cref="OWApiError">
+        /// keel refused: 413 <c>file_too_large</c> (<see cref="OWApiError.IsFileTooLarge"/>, over 25 MB, param
+        /// <c>size</c>); 403 <c>files_full</c> (<see cref="OWApiError.IsFilesFull"/>, the world's 250 MB has no room for
+        /// it) or <c>not_author</c> (a contributor's key on an element someone else made); 422 <c>invalid_request</c>
+        /// (param <c>kind</c>, <c>name</c>, <c>size</c> or <c>label</c>); 429 <c>quota_exceeded</c>
+        /// (<see cref="OWApiError.IsQuotaExceeded"/>, the world's 200 tickets a day) or <c>rate_limited</c> (wrong PINs),
+        /// both with <see cref="OWApiError.RetryAfter"/>; 503 <c>media_unavailable</c>.
+        /// </exception>
+        /// <remarks>
+        /// A write key that may change the element, with its PIN. The body is <c>{name, kind, size}</c> and
+        /// <c>label</c> when given. An agent client sends <c>X-OW-Agent</c> here, the one files route keel's document lists
+        /// it on, so the file reads <see cref="OWFileAddedBy.Agent"/> true; no <c>X-OW-Client</c>, which keel does not read
+        /// here, and no <c>Idempotency-Key</c>, by keel's rule: the single-use ticket is the idempotency, and a second
+        /// call is a second ticket. The ticket is a credential: keep it out of logs. Mirrors the TypeScript SDK's
+        /// <c>createFileTicket</c> (4.32.0; <c>X-OW-Agent</c> from 4.33.1).
+        /// </remarks>
+        public Task<OWFileTicket> CreateFileTicketAsync(
+            string type, string id, string name, long size, string kind = null, string label = null,
+            CancellationToken ct = default)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                throw new ArgumentException(
+                    "CreateFileTicketAsync needs the file's name, with its extension. Nothing was sent.", nameof(name));
+            }
+
+            var body = new JObject { ["name"] = name, ["kind"] = kind ?? RequireFileKind(name), ["size"] = size };
+            if (label != null) body["label"] = label;
+
+            return RequestAsync<OWFileTicket>("POST", FilesPath(type, id), body: body, agentOnly: true, ct: ct);
+        }
+
+        /// <summary>
+        /// Attach one file to an element: a ticket from keel (<see cref="CreateFileTicketAsync"/>, with the bytes' length
+        /// as its size), then the bytes straight to the upload host. Answers the host's 201: <see cref="OWUploadedFile.Key"/>,
+        /// <see cref="OWUploadedFile.Fid"/> (the file's id), the bytes, the type and the ETag. The file appears in
+        /// <see cref="ListFilesAsync"/> once the host has reported it to keel, which can be a moment after this returns.
+        /// </summary>
+        /// <param name="type">The element's type.</param>
+        /// <param name="id">The element's id. Escaped.</param>
+        /// <param name="file">The file's bytes.</param>
+        /// <param name="name">The file's name with its extension; needed unless a ticket is given.</param>
+        /// <param name="kind">As <see cref="CreateFileTicketAsync"/>'s.</param>
+        /// <param name="label">As <see cref="CreateFileTicketAsync"/>'s.</param>
+        /// <param name="ticket">
+        /// A ticket from <see cref="CreateFileTicketAsync"/> to use instead of asking keel for one: then no name, kind or
+        /// label is read, since the ticket carries them.
+        /// </param>
+        /// <param name="onProgress">
+        /// Called once with (bytes sent, total), both the file's length, when the host has stored it; never on a failure.
+        /// The transport reports no progress of its own.
+        /// </param>
+        /// <param name="ct">Cancels the requests.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="file"/> is null; nothing was sent.</exception>
+        /// <exception cref="ArgumentException">
+        /// No ticket and no name, or a name <see cref="CreateFileTicketAsync"/> refuses; or a ticket with no ticket or no
+        /// absolute http(s) <c>upload_url</c>. Nothing was sent to the host.
+        /// </exception>
+        /// <exception cref="OWApiError">
+        /// A file larger than the ticket's <see cref="OWFileTicket.MaxBytes"/> is a 413 <c>too_large</c> before any byte is
+        /// sent. keel's refusals are <see cref="CreateFileTicketAsync"/>'s; the host's arrive with its code: 401
+        /// <c>ticket_expired</c>, <c>ticket_invalid</c> or <c>ticket_used</c>; 409 <c>exists</c> (an earlier send with this
+        /// ticket succeeded, so the file is there); 413 <c>too_large</c>; 415 <c>unsupported_type</c> (the bytes are not the
+        /// kind: a pdf must start as one, a text file must be UTF-8 with no NUL in its first 8 KB, a zip must be a world's
+        /// own bundle; nothing is stored and the ticket is still unspent); 502 <c>write_failed</c> (nothing stored; the
+        /// ticket is still unspent). A ticket is spent once the upload succeeds: another file needs a new one.
+        /// </exception>
+        /// <exception cref="OWTransportError">The host did not answer; the message names its host, never the ticket.</exception>
+        /// <remarks>
+        /// The host's request is a POST of the raw bytes with <c>Authorization: Bearer &lt;ticket&gt;</c> alone: no key,
+        /// PIN, write header or Content-Type. Mirrors the TypeScript SDK's <c>uploadFile</c> (4.32.0), as it runs without
+        /// XMLHttpRequest.
+        /// </remarks>
+        public async Task<OWUploadedFile> UploadFileAsync(
+            string type, string id, byte[] file, string name = null, string kind = null, string label = null,
+            OWFileTicket ticket = null, Action<long, long> onProgress = null, CancellationToken ct = default)
+        {
+            if (file == null) throw new ArgumentNullException(nameof(file), "UploadFileAsync: the file's bytes. Nothing was sent.");
+
+            if (ticket == null)
+            {
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    throw new ArgumentException(
+                        "UploadFileAsync needs the file's name, with its extension, or a ticket from CreateFileTicketAsync. "
+                        + "Nothing was sent.", nameof(name));
+                }
+
+                ticket = await CreateFileTicketAsync(type, id, name, file.Length, kind, label, ct).ConfigureAwait(false);
+            }
+
+            RequireHost(nameof(UploadFileAsync), ticket?.Ticket, ticket?.UploadUrl, "upload_url");
+            RefuseOverMax("File", file.Length, ticket.MaxBytes);
+
+            var stored = await SendToHostAsync<OWUploadedFile>("file upload", ticket.UploadUrl, ticket.Ticket, file, null, ct)
+                .ConfigureAwait(false);
+            onProgress?.Invoke(file.Length, file.Length);
+            return stored;
+        }
+
+        /// <summary>
+        /// GET /{type}/{id}/files/{file_id}/download -- a link to the file and when it stops working:
+        /// <see cref="OWFileDownload.Url"/> (the file as an attachment, from the download host),
+        /// <see cref="OWFileDownload.Exp"/> (unix seconds, 5 minutes after issue), and the file's name, kind and size.
+        /// </summary>
+        /// <param name="type">The element's type.</param>
+        /// <param name="id">The element's id. Escaped.</param>
+        /// <param name="fileId">The file's id (<see cref="OWFileRow.Id"/>). Escaped.</param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <remarks>
+        /// The link is the credential: anyone holding it can fetch the file until <c>Exp</c>, more than once. So ask for it
+        /// when the file is opened, use it at once, and never log, store or share it. Any key that may read the element;
+        /// a read, with no PIN. Mirrors the TypeScript SDK's <c>fileDownloadLink</c> (4.32.0).
+        /// </remarks>
+        public Task<OWFileDownload> FileDownloadLinkAsync(string type, string id, string fileId, CancellationToken ct = default)
+            => RequestAsync<OWFileDownload>("GET", $"{FilesPath(type, id)}/{Uri.EscapeDataString(fileId)}/download", ct: ct);
+
+        /// <summary>
+        /// DELETE /{type}/{id}/files/{file_id} -- remove a file for real: it leaves the lists and the world's total at once,
+        /// and its bytes are deleted from the store. Answers 204. Deleting an element removes its files too.
+        /// </summary>
+        /// <param name="type">The element's type.</param>
+        /// <param name="id">The element's id. Escaped.</param>
+        /// <param name="fileId">The file's id (<see cref="OWFileRow.Id"/>). Escaped.</param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="OWApiError">
+        /// Any key but the world's owner's and that of whoever added it (an agent seat answers as its sponsor) is a 403
+        /// <c>permission_error</c>; a file that is not there a 404 <c>not_found</c>.
+        /// </exception>
+        /// <remarks>With the PIN; no write header. Mirrors the TypeScript SDK's <c>removeFile</c> (4.32.0).</remarks>
+        public Task RemoveFileAsync(string type, string id, string fileId, CancellationToken ct = default)
+            => RequestAsync<object>("DELETE", $"{FilesPath(type, id)}/{Uri.EscapeDataString(fileId)}", allowEmpty: true, ct: ct);
+
+        private static string FilesPath(string type, string id) => $"/{type}/{Uri.EscapeDataString(id)}/files";
+
+        /// <summary><see cref="OWFileKinds.Of"/>, or an <see cref="ArgumentException"/> naming the extensions keel takes.</summary>
+        private static string RequireFileKind(string name)
+        {
+            var kind = OWFileKinds.Of(name);
+            if (kind != null) return kind;
+
+            var cut = name.LastIndexOfAny(new[] { '/', '\\' });
+            throw new ArgumentException(
+                $"Cannot tell the kind of \"{name.Substring(cut + 1)}\" from its name: a file on an element must end in one "
+                + $"of .{string.Join(" .", OWFileKinds.Extensions.Keys)} (or pass kind). Nothing was sent.", "name");
+        }
+
         // -- The proposed change -------------------------------------------------
         //
         // A proposal is a record kept beside an element, never in its body: the element does not change until the
@@ -1619,12 +2031,12 @@ namespace OnlyWorlds.Sdk
             string query = null, JObject body = null, string idempotencyKey = null,
             bool allowEmpty = false, bool write = false, CancellationToken ct = default, long? ifMatch = null,
             bool named = false, bool proposable = false, bool worldRead = false,
-            AccountTokenRoute accountToken = AccountTokenRoute.None, bool auth = true)
+            AccountTokenRoute accountToken = AccountTokenRoute.None, bool auth = true, bool agentOnly = false)
         {
             var result = await RequestWithResponseAsync<T>(
                 method, path, query, body, idempotencyKey, allowEmpty, write, ct,
                 ifMatch: ifMatch, named: named, proposable: proposable, worldRead: worldRead,
-                accountToken: accountToken, auth: auth).ConfigureAwait(false);
+                accountToken: accountToken, auth: auth, agentOnly: agentOnly).ConfigureAwait(false);
 
             return result.Value;
         }
@@ -1660,13 +2072,17 @@ namespace OnlyWorlds.Sdk
         /// False for a route keel serves with no credential (the health pulse): no key, PIN or Bearer is sent, and no
         /// client is refused for the key it holds.
         /// </param>
+        /// <param name="agentOnly">
+        /// A write keel's document lists <c>X-OW-Agent</c> on but not <c>X-OW-Client</c> (the file ticket): the agent's
+        /// header on an agent client, and no client name.
+        /// </param>
         private async Task<(T Value, OWResponse Response)> RequestWithResponseAsync<T>(
             string method, string path,
             string query = null, JObject body = null, string idempotencyKey = null,
             bool allowEmpty = false, bool write = false, CancellationToken ct = default,
             string ifNoneMatch = null, bool notModified = false, long? ifMatch = null,
             bool named = false, bool proposable = false, bool worldRead = false,
-            AccountTokenRoute accountToken = AccountTokenRoute.None, bool auth = true)
+            AccountTokenRoute accountToken = AccountTokenRoute.None, bool auth = true, bool agentOnly = false)
         {
             // The one rule for what an account token or no key may send, read from the request itself (keel's
             // account reads, ruled 2026-10-26): an /account route, a GET marked as a world read, or a route marked as
@@ -1746,8 +2162,8 @@ namespace OnlyWorlds.Sdk
             if (!string.IsNullOrEmpty(idempotencyKey)) headers["Idempotency-Key"] = idempotencyKey;
 
             // Presence is the declaration, the value is never stored. Opt-in, and
-            // on the element writes alone, the operations keel's document declares it on.
-            if (_agent && write) headers["X-OW-Agent"] = "1";
+            // on the element writes and the file ticket alone, the operations keel's document declares it on.
+            if (_agent && (write || agentOnly)) headers["X-OW-Agent"] = "1";
 
             // The client's own name, on the element writes and on propose and accept (where the
             // document lists X-OW-Client and not X-OW-Agent), never on a read nor on a decline or a withdrawal.
@@ -1862,11 +2278,16 @@ namespace OnlyWorlds.Sdk
                 var envelope = OWJson.ParseObject(response.Body ?? "{}");
                 var error = envelope["error"] as JObject ?? envelope;
 
+                // The upload host refuses with {"error": "<code>"}, not keel's envelope: the string is the code, as the
+                // TypeScript SDK's parseErrorEnvelope reads it.
+                var code = error["code"]?.ToString()
+                    ?? (envelope["error"]?.Type == JTokenType.String ? envelope["error"].ToString() : null);
+
                 return new OWApiError(
                     status,
                     error["message"]?.ToString(),
                     error["type"]?.ToString(),
-                    error["code"]?.ToString(),
+                    code,
                     error["param"]?.ToString(),
                     error["doc_url"]?.ToString(),
                     response.Body,
