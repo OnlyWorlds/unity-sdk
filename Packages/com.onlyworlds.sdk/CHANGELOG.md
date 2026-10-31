@@ -22,6 +22,18 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   any other key is refused before sending. They send the Bearer alone. An empty id is refused before sending, and an
   id that is not one of the account's tokens is keel's 404 (`IsNotFound`).
 
+### Fixed
+
+- Every value a call puts in a request path is sent as one escaped segment, in parity with the TypeScript SDK
+  4.122.1. `GetAsync`, `UpsertAsync`, `PatchAsync`, `DeleteAsync`, `EditLinksAsync`, `AdoptAsync`, `HideAsync` and
+  `UnhideAsync` put the element id into the path as given, and those and `ListAsync`, `CreateAsync` and the files,
+  proposal and review routes did the same with the element type, so an id or type carrying a `/`, `?` or `#` asked a
+  different route (`GetAsync("character", "abc/hidden")` asked `GET /character/abc/hidden/`). Each is now escaped with
+  `Uri.EscapeDataString`, as the id already was on the files, proposal and review routes and the link field on
+  `EditLinksAsync`. On a real id (the API declares every element id a UUID) and a real type nothing on the wire
+  changes. A test reads every request path in the client's source and fails on one that puts a value in unescaped
+  or is built in a way it cannot read.
+
 ## [0.29.0] - 2026-10-31
 
 `OWLinkListener` hands over a link as it was received, beside its reading, and its dispatch can turn a link down by
