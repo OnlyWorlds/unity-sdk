@@ -6,6 +6,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-10-31
+
+`OWLinkListener` hands over a link as it was received, beside its reading, and its dispatch can turn a link down by
+returning false instead of throwing; `OWMainThread.TryRun` queues work without throwing when no pump is installed.
+A minor release because it adds public API (below).
+
 ### Added
 
 - `OWLinkListener` has a second constructor, `(port, Action<OWAddressReading, string> onLink, Func<Action, bool>
