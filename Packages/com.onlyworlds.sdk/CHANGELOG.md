@@ -63,6 +63,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   (4.31.0), `signInWithOnlyWorlds()` and `completeSignIn()` (4.46.0; `expiresAt` from 4.94.0), `pkceChallenge` and
   `base64url`. The 0.24.0 "Not added" line about `completeSignIn`'s `expiresAt` no longer holds: `ExpiresAt` is it.
 
+### Changed
+
+- `OWClient.ListAllAsync` stops when a page hands back the cursor it was sent (the caller's starting cursor
+  included) with more to come: an `OWTransportError` ("answered the cursor it was sent, with more to come; the walk
+  stopped rather than read the same page again"), where it read the same page forever. The elements read before are
+  not returned. A last page (`has_more` false) that repeats its cursor still ends the walk as before. Mirrors the
+  TypeScript SDK's `listAll` guard (4.88.0, its `OwNetworkError`).
+
 ## [0.27.0] - 2026-10-31
 
 Serials 97 to 100 in Unity, with the strand profile's reader (`OWStrand.Of`) and the strand on the front door

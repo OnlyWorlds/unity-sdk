@@ -569,6 +569,11 @@ namespace OnlyWorlds.Sdk
         /// signal that iteration is done. Treating it as one loses elements with no error. On a client
         /// with <see cref="World"/> set, every page is read from that world, as <see cref="ListAsync{T}"/> reads it.
         /// </remarks>
+        /// <exception cref="OWTransportError">
+        /// A page answered the cursor it was sent (the caller's starting cursor included) with more to come: the walk
+        /// stops rather than read that page again, and the elements read so far are not returned. Mirrors the TypeScript
+        /// SDK's <c>listAll</c> guard (4.88.0, its <c>OwNetworkError</c>).
+        /// </exception>
         public async Task<List<T>> ListAllAsync<T>(
             string type, OWListParams p = default, CancellationToken ct = default,
             Action<int, int> onPage = null)
@@ -595,6 +600,15 @@ namespace OnlyWorlds.Sdk
                 // Guard against a server that says has_more but stops issuing cursors -- without
                 // this, that shape is an infinite loop rather than a bad page.
                 if (page == null || !page.HasMore || string.IsNullOrEmpty(page.NextCursor)) break;
+
+                // A page that hands back the cursor it was sent would be read again forever.
+                if (page.NextCursor == cursor)
+                {
+                    throw new OWTransportError(
+                        $"ListAllAsync: GET /{type}/ answered the cursor it was sent, with more to come; the walk stopped "
+                        + "rather than read the same page again");
+                }
+
                 cursor = page.NextCursor;
             }
             while (true);

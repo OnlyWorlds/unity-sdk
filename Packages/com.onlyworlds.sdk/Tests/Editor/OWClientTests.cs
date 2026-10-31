@@ -1204,6 +1204,36 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(1, t.Calls.Count);
         }
 
+        // The TypeScript SDK's listAll guard (4.88.0): a page that hands back the cursor it was sent, with more to come,
+        // would be read again forever, so the walk stops with an error. The third answer here ends the walk, so without
+        // the guard the test fails on a count, not a hang. Kills: the guard dropped, compared against the first cursor
+        // only, or against the caller's starting cursor not at all.
+        [Test]
+        public void ListAll_APageThatAnswersTheCursorItWasSent_StopsTheWalk_WithATransportError()
+        {
+            var t = new FakeTransport();
+            t.Bodies.Enqueue(@"{""data"":[{""name"":""a""}],""has_more"":true,""next_cursor"":""c1""}");
+            t.Bodies.Enqueue(@"{""data"":[{""name"":""b""}],""has_more"":true,""next_cursor"":""c1""}");
+            t.Bodies.Enqueue(@"{""data"":[{""name"":""c""}],""has_more"":false,""next_cursor"":null}");
+
+            var e = Assert.ThrowsAsync<OWTransportError>(() => Make(t).ListAllAsync<OWElement>("character"));
+            Assert.AreEqual("ListAllAsync: GET /character/ answered the cursor it was sent, with more to come; the walk "
+                + "stopped rather than read the same page again", e.Message);
+            Assert.AreEqual(2, t.Calls.Count, "the repeated page is not read a third time");
+
+            // The caller's own starting cursor counts too.
+            t = new FakeTransport { ResponseBody = @"{""data"":[],""has_more"":true,""next_cursor"":""c0""}" };
+            Assert.ThrowsAsync<OWTransportError>(() => Make(t).ListAllAsync<OWElement>("character", new OWListParams { Cursor = "c0" }));
+            Assert.AreEqual(1, t.Calls.Count);
+
+            // The same cursor on the last page (no more to come) is not a loop: the walk ends as it always did.
+            t = new FakeTransport();
+            t.Bodies.Enqueue(@"{""data"":[{""name"":""a""}],""has_more"":true,""next_cursor"":""c1""}");
+            t.Bodies.Enqueue(@"{""data"":[{""name"":""b""}],""has_more"":false,""next_cursor"":""c1""}");
+            Assert.DoesNotThrowAsync(() => Make(t).ListAllAsync<OWElement>("character"));
+            Assert.AreEqual(2, t.Calls.Count);
+        }
+
         [Test]
         public async Task List_SendsSparseFieldsets()
         {
