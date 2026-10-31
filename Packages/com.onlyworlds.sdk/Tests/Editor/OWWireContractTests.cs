@@ -169,6 +169,14 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             await c.UploadImageAsync(new byte[] { 1 }, ticket: new OWMediaTicket { Ticket = "tk.sig", UploadUrl = UploadHost + "upload", MaxBytes = 8 });
             await c.CreateRemovalTicketAsync("https://media.example.test/u/w1/x.png");
             await c.RemoveImageAsync("u/w1/x.png");
+            // Files on an element, on the agent client: the ticket with a label (X-OW-Agent, the one files route keel lists
+            // it on), the upload (its ticket judged, the bytes to the upload host left out), the reads and the removal.
+            await c.ListFilesAsync("character", "c1");
+            await c.WorldFilesAsync();
+            await c.CreateFileTicketAsync("character", "c1", "notes.md", 3, label: "description");
+            await c.UploadFileAsync("character", "c1", new byte[] { 1, 2, 3 }, name: "notes.md", kind: "md", label: "description");
+            await c.FileDownloadLinkAsync("character", "c1", "f1");
+            await c.RemoveFileAsync("character", "c1", "f1");
             t.ResponseBody = @"{""changes"":[],""has_more"":false,""head"":0}";
             await c.ChangesAsync("4:069620b9-0794-708d-8000-42b0ea685f38");
             await c.ChangesAsync("4:069620b9-0794-708d-8000-42b0ea685f38", after: new DateTimeOffset(2026, 10, 22, 0, 0, 0, TimeSpan.Zero));
@@ -460,6 +468,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.That(checkedOps, Does.Contain("PUT /api/v2/me/character"));
             Assert.That(checkedOps, Does.Contain("PATCH /api/v2/account/worlds/w1/members/owner"));
             Assert.That(checkedOps, Does.Contain("POST /api/v2/media/remove-ticket"));
+            Assert.That(checkedOps, Does.Contain("POST /api/v2/character/c1/files"));
         }
 
         /// <summary>
@@ -511,6 +520,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [TestCase(typeof(OWSeatCreated), "/api/v2/account/worlds/{world_id}/seats/{seat_id}/key", "POST")]
         [TestCase(typeof(OWMediaTicket), "/api/v2/media/ticket", "POST")]
         [TestCase(typeof(OWRemovalTicket), "/api/v2/media/remove-ticket", "POST")]
+        [TestCase(typeof(OWFileTicket), "/api/v2/character/{id}/files", "POST")]
+        [TestCase(typeof(OWFileDownload), "/api/v2/character/{id}/files/{file_id}/download", "GET")]
+        [TestCase(typeof(OWWorldFiles), "/api/v2/world/files", "GET")]
         public void EveryKeyAModelReads_IsOneKeelServes(Type model, string path, string method)
         {
             var op = Wire["paths"]?[path]?[method] as JObject;
@@ -532,6 +544,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [TestCase(typeof(OWHiddenRow), "/api/v2/world/hidden")]
         [TestCase(typeof(OWWorldLink), "/api/v2/account/worlds/{world_id}/links")]
         [TestCase(typeof(OWSeat), "/api/v2/account/worlds/{world_id}/seats")]
+        [TestCase(typeof(OWFileRow), "/api/v2/character/{id}/files")]
+        [TestCase(typeof(OWWorldFileRow), "/api/v2/world/files")]
         public void EveryKeyAListRowReads_IsOneTheListServes_AndEveryOneItServesIsRead(Type row, string path)
         {
             // ListHiddenAsync, ListWorldLinksAsync and ListSeatsAsync read the rows of { data }, so the row's keys are
@@ -575,7 +589,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             // The second step of a ticketed call answers from the upload host, which keel's document does not describe
             // (its tickets name it only in words: send the ticket to upload_url, to remove_url). So the host's answers are
-            // held to the TypeScript SDK's types at 4.120.0 (OwUploadedImage, OwRemovedImage) by their keys.
+            // held to the TypeScript SDK's types at 4.120.0 (OwUploadedImage, OwRemovedImage, OwUploadedFile) by their keys.
             foreach (var path in ((JObject)Wire["paths"]).Properties().Select(p => p.Name))
             {
                 StringAssert.DoesNotStartWith("/v1/", path, "keel's document describes an upload host route now: check the models against it");
@@ -583,6 +597,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             CollectionAssert.AreEquivalent(new[] { "url", "key", "bytes", "type", "etag" }, MappedKeys(typeof(OWUploadedImage)));
             CollectionAssert.AreEquivalent(new[] { "removed", "bytes", "cache" }, MappedKeys(typeof(OWRemovedImage)));
+            CollectionAssert.AreEquivalent(new[] { "key", "fid", "bytes", "type", "etag" }, MappedKeys(typeof(OWUploadedFile)));
+
+            // keel's document names a file row's added_by but not its keys: held to the TypeScript SDK's OwFileAddedBy.
+            var rows = Wire["paths"]["/api/v2/character/{id}/files"]["GET"]["response"].Values<string>().ToList();
+            Assert.That(rows, Does.Contain("data[].added_by").And.Not.Contains("data[].added_by.name"),
+                "keel's document names added_by's keys now: check OWFileAddedBy against it");
+            CollectionAssert.AreEquivalent(new[] { "name", "membership", "agent" }, MappedKeys(typeof(OWFileAddedBy)));
         }
 
         [TestCase(typeof(OWAccountWorldCreate), "/api/v2/account/worlds", "POST")]
@@ -684,12 +705,14 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             // An empty recording would pass the checks above with nothing checked.
             var calls = await RecordEveryCall();
-            Assert.AreEqual(69, calls.Count);
+            Assert.AreEqual(75, calls.Count);
 
             // The upload host's requests are recorded and left out of the checks; the keel request of each two-step call
             // is in, so the checks above judged it.
             var host = (await RecordAllCalls()).Where(c => !IsKeel(c)).ToList();
-            Assert.AreEqual(3, host.Count, "the two image uploads and the removal reached the upload host");
+            Assert.AreEqual(4, host.Count, "the two image uploads, the removal and the file upload reached the upload host");
+            Assert.AreEqual(2, calls.Count(c => c.Method == "POST" && new Uri(c.Url).AbsolutePath.EndsWith("/character/c1/files")),
+                "the file ticket alone and the upload's own ticket are judged");
             Assert.That(host.All(c => c.Url.StartsWith(UploadHost, StringComparison.Ordinal)), "only the upload host's requests are left out");
             Assert.AreEqual(2, calls.Count(c => c.Method == "POST" && new Uri(c.Url).AbsolutePath.EndsWith("/media/ticket")),
                 "the ticket alone and the upload's own ticket are judged");

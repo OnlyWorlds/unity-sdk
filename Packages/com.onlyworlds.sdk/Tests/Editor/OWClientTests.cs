@@ -129,6 +129,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("upload image", "POST", true, false, c => c.UploadImageAsync(new byte[] { 1, 2, 3 }, key: "u/w1/x.png")),
             ("removal ticket", "POST", true, false, c => c.CreateRemovalTicketAsync("u/w1/x.png")),
             ("remove image", "POST", true, false, c => c.RemoveImageAsync("u/w1/x.png")),
+            // files on elements: two reads, the ticket, the upload (TwoStep), the download link, the removal
+            ("files", "GET", false, false, c => c.ListFilesAsync("location", "l1")),
+            ("world files", "GET", false, false, c => c.WorldFilesAsync()),
+            ("file ticket", "POST", true, false, c => c.CreateFileTicketAsync("location", "l1", "notes.md", 3)),
+            ("upload file", "POST", true, false, c => c.UploadFileAsync("location", "l1", new byte[] { 1, 2, 3 }, name: "notes.md")),
+            ("file download link", "GET", false, false, c => c.FileDownloadLinkAsync("location", "l1", "f1")),
+            ("remove file", "DELETE", true, false, c => c.RemoveFileAsync("location", "l1", "f1")),
             // the account routes: an account token's alone (AccountOnly), so every other key is refused with nothing sent and
             // `Pin` is never read (an account token sends none)
             ("account worlds", "GET", false, true, c => c.ListAccountWorldsAsync()),
@@ -153,7 +160,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         };
 
         /// <summary>The calls that send a second request, to the upload host their ticket names, after keel's.</summary>
-        private static readonly string[] TwoStep = { "upload image", "remove image" };
+        private static readonly string[] TwoStep = { "upload image", "remove image", "upload file" };
 
         /// <summary>Where the sweep's tickets send their second request: not keel, so not swept as keel's.</summary>
         private const string UploadHost = "https://upload.example.test/v1/";

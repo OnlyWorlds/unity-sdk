@@ -120,6 +120,29 @@ namespace OnlyWorlds.Sdk
         public bool IsAlreadyMember => StatusCode == 409 && Code == "already_member";
 
         /// <summary>
+        /// A daily allowance is used up (429 <c>quota_exceeded</c>): the world's image tickets, its file tickets (200 a
+        /// day), or the account's asks. <see cref="RetryAfter"/> runs to midnight UTC. Mirrors the TypeScript SDK's
+        /// <c>isQuotaExceeded</c>.
+        /// </summary>
+        public bool IsQuotaExceeded => StatusCode == 429 && Code == "quota_exceeded";
+
+        /// <summary>
+        /// <see cref="OWClient.CreateFileTicketAsync"/> or <see cref="OWClient.UploadFileAsync"/>: the file is over the 25
+        /// MB a file may be (413 <c>file_too_large</c>, param <c>size</c>); the message gives both sizes. Nothing was
+        /// issued. Not the upload host's 413 <c>too_large</c> (bytes past a ticket's <c>max_bytes</c>). Mirrors the
+        /// TypeScript SDK's <c>isFileTooLarge</c>.
+        /// </summary>
+        public bool IsFileTooLarge => StatusCode == 413 && Code == "file_too_large";
+
+        /// <summary>
+        /// <see cref="OWClient.CreateFileTicketAsync"/> or <see cref="OWClient.UploadFileAsync"/>: the world's files have no
+        /// room for this one (403 <c>files_full</c>: 250 MB a world); the message gives the world's use, its cap and the
+        /// file's size. Remove a file, or ask the owner. Nothing was issued. Mirrors the TypeScript SDK's
+        /// <c>isFilesFull</c>.
+        /// </summary>
+        public bool IsFilesFull => StatusCode == 403 && Code == "files_full";
+
+        /// <summary>
         /// <c>/changes</c> refused the cursor (409 <c>resync_required</c>): a guest key's view of the
         /// world changed, or the key's role did. Walk the feed again from the start and REPLACE the
         /// local copy: a guest never receives deletes, so only a replace drops what it no longer sees.
