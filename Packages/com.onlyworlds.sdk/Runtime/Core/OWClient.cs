@@ -2134,9 +2134,14 @@ namespace OnlyWorlds.Sdk
         /// <param name="username">The account's username; null when signing in by email. Trimmed.</param>
         /// <param name="password">The password: sent once, to the sign-in service alone, and held nowhere.</param>
         /// <param name="ct">Cancels the requests (the session's end still goes).</param>
+        /// <param name="tokenName">
+        /// The name the new token is listed under on the account's tokens page (say, "Lantern on iPhone"), where it can be
+        /// revoked: sent as given, at most 255 characters. Null mints a token with no name.
+        /// </param>
         /// <exception cref="ArgumentException">
-        /// Both or neither of <paramref name="email"/> and <paramref name="username"/>, or no password; nothing was sent.
-        /// The message never holds the password.
+        /// Both or neither of <paramref name="email"/> and <paramref name="username"/>, no password, or a
+        /// <paramref name="tokenName"/> that is blank or past 255 characters; nothing was sent. The message never holds the
+        /// password.
         /// </exception>
         /// <exception cref="OWSignInError">
         /// The sign-in was refused; <see cref="OWSignInError.Reason"/> says why: <c>invalid_credentials</c>,
@@ -2153,15 +2158,15 @@ namespace OnlyWorlds.Sdk
         /// given five seconds at most and its failure ignored. Only the token is kept: the session never leaves this call.
         /// </para>
         /// <para>
-        /// The mint goes with no body: keel's document declares none there, though keel reads an optional
-        /// <c>{name}</c> and the TypeScript SDK sends its <c>tokenName</c> in one. So the token is listed with no name on
-        /// the account's tokens page, where it can be revoked; a name comes when keel documents the body. A person signing
-        /// in holds no key: the bare client (<c>new OWClientConfig { Transport }</c>) is theirs. Mirrors the TypeScript
-        /// SDK's <c>signInWithPassword</c> (4.31.0).
+        /// The mint's body is <c>{name}</c> with <paramref name="tokenName"/>, and there is none without it. The
+        /// TypeScript SDK requires its <c>tokenName</c>; here it is optional, so a call written before it compiles
+        /// unchanged. keel counts the name as sent, in characters (code points: an emoji is one), and refuses past 255.
+        /// A person signing in holds no key: the bare client (<c>new OWClientConfig { Transport }</c>) is theirs. Mirrors
+        /// the TypeScript SDK's <c>signInWithPassword</c> (4.31.0).
         /// </para>
         /// </remarks>
         public Task<OWSignedIn> SignInWithPasswordAsync(
-            string email, string username, string password, CancellationToken ct = default)
+            string email, string username, string password, CancellationToken ct = default, string tokenName = null)
         {
             var login = email?.Trim() ?? "";
             var user = username?.Trim() ?? "";
@@ -2175,14 +2180,27 @@ namespace OnlyWorlds.Sdk
             if (string.IsNullOrEmpty(password))
                 throw new ArgumentException("SignInWithPasswordAsync needs a password. Nothing was sent.", nameof(password));
 
+            // keel keeps the name as sent and counts it untrimmed (accounts/api.py _name_param, TOKEN_NAME_MAX); a blank
+            // one is the TypeScript SDK's refusal.
+            if (tokenName != null && (tokenName.Trim().Length == 0 || CodePoints(tokenName) > TokenNameMax))
+            {
+                throw new ArgumentException(
+                    $"SignInWithPasswordAsync: tokenName is the name the new token is listed under: not blank, "
+                    + $"and at most {TokenNameMax} characters as sent. Nothing was sent.",
+                    nameof(tokenName));
+            }
+
             var body = login.Length > 0
                 ? new JObject { ["email"] = login, ["password"] = password }
                 : new JObject { ["username"] = user, ["password"] = password };
 
-            return SignInWithPasswordCoreAsync(body, password, ct);
+            return SignInWithPasswordCoreAsync(body, password, tokenName, ct);
         }
 
-        private async Task<OWSignedIn> SignInWithPasswordCoreAsync(JObject credentials, string password, CancellationToken ct)
+        private const int TokenNameMax = 255;
+
+        private async Task<OWSignedIn> SignInWithPasswordCoreAsync(
+            JObject credentials, string password, string tokenName, CancellationToken ct)
         {
             var auth = BaseUrl + "/auth/app/v1";
 
@@ -2261,13 +2279,22 @@ namespace OnlyWorlds.Sdk
 
             try
             {
-                // No body: keel's document declares none on the mint (the TypeScript SDK sends { name: tokenName }).
-                var minted = await SendSignInAsync(new OWRequest
+                // The body is { name } when a name is given, and none otherwise: keel's body is optional, and none mints a
+                // token with no name.
+                var mint = new OWRequest
                 {
                     Method = "POST",
                     Url = BaseUrl + "/account/tokens",
                     Headers = new Dictionary<string, string> { ["X-Session-Token"] = session },
-                }, "The connection dropped after signing in: no token was made. Try again.", ct).ConfigureAwait(false);
+                };
+                if (tokenName != null)
+                {
+                    mint.Headers["Content-Type"] = "application/json";
+                    mint.Body = new JObject { ["name"] = tokenName }.ToString(Newtonsoft.Json.Formatting.None);
+                }
+
+                var minted = await SendSignInAsync(mint, "The connection dropped after signing in: no token was made. Try again.", ct)
+                    .ConfigureAwait(false);
 
                 var row = JsonObjectOrNull(minted.Body);
                 var token = row?["token"] is JValue t && t.Type == JTokenType.String && (string)t != "" ? (string)t : null;
@@ -2289,7 +2316,7 @@ namespace OnlyWorlds.Sdk
                 {
                     Token = token,
                     Id = row["id"]?.Type == JTokenType.String ? (string)row["id"] : "",
-                    Name = row["name"]?.Type == JTokenType.String ? (string)row["name"] : "",
+                    Name = row["name"]?.Type == JTokenType.String ? (string)row["name"] : tokenName ?? "",
                     Last4 = row["last4"]?.Type == JTokenType.String ? (string)row["last4"] : token.Substring(Math.Max(0, token.Length - 4)),
                 };
             }
