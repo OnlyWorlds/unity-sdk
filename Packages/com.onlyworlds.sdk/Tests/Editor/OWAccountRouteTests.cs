@@ -50,6 +50,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("ListSeatsAsync", c => c.ListSeatsAsync("w1")),
             ("RekeySeatAsync", c => c.RekeySeatAsync("w1", "s1")),
             ("RemoveSeatAsync", c => c.RemoveSeatAsync("w1", "s1")),
+            ("ListAccountTokensAsync", c => c.ListAccountTokensAsync()),
+            ("RevokeAccountTokenAsync", c => c.RevokeAccountTokenAsync("t1")),
         };
 
         // Kills: a world key, a read key, a legacy key or no key reaching an /account route, which keel answers 401; the
@@ -454,6 +456,84 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(Base + "/account/worlds/w%2F1/links/l%202", a.Url, "the path, both ids escaped, no query");
             Assert.IsNull(a.Body);
             CollectionAssert.AreEqual(new[] { "Authorization" }, HeaderNames(a));
+        }
+
+        // -- ListAccountTokensAsync, RevokeAccountTokenAsync ------------------------------------------------
+
+        // The TypeScript SDK's listAccountTokens() (4.122.0), its test vector's two rows: GET /account/tokens, the Bearer
+        // alone, keel's { data } in its order. Kills: the wrong path, a query, the PIN or a write header sent, an mcp
+        // row's client and return host misread, a null last use or expiry read as a value, or no data thrown on.
+        [Test]
+        public async Task ListAccountTokens_SendsGetTokens_TheBearerAlone_AndAnswersTheRowsInOrder()
+        {
+            var t = new FakeTransport
+            {
+                ResponseBody = @"{""data"":[{""id"":""018f0000-0000-7000-8000-0000000000t1"",""name"":""atlas"",""last4"":""abcd"","
+                    + @"""last_used_at"":""2026-10-31T06:00:00Z"",""revoked"":false,""expires_at"":null,""keys_minted"":2,""audience"":""""},"
+                    + @"{""id"":""018f0000-0000-7000-8000-0000000000t2"",""name"":""claude"",""last4"":""wxyz"",""last_used_at"":null,"
+                    + @"""revoked"":false,""expires_at"":""2026-10-31T07:00:00Z"",""keys_minted"":0,""audience"":""mcp"","
+                    + @"""client"":""Claude"",""return_host"":""claude.ai""}]}",
+            };
+            var tokens = await Make(t).ListAccountTokensAsync();
+
+            var a = t.Calls.Single();
+            Assert.AreEqual("GET", a.Method);
+            Assert.AreEqual(Base + "/account/tokens", a.Url, "the path, no query");
+            CollectionAssert.AreEqual(new[] { "Authorization" }, HeaderNames(a));
+            Assert.AreEqual("Bearer ow_a_acct", a.Headers["Authorization"]);
+
+            Assert.AreEqual(2, tokens.Count);
+            var (h, m) = (tokens[0], tokens[1]);
+            Assert.AreEqual(("018f0000-0000-7000-8000-0000000000t1", "atlas", "abcd", "2026-10-31T06:00:00Z", false, 2L, ""),
+                (h.Id, h.Name, h.Last4, h.LastUsedAt, h.Revoked, h.KeysMinted, h.Audience));
+            Assert.IsNull(h.ExpiresAt, "a token that never expires");
+            Assert.IsNull(h.Client, "only an mcp token names its client");
+            Assert.AreEqual(("claude", "mcp", "Claude", "claude.ai", "2026-10-31T07:00:00Z"),
+                (m.Name, m.Audience, m.Client, m.ReturnHost, m.ExpiresAt));
+            Assert.IsNull(m.LastUsedAt, "never used");
+
+            t.ResponseBody = "{}";
+            CollectionAssert.IsEmpty(await Make(t).ListAccountTokensAsync(), "no data: no rows");
+        }
+
+        // The TypeScript SDK's revokeAccountToken() (4.122.0): DELETE /account/tokens/{token_id}, the id escaped, no body,
+        // the Bearer alone even on an agent client, a 204. Kills: the wrong verb or path, the id unescaped, a body or a
+        // write header sent.
+        [Test]
+        public async Task RevokeAccountToken_SendsDeleteTokensId_Escaped_TheBearerAlone_AndTakesThe204()
+        {
+            var t = new FakeTransport { Status = 204, ResponseBody = "" };
+            await Make(t).RevokeAccountTokenAsync("a b/c");
+
+            var a = t.Calls.Single();
+            Assert.AreEqual("DELETE", a.Method);
+            Assert.AreEqual(Base + "/account/tokens/a%20b%2Fc", a.Url, "the path, the id escaped, no query");
+            Assert.IsNull(a.Body);
+            CollectionAssert.AreEqual(new[] { "Authorization" }, HeaderNames(a));
+        }
+
+        // An empty or null id is refused before sending, as npm's TypeError; an id that is not the account's is keel's 404,
+        // read as IsNotFound. Kills: a DELETE /account/tokens/ sent, or the 404 read as anything else.
+        [Test]
+        public async Task RevokeAccountToken_NoId_IsRefused_NothingSent_AndAnotherAccountsIdIsTheNotFound()
+        {
+            foreach (var bad in new[] { "", null })
+            {
+                var t = new FakeTransport { Status = 204, ResponseBody = "" };
+                var e = Assert.ThrowsAsync<ArgumentException>(() => Make(t).RevokeAccountTokenAsync(bad), $"id {bad ?? "null"}");
+                StringAssert.Contains("Nothing was sent.", e.Message);
+                Assert.AreEqual("tokenId", e.ParamName);
+                Assert.IsEmpty(t.Calls);
+            }
+
+            var nf = new FakeTransport
+            {
+                Status = 404,
+                ResponseBody = @"{""error"":{""type"":""not_found"",""code"":""not_found"",""message"":""token 'x' not found."",""param"":null}}",
+            };
+            var err = Assert.ThrowsAsync<OWApiError>(() => Make(nf).RevokeAccountTokenAsync("x"));
+            Assert.IsTrue(err.IsNotFound);
+            await Task.CompletedTask;
         }
 
         // -- CreateSeatAsync, ListSeatsAsync, RekeySeatAsync, RemoveSeatAsync -------------------------------

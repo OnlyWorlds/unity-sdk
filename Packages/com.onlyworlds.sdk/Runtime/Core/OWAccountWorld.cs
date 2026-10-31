@@ -195,4 +195,60 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("revoked")]
         public bool Revoked;
     }
+
+    /// <summary>
+    /// One of the account's tokens, as <see cref="OWClient.ListAccountTokensAsync"/> lists it (GET /account/tokens; npm's
+    /// <c>OwAccountToken</c>): by name and last four, never the token itself.
+    /// </summary>
+    [Serializable]
+    public class OWAccountToken
+    {
+        /// <summary>
+        /// The token's id: <see cref="OWClient.RevokeAccountTokenAsync"/> takes it, and a sign-in answers it, as
+        /// <see cref="OWSignedIn.Id"/> (by password) or <see cref="OWSignInResult.TokenId"/> (Sign in with OnlyWorlds).
+        /// </summary>
+        [JsonProperty("id")]
+        public string Id;
+
+        /// <summary>The label given at mint (a device, a tool).</summary>
+        [JsonProperty("name")]
+        public string Name;
+
+        /// <summary>The token's last four characters, to tell tokens apart.</summary>
+        [JsonProperty("last4")]
+        public string Last4;
+
+        /// <summary>When the token was last used, as keel sends it; null when never.</summary>
+        [JsonProperty("last_used_at")]
+        public string LastUsedAt;
+
+        [JsonProperty("revoked")]
+        public bool Revoked;
+
+        /// <summary>
+        /// When the token stops working, for a sign-in tool's token with a lifetime; null never expires. Past it the token
+        /// is refused as a revoked one.
+        /// </summary>
+        [JsonProperty("expires_at")]
+        public string ExpiresAt;
+
+        /// <summary>How many live world keys this token minted.</summary>
+        [JsonProperty("keys_minted")]
+        public long KeysMinted;
+
+        /// <summary>
+        /// Who the token is for: empty for a token made by hand or a sign-in tool's; <c>mcp</c> for a hosted client's
+        /// grant on the MCP server.
+        /// </summary>
+        [JsonProperty("audience")]
+        public string Audience;
+
+        /// <summary>On an <c>mcp</c> token only: the client's name, as it registered itself, or its id when it is no longer registered.</summary>
+        [JsonProperty("client")]
+        public string Client;
+
+        /// <summary>On an <c>mcp</c> token only: the host the client returns the person to.</summary>
+        [JsonProperty("return_host")]
+        public string ReturnHost;
+    }
 }
