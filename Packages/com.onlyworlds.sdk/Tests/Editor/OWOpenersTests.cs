@@ -19,9 +19,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     public class OWOpenersTests
     {
         /// <summary>The fixture's sha256, as both packages' suites hold it.</summary>
-        private const string FixtureSha256 = "351ddec25f3af8cf8ec2c9c901d6ed4719355286467ada091e45d6012f8ed05b";
+        private const string FixtureSha256 = "0cbd1de0daa3535fbf36dcd502a611c6d960db827cfe88f5045f0a1a49d65ea0";
 
-        private const int CaseCount = 57;
+        private const int CaseCount = 61;
 
         private const string World = "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e0f";
         private const string Element = "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e1a";
@@ -238,20 +238,29 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
-        public void Offline_TheSchemeIsReadInAnyCase_AndALinkWithNoSchemeIsNotAWebAddress()
+        public void Offline_TheSchemeIsReadInAnyCase_AndAnAppLinkIsNotAWebAddress()
         {
             var tools = new[]
             {
                 new OWTool("loud", "Loud", "https://loud.example", null, OWTool.Listed, new OWToolOpen("HTTPS://loud.example/{world}", null, null)),
                 new OWTool("plain", "Plain", "https://plain.example", null, OWTool.Listed, new OWToolOpen("Http://plain.example/{world}", null, null)),
-                new OWTool("bare", "Bare", "https://bare.example", null, OWTool.Listed, new OWToolOpen("//bare.example/{world}", null, null)),
                 new OWTool("app", "App", "https://app.example", null, OWTool.Listed, new OWToolOpen("app://open/{world}", null, null)),
             };
             var rows = OWOpeners.For(tools, OWOpeners.World, World, null, null,
                 new OWOpenerSurface { Audience = OWOpenerSurface.Member, Online = false });
             CollectionAssert.AreEqual(
-                new[] { OWOpenerState.NeedsAConnection, OWOpenerState.NeedsAConnection, OWOpenerState.NeedsAConnection, null, null },
+                new[] { OWOpenerState.NeedsAConnection, OWOpenerState.NeedsAConnection, OWOpenerState.NeedsAConnection, null },
                 rows.Select(r => r.State).ToList());
+        }
+
+        [Test]
+        public void ALinkWithNoScheme_IsRefused_ARowBuiltInCodeToo()
+        {
+            // The fixture's rows come through OWTool.FromJson; a row built in code is held to the same rule.
+            var tools = new[] { new OWTool("bare", "Bare", "https://bare.example", null, OWTool.Listed, new OWToolOpen("//bare.example/{world}", null, null)) };
+            var e = Assert.Throws<ArgumentException>(() => OWOpeners.For(tools, OWOpeners.World, World, null, null,
+                new OWOpenerSurface { Audience = OWOpenerSurface.Member }));
+            StringAssert.Contains("tool bare: open.world begins with its scheme", e.Message);
         }
     }
 }

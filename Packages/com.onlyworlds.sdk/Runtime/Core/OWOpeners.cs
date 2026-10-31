@@ -292,7 +292,10 @@ namespace OnlyWorlds.Sdk
     /// <see cref="OWAddress.ElementAddress(string, string, string, string, string, int?)"/> refuses. An
     /// <see cref="ArgumentException"/> whose message names it refuses the rest: a kind that is neither, an element's
     /// openers asked of an address with no element, an unknown key on the address, a missing or unknown audience, a
-    /// tools row that is not one (a <c>needs</c> outside the list's format included). <see cref="OWAddressException"/>
+    /// tools row that is not one (a <c>needs</c> outside the list's format included, and a link that opens no app: an
+    /// <c>open.world</c> or <c>open.element</c> that does not begin with its scheme, or whose scheme is
+    /// <c>javascript</c>, <c>data</c>, <c>vbscript</c>, <c>file</c>, <c>blob</c> or <c>about</c>, in any case, on any
+    /// row and either kind of menu). <see cref="OWAddressException"/>
     /// is an <see cref="ArgumentException"/> too: catch it first.
     /// </para>
     /// </remarks>
@@ -314,6 +317,12 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>A web address: its scheme is http or https. Read from the row's filled href.</summary>
         private static readonly Regex Web = new Regex(@"^https?:", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        /// <summary>A link's scheme: the letters before its first colon, at its very start.</summary>
+        private static readonly Regex Scheme = new Regex(@"^([A-Za-z][A-Za-z0-9+.-]*):", RegexOptions.CultureInvariant);
+
+        /// <summary>Schemes that open no app: a row whose link used one would run what it carries when pressed.</summary>
+        private static readonly string[] NoApp = { "javascript", "data", "vbscript", "file", "blob", "about" };
 
         /// <summary>The rows for an address given as JSON (<c>form</c>, <c>world</c>, <c>type</c>, <c>id</c>, <c>lens</c>, <c>moment</c>).</summary>
         /// <exception cref="OWAddressException">The address is refused; the reason says why.</exception>
@@ -393,6 +402,8 @@ namespace OnlyWorlds.Sdk
                 if (r == null || r.Id == null || r.Name == null) Fail("each tools row has an id and a name", nameof(tools));
                 var open = r.Open;
                 if (open == null) continue;
+                CheckTemplate(r.Id, "world", open.World);
+                CheckTemplate(r.Id, "element", open.Element);
                 var needs = open.Needs;
                 if (needs != null && needs != OWToolOpen.Account && needs != OWToolOpen.Device)
                     Fail($"tool {r.Id}: open.needs is 'account', 'device' or null; got \"{needs}\"", nameof(tools));
@@ -415,6 +426,19 @@ namespace OnlyWorlds.Sdk
             }
 
             return rows;
+        }
+
+        /// <summary>
+        /// A template begins with its scheme (a browser drops leading spaces before reading one), and a scheme that opens
+        /// no app is refused, in any case: a row whose link used one would run what it carries when pressed. Null is no door.
+        /// </summary>
+        private static void CheckTemplate(string row, string key, string template)
+        {
+            if (template == null) return;
+            var m = Scheme.Match(template);
+            if (!m.Success) Fail($"tool {row}: open.{key} begins with its scheme", "tools");
+            var scheme = m.Groups[1].Value.ToLowerInvariant();
+            if (Array.IndexOf(NoApp, scheme) >= 0) Fail($"tool {row}: open.{key} is a {scheme}: link, which opens no app", "tools");
         }
 
         private static void Fail(string what, string param) => throw new ArgumentException("OWOpeners.For: " + what, param);

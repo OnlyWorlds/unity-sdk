@@ -30,6 +30,15 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   any other key is refused before sending. They send the Bearer alone. An empty id is refused before sending, and an
   id that is not one of the account's tokens is keel's 404 (`IsNotFound`).
 
+### Changed
+
+- Parity with the TypeScript SDK 4.123.2: the Open with menu refuses a tools row whose link opens no app.
+  `OWOpeners.For` throws an `ArgumentException` naming the row and the key when its `open.world` or `open.element`
+  does not begin with its scheme (a leading space, or a `//host` link), or its scheme is `javascript:`, `data:`,
+  `vbscript:`, `file:`, `blob:` or `about:` in any case, where before it drew the row with that link as its href. Both
+  templates of every row are checked on either menu, a row built in code as well as one read by `OWTool.FromJson`; a
+  null template is still no door. The shared openers fixture is re-vendored at 61 cases.
+
 ### Fixed
 
 - Every value a call puts in a request path is sent as one escaped segment, in parity with the TypeScript SDK
