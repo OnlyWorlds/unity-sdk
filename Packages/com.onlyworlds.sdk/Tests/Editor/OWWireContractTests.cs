@@ -232,6 +232,15 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             t.ResponseBody = "{}";
             await account.RekeySeatAsync("w1", "s1");
             await account.RemoveSeatAsync("w1", "s1");
+            // The AI routes: a question, notes of each shape (words, a picture, both) with a slice row anchored and one
+            // not, so each body key is checked, and the meter.
+            await account.AskAsync("w1", "Who rules?", new[] { "Ostvik: a town." });
+            await account.SortAsync("w1",
+                new[] { (OWSortNote)"Mira.", new OWSortNote { ImageUrl = "https://media.example.test/u/w1/n.png" },
+                    new OWSortNote { Text = "Tor.", ImageUrl = "https://media.example.test/u/w1/t.png" } },
+                new[] { new OWSortRef { Id = "c1", Type = "character", Name = "Mira", Anchor = "the ferrywoman" },
+                    new OWSortRef { Id = "l1", Type = "location", Name = "Ostvik" } });
+            await account.AllowanceAsync();
 
             // The lens routes on an account token: its own list in the world World names (world=), the world's lenses by
             // the path's world, and a row's list (PATCH with lenses alone).
@@ -470,6 +479,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.That(checkedOps, Does.Contain("PATCH /api/v2/account/worlds/w1/members/owner"));
             Assert.That(checkedOps, Does.Contain("POST /api/v2/media/remove-ticket"));
             Assert.That(checkedOps, Does.Contain("POST /api/v2/character/c1/files"));
+            Assert.That(checkedOps, Does.Contain("POST /api/v2/account/ask").And.Contain("POST /api/v2/account/sort"));
         }
 
         /// <summary>
@@ -525,6 +535,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [TestCase(typeof(OWFileTicket), "/api/v2/character/{id}/files", "POST")]
         [TestCase(typeof(OWFileDownload), "/api/v2/character/{id}/files/{file_id}/download", "GET")]
         [TestCase(typeof(OWWorldFiles), "/api/v2/world/files", "GET")]
+        [TestCase(typeof(OWAskAnswer), "/api/v2/account/ask", "POST")]
+        [TestCase(typeof(OWSortAnswer), "/api/v2/account/sort", "POST")]
+        [TestCase(typeof(OWAllowance), "/api/v2/account/allowance", "GET")]
         public void EveryKeyAModelReads_IsOneKeelServes(Type model, string path, string method)
         {
             var op = Wire["paths"]?[path]?[method] as JObject;
@@ -714,7 +727,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             // An empty recording would pass the checks above with nothing checked.
             var calls = await RecordEveryCall();
-            Assert.AreEqual(75, calls.Count);
+            Assert.AreEqual(78, calls.Count);
 
             // The upload host's requests are recorded and left out of the checks; the keel request of each two-step call
             // is in, so the checks above judged it.

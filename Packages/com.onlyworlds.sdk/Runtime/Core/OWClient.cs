@@ -1935,6 +1935,133 @@ namespace OnlyWorlds.Sdk
                 allowEmpty: true, ct: ct);
         }
 
+        // -- Ask your world -------------------------------------------------------
+        //
+        // keel's AI proxy, metered per account: one token rating a day that ask, sort and the Council spend from
+        // (AllowanceAsync reads it). A refusal does not count. Mirrors the TypeScript SDK's ask (4.13.0), sort (4.18.0)
+        // and allowance (4.21.0).
+
+        /// <summary>
+        /// POST /account/ask -- a question about a world the account owns or is in, answered by keel's AI proxy from
+        /// <paramref name="context"/> only: <c>The world doesn't say.</c> when the context does not hold the answer.
+        /// </summary>
+        /// <param name="worldId">The world the question is about, sent as <c>world_id</c>.</param>
+        /// <param name="question">The question, up to 500 characters.</param>
+        /// <param name="context">
+        /// The lines the answer may come from, in order, sent as given: built from the elements the user sees (the
+        /// TypeScript SDK's <c>buildAskContext</c> leaves proposed, hidden and room elements out unless asked).
+        /// </param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <exception cref="ArgumentException">No world, question or context; nothing was sent.</exception>
+        /// <exception cref="OWApiError">
+        /// keel refused, and nothing was counted: 429 <c>quota_exceeded</c> (<see cref="OWApiError.IsQuotaExceeded"/>, the
+        /// day's tokens used up, <see cref="OWApiError.RetryAfter"/> running to midnight UTC), 503 <c>ask_unavailable</c>
+        /// (<see cref="OWApiError.IsAskUnavailable"/>: switched off, or paused for the day), 502 <c>ask_failed</c>
+        /// (<see cref="OWApiError.IsAskFailed"/>), 422 for a question over 500 characters or a context past its limits.
+        /// </exception>
+        /// <remarks>
+        /// An account token only, sent as its Bearer, never with <c>API-Pin</c>, and with no write header. Mirrors the
+        /// TypeScript SDK's <c>ask</c> (4.13.0).
+        /// </remarks>
+        public Task<OWAskAnswer> AskAsync(
+            string worldId, string question, IEnumerable<string> context, CancellationToken ct = default)
+        {
+            RequireAccountToken(nameof(AskAsync), "The proxy meters per account.");
+            RequireWorldId(nameof(AskAsync), worldId);
+            if (question == null) throw new ArgumentNullException(nameof(question), "AskAsync: the question. Nothing was sent.");
+            if (context == null) throw new ArgumentNullException(nameof(context), "AskAsync: the context lines. Nothing was sent.");
+
+            var body = new JObject
+            {
+                ["world_id"] = worldId,
+                ["question"] = question,
+                ["context"] = new JArray(new List<string>(context).ToArray()),
+            };
+
+            return RequestAsync<OWAskAnswer>("POST", "/account/ask", body: body, ct: ct);
+        }
+
+        /// <summary>
+        /// POST /account/sort -- the user's unsorted notes, and the elements the app's own search found for them, sorted by
+        /// the same proxy as <see cref="AskAsync"/> into rows to review (<see cref="OWSortRow"/>: <c>make</c>,
+        /// <c>add_to</c>, <c>link</c>, <c>ask</c>). Nothing is written; the app applies what the user accepts.
+        /// </summary>
+        /// <param name="worldId">The world, sent as <c>world_id</c>.</param>
+        /// <param name="notes">
+        /// 1 to 8 notes, each up to 4,000 characters and 16,000 in all, at most four pictures, each uploaded into this world.
+        /// A note of words alone goes as a string, one with a picture as <c>{text?, image_url}</c>.
+        /// </param>
+        /// <param name="slice">
+        /// Up to 100 elements the notes may be about (id, lower-case type, name up to 200 characters, anchor up to 120);
+        /// an anchor goes only when given. Every id in a row is from the slice: keel moves any other row to
+        /// <see cref="OWSortAnswer.NotProposed"/> with its reason.
+        /// </param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <exception cref="ArgumentException">
+        /// No world, notes or slice, or a note that is null or holds neither words nor a picture; nothing was sent.
+        /// </exception>
+        /// <exception cref="OWApiError">
+        /// <see cref="AskAsync"/>'s refusals, and a 422 naming the param past its limits.
+        /// </exception>
+        /// <remarks>
+        /// The same account token and token rating as <see cref="AskAsync"/> (it spends the tokens it uses). Mirrors the
+        /// TypeScript SDK's <c>sort</c> (4.18.0).
+        /// </remarks>
+        public Task<OWSortAnswer> SortAsync(
+            string worldId, IEnumerable<OWSortNote> notes, IEnumerable<OWSortRef> slice, CancellationToken ct = default)
+        {
+            RequireAccountToken(nameof(SortAsync), "The proxy meters per account.");
+            RequireWorldId(nameof(SortAsync), worldId);
+            if (notes == null) throw new ArgumentNullException(nameof(notes), "SortAsync: the notes. Nothing was sent.");
+            if (slice == null) throw new ArgumentNullException(nameof(slice), "SortAsync: the slice. Nothing was sent.");
+
+            var sent = new JArray();
+            foreach (var note in notes)
+            {
+                var json = note?.ToJson();
+                if (json == null)
+                {
+                    throw new ArgumentException(
+                        "SortAsync: each note is its words, a picture's image_url, or both. Nothing was sent.", nameof(notes));
+                }
+
+                sent.Add(json);
+            }
+
+            var rows = new JArray();
+            foreach (var row in slice)
+            {
+                if (row == null) throw new ArgumentException("SortAsync: a slice row is null. Nothing was sent.", nameof(slice));
+                rows.Add(OnlyGiven(row));
+            }
+
+            var body = new JObject { ["world_id"] = worldId, ["notes"] = sent, ["slice"] = rows };
+            return RequestAsync<OWSortAnswer>("POST", "/account/sort", body: body, ct: ct);
+        }
+
+        /// <summary>
+        /// GET /account/allowance -- the account's token rating, the one daily meter <see cref="AskAsync"/>,
+        /// <see cref="SortAsync"/> and the Council spend from: the rating, what is used and left today, and when it resets
+        /// (the next midnight UTC). Spends nothing.
+        /// </summary>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <remarks>An account token only, sent as its Bearer. Mirrors the TypeScript SDK's <c>allowance</c> (4.21.0).</remarks>
+        public Task<OWAllowance> AllowanceAsync(CancellationToken ct = default)
+        {
+            RequireAccountToken(nameof(AllowanceAsync), "The allowance is per account.");
+            return RequestAsync<OWAllowance>("GET", "/account/allowance", ct: ct);
+        }
+
+        /// <summary>A world's id, not null or empty: an <see cref="ArgumentException"/> naming the call, before sending.</summary>
+        private static void RequireWorldId(string method, string worldId)
+        {
+            if (string.IsNullOrEmpty(worldId))
+                throw new ArgumentException($"{method}: the world's id is required. Nothing was sent.", nameof(worldId));
+        }
+
         /// <summary>
         /// A request model as a body of only the members given, in keel's spelling: a member left null is not sent, so
         /// keel's default holds.

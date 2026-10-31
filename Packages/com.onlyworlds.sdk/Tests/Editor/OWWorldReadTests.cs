@@ -306,6 +306,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 ["ListSeatsAsync"] = (Does.Account, c => c.ListSeatsAsync(W)),
                 ["RekeySeatAsync"] = (Does.Account, c => c.RekeySeatAsync(W, "s1")),
                 ["RemoveSeatAsync"] = (Does.Account, c => c.RemoveSeatAsync(W, "s1")),
+                ["AskAsync"] = (Does.Account, c => c.AskAsync(W, "q", new[] { "x" })),
+                ["SortAsync"] = (Does.Account, c => c.SortAsync(W, new OWSortNote[] { "x" }, new OWSortRef[0])),
+                ["AllowanceAsync"] = (Does.Account, c => c.AllowanceAsync()),
                 ["ChangesAsync"] = (Does.Refused, c => c.ChangesAsync()),
             };
 

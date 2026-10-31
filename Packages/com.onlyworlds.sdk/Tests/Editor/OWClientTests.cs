@@ -149,6 +149,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("seats", "GET", false, true, c => c.ListSeatsAsync("w1")),
             ("rekey seat", "POST", true, true, c => c.RekeySeatAsync("w1", "s1")),
             ("remove seat", "DELETE", true, true, c => c.RemoveSeatAsync("w1", "s1")),
+            // the AI routes, an account token's alone too
+            ("ask", "POST", true, true, c => c.AskAsync("w1", "q", new[] { "x" })),
+            ("sort", "POST", true, true, c => c.SortAsync("w1", new OWSortNote[] { "x" }, new OWSortRef[0])),
+            ("allowance", "GET", false, true, c => c.AllowanceAsync()),
         };
 
         /// <summary>The calls only an account token sends: on any other key each is refused, and nothing is sent.</summary>
@@ -157,6 +161,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             "account worlds", "mint world key", "revoke world key", "accept join",
             "create world link", "world links", "revoke world link",
             "create seat", "seats", "rekey seat", "remove seat",
+            "ask", "sort", "allowance",
         };
 
         /// <summary>The calls that send a second request, to the upload host their ticket names, after keel's.</summary>
@@ -262,8 +267,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public async Task ApiPin_AccountToken_Never_EvenWithAPinConfigured_BearerAndNoApiKey()
         {
             var all = await PinSweep("ow_a_acct", "1234", "w1");
-            Assert.AreEqual(20, all.Count,
-                "the health pulse, the world reads, the two lens routes, the roster and the account routes sent");
+            Assert.AreEqual(23, all.Count,
+                "the health pulse, the world reads, the two lens routes, the roster, the account routes and the AI routes sent");
             foreach (var (name, _, sent) in all)
             {
                 if (SentWithNone(name, sent)) continue;

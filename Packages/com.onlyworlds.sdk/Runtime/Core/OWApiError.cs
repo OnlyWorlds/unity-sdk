@@ -143,6 +143,19 @@ namespace OnlyWorlds.Sdk
         public bool IsFilesFull => StatusCode == 403 && Code == "files_full";
 
         /// <summary>
+        /// <see cref="OWClient.AskAsync"/> or <see cref="OWClient.SortAsync"/>: the AI proxy is switched off, or paused for
+        /// the day by the server-wide cap (503 <c>ask_unavailable</c>). Not counted. Mirrors the TypeScript SDK's
+        /// <c>isAskUnavailable</c>.
+        /// </summary>
+        public bool IsAskUnavailable => StatusCode == 503 && Code == "ask_unavailable";
+
+        /// <summary>
+        /// <see cref="OWClient.AskAsync"/> or <see cref="OWClient.SortAsync"/>: the model gave no answer (502
+        /// <c>ask_failed</c>). Not counted; try again in a moment. Mirrors the TypeScript SDK's <c>isAskFailed</c>.
+        /// </summary>
+        public bool IsAskFailed => StatusCode == 502 && Code == "ask_failed";
+
+        /// <summary>
         /// <c>/changes</c> refused the cursor (409 <c>resync_required</c>): a guest key's view of the
         /// world changed, or the key's role did. Walk the feed again from the start and REPLACE the
         /// local copy: a guest never receives deletes, so only a replace drops what it no longer sees.

@@ -6,6 +6,23 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- The AI routes, on an account token: `OWClient.AskAsync(worldId, question, context)` (POST /account/ask
+  `{world_id, question, context}`), a question answered by keel's AI proxy from the context lines alone, as an
+  `OWAskAnswer` (`Answer`, `Model`, `StopReason`, `Usage` with `InputTokens` and `OutputTokens`, `Remaining`,
+  `TokensRemaining`, `TokenRating`); `SortAsync(worldId, notes, slice)` (POST /account/sort `{world_id, notes,
+  slice}`), the user's notes sorted against the elements the app found for them into rows to review, as an
+  `OWSortAnswer` (`Rows`, each an `OWSortRow` of kind `make`, `add_to`, `link` or `ask` with its `Proposal`, `Target`,
+  `Field`, `Op`, `Value`, `ValueId`, `ValueName`, `Question`, `Candidates` and `Then`; `NotProposed`; and the meter);
+  and `AllowanceAsync()` (GET /account/allowance), the account's daily token rating as an `OWAllowance`
+  (`TokenRating`, `TokensUsedToday`, `TokensRemaining`, `ResetsAt` as served). A note (`OWSortNote`, a string converts
+  to one) goes as its words alone, a string, or with a picture as `{text?, image_url}`; a slice row (`OWSortRef`) sends
+  its `anchor` only when given. Each sends its Bearer alone, no PIN and no write header. Any other key, no world, no
+  question, context, notes or slice, and a note with neither words nor a picture are refused before sending.
+  `OWApiError.IsAskUnavailable` (503 `ask_unavailable`) and `IsAskFailed` (502 `ask_failed`) are new. Mirrors the
+  TypeScript SDK's `ask()` (4.13.0), `sort()` (4.18.0) and `allowance()` (4.21.0).
+
 ## [0.27.0] - 2026-10-31
 
 Serials 97 to 100 in Unity, with the strand profile's reader (`OWStrand.Of`) and the strand on the front door
