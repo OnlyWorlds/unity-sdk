@@ -6,6 +6,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-10-31
+
+Serials 97 to 100 in Unity, with the strand profile's reader (`OWStrand.Of`) and the strand on the front door
+(`OWReadingAids.Strand`), and most of the TypeScript SDK's client calls that Unity never had: the roster, health,
+upsert, adopt, the hidden mark, the member's own Character, typed get and list options, the account's worlds and
+keys, invite links and seats, and images and files through a ticket and the upload host. A minor release because it
+adds public API (below). A transport of your own must now send `OWRequest.BodyBytes`, or an upload goes out empty.
+
 ### Added
 
 - `OWReadingAids.Strand`: the world's strand on the front door (serial 100), as keel serves it in `reading_aids`
