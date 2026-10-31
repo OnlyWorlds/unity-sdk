@@ -407,21 +407,40 @@ namespace OnlyWorlds.Sdk
         /// GET /{type}/ -- one cursor page. On a client with <see cref="World"/> set (an account token or no key), it
         /// reads that world, sending <c>world=&lt;id&gt;</c> beside the page's own parameters.
         /// </summary>
+        /// <remarks>
+        /// The parameters go in the TypeScript SDK's order: <c>limit</c>, <c>cursor</c>, <c>expand</c>, <c>fields</c>,
+        /// <c>ids</c>, <c>created_by</c>, then the named filters and <see cref="OWListParams.Filter"/>'s, and <c>as</c>
+        /// last. Mirrors the TypeScript SDK's <c>list</c> options <c>expand</c>, <c>ids</c>, <c>createdBy</c> and
+        /// <c>viewAs</c> (<c>viewAs</c> from 4.37.0).
+        /// </remarks>
+        /// <exception cref="ArgumentException">
+        /// <see cref="OWListParams.Filter"/> holds <c>world</c>, a key that is no field name, or a key a typed member sends
+        /// in the same request; nothing was sent.
+        /// </exception>
         public Task<OWPage<T>> ListAsync<T>(string type, OWListParams p = default, CancellationToken ct = default)
         {
-            var query = new List<string>
+            // Each typed parameter as (name, value), in order; a null value is not sent.
+            var typed = new List<(string Name, string Value)>
             {
-                "limit=" + (p.Limit ?? PageSize),
+                ("limit", (p.Limit ?? PageSize).ToString(CultureInfo.InvariantCulture)),
+                ("cursor", NullIfEmpty(p.Cursor)),
+                ("expand", Joined(p.Expand)),
+                ("fields", Joined(p.Fields)),
+                ("ids", Joined(p.Ids)),
+                ("created_by", NullIfEmpty(p.CreatedBy)),
+                ("name", NullIfEmpty(p.Name)),
+                ("name__icontains", NullIfEmpty(p.NameContains)),
+                ("supertype", NullIfEmpty(p.Supertype)),
+                ("subtype", NullIfEmpty(p.Subtype)),
             };
+            var viewAs = NullIfEmpty(p.ViewAs);
 
-            if (!string.IsNullOrEmpty(p.Cursor)) query.Add("cursor=" + Uri.EscapeDataString(p.Cursor));
-            if (p.Fields != null && p.Fields.Length > 0)
-                query.Add("fields=" + Uri.EscapeDataString(string.Join(",", p.Fields)));
-            if (!string.IsNullOrEmpty(p.Name)) query.Add("name=" + Uri.EscapeDataString(p.Name));
-            if (!string.IsNullOrEmpty(p.NameContains))
-                query.Add("name__icontains=" + Uri.EscapeDataString(p.NameContains));
-            if (!string.IsNullOrEmpty(p.Supertype)) query.Add("supertype=" + Uri.EscapeDataString(p.Supertype));
-            if (!string.IsNullOrEmpty(p.Subtype)) query.Add("subtype=" + Uri.EscapeDataString(p.Subtype));
+            var query = new List<string>();
+            foreach (var (name, value) in typed)
+            {
+                if (value != null) query.Add(name + "=" + Uri.EscapeDataString(value));
+            }
+
             if (p.Filter != null)
             {
                 // world is the client's, set when it is built: in a filter it would go out twice beside World's world=,
@@ -439,12 +458,28 @@ namespace OnlyWorlds.Sdk
                 {
                     if (string.IsNullOrEmpty(field) || !IsFieldName(field))
                         throw new ArgumentException($"'{field}' is not a field name to filter on", nameof(p));
+
+                    // A key a typed member sends here would go out twice, and keel reads one of the two.
+                    if ((field == "as" && viewAs != null) || typed.Exists(t => t.Name == field && t.Value != null))
+                    {
+                        throw new ArgumentException(
+                            $"ListAsync: '{field}' is sent by its own OWListParams member in this request; give it there "
+                            + "or in Filter, not both. Nothing was sent.", nameof(p));
+                    }
+
                     query.Add(field + "=" + Uri.EscapeDataString(p.Filter[field] ?? ""));
                 }
             }
 
+            if (viewAs != null) query.Add("as=" + Uri.EscapeDataString(viewAs));
+
             return RequestAsync<OWPage<T>>("GET", $"/{type}/", query: string.Join("&", query), ct: ct, worldRead: true);
         }
+
+        private static string NullIfEmpty(string s) => string.IsNullOrEmpty(s) ? null : s;
+
+        /// <summary>A list of names joined by commas, or null for none (null or empty).</summary>
+        private static string Joined(string[] names) => names == null || names.Length == 0 ? null : string.Join(",", names);
 
         /// <summary>A schema field's shape (<c>parent_location</c>): a lowercase letter, then lowercase letters, digits and <c>_</c>.</summary>
         private static bool IsFieldName(string s)

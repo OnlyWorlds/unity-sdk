@@ -97,6 +97,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             // reads
             ("list", "GET", false, true, c => c.ListAsync<JObject>("location")),
             ("list (name search)", "GET", false, true, c => c.ListAsync<JObject>("location", new OWListParams { NameContains = "harb" })),
+            ("list (typed options)", "GET", false, true, c => c.ListAsync<JObject>("location", new OWListParams
+            {
+                Ids = new[] { "l1" }, CreatedBy = "owner", Expand = new[] { "zone" }, ViewAs = "public",
+            })),
             ("get", "GET", false, true, c => c.GetAsync<JObject>("location", "l1")),
             ("changes", "GET", false, false, c => c.ChangesAsync()),
             ("changes head", "GET", false, false, c => c.ChangesAsync(headOnly: true)),
@@ -226,8 +230,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public async Task ApiPin_AccountToken_Never_EvenWithAPinConfigured_BearerAndNoApiKey()
         {
             var all = await PinSweep("ow_a_acct", "1234", "w1");
-            Assert.AreEqual(19, all.Count,
-                "the health pulse, the four world reads, the two lens routes, the roster and the account routes sent");
+            Assert.AreEqual(20, all.Count,
+                "the health pulse, the world reads, the two lens routes, the roster and the account routes sent");
             foreach (var (name, _, sent) in all)
             {
                 if (SentWithNone(name, sent)) continue;
@@ -1195,6 +1199,93 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 Assert.ThrowsAsync<ArgumentException>(() => Make(t, key, null, world).ListAllAsync<OWElement>("location", p), key ?? "no key");
                 Assert.AreEqual(0, t.Calls.Count, $"{key ?? "no key"}: nothing reaches the wire");
             }
+        }
+
+        // -- A list's typed options (the TypeScript SDK's list(type, { ids, createdBy, expand, viewAs })) --------
+
+        // Kills: an option dropped, misnamed (createdBy goes as created_by, viewAs as `as`), joined other than by commas or
+        // left unescaped, put in another order than the TypeScript SDK's (limit, cursor, expand, fields, ids, created_by,
+        // the filters, as last), an empty one sent, or world= lost beside them.
+        [Test]
+        public async Task List_SendsExpandIdsCreatedByAndViewAs_InTheTypeScriptOrder_AndNothingForNone()
+        {
+            var t = new FakeTransport { ResponseBody = @"{""data"":[],""has_more"":false}" };
+            await Make(t).ListAsync<OWElement>("location", new OWListParams
+            {
+                Limit = 5, Cursor = "c=", Expand = new[] { "zone", "parent_location" }, Fields = new[] { "name" },
+                Ids = new[] { "a1", "b 2" }, CreatedBy = "owner", Supertype = "port", ViewAs = "m 1",
+                Filter = new Dictionary<string, string> { ["zone"] = "z1" },
+            });
+            Assert.AreEqual("https://example.test/api/v2/location/?limit=5&cursor=c%3D&expand=zone%2Cparent_location&fields=name"
+                + "&ids=a1%2Cb%202&created_by=owner&supertype=port&zone=z1&as=m%201", t.Last.Url);
+
+            await Make(t).ListAsync<OWElement>("location", new OWListParams { ViewAs = "public" });
+            Assert.AreEqual("https://example.test/api/v2/location/?limit=100&as=public", t.Last.Url);
+
+            await Make(t).ListAsync<OWElement>("location", new OWListParams
+            {
+                Expand = new string[0], Ids = new string[0], CreatedBy = "", ViewAs = "",
+            });
+            Assert.AreEqual("https://example.test/api/v2/location/?limit=100", t.Last.Url, "an empty option sends nothing");
+
+            await Make(t, "ow_a_acct", null, "w1").ListAsync<OWElement>("location", new OWListParams { Ids = new[] { "a1" }, ViewAs = "public" });
+            Assert.AreEqual("https://example.test/api/v2/location/?limit=100&ids=a1&as=public&world=w1", t.Last.Url,
+                "world= beside the list's own query on an account token");
+        }
+
+        // Kills: an option dropped on page two, which widens the walk silently.
+        [Test]
+        public async Task ListAll_CarriesTheTypedOptionsOntoEveryPage()
+        {
+            var t = new FakeTransport();
+            t.Bodies.Enqueue(@"{""data"":[{""name"":""a""}],""has_more"":true,""next_cursor"":""c1""}");
+            t.Bodies.Enqueue(@"{""data"":[{""name"":""b""}],""has_more"":false,""next_cursor"":null}");
+
+            await Make(t).ListAllAsync<OWElement>("character", new OWListParams
+            {
+                Ids = new[] { "a", "b" }, CreatedBy = "m1", Expand = new[] { "friends" }, ViewAs = "public",
+            });
+
+            Assert.AreEqual(2, t.Calls.Count);
+            foreach (var call in t.Calls)
+            {
+                foreach (var pair in new[] { "ids=a%2Cb", "created_by=m1", "expand=friends", "as=public" })
+                    StringAssert.Contains(pair, call.Url);
+            }
+            StringAssert.Contains("cursor=c1", t.Calls[1].Url);
+        }
+
+        // A Filter key that a typed member also sends would go out twice (the TypeScript SDK's list lets the filter win,
+        // and drops a filter's `as` for viewAs). Kills: both sent, on ListAsync or on ListAllAsync's walk; `limit`, which
+        // the client always sends, let through a filter; or a filter refused when its typed member is not set.
+        [Test]
+        public async Task List_AFilterKeyATypedMemberSends_IsRefused_NothingSent_AndOneItDoesNotSendGoesOnce()
+        {
+            var clashes = new (string Key, OWListParams Params)[]
+            {
+                ("limit", new OWListParams()),
+                ("ids", new OWListParams { Ids = new[] { "a1" } }),
+                ("created_by", new OWListParams { CreatedBy = "owner" }),
+                ("expand", new OWListParams { Expand = new[] { "zone" } }),
+                ("as", new OWListParams { ViewAs = "public" }),
+                ("cursor", new OWListParams { Cursor = "c" }),
+                ("name", new OWListParams { Name = "Harbour" }),
+            };
+
+            var t = new FakeTransport { ResponseBody = @"{""data"":[],""has_more"":false}" };
+            foreach (var (key, p) in clashes)
+            {
+                var given = p;
+                given.Filter = new Dictionary<string, string> { [key] = "x" };
+                var e = Assert.Throws<ArgumentException>(() => Make(t).ListAsync<OWElement>("location", given), key);
+                StringAssert.Contains($"'{key}' is sent by its own OWListParams member", e.Message, key);
+                StringAssert.Contains("Nothing was sent", e.Message, key);
+                Assert.ThrowsAsync<ArgumentException>(() => Make(t).ListAllAsync<OWElement>("location", given), key);
+            }
+            Assert.AreEqual(0, t.Calls.Count, "nothing reaches the wire");
+
+            await Make(t).ListAsync<OWElement>("location", new OWListParams { Filter = new Dictionary<string, string> { ["ids"] = "a1" } });
+            Assert.AreEqual("https://example.test/api/v2/location/?limit=100&ids=a1", t.Last.Url, "a filter its member does not send goes once");
         }
 
         // -- A single get's query (the TypeScript SDK's get(type, id, { expand, fields, viewAs })) --------

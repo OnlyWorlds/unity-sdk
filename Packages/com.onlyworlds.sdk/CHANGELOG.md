@@ -102,6 +102,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   working: sent as `expand` and `fields` (joined by commas) and `as`, in the TypeScript SDK's order, beside `world=`
   on a client with `World` set; null or empty sends nothing. Until now a single get could send none of them. Mirrors
   the TypeScript SDK's `get` options (`viewAs` from 4.37.0).
+- `OWListParams` takes `Expand`, `Ids`, `CreatedBy` and `ViewAs`, so `ListAsync` and every page of `ListAllAsync` send
+  `expand` and `ids` (joined by commas), `created_by` (a membership id or `owner`) and `as` (view as), in the
+  TypeScript SDK's order (`limit`, `cursor`, `expand`, `fields`, `ids`, `created_by`, the filters, `as` last), beside
+  `world=` on a client with `World` set; null or empty sends nothing. Until now they went only through `Filter`,
+  untyped. A `Filter` key that a typed member sends in the same request (`limit`, always; `ids` with `Ids` set; `as`
+  with `ViewAs`; and so on) is now an `ArgumentException` before sending, where it went out twice; one whose member is
+  not set still goes once. Mirrors the TypeScript SDK's `list` options `ids`, `createdBy`, `expand` and `viewAs`
+  (`viewAs` from 4.37.0).
 - `OWListParams.Filter` refuses a `world` key with an `ArgumentException` before sending, on every client and on
   every page of `ListAllAsync`: it would go out beside the client's own `world=`, or to a world key that answers 422.
   The world an account token or a keyless client reads is `OWClientConfig.World`. Mirrors the TypeScript SDK's
