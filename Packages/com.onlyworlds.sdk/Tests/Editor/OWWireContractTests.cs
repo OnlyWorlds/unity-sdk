@@ -209,6 +209,14 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             await c.ReviewNewElementAsync("character", "c1", OWReviewed.Accept);
             await c.ReviewNewElementAsync("character", "c1", OWReviewed.Decline, "not canon");
 
+            // The escape hatch on the agent client: a read, and an element write with every header it can be asked for.
+            t.ResponseBody = "{}";
+            await c.RequestAsync("GET", "/world/");
+            await c.RequestAsync("PATCH", "/character/c1/", new OWRequestOptions
+            {
+                Body = new JObject { ["name"] = "R" }, Write = true, ElementWrite = true, Proposable = true, IfMatch = 7,
+            });
+
             // The account's world create takes an account token: every member given, on the same transport.
             var account = new OWClient(new OWClientConfig { ApiKey = "ow_a_test", ApiPin = "0000", Transport = t, BaseUrl = Base, Agent = true });
             t.ResponseBody = @"{""id"":""w1"",""name"":""W"",""role"":""owner"",""public_read"":false,""keys"":[],""key"":""ow_w_x""}";
@@ -754,7 +762,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             // An empty recording would pass the checks above with nothing checked.
             var calls = await RecordEveryCall();
-            Assert.AreEqual(80, calls.Count);
+            Assert.AreEqual(82, calls.Count);
 
             // The upload host's requests are recorded and left out of the checks; the keel request of each two-step call
             // is in, so the checks above judged it.

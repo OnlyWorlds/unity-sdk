@@ -311,6 +311,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 ["SortAsync"] = (Does.Account, c => c.SortAsync(W, new OWSortNote[] { "x" }, new OWSortRef[0])),
                 ["AllowanceAsync"] = (Does.Account, c => c.AllowanceAsync()),
                 ["ChangesAsync"] = (Does.Refused, c => c.ChangesAsync()),
+                // The escape hatch as a world read; its other rules are OWRequestRouteTests'.
+                ["RequestAsync"] = (Does.Read, c => c.RequestAsync("GET", "/world/", new OWRequestOptions { WorldRead = true })),
             };
 
         [Test]

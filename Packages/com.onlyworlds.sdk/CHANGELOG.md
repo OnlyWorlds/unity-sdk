@@ -31,6 +31,16 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   and so are an account token and a keyless client, as the TypeScript SDK refuses them (keel's document also declares
   `world` there; neither SDK sends it). Mirrors the TypeScript SDK's `draught()` (4.47.0; `compact` from 4.69.0,
   `lens` from 4.92.0). The 0.24.0 "Not added" line about the draught's `lens` no longer holds: this is that client.
+- The escape hatch: `OWClient.RequestAsync(method, path, options)`, any route of keel's on the client's own rules,
+  answering the body as served (a `JToken`, null for a 204 or an empty body). `OWRequestOptions` carries the `Query`
+  (as given), the `Body` (any JSON value, sent exactly as given: nothing is cleaned, unlike the typed writes),
+  `IdempotencyKey`, `IfMatch`, and the rules a route asks for: `Write` (`X-OW-Agent` on an agent client),
+  `ElementWrite` (`X-OW-Client`), `Proposable` (a 202 is an `OWProposedError`), `WorldRead` (`world=` on a GET of a
+  client with `World` set), `AccountToken` (a new public `OWAccountTokenRoute`: `None`, `Path`, `World`) and `Auth`
+  (false: no credential). The key, the PIN where keel checks it, the Bearer, and the refusals of an account token or a
+  keyless client are the typed calls' own. A method other than keel's five in capitals, a path that does not start
+  with `/` or carries `?` or `#`, a body on a GET and a negative `IfMatch` are refused before sending. Mirrors the
+  TypeScript SDK's `request()` (public from 4.0.0).
 
 ## [0.27.0] - 2026-10-31
 

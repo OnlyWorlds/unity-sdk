@@ -125,6 +125,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("patch world", "PATCH", true, false, c => c.PatchWorldAsync(new JObject { ["name"] = "W" })),
             ("set my lenses", "PUT", true, true, c => c.SetMyLensesAsync(new[] { "l1" })),
             ("set my character", "PUT", true, false, c => c.SetMyCharacterAsync("c1")),
+            // the escape hatch keeps the same rules: a world read, and an element write
+            ("request", "GET", false, true, c => c.RequestAsync("GET", "/world/", new OWRequestOptions { WorldRead = true })),
+            ("request (write)", "PATCH", true, false, c => c.RequestAsync("PATCH", "/location/l1/", new OWRequestOptions
+            {
+                Body = new JObject { ["name"] = "Harbour" }, Write = true, ElementWrite = true,
+            })),
             // the image tickets, and the two calls that spend one at the upload host (TwoStep): keel's request is checked
             // here as every other, the host's carries the ticket alone
             ("media ticket", "POST", true, false, c => c.CreateMediaTicketAsync()),
@@ -269,8 +275,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public async Task ApiPin_AccountToken_Never_EvenWithAPinConfigured_BearerAndNoApiKey()
         {
             var all = await PinSweep("ow_a_acct", "1234", "w1");
-            Assert.AreEqual(23, all.Count,
-                "the health pulse, the world reads, the two lens routes, the roster, the account routes and the AI routes sent");
+            Assert.AreEqual(24, all.Count,
+                "the health pulse, the world reads (the escape hatch's among them), the two lens routes, the roster, the "
+                + "account routes and the AI routes sent");
             foreach (var (name, _, sent) in all)
             {
                 if (SentWithNone(name, sent)) continue;

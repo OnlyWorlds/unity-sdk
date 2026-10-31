@@ -80,6 +80,77 @@ namespace OnlyWorlds.Sdk
     }
 
     /// <summary>
+    /// What <see cref="OWClient.RequestAsync(string, string, OWRequestOptions, CancellationToken)"/> sends beside the
+    /// method and path, and which of the client's rules it asks for. Every member left at its default sends nothing.
+    /// </summary>
+    public class OWRequestOptions
+    {
+        /// <summary>The query, without its <c>?</c>, sent as given: escape its values yourself. Null or empty: none.</summary>
+        public string Query;
+
+        /// <summary>
+        /// The JSON body, sent exactly as given (with <c>Content-Type: application/json</c>): nothing is cleaned, so no
+        /// read-only key is left out and a null stays null. Null: no body. Never on a GET.
+        /// </summary>
+        public JToken Body;
+
+        /// <summary>Sent as <c>Idempotency-Key</c> when not null or empty.</summary>
+        public string IdempotencyKey;
+
+        /// <summary>A <c>change_seq</c> sent as <c>If-Match</c>, quoted; a whole number, else refused before sending.</summary>
+        public long? IfMatch;
+
+        /// <summary>
+        /// A write keel's document lists <c>X-OW-Agent</c> on (the element writes, the links route, bulk, adopt, the file
+        /// ticket): an agent client (<see cref="OWClientConfig.Agent"/>) sends it.
+        /// </summary>
+        public bool Write;
+
+        /// <summary>
+        /// One of the writes keel reads <c>X-OW-Client</c> on (create, put, patch, delete, links, bulk, adopt, propose,
+        /// accept): the client's name (<see cref="OWClient.ClientName"/>) goes.
+        /// </summary>
+        public bool ElementWrite;
+
+        /// <summary>
+        /// A write keel may answer 202 with <c>{proposal}</c> (put, patch, links): a 202 is then an
+        /// <see cref="OWProposedError"/>, not a body that is not the element.
+        /// </summary>
+        public bool Proposable;
+
+        /// <summary>
+        /// A GET keel serves an account token, or no key, with <c>world=&lt;id&gt;</c> (element list and get, the world
+        /// GET): on a client with <see cref="OWClient.World"/> set, <c>world=&lt;id&gt;</c> is added to the query.
+        /// </summary>
+        public bool WorldRead;
+
+        /// <summary>
+        /// A route keel's document declares the account token on beside the world key (the lens routes, the roster): how an
+        /// account client sends it. <see cref="OWAccountTokenRoute.None"/> on any other route.
+        /// </summary>
+        public OWAccountTokenRoute AccountToken;
+
+        /// <summary>
+        /// False for a route keel serves with no credential (the health pulse): no key, PIN or Bearer is sent, no
+        /// <c>world=</c> is added, and no client is refused for the key it holds. True by default.
+        /// </summary>
+        public bool Auth = true;
+    }
+
+    /// <summary>How an account token sends a world route keel declares it on beside the world key.</summary>
+    public enum OWAccountTokenRoute
+    {
+        /// <summary>Not such a route: an account token sends only the <c>/account</c> routes and the world reads.</summary>
+        None,
+
+        /// <summary>The path names the world; nothing is added.</summary>
+        Path,
+
+        /// <summary>The world is named with <c>world=&lt;id&gt;</c>, from <see cref="OWClient.World"/>, which must be set.</summary>
+        World,
+    }
+
+    /// <summary>
     /// A thin typed client for the OnlyWorlds v2 API.
     /// </summary>
     /// <remarks>
@@ -326,7 +397,7 @@ namespace OnlyWorlds.Sdk
         /// </remarks>
         public async Task<JArray> GetMembersAsync(CancellationToken ct = default)
         {
-            var page = await RequestAsync<JObject>("GET", "/members/", ct: ct, accountToken: AccountTokenRoute.World)
+            var page = await RequestAsync<JObject>("GET", "/members/", ct: ct, accountToken: OWAccountTokenRoute.World)
                 .ConfigureAwait(false);
             return page?["data"] as JArray ?? new JArray();
         }
@@ -362,7 +433,7 @@ namespace OnlyWorlds.Sdk
         public Task<JObject> SetMyLensesAsync(IEnumerable<string> lensIds, CancellationToken ct = default)
         {
             var body = new JObject { ["lenses"] = LensList(lensIds) };
-            return RequestAsync<JObject>("PUT", "/me/lenses", body: body, ct: ct, accountToken: AccountTokenRoute.World);
+            return RequestAsync<JObject>("PUT", "/me/lenses", body: body, ct: ct, accountToken: OWAccountTokenRoute.World);
         }
 
         /// <summary>
@@ -398,7 +469,7 @@ namespace OnlyWorlds.Sdk
             if (!string.IsNullOrEmpty(readAs)) query.Add("read_as=" + Uri.EscapeDataString(readAs));
 
             return RequestAsync<JObject>("GET", $"/world/{Uri.EscapeDataString(worldId)}/lenses",
-                query: string.Join("&", query), ct: ct, accountToken: AccountTokenRoute.Path);
+                query: string.Join("&", query), ct: ct, accountToken: OWAccountTokenRoute.Path);
         }
 
         // -- Element reads ----------------------------------------------------
@@ -2298,12 +2369,78 @@ namespace OnlyWorlds.Sdk
 
         // -- Core -------------------------------------------------------------
 
+        /// <summary>
+        /// Any route of keel's, on this client's own rules: the escape hatch for a route no typed call here makes. Answers
+        /// the body as served (a <see cref="JToken"/>, its dates kept as the strings they were), or null for a 204 or an
+        /// empty body.
+        /// </summary>
+        /// <param name="method"><c>GET</c>, <c>POST</c>, <c>PUT</c>, <c>PATCH</c> or <c>DELETE</c>, in capitals.</param>
+        /// <param name="path">The path under <see cref="BaseUrl"/>, starting with <c>/</c> (<c>/world/files</c>); its query goes in <see cref="OWRequestOptions.Query"/>.</param>
+        /// <param name="options">The query, the body, and which of the client's rules the route asks for; null for none.</param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="ArgumentException">
+        /// Another method; a path that is empty, does not start with <c>/</c> or carries a <c>?</c> or <c>#</c>; a body on a
+        /// GET; a negative <see cref="OWRequestOptions.IfMatch"/>. Nothing was sent.
+        /// </exception>
+        /// <exception cref="InvalidOperationException">
+        /// The client's own refusals, as every typed call has them: an account token on a route it does not send, or no key
+        /// on a route that needs one. Nothing was sent.
+        /// </exception>
+        /// <exception cref="OWApiError">The server refused; a 202 on a <see cref="OWRequestOptions.Proposable"/> write is an <see cref="OWProposedError"/>.</exception>
+        /// <exception cref="OWTransportError">The request never got an answer.</exception>
+        /// <remarks>
+        /// <para>
+        /// What it adds is what every typed call adds: the key as <c>API-Key</c>, or an account token as its Bearer; the PIN
+        /// only where keel checks it (any method but GET, <c>/me</c>, and every request of a legacy key); <c>world=</c> on a
+        /// <see cref="OWRequestOptions.WorldRead"/> GET or an <see cref="OWAccountTokenRoute.World"/> route of a client with
+        /// <see cref="World"/> set; <c>Content-Type</c> with a body; <c>X-OW-Agent</c> on an agent client's
+        /// <see cref="OWRequestOptions.Write"/> and <c>X-OW-Client</c> on an <see cref="OWRequestOptions.ElementWrite"/>.
+        /// An account token and a keyless client are refused here exactly where the typed calls refuse them.
+        /// </para>
+        /// <para>
+        /// What it never does: clean the body. The typed writes leave the read-only keys out, send a null scalar string as
+        /// <c>""</c> and refuse a known-of stub; this sends the body as given, so the caller owns its shape. Prefer the typed
+        /// calls for elements. Mirrors the TypeScript SDK's <c>request</c> (public from 4.0.0), which does not apply
+        /// <c>sanitizePayload</c> either.
+        /// </para>
+        /// </remarks>
+        public Task<JToken> RequestAsync(
+            string method, string path, OWRequestOptions options = null, CancellationToken ct = default)
+        {
+            if (Array.IndexOf(RequestMethods, method) < 0)
+            {
+                throw new ArgumentException(
+                    $"RequestAsync: the method is one of {string.Join(", ", RequestMethods)}, in capitals. Nothing was sent.",
+                    nameof(method));
+            }
+
+            if (string.IsNullOrEmpty(path) || path[0] != '/' || path.IndexOf('?') >= 0 || path.IndexOf('#') >= 0)
+            {
+                throw new ArgumentException(
+                    "RequestAsync: the path is the route under BaseUrl, starting with '/', and its query goes in "
+                    + "OWRequestOptions.Query. Nothing was sent.", nameof(path));
+            }
+
+            var o = options ?? new OWRequestOptions();
+            if (o.Body != null && method == "GET")
+                throw new ArgumentException("RequestAsync: a GET carries no body. Nothing was sent.", nameof(options));
+            RefuseNegative(o.IfMatch);
+
+            return RequestAsync<JToken>(method, path, query: o.Query, body: o.Body, idempotencyKey: o.IdempotencyKey,
+                allowEmpty: true, write: o.Write && o.ElementWrite, ct: ct, ifMatch: o.IfMatch,
+                named: o.ElementWrite && !o.Write, proposable: o.Proposable, worldRead: o.WorldRead,
+                accountToken: o.AccountToken, auth: o.Auth, agentOnly: o.Write && !o.ElementWrite);
+        }
+
+        /// <summary>The methods <see cref="RequestAsync(string, string, OWRequestOptions, CancellationToken)"/> sends: keel's five.</summary>
+        private static readonly string[] RequestMethods = { "GET", "POST", "PUT", "PATCH", "DELETE" };
+
         private async Task<T> RequestAsync<T>(
             string method, string path,
-            string query = null, JObject body = null, string idempotencyKey = null,
+            string query = null, JToken body = null, string idempotencyKey = null,
             bool allowEmpty = false, bool write = false, CancellationToken ct = default, long? ifMatch = null,
             bool named = false, bool proposable = false, bool worldRead = false,
-            AccountTokenRoute accountToken = AccountTokenRoute.None, bool auth = true, bool agentOnly = false)
+            OWAccountTokenRoute accountToken = OWAccountTokenRoute.None, bool auth = true, bool agentOnly = false)
         {
             var result = await RequestWithResponseAsync<T>(
                 method, path, query, body, idempotencyKey, allowEmpty, write, ct,
@@ -2335,8 +2472,8 @@ namespace OnlyWorlds.Sdk
         /// </param>
         /// <param name="accountToken">
         /// A world route keel's document declares the account token on beside the world key (the lens routes): an account
-        /// client sends it with its Bearer token. <see cref="AccountTokenRoute.Path"/>: the path names the world, nothing is
-        /// added. <see cref="AccountTokenRoute.World"/>: <c>world=&lt;id&gt;</c> is added from <see cref="World"/>, and an
+        /// client sends it with its Bearer token. <see cref="OWAccountTokenRoute.Path"/>: the path names the world, nothing is
+        /// added. <see cref="OWAccountTokenRoute.World"/>: <c>world=&lt;id&gt;</c> is added from <see cref="World"/>, and an
         /// account client without it is refused before sending. A world key sends as without it; a keyless client is
         /// still refused.
         /// </param>
@@ -2350,11 +2487,11 @@ namespace OnlyWorlds.Sdk
         /// </param>
         private async Task<(T Value, OWResponse Response)> RequestWithResponseAsync<T>(
             string method, string path,
-            string query = null, JObject body = null, string idempotencyKey = null,
+            string query = null, JToken body = null, string idempotencyKey = null,
             bool allowEmpty = false, bool write = false, CancellationToken ct = default,
             string ifNoneMatch = null, bool notModified = false, long? ifMatch = null,
             bool named = false, bool proposable = false, bool worldRead = false,
-            AccountTokenRoute accountToken = AccountTokenRoute.None, bool auth = true, bool agentOnly = false)
+            OWAccountTokenRoute accountToken = OWAccountTokenRoute.None, bool auth = true, bool agentOnly = false)
         {
             // The one rule for what an account token or no key may send, read from the request itself (keel's
             // account reads, ruled 2026-10-26): an /account route, a GET marked as a world read, or a route marked as
@@ -2362,7 +2499,7 @@ namespace OnlyWorlds.Sdk
             // 401, so it is refused here and nothing is sent. Mirrors the TypeScript SDK's request() (4.88.0; the
             // account token's lens routes from 4.94.0).
             var reads = auth && worldRead && string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase);
-            var tokenRoute = auth && KeyKind == OWKeyKind.Account ? accountToken : AccountTokenRoute.None;
+            var tokenRoute = auth && KeyKind == OWKeyKind.Account ? accountToken : OWAccountTokenRoute.None;
 
             if (auth && _keyless && !(reads && World != null))
             {
@@ -2373,7 +2510,7 @@ namespace OnlyWorlds.Sdk
 
             if (auth && KeyKind == OWKeyKind.Account && !IsAccountRoute(path))
             {
-                if (!reads && tokenRoute == AccountTokenRoute.None)
+                if (!reads && tokenRoute == OWAccountTokenRoute.None)
                 {
                     throw new InvalidOperationException(
                         $"{method} {path} needs a world key: an account token sends the /account routes, "
@@ -2388,7 +2525,7 @@ namespace OnlyWorlds.Sdk
                         + $"(new OWClientConfig {{ ApiKey, World }}), through {WorldReads}. Nothing was sent.");
                 }
 
-                if (tokenRoute == AccountTokenRoute.World && World == null)
+                if (tokenRoute == OWAccountTokenRoute.World && World == null)
                 {
                     throw new InvalidOperationException(
                         $"{method} {path}: an account token names the world it sends to with World: set it "
@@ -2396,7 +2533,7 @@ namespace OnlyWorlds.Sdk
                 }
             }
 
-            if ((reads || tokenRoute == AccountTokenRoute.World) && World != null)
+            if ((reads || tokenRoute == OWAccountTokenRoute.World) && World != null)
             {
                 var world = "world=" + Uri.EscapeDataString(World);
                 query = string.IsNullOrEmpty(query) ? world : query + "&" + world;
@@ -2483,19 +2620,6 @@ namespace OnlyWorlds.Sdk
             }
 
             return (OWJson.Deserialize<T>(response.Body), response);
-        }
-
-        /// <summary>How an account token sends a world route keel declares it on beside the world key.</summary>
-        private enum AccountTokenRoute
-        {
-            /// <summary>Not such a route: an account token sends only the /account routes and the world reads.</summary>
-            None,
-
-            /// <summary>The path names the world; nothing is added.</summary>
-            Path,
-
-            /// <summary>The world is named with <c>world=&lt;id&gt;</c>, from <see cref="OWClient.World"/>, which must be set.</summary>
-            World,
         }
 
         /// <summary>
