@@ -6,6 +6,17 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- The account's own tokens, in parity with the TypeScript SDK 4.122.0 (its test vector ported).
+  `ListAccountTokensAsync()` lists them (`GET /account/tokens`) as `OWAccountToken` rows: by name and last four,
+  never the token itself, with when each was last used, whether it is revoked, when it expires, how many live world
+  keys it minted, and who it is for (`audience`, and `Client` and `ReturnHost` on an `mcp` token).
+  `RevokeAccountTokenAsync(tokenId)` revokes one (`DELETE /account/tokens/{token_id}`), this client's own included. A
+  tool done with a sign-in revokes the token by the `TokenId` the sign-in answered. Both need an account token, and
+  any other key is refused before sending. They send the Bearer alone. An empty id is refused before sending, and an
+  id that is not one of the account's tokens is keel's 404 (`IsNotFound`).
+
 ## [0.29.0] - 2026-10-31
 
 `OWLinkListener` hands over a link as it was received, beside its reading, and its dispatch can turn a link down by

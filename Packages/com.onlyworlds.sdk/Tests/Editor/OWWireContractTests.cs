@@ -254,6 +254,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             await account.ListWorldLinksAsync("w1");
             t.ResponseBody = "{}";
             await account.RevokeWorldLinkAsync("w1", "l1");
+            // The account's own tokens: the list, a revoke.
+            t.ResponseBody = @"{""data"":[]}";
+            await account.ListAccountTokensAsync();
+            t.ResponseBody = "{}";
+            await account.RevokeAccountTokenAsync("t1");
             // A seat for one's own AI, every option given; its list, a new key, its removal.
             await account.CreateSeatAsync("w1", "Scout", role: "contributor", character: "mine");
             t.ResponseBody = @"{""data"":[]}";
@@ -616,6 +621,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [TestCase(typeof(OWHiddenRow), "/api/v2/world/hidden")]
         [TestCase(typeof(OWWorldLink), "/api/v2/account/worlds/{world_id}/links")]
         [TestCase(typeof(OWSeat), "/api/v2/account/worlds/{world_id}/seats")]
+        [TestCase(typeof(OWAccountToken), "/api/v2/account/tokens")]
         [TestCase(typeof(OWFileRow), "/api/v2/character/{id}/files")]
         [TestCase(typeof(OWWorldFileRow), "/api/v2/world/files")]
         public void EveryKeyAListRowReads_IsOneTheListServes_AndEveryOneItServesIsRead(Type row, string path)
@@ -825,7 +831,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             // An empty recording would pass the checks above with nothing checked.
             var calls = await RecordEveryCall();
-            Assert.AreEqual(86, calls.Count);
+            Assert.AreEqual(88, calls.Count);
 
             // The upload host's and the sign-in service's requests are recorded and left out of the checks; the keel
             // request of each two-step call, and the password sign-in's mint, are in, so the checks above judged them.

@@ -1969,6 +1969,50 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
+        /// GET /account/tokens -- the account's tokens, each by name and last four, never the token itself: when it was
+        /// last used, whether it is revoked, when it expires, how many live world keys it minted, and who it is for.
+        /// </summary>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <remarks>
+        /// An account token only, sent as its Bearer. Mirrors the TypeScript SDK's <c>listAccountTokens</c> (4.122.0).
+        /// </remarks>
+        public async Task<List<OWAccountToken>> ListAccountTokensAsync(CancellationToken ct = default)
+        {
+            RequireAccountToken(nameof(ListAccountTokensAsync));
+            var page = await RequestAsync<JObject>("GET", "/account/tokens", ct: ct).ConfigureAwait(false);
+            return RowsOf<OWAccountToken>(page);
+        }
+
+        /// <summary>
+        /// DELETE /account/tokens/{token_id} -- revoke one of the account's tokens, this client's own included (a tool done
+        /// with a sign-in revokes it by the <see cref="OWSignedIn.TokenId"/> the sign-in answered); every other token stays
+        /// live. Answers 204.
+        /// </summary>
+        /// <param name="tokenId">The token's id (<see cref="OWAccountToken.Id"/>). Escaped.</param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <exception cref="ArgumentException"><paramref name="tokenId"/> is null or empty; nothing was sent.</exception>
+        /// <exception cref="OWApiError">An id that is not one of the account's tokens is a 404 (<see cref="OWApiError.IsNotFound"/>).</exception>
+        /// <remarks>
+        /// A token a tool got through Sign in with OnlyWorlds takes the world keys it minted with it, unless the person
+        /// holds another live token of the same tool, which then takes them; a token made by hand or by a password sign-in
+        /// revokes itself only. Once a client revokes its own token, its next call is refused as a revoked token's. An
+        /// account token only, sent as its Bearer. Mirrors the TypeScript SDK's <c>revokeAccountToken</c> (4.122.0).
+        /// </remarks>
+        public Task RevokeAccountTokenAsync(string tokenId, CancellationToken ct = default)
+        {
+            RequireAccountToken(nameof(RevokeAccountTokenAsync));
+            if (string.IsNullOrEmpty(tokenId))
+            {
+                throw new ArgumentException(
+                    "RevokeAccountTokenAsync: tokenId is a token's id, a non-empty string. Nothing was sent.", nameof(tokenId));
+            }
+
+            return RequestAsync<object>("DELETE", $"/account/tokens/{Uri.EscapeDataString(tokenId)}", allowEmpty: true, ct: ct);
+        }
+
+        /// <summary>
         /// PATCH /account/worlds/{world_id}/members/{member_id} with <c>lenses</c> alone -- set the lenses a row of the
         /// world starts with: lens ids in order, 0 to 20, repeats dropped by the server; an empty list is a choice too, and
         /// keeps a seat off its Titles' lenses. Null puts the row back to never chosen. Answers the row as served, a
