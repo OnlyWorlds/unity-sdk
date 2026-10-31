@@ -142,7 +142,7 @@ namespace OnlyWorlds.Sdk
         /// <summary>The keys of a surface as JSON, as the shared fixture writes them.</summary>
         public static readonly IReadOnlyList<string> JsonKeys = Array.AsReadOnly(new[] { "tool", "audience", "signed_in", "browser", "phone", "online" });
 
-        /// <summary>The client name of the surface's own tool, when it is a listed tool; its row says "You are here".</summary>
+        /// <summary>The client name of the surface's own tool, when it is a listed tool; its row says "You are here". <c>onlyworlds</c> is the site itself: the site's own row says it.</summary>
         public string Tool { get; set; }
 
         /// <summary><see cref="Member"/> or <see cref="Public"/>. Required: never guessed.</summary>
@@ -263,7 +263,8 @@ namespace OnlyWorlds.Sdk
     /// <remarks>
     /// <para>
     /// In order: first the site's own row (id <c>onlyworlds</c>, name <c>onlyworlds.com</c>, the world's or the
-    /// element's page on www.onlyworlds.com, for every audience, its one word "Needs a connection" when offline), then
+    /// element's page on www.onlyworlds.com, for every audience, its one word "You are here" when the surface's
+    /// <see cref="OWOpenerSurface.Tool"/> is <c>onlyworlds</c> (the site itself), else "Needs a connection" when offline), then
     /// one row per tools row, in the list's order, that is <c>listed</c> and has a door for this kind. <c>tools</c> is
     /// <see cref="OWTools.All"/> or the list as served (<see cref="OWTool.FromJson(JArray)"/>). The address is a reading from
     /// <see cref="OWAddress.ParseLink"/>, the parts as JSON that <see cref="OWAddress.ElementAddress(JObject)"/> takes,
@@ -385,7 +386,8 @@ namespace OnlyWorlds.Sdk
             bool Offline(string href) => !surface.Online && Web.IsMatch(href);
 
             var site = kind == Element ? page : OWAddress.ElementAddress(OWAddress.Human, world);
-            var rows = new List<OWOpener> { new OWOpener(SiteId, SiteName, site, Offline(site) ? OWOpenerState.NeedsAConnection : null) };
+            var siteState = tool == SiteId ? OWOpenerState.YouAreHere : Offline(site) ? OWOpenerState.NeedsAConnection : null;
+            var rows = new List<OWOpener> { new OWOpener(SiteId, SiteName, site, siteState) };
             foreach (var r in tools)
             {
                 if (r == null || r.Id == null || r.Name == null) Fail("each tools row has an id and a name", nameof(tools));

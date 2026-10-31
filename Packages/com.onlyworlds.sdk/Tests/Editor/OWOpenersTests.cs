@@ -19,9 +19,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     public class OWOpenersTests
     {
         /// <summary>The fixture's sha256, as both packages' suites hold it.</summary>
-        private const string FixtureSha256 = "5a9ebbc8604d2fc87078fef25156dd2e767605a1b08cb2bec43e37c6bc2fd9db";
+        private const string FixtureSha256 = "351ddec25f3af8cf8ec2c9c901d6ed4719355286467ada091e45d6012f8ed05b";
 
-        private const int CaseCount = 54;
+        private const int CaseCount = 57;
 
         private const string World = "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e0f";
         private const string Element = "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e1a";

@@ -8,6 +8,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Added
 
+- The Open with menu's own site row says "You are here" when the surface's `Tool` is `onlyworlds` (the site itself),
+  where before it said "Needs a connection" offline or nothing. Parity with the TypeScript SDK 4.123.0, the shared
+  openers fixture re-vendored at 57 cases.
 - Schema pin to `v0.33.0-dist.101`: the strand profile's Where it shows says what a reader draws. An empty slot as
   the next thing to make is a writer's rule; a surface that only reads may draw the filled slots alone, and still
   shows a half-built strand as the strand. No fixture, schema or reader rule moved; the generated models' headers
