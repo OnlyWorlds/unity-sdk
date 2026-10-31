@@ -91,6 +91,26 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
+        /// Queues an action as <see cref="Run"/> does, and says whether it did: false, with nothing queued, when no
+        /// pump is installed or the action is null.
+        /// </summary>
+        /// <remarks>
+        /// For a caller that has its own answer to "nothing will run this" (the link listener answers the sender
+        /// <c>no_receiver</c>), where <see cref="Run"/>'s exception would only be caught and translated.
+        /// </remarks>
+        public static bool TryRun(Action action)
+        {
+            if (action == null || !_pumpInstalled) return false;
+
+            lock (Pending)
+            {
+                Pending.Enqueue(action);
+            }
+
+            return true;
+        }
+
+        /// <summary>
         /// Drains the queue. Called by whichever pump is driving -- editor or runtime.
         /// </summary>
         public static void Pump()

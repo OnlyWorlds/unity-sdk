@@ -112,6 +112,25 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public void TryRun_QueuesAsRunDoes_AndSaysSo()
+        {
+            // The Editor's pump is installed here; the false of a context with no pump is the link listener's test.
+            var ran = false;
+            Assert.IsTrue(OWMainThread.TryRun(() => ran = true));
+            Assert.IsFalse(ran, "TryRun queues, as Run does.");
+
+            OWMainThread.Pump();
+
+            Assert.IsTrue(ran);
+        }
+
+        [Test]
+        public void TryRun_OfNull_QueuesNothing()
+        {
+            Assert.IsFalse(OWMainThread.TryRun(null));
+        }
+
+        [Test]
         public void IsMainThread_IsTrueOnTheTestThread()
         {
             Assert.IsTrue(OWMainThread.IsMainThread,

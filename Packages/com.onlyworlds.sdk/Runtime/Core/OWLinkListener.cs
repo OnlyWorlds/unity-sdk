@@ -55,9 +55,15 @@ namespace OnlyWorlds.Sdk
     /// </para>
     /// <para>
     /// The listener runs on a background thread. An accepted address reaches <c>onLink</c> through the caller's
-    /// <c>dispatch</c>, by default <see cref="OWMainThread.Run"/>, so it arrives on Unity's main thread at the next
-    /// pump. Pass your own dispatch to deliver elsewhere. A dispatch that throws is answered
-    /// <see cref="OWLinkRefusal.NoReceiver"/>, so the sender can try the next port.
+    /// <c>dispatch</c>, by default the main thread's queue (<see cref="OWMainThread"/>), so it arrives on Unity's main
+    /// thread at the next pump. Pass your own dispatch to deliver elsewhere. A dispatch that declines (the
+    /// <c>Func&lt;Action, bool&gt;</c> form returns false) or throws is answered <see cref="OWLinkRefusal.NoReceiver"/>,
+    /// so the sender can try the next port; the default declines when no pump is installed.
+    /// </para>
+    /// <para>
+    /// The <c>Action&lt;OWAddressReading, string&gt;</c> form hands over the line as received beside its reading (its
+    /// line ending stripped): what a paste of the link would carry, kept for a reading that cannot be written back,
+    /// such as a site address that names its world by slug.
     /// </para>
     /// <para>
     /// Two Editors may run at once: a port already taken is <see cref="OWLinkRefusal.PortTaken"/> from
@@ -86,8 +92,8 @@ namespace OnlyWorlds.Sdk
         private static bool _unloadHooked;
 
         private readonly int _requestedPort;
-        private readonly Action<OWAddressReading> _onLink;
-        private readonly Action<Action> _dispatch;
+        private readonly Action<OWAddressReading, string> _onLink;
+        private readonly Func<Action, bool> _dispatch;
         private readonly int _timeoutMs;
         private readonly object _gate = new object();
         private Run _run;
@@ -99,13 +105,41 @@ namespace OnlyWorlds.Sdk
         /// <param name="timeoutMs">How long one connection may take to deliver its line.</param>
         public OWLinkListener(int port, Action<OWAddressReading> onLink, Action<Action> dispatch = null,
             int timeoutMs = DefaultTimeoutMs)
+            : this(port, Drop(onLink ?? throw new ArgumentNullException(nameof(onLink))),
+                Always(dispatch ?? OWMainThread.Run), timeoutMs)
+        {
+        }
+
+        /// <summary>
+        /// A listener for <paramref name="port"/> that hands each address with the line it came as, through a dispatch
+        /// that may decline.
+        /// </summary>
+        /// <param name="port">The port on 127.0.0.1 (0: a free port the system picks; read <see cref="Port"/>).</param>
+        /// <param name="onLink">Receives each accepted address and the line as received, its ending stripped.</param>
+        /// <param name="dispatch">
+        /// Queues the call to <paramref name="onLink"/>, or returns false to decline it, which the sender hears as
+        /// <see cref="OWLinkRefusal.NoReceiver"/>; null for <see cref="OWMainThread.TryRun"/>.
+        /// </param>
+        /// <param name="timeoutMs">How long one connection may take to deliver its line.</param>
+        public OWLinkListener(int port, Action<OWAddressReading, string> onLink, Func<Action, bool> dispatch = null,
+            int timeoutMs = DefaultTimeoutMs)
         {
             if (timeoutMs <= 0) throw new ArgumentOutOfRangeException(nameof(timeoutMs));
             _requestedPort = port;
             _onLink = onLink ?? throw new ArgumentNullException(nameof(onLink));
-            _dispatch = dispatch ?? OWMainThread.Run;
+            _dispatch = dispatch ?? OWMainThread.TryRun;
             _timeoutMs = timeoutMs;
         }
+
+        private static Action<OWAddressReading, string> Drop(Action<OWAddressReading> onLink) =>
+            (reading, _) => onLink(reading);
+
+        private static Func<Action, bool> Always(Action<Action> dispatch) =>
+            work =>
+            {
+                dispatch(work);
+                return true;
+            };
 
         /// <summary>The port it listens on while running; 0 when stopped.</summary>
         public int Port => _run?.Endpoint.Port ?? 0;
@@ -311,8 +345,9 @@ namespace OnlyWorlds.Sdk
                 var onLink = _onLink;
                 try
                 {
-                    _dispatch(() => onLink(reading));
-                    answer = Accepted;
+                    answer = _dispatch(() => onLink(reading, line))
+                        ? Accepted
+                        : RefusedPrefix + OWLinkRefusal.NoReceiver;
                 }
                 catch (Exception)
                 {

@@ -212,6 +212,99 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(OWLinkListener.RefusedPrefix + OWLinkRefusal.NoReceiver, answer);
         }
 
+        /// <summary>A listener whose readings arrive with their line, dispatched through <paramref name="dispatch"/>.</summary>
+        private OWLinkListener StartedWithText(List<string> texts, Func<Action, bool> dispatch)
+        {
+            var listener = new OWLinkListener(0, (reading, text) =>
+            {
+                _readings.Add(reading);
+                texts.Add(text);
+            }, dispatch);
+            _listeners.Add(listener);
+            Assert.IsTrue(listener.TryStart(out var refusal), $"start refused: {refusal}");
+            return listener;
+        }
+
+        [Test]
+        public void TheLineAsReceived_ArrivesBesideItsReading()
+        {
+            var texts = new List<string>();
+            var listener = StartedWithText(texts, work =>
+            {
+                _delivered.Enqueue(work);
+                return true;
+            });
+
+            // A site address by slug: its reading cannot be written back as an address, so the text is the only copy.
+            const string site = "https://www.onlyworlds.com/w/old-harbour/character/" + Element;
+            Assert.AreEqual(OWLinkListener.Accepted, SendRaw(listener.Port, Encoding.UTF8.GetBytes(site + "\r\n")));
+            Assert.IsTrue(OWLinkListener.TrySend(listener.Port, Link));
+            Deliver();
+
+            Assert.AreEqual(new[] { site, Link }, texts.ToArray(), "the line as sent, its ending stripped");
+            Assert.IsTrue(_readings[0].WorldIsSlug);
+            Assert.AreEqual(World, _readings[1].World);
+        }
+
+        [Test]
+        public void DispatchThatRefuses_IsAnsweredNoReceiver_AndNothingRuns()
+        {
+            var texts = new List<string>();
+            var offered = 0;
+            var listener = StartedWithText(texts, _ =>
+            {
+                offered++;
+                return false;
+            });
+
+            Assert.IsFalse(OWLinkListener.TrySend(listener.Port, Link, 2000, out var answer));
+            Assert.AreEqual(OWLinkListener.RefusedPrefix + OWLinkRefusal.NoReceiver, answer);
+            Assert.AreEqual(1, offered, "the dispatch was asked once");
+            Assert.IsEmpty(texts);
+            Assert.IsEmpty(_readings);
+        }
+
+        [Test]
+        public void DispatchThatThrows_IsStillAnsweredNoReceiver_InTheTextForm()
+        {
+            var listener = StartedWithText(new List<string>(), _ => throw new InvalidOperationException("no pump"));
+
+            Assert.IsFalse(OWLinkListener.TrySend(listener.Port, Link, 2000, out var answer));
+            Assert.AreEqual(OWLinkListener.RefusedPrefix + OWLinkRefusal.NoReceiver, answer);
+        }
+
+        [Test]
+        public void TextFormsDefaultDispatch_IsTheMainThreadQueue_RefusedWithoutAPump()
+        {
+            OWMainThread.Capture();
+            OWMainThread.Pump();
+
+            var texts = new List<string>();
+            var listener = new OWLinkListener(0, (reading, text) => texts.Add(text));
+            _listeners.Add(listener);
+            Assert.IsTrue(listener.TryStart(out _));
+
+            OWLinkListener.TrySend(listener.Port, Link, 2000, out var answer);
+            if (answer == OWLinkListener.Accepted)
+            {
+                Assert.IsEmpty(texts);
+                OWMainThread.Pump();
+                Assert.AreEqual(new[] { Link }, texts.ToArray());
+            }
+            else
+            {
+                Assert.AreEqual(OWLinkListener.RefusedPrefix + OWLinkRefusal.NoReceiver, answer);
+                Assert.IsEmpty(texts);
+            }
+        }
+
+        [Test]
+        public void TheTextForm_RefusesANullOnLink()
+        {
+            Assert.Throws<ArgumentNullException>(() =>
+                new OWLinkListener(0, (Action<OWAddressReading, string>)null, (Func<Action, bool>)null));
+        }
+
         [Test]
         public void DefaultDispatch_IsTheMainThreadQueue()
         {
