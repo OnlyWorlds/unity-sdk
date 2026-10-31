@@ -10,10 +10,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// <see cref="OWClientConfig.World"/>: an account token, or no key, reads the world it names. keel serves element list
-    /// and get and the world GET to <c>Authorization: Bearer ow_a_...</c> with <c>world=&lt;id&gt;</c> and no API-Key, read
-    /// only, as the account's own access there (ruled 2026-10-26); the same <c>world=&lt;id&gt;</c> with no credential is
-    /// the keyless public reader. Every other world route answers an account token 401, so the client refuses those
-    /// before sending, by one rule in its request path. Mirrors the TypeScript SDK's <c>world-reads</c> tests (4.88.0).
+    /// and get, the world GET and the draught to <c>Authorization: Bearer ow_a_...</c> with <c>world=&lt;id&gt;</c> and no
+    /// API-Key, read only, as the account's own access there (ruled 2026-10-26); the same <c>world=&lt;id&gt;</c> with no
+    /// credential is the keyless public reader. Every other world route answers an account token 401, so the client refuses
+    /// those before sending, by one rule in its request path. Mirrors the TypeScript SDK's <c>world-reads</c> tests (4.88.0;
+    /// the draught from 4.121.1).
     /// </summary>
     public class OWWorldReadTests
     {
@@ -42,6 +43,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("ListAllAsync", "/location/", c => c.ListAllAsync<JObject>("location")),
             ("GetAsync", $"/location/{El}/", c => c.GetAsync<JObject>("location", El)),
             ("GetWorldAsync", "/world/", c => c.GetWorldAsync()),
+            ("DraughtAsync", $"/character/{El}/context", c => c.DraughtAsync(El)),
         };
 
         /// <summary>A query string's values for one name, unescaped, in order.</summary>
@@ -61,10 +63,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             return v.Count == 0 ? null : v.Single();
         }
 
-        // -- The four reads ------------------------------------------------------
+        // -- The five reads ------------------------------------------------------
 
         [Test]
-        public async Task AccountWithWorld_TheFourReads_SendWorldOnce_TheBearer_NoApiKeyNoPin()
+        public async Task AccountWithWorld_TheFiveReads_SendWorldOnce_TheBearer_NoApiKeyNoPin()
         {
             foreach (var read in Reads)
             {
@@ -82,7 +84,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
-        public async Task NoKeyWithWorld_TheFourReads_SendWorldOnce_AndNoHeaderAtAll()
+        public async Task NoKeyWithWorld_TheFiveReads_SendWorldOnce_AndNoHeaderAtAll()
         {
             foreach (var read in Reads)
             {
@@ -99,7 +101,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
-        public async Task AWorldKey_TheFourReads_SendItsApiKey_AndNoWorld_AsBefore()
+        public async Task AWorldKey_TheFiveReads_SendItsApiKey_AndNoWorld_AsBefore()
         {
             foreach (var read in Reads)
             {
@@ -113,14 +115,14 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
-        public void AnAccountTokenWithoutWorld_TheFourReads_AreRefused_NamingWorld_NothingSent()
+        public void AnAccountTokenWithoutWorld_TheFiveReads_AreRefused_NamingWorld_NothingSent()
         {
             foreach (var read in Reads)
             {
                 var t = Answering();
                 var e = Assert.ThrowsAsync<InvalidOperationException>(() => read.Run(Account(t, world: null)), read.Name);
                 StringAssert.Contains("only with World set", e.Message, read.Name);
-                StringAssert.Contains("ListAsync, ListAllAsync, GetAsync and GetWorldAsync", e.Message, read.Name);
+                StringAssert.Contains("ListAsync, ListAllAsync, GetAsync, GetWorldAsync and DraughtAsync", e.Message, read.Name);
                 StringAssert.Contains("Nothing was sent", e.Message, read.Name);
                 Assert.IsEmpty(t.Calls, $"{read.Name}: nothing sent");
             }
@@ -202,7 +204,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 var e = Assert.Throws<ArgumentException>(
                     () => new OWClient(new OWClientConfig { ApiKey = key, World = W, Transport = new FakeTransport() }), key);
                 StringAssert.Contains("A world key reads its own world; World is for an account token (ow_a_) or no key", e.Message, key);
-                StringAssert.Contains("ListAsync, ListAllAsync, GetAsync and GetWorldAsync", e.Message, key);
+                StringAssert.Contains("ListAsync, ListAllAsync, GetAsync, GetWorldAsync and DraughtAsync", e.Message, key);
             }
         }
 
@@ -285,7 +287,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 ["HideAsync"] = (Does.Refused, c => c.HideAsync("location", El)),
                 ["UnhideAsync"] = (Does.Refused, c => c.UnhideAsync("location", El)),
                 ["ListHiddenAsync"] = (Does.Refused, c => c.ListHiddenAsync()),
-                ["DraughtAsync"] = (Does.Refused, c => c.DraughtAsync(El)),
+                ["DraughtAsync"] = (Does.Read, c => c.DraughtAsync(El)),
                 ["CreateMediaTicketAsync"] = (Does.Refused, c => c.CreateMediaTicketAsync()),
                 ["UploadImageAsync"] = (Does.Refused, c => c.UploadImageAsync(new byte[] { 1 })),
                 ["CreateRemovalTicketAsync"] = (Does.Refused, c => c.CreateRemovalTicketAsync("u/w1/x.png")),
@@ -356,6 +358,70 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             var stale = Methods.Keys.Where(n => !names.Contains(n)).ToList();
             Assert.IsEmpty(stale, "rows for methods the client no longer has: " + string.Join(", ", stale));
+        }
+
+        /// <summary>
+        /// Reads keel's document opens to an account token but not to the keyless reader: the fixture carries no
+        /// operation's <c>security</c>, so each is named here, read from the live document (2026-10-31: <c>/members</c>
+        /// lists ApiKey and AccountToken, no <c>{}</c>; every other GET with a <c>world</c> parameter lists all three).
+        /// </summary>
+        private static readonly Dictionary<string, string> AccountTokenOnly = new Dictionary<string, string>
+        {
+            ["GET /api/v2/members"] = "the roster: keel's security lists no keyless reader there",
+        };
+
+        // The class read from the document, as the TypeScript bay's wire gate holds it (its 2w): every call a world key
+        // makes that reaches a GET whose operation declares a `world` query parameter is made from an account-token client
+        // and a keyless one with World set too, sending world=<id>; a refusal before sending is no call. The table's
+        // classes are hand-written, so a read the document opens to those clients but classed Refused passed every sweep
+        // above: the draught did, through 0.27.0. Kills: a world read's worldRead flag dropped, or a new read the document
+        // opens to those clients refused.
+        [Test]
+        public async Task EveryReadTheDocumentOpensToAnAccountTokenOrNoKey_IsSentFromThoseClients_WithWorld()
+        {
+            var wire = OWWireContractTests.Wire;
+            bool WorldParam(OWRequest r)
+            {
+                var path = OWWireContractTests.DocumentPath(r);
+                var query = path == null ? null : wire["paths"][path][r.Method]?["query"] as JArray;
+                return query != null && query.Values<string>().Contains("world");
+            }
+
+            string KeyOf(OWRequest r) => r.Method + " " + OWWireContractTests.DocumentPath(r);
+
+            async Task<List<OWRequest>> Drive(Func<FakeTransport, OWClient> make)
+            {
+                var calls = new List<OWRequest>();
+                foreach (var row in Methods.Values)
+                {
+                    var t = Answering();
+                    try { await row.Run(make(t)); }
+                    catch (Exception) { }
+                    calls.AddRange(t.Calls.Where(r => r.Url.StartsWith(Api + "/", StringComparison.Ordinal)));
+                }
+
+                return calls;
+            }
+
+            var reads = (await Drive(t => new OWClient(new OWClientConfig { ApiKey = "ow_r_test", Transport = t, BaseUrl = Api })))
+                .Where(r => r.Method == "GET" && WorldParam(r)).Select(KeyOf).Distinct().ToList();
+            Assert.That(reads.Count, Is.GreaterThanOrEqualTo(5), "the world key reaches the world reads: the check has something to hold");
+            Assert.That(AccountTokenOnly.Keys, Is.SubsetOf(reads), "each account-token-only read is one the world key makes");
+
+            foreach (var (who, make) in new (string, Func<FakeTransport, OWClient>)[]
+            {
+                ("an account token", t => Account(t)),
+                ("the keyless reader", t => Keyless(t)),
+            })
+            {
+                var sent = new HashSet<string>((await Drive(make)).Where(r => One(r, "world") == W).Select(KeyOf));
+                foreach (var read in reads)
+                {
+                    if (who == "the keyless reader" && AccountTokenOnly.ContainsKey(read)) continue;
+                    Assert.IsTrue(sent.Contains(read),
+                        $"{read}: the document serves {who} there with world=<id>, and the client makes no such call from it");
+                }
+            }
         }
 
         [Test]
@@ -507,7 +573,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(
                 "GET /location/ needs a key, and this client holds none: without one, only HealthAsync, SignInWithPasswordAsync, "
                 + "SignInWithOnlyWorlds and CompleteSignInAsync work (and OWJoin's PreviewAsync and RedeemAsync, which take no "
-                + "client), and ListAsync, ListAllAsync, GetAsync and GetWorldAsync with World set. Nothing was sent.",
+                + "client), and ListAsync, ListAllAsync, GetAsync, GetWorldAsync and DraughtAsync with World set. Nothing was sent.",
                 refused.Message);
         }
 

@@ -26,9 +26,9 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// A world's id, for a client that holds an account token (<c>ow_a_</c>) or no key. <see cref="OWClient.ListAsync{T}"/>,
-        /// <see cref="OWClient.ListAllAsync{T}"/> (every page), <see cref="OWClient.GetAsync{T}"/> and
-        /// <see cref="OWClient.GetWorldAsync"/> then read that world, sending <c>world=&lt;id&gt;</c>: an account token
-        /// reads it as that account's own access there (the owner the whole world, a member its member key's view,
+        /// <see cref="OWClient.ListAllAsync{T}"/> (every page), <see cref="OWClient.GetAsync{T}"/>,
+        /// <see cref="OWClient.GetWorldAsync"/> and <see cref="OWClient.DraughtAsync"/> then read that world, sending
+        /// <c>world=&lt;id&gt;</c>: an account token reads it as that account's own access there (the owner the whole world, a member its member key's view,
         /// anyone else the public view, and a world not open to the public is a 404), and no key reads it as the public
         /// does. Null by default.
         /// </summary>
@@ -184,7 +184,7 @@ namespace OnlyWorlds.Sdk
         public const string DefaultClientName = "unity-sdk";
 
         /// <summary>The reads that send <c>world=&lt;id&gt;</c>, as the refusals name them.</summary>
-        private const string WorldReads = "ListAsync, ListAllAsync, GetAsync and GetWorldAsync";
+        private const string WorldReads = "ListAsync, ListAllAsync, GetAsync, GetWorldAsync and DraughtAsync";
 
         public string BaseUrl { get; }
 
@@ -996,10 +996,11 @@ namespace OnlyWorlds.Sdk
         /// <para>
         /// The policy's keys go in the TypeScript SDK's order (<c>components</c>, <c>mode</c>, <c>as_of</c>,
         /// <c>undated</c>, <c>since</c>, <c>budget</c>, <c>depth</c>, <c>compact</c>, <c>lens</c>). A read: the key goes
-        /// without its PIN (a legacy key's goes with it), and with no write header. An account token or a keyless client
-        /// is refused, and nothing is sent, as the TypeScript SDK refuses them. Served <c>Cache-Control: private,
-        /// no-store</c>. Mirrors the TypeScript SDK's <c>draught</c> (4.47.0; <c>compact</c> from 4.69.0, <c>lens</c>
-        /// from 4.92.0).
+        /// without its PIN (a legacy key's goes with it), and with no write header. A world read: with
+        /// <see cref="World"/> set, an account token reads the draught as the account's own access there (the Bearer and
+        /// <c>world=&lt;id&gt;</c>), and no key reads it as the public reads the world (<c>world=&lt;id&gt;</c> alone).
+        /// Served <c>Cache-Control: private, no-store</c>. Mirrors the TypeScript SDK's <c>draught</c> (4.47.0;
+        /// <c>compact</c> from 4.69.0, <c>lens</c> from 4.92.0, a world read from 4.121.1).
         /// </para>
         /// </remarks>
         public Task<JObject> DraughtAsync(string characterId, OWDraughtPolicy policy = default, CancellationToken ct = default)
@@ -1040,7 +1041,7 @@ namespace OnlyWorlds.Sdk
             }
 
             return RequestAsync<JObject>("GET", $"/character/{Uri.EscapeDataString(characterId)}/context",
-                query: string.Join("&", query), ct: ct);
+                query: string.Join("&", query), ct: ct, worldRead: true);
         }
 
         // -- Images --------------------------------------------------------------
@@ -1661,7 +1662,10 @@ namespace OnlyWorlds.Sdk
         /// <param name="ct">Cancels the request.</param>
         /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
         /// <exception cref="ArgumentNullException"><paramref name="world"/> is null; nothing was sent.</exception>
-        /// <exception cref="ArgumentException">The world has no name; nothing was sent.</exception>
+        /// <exception cref="ArgumentException">
+        /// The world has no name, or its <see cref="OWAccountWorldCreate.KeyName"/> is blank or past 80 characters after
+        /// keel's trim, each a 422 at keel; nothing was sent.
+        /// </exception>
         /// <exception cref="OWApiError">
         /// The server refused. A 422 with <see cref="OWApiError.Param"/> <c>pin</c> is the PIN: the account has none and
         /// <see cref="OWAccountWorldCreate.Pin"/> was not sent, or it has one and it was. Nothing was made; send again
@@ -1678,7 +1682,9 @@ namespace OnlyWorlds.Sdk
         /// <see cref="OWAccountWorldCreate.Source"/> and <see cref="OWAccountWorldCreate.Producer"/> are the folder
         /// format's provenance lines, from a tool that makes the world from a folder; keel keeps them as given and
         /// serves them back under the world's <c>origin</c> (<see cref="GetWorldAsync"/>). Mirrors the npm SDK's
-        /// <c>createAccountWorld</c> (4.66.0), its refusal of any other key kind included.
+        /// <c>createAccountWorld</c> (4.66.0), its refusal of any other key kind included. The key's name is checked as
+        /// <see cref="MintWorldKeyAsync"/> checks its own, trimmed as Python's <c>str.strip()</c> trims and counted in code
+        /// points, so no name keel takes is refused here; the TypeScript SDK leaves both checks to keel.
         /// </para>
         /// </remarks>
         public async Task<OWAccountWorldCreated> CreateAccountWorldAsync(OWAccountWorldCreate world, CancellationToken ct = default)
@@ -1689,6 +1695,17 @@ namespace OnlyWorlds.Sdk
             {
                 throw new ArgumentException(
                     "CreateAccountWorldAsync: Name is required, the world's name. Nothing was sent.", nameof(world));
+            }
+
+            // keel's _clean_key_name: blank is a 422 on this route (the mint reads it as no name), and so is a name past
+            // KeyNameMax; the name goes as given, keel trims what it stores.
+            var keyName = world.KeyName?.Trim(PythonSpace);
+            if (keyName != null && (keyName.Length == 0 || CodePoints(keyName) > KeyNameMax))
+            {
+                throw new ArgumentException(
+                    $"CreateAccountWorldAsync: KeyName is 1 to {KeyNameMax} characters once trimmed, as keel holds it; "
+                    + "null for a key with no name. Nothing was sent.",
+                    nameof(world));
             }
 
             // Only the members given: keel reads a null and a missing key alike here, so none is sent.
@@ -1791,7 +1808,7 @@ namespace OnlyWorlds.Sdk
 
         // keel's key mint (accounts/api.py _scope_param, _key_name_param, KEY_NAME_MAX): the scopes it takes, lower-cased
         // first; a name's longest, in code points after Python's str.strip(), whose whitespace is this set (.NET's Trim()
-        // keeps U+001C to U+001F).
+        // keeps U+001C to U+001F). The world create's key_name is held to the same (_clean_key_name).
         private static readonly string[] KeyScopes = { "read", "write", "r", "w" };
         private const int KeyNameMax = 80;
 

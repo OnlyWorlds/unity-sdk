@@ -30,7 +30,10 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("pin")]
         public string Pin;
 
-        /// <summary>A name for the world's write key, as the website's key list shows it: 1 to 80 characters, trimmed. Null: no name.</summary>
+        /// <summary>
+        /// A name for the world's write key, as the website's key list shows it: 1 to 80 characters once keel trims it,
+        /// sent as given. Null: no name. Blank or longer is refused before sending, as keel answers either with a 422.
+        /// </summary>
         [JsonProperty("key_name")]
         public string KeyName;
 

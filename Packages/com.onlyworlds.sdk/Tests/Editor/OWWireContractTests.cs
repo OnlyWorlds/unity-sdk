@@ -61,7 +61,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
         private static JObject _wire;
 
-        private static JObject Wire
+        internal static JObject Wire
         {
             get
             {
@@ -297,6 +297,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                     Limit = 5, Cursor = "c", Fields = new[] { "name" }, Name = "n", NameContains = "m",
                     Supertype = "s", Subtype = "u",
                 });
+                t.ResponseBody = "{}";
+                await reader.DraughtAsync("c1", DraughtWithEveryKey);
             }
 
             // Signing in, on the bare client (no key, no World), a signed-out person's: the password's three requests (the sign-in and the session's end go to the
@@ -324,18 +326,28 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         private static JObject FindOperation(OWRequest request, out string why)
         {
             var path = KeelPath(request);
+            var entry = DocumentPath(request);
+            if (entry == null)
+            {
+                why = $"keel serves no path matching {path}";
+                return null;
+            }
 
+            var op = Wire["paths"][entry][request.Method] as JObject;
+            why = op == null ? $"keel serves {entry} but not {request.Method} there" : null;
+            return op;
+        }
+
+        /// <summary>The document's path a request reaches (<c>/api/v2/character/{id}/context</c>), or null.</summary>
+        internal static string DocumentPath(OWRequest request)
+        {
+            var path = KeelPath(request);
             foreach (var entry in (JObject)Wire["paths"])
             {
                 var pattern = "^" + Regex.Replace(Regex.Escape(entry.Key), @"\\\{[^}]+}", "[^/]+") + "$";
-                if (!Regex.IsMatch(path, pattern)) continue;
-
-                var op = entry.Value[request.Method] as JObject;
-                why = op == null ? $"keel serves {entry.Key} but not {request.Method} there" : null;
-                return op;
+                if (Regex.IsMatch(path, pattern)) return entry.Key;
             }
 
-            why = $"keel serves no path matching {path}";
             return null;
         }
 
@@ -685,20 +697,27 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
-        public async Task TheDraughtsPolicy_SendsEveryQueryParameterKeelDeclares_ButWorld()
+        public async Task TheDraughtsPolicy_SendsEveryQueryParameterKeelDeclares_WorldFromAnAccountTokenOrNoKey()
         {
             // The policy's nine keys are every one keel's document declares on the draught, but `world`: an account
-            // token's or a keyless reader's world, which the TypeScript SDK's draught never sends (it refuses both
-            // clients), so neither does this one. A key keel adds to the draught fails here: add it to OWDraughtPolicy.
+            // token's or a keyless reader's world, sent beside the policy from those clients with World set, as the
+            // TypeScript SDK's draught sends it (4.121.1); a world key reads its own world and sends none. A key keel
+            // adds to the draught fails here: add it to OWDraughtPolicy.
             var declared = Wire["paths"]["/api/v2/character/{id}/context"]["GET"]["query"].Values<string>().ToList();
+            CollectionAssert.Contains(declared, "world", "keel declares world= on the draught");
 
             var t = new FakeTransport();
             await new OWClient(new OWClientConfig { ApiKey = "ow_w_test", Transport = t, BaseUrl = Base })
                 .DraughtAsync("c1", DraughtWithEveryKey);
-            var sent = new Uri(t.Last.Url).Query.TrimStart('?').Split('&').Select(p => p.Split('=')[0]).ToList();
+            await new OWClient(new OWClientConfig { ApiKey = "ow_a_test", World = "w1", Transport = t, BaseUrl = Base })
+                .DraughtAsync("c1", DraughtWithEveryKey);
+            await new OWClient(new OWClientConfig { World = "w1", Transport = t, BaseUrl = Base })
+                .DraughtAsync("c1", DraughtWithEveryKey);
+            var sent = t.Calls.Select(r => new Uri(r.Url).Query.TrimStart('?').Split('&').Select(p => p.Split('=')[0]).ToList()).ToList();
 
-            CollectionAssert.AreEquivalent(declared.Where(k => k != "world"), sent);
-            CollectionAssert.Contains(declared, "world", "keel declares world= on the draught; the client leaves it out");
+            CollectionAssert.AreEquivalent(declared.Where(k => k != "world"), sent[0], "a world key");
+            CollectionAssert.AreEquivalent(declared, sent[1], "an account token with World");
+            CollectionAssert.AreEquivalent(declared, sent[2], "no key, with World");
         }
 
         [TestCase(typeof(OWAccountWorldCreate), "/api/v2/account/worlds", "POST")]
@@ -806,7 +825,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             // An empty recording would pass the checks above with nothing checked.
             var calls = await RecordEveryCall();
-            Assert.AreEqual(84, calls.Count);
+            Assert.AreEqual(86, calls.Count);
 
             // The upload host's and the sign-in service's requests are recorded and left out of the checks; the keel
             // request of each two-step call, and the password sign-in's mint, are in, so the checks above judged them.
@@ -841,7 +860,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             // The world reads of an account token and of no key, and the account token's PUT /me/lenses and GET /members,
             // so the query check above saw world=.
-            Assert.AreEqual(8, calls.Count(c => new Uri(c.Url).Query.Contains("world=")), "the world reads are recorded");
+            Assert.AreEqual(10, calls.Count(c => new Uri(c.Url).Query.Contains("world=")), "the world reads are recorded");
+            Assert.AreEqual(2, calls.Count(c => new Uri(c.Url).AbsolutePath.EndsWith("/character/c1/context")
+                && new Uri(c.Url).Query.Contains("world=")), "the draught of an account token and of no key, with world=, is recorded");
 
             // The conditional headers are on the wire here, so the header check above saw them.
             Assert.That(calls.Any(c => c.Headers.ContainsKey("If-Match")), "a delete with ifMatch is recorded");
