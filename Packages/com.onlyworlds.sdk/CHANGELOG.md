@@ -61,12 +61,12 @@ adds public API (below). A transport of your own must now send `OWRequest.BodyBy
   /{type}/{id}/hidden), the owner's key or a co-builder's with its PIN, a 204; and `ListHiddenAsync` (GET
   /world/hidden), every hidden element newest first as `OWHiddenRow`s (`Type`, `Id`, `SetAt`, `SetBy`, null when the
   owner hid it), a read of the owner's or a co-builder's key. keel's document declares no header on the hide or the
-  unhide, so neither `X-OW-Agent` nor `X-OW-Client` goes there, where the TypeScript SDK sends `X-OW-Agent` on an
-  agent client. Mirrors the TypeScript SDK's `hide()`, `unhide()` (4.45.0) and `listHidden()` (4.48.0).
+  unhide, so neither `X-OW-Agent` nor `X-OW-Client` goes there; the TypeScript SDK sends neither since 4.120.0.
+  Mirrors the TypeScript SDK's `hide()`, `unhide()` (4.45.0) and `listHidden()` (4.48.0).
 - `OWClient.SetMyCharacterAsync` (PUT /me/character `{character}`): a person member picks the roster Character that is
   them in this world, or none (null, sent as `null`); answers GET /me's body. With the PIN, and without `X-OW-Agent`
-  or `X-OW-Client`, which keel's document declares on neither (the TypeScript SDK sends `X-OW-Agent` on an agent
-  client). An account token and a keyless client are refused before sending. Mirrors the TypeScript SDK's
+  or `X-OW-Client`, which keel's document declares on neither (the TypeScript SDK sends neither since 4.120.0). An
+  account token and a keyless client are refused before sending. Mirrors the TypeScript SDK's
   `setMyCharacter()` (4.50.0).
 - The account's worlds and their keys, on an account token: `OWClient.ListAccountWorldsAsync` (GET /account/worlds),
   every world the account owns or is a member of as `OWAccountWorld` rows (`Role` `owner` or `collaborator`,
