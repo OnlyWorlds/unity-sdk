@@ -41,12 +41,15 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   with `/` or carries `?` or `#`, a body on a GET and a negative `IfMatch` are refused before sending. Mirrors the
   TypeScript SDK's `request()` (public from 4.0.0).
 - Signing in, to an account token (`ow_a_`), on any client and with no credential of the client's. A password:
-  `OWClient.SignInWithPasswordAsync(email, username, password)` (exactly one of the first two) signs in at keel's
-  sign-in service (POST `{BaseUrl}/auth/app/v1/auth/login`, the password's one destination), mints the token (POST
-  /account/tokens with the session as `X-Session-Token`) and ends the session (DELETE
-  `{BaseUrl}/auth/app/v1/auth/session`, given five seconds at most, its failure ignored) whether the mint worked or
-  not, answering an `OWSignedIn` (`Token`, `Id`, `Name`, `Last4`). The mint goes with no body, as keel's document
-  declares none there, so the token is listed with no name (the TypeScript SDK sends its `tokenName`). Sign in with
+  `OWClient.SignInWithPasswordAsync(email, username, password, ct, tokenName)` (exactly one of the first two) signs
+  in at keel's sign-in service (POST `{BaseUrl}/auth/app/v1/auth/login`, the password's one destination), mints the
+  token (POST /account/tokens with the session as `X-Session-Token`, and `{name}` when `tokenName` is given) and ends
+  the session (DELETE `{BaseUrl}/auth/app/v1/auth/session`, given five seconds at most, its failure ignored) whether
+  the mint worked or not, answering an `OWSignedIn` (`Token`, `Id`, `Name`, `Last4`; `Name` falls back to the name
+  sent). `tokenName` is the name the account's tokens page lists the token under, sent as given; without it the mint
+  goes with no body and the token has no name (the TypeScript SDK requires its `tokenName`). A blank name, or one past
+  keel's 255 characters (counted as keel counts, in code points, untrimmed), is refused before sending. The wire
+  fixture follows the API document that declares the mint's body. Sign in with
   OnlyWorlds: `SignInWithOnlyWorlds(clientId, redirectUri)` sends nothing and answers an `OWSignInBegun` (`Url`, the
   site's authorize URL with the S256 challenge, to open in the system browser; `State`, `ClientId`, `RedirectUri`,
   the secret `Verifier`, `Pending`); `CompleteSignInAsync(pending, url)` checks the return's state and page (scheme,

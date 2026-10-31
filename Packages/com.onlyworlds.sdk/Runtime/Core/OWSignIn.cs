@@ -89,7 +89,7 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("id")]
         public string Id;
 
-        /// <summary>The name the account's tokens page lists it under, as the server made it.</summary>
+        /// <summary>The name the account's tokens page lists it under, as the server made it; the name sent when the server sent none.</summary>
         [JsonProperty("name")]
         public string Name;
 

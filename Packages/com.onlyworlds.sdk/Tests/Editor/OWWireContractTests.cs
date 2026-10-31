@@ -308,7 +308,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             t.Then(200, @"{""meta"":{""session_token"":""sess""}}");
             t.Then(201, @"{""id"":""tok-1"",""name"":"""",""last4"":""wxyz"",""token"":""ow_a_xwxyz""}");
             t.Then(401, "{}");
-            await signer.SignInWithPasswordAsync("ana@example.org", null, "pw");
+            await signer.SignInWithPasswordAsync("ana@example.org", null, "pw", tokenName: "Lantern on iPhone");
             var pending = signer.SignInWithOnlyWorlds("atlas", "https://atlas.example.test/cb");
             t.ResponseBody = @"{""token"":""ow_a_x"",""token_id"":""t1"",""token_type"":""bearer"",""account"":{""id"":""u1"",""username"":""a""}}";
             await signer.CompleteSignInAsync(pending, "https://atlas.example.test/cb?code=c1&state=" + pending.State);
@@ -679,7 +679,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
-        public void TheSignInService_AndTheTokenMintsBody_AreWhatKeelLeavesUndocumented()
+        public void TheSignInService_IsWhatKeelLeavesUndocumented_AndTheTokenMintsBody_IsTheName()
         {
             // The password sign-in's first and last requests go to allauth's app API under the base URL, which keel's
             // document does not describe: they are left out of the checks, as the upload host's are. The day keel
@@ -687,11 +687,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             foreach (var path in ((JObject)Wire["paths"]).Properties().Select(p => p.Name))
                 StringAssert.DoesNotStartWith("/api/v2/auth/app/", path, "keel's document describes the sign-in service now");
 
-            // keel's mint reads an optional {name} (accounts/api.py mint_token: _name_param), and the TypeScript SDK sends
-            // { name: tokenName }, but the document declares no body there, so SignInWithPasswordAsync sends none and its
-            // token is minted with no name. The day keel documents the body, this fails: add the token's name then.
+            // keel's document declares the mint's body since PR 390: one optional name, which SignInWithPasswordAsync sends
+            // as its tokenName (RecordEveryCall signs in with one, so EveryBodyKey_IsOneKeelDeclares checks the key). A key
+            // keel adds there fails here: add it to the sign-in, or say why not.
             var mint = (JObject)Wire["paths"]["/api/v2/account/tokens"]["POST"];
-            Assert.IsNull(mint["body"], "keel's document declares the mint's body now: send the token's name");
+            CollectionAssert.AreEqual(new[] { "name" }, mint["body"]?.Values<string>().ToList(), "the mint's body is the token's name alone");
             CollectionAssert.IsEmpty(mint["header"], "X-Session-Token is one of the document's auth headers, not the operation's");
             CollectionAssert.Contains(Wire["auth_headers"].Values<string>().ToList(), "X-Session-Token");
         }

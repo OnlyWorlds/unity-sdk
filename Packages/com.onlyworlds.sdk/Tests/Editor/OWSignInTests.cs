@@ -110,8 +110,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
         // The TypeScript SDK's signInWithPassword (4.31.0): a sign-in at keel's sign-in service, a token minted with the
         // session, the session ended. Kills: a key the client holds sent anywhere, the password sent past the sign-in, the
-        // session sent on the sign-in or not on the mint and the end, a body on the mint (keel's document declares none
-        // there), the wrong order, or the token's row misread.
+        // session sent on the sign-in or not on the mint and the end, a body on the mint with no token name given (keel's
+        // body is optional: no body mints a token with no name), the wrong order, or the token's row misread.
         [Test]
         public async Task SignInWithPassword_SignsIn_MintsTheToken_EndsTheSession_AndAnswersOnlyTheToken()
         {
@@ -127,7 +127,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual("application/json", f.Calls[0].Headers["Content-Type"]);
             Assert.AreEqual(@"{""email"":""ana@example.org"",""password"":""" + Password + @"""}", f.Calls[0].Body);
 
-            CollectionAssert.AreEqual(new[] { "X-Session-Token" }, HeaderNames(f.Calls[1]), "the session alone, and no body");
+            CollectionAssert.AreEqual(new[] { "X-Session-Token" }, HeaderNames(f.Calls[1]), "the session alone, and no body by default");
             Assert.AreEqual(Session, f.Calls[1].Headers["X-Session-Token"]);
             Assert.IsNull(f.Calls[1].Body);
 
@@ -179,6 +179,74 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var f = new Script(LoggedIn, Minted, SignedOut);
             await Keyless(f).SignInWithPasswordAsync(null, " Walker ", Password);
             Assert.AreEqual(@"{""username"":""Walker"",""password"":""" + Password + @"""}", f.Calls[0].Body, "trimmed, as the TypeScript SDK trims");
+        }
+
+        // The TypeScript SDK's tokenName (4.31.0): the mint's body is { name } (keel's document declares it since PR 390),
+        // sent as given, since keel keeps it as sent (accounts/api.py _name_param: no trim). Kills: the name trimmed, sent
+        // under another key (token_name), sent without its Content-Type, or the session dropped beside it.
+        [Test]
+        public async Task SignInWithPassword_ATokenName_IsTheMintsBody_AsGiven()
+        {
+            var f = new Script(LoggedIn, Minted, SignedOut);
+            await Keyless(f).SignInWithPasswordAsync("ana@example.org", null, Password, tokenName: " Lantern on iPhone ");
+
+            CollectionAssert.AreEqual(new[] { "Content-Type", "X-Session-Token" }, HeaderNames(f.Calls[1]));
+            Assert.AreEqual("application/json", f.Calls[1].Headers["Content-Type"]);
+            Assert.AreEqual(Session, f.Calls[1].Headers["X-Session-Token"]);
+            Assert.AreEqual(@"{""name"":"" Lantern on iPhone ""}", f.Calls[1].Body);
+        }
+
+        // keel's bound is the row's varchar(255), counted as Python's len counts (code points), on the name as sent.
+        // Kills: the count in UTF-16 units (255 emoji are 510 of them), or a bound lower than keel's.
+        [Test]
+        public async Task SignInWithPassword_ATokenNameOf255CodePoints_IsSent()
+        {
+            foreach (var name in new[] { new string('a', 255), string.Concat(Enumerable.Repeat("\U0001F5FA", 255)) })
+            {
+                var f = new Script(LoggedIn, Minted, SignedOut);
+                await Keyless(f).SignInWithPasswordAsync("ana@example.org", null, Password, tokenName: name);
+                Assert.AreEqual(name, (string)JObject.Parse(f.Calls[1].Body)["name"]);
+            }
+        }
+
+        // A name keel would refuse (past 255 code points, the spaces counted: keel does not trim), and an empty or blank
+        // one, which the TypeScript SDK refuses (tokenName.trim() === ''): an ArgumentException naming tokenName before
+        // anything is sent, the password not in it. Kills: the bound checked after a trim, or no refusal at all.
+        [Test]
+        public void SignInWithPassword_ATokenNameKeelOrTheTypeScriptSDKRefuses_IsRefused_NothingSent()
+        {
+            var f = new Script();
+            var c = Keyless(f);
+            foreach (var name in new[]
+            {
+                "", "   ", new string('a', 256), new string('a', 254) + "  ", string.Concat(Enumerable.Repeat("\U0001F5FA", 256)),
+            })
+            {
+                var e = Assert.Throws<ArgumentException>(() => c.SignInWithPasswordAsync("ana@example.org", null, Password, tokenName: name));
+                Assert.AreEqual("tokenName", e.ParamName);
+                StringAssert.Contains("Nothing was sent", e.Message);
+                StringAssert.DoesNotContain(Password, e.Message);
+            }
+
+            Assert.IsEmpty(f.Calls);
+        }
+
+        // The name came after ct, so a caller passing ct by position compiles unchanged, and mints as before.
+        [Test]
+        public async Task SignInWithPassword_CtByPosition_StillTheDefault()
+        {
+            var f = new Script(LoggedIn, Minted, SignedOut);
+            await Keyless(f).SignInWithPasswordAsync("ana@example.org", null, Password, CancellationToken.None);
+            Assert.IsNull(f.Calls[1].Body);
+        }
+
+        // The TypeScript SDK answers the name it sent when keel's row holds none. Kills: an empty name answered instead.
+        [Test]
+        public async Task SignInWithPassword_AMintRowWithNoName_AnswersTheNameSent()
+        {
+            var f = new Script(LoggedIn, Json(201, @"{""id"":""tok-1"",""last4"":""wxyz"",""token"":""ow_a_secretwxyz""}"), SignedOut);
+            var got = await Keyless(f).SignInWithPasswordAsync("ana@example.org", null, Password, tokenName: "Lantern on iPhone");
+            Assert.AreEqual("Lantern on iPhone", got.Name);
         }
 
         [Test]
