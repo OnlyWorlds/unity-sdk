@@ -1,4 +1,5 @@
-# ow-link.ps1: the forwarder Windows runs for an ow:// link (install.ps1 registers it, per user).
+# ow-link.ps1: the forwarder Windows runs for an ow:// link, or for a game's own scheme (install.ps1 registers it,
+# per user; the config's "scheme" names which, and such a link is handed on as the ow: address it carries).
 #
 # It offers the link to each port in its config, in order, with the OnlyWorlds SDK's link protocol (one line out,
 # one line back over 127.0.0.1): a running Editor's OWLinkListener first, say, then a running player's. The first
@@ -82,10 +83,9 @@ function ConvertTo-Argument([string]$Value) {
     return '"' + $escaped + '"'
 }
 
-# The link, as the browser handed it over. Only ow: links, and only characters an address can hold: nothing that
-# could break out of an argument, a quote, a space or a backslash, ever reaches the player's command line.
+# The link, as the browser handed it over. Only characters an address can hold: nothing that could break out of an
+# argument, a quote, a space or a backslash, ever reaches the player's command line.
 if (-not $Link) { Write-Outcome 2 'refused: no link given' }
-if ($Link -notmatch '^ow:') { Write-Outcome 2 'refused: not an ow: link' }
 if ($Link.Length -gt $MaxLineBytes -or $Link -notmatch '^[A-Za-z0-9:/._~@?=&%+-]+$') {
     Write-Outcome 2 'refused: the link holds characters no address holds'
 }
@@ -95,6 +95,15 @@ try {
 } catch {
     Write-Outcome 4 "config unusable: $Config ($($_.Exception.Message))"
 }
+
+# The scheme this install answers (the config's "scheme", default ow). ow: is the standard's own scheme, the address
+# any OnlyWorlds app may open; a game that wants its own links (windrose:, say) installs under its own scheme, and its
+# links go on as the ow: address they carry, so every listener and reader sees one form.
+$scheme = 'ow'
+if ($settings.scheme) { $scheme = ([string]$settings.scheme).ToLowerInvariant() }
+if ($scheme -notmatch '^[a-z][a-z0-9+.-]*$') { Write-Outcome 4 "config unusable: $Config (scheme '$scheme' is not a URL scheme)" }
+if ($Link -notmatch ('^' + [regex]::Escape($scheme) + ':')) { Write-Outcome 2 "refused: this install answers $($scheme): links only" }
+$Link = 'ow:' + $Link.Substring($scheme.Length + 1)
 
 $timeout = 600
 if ($settings.timeout_ms) { $timeout = [int]$settings.timeout_ms }

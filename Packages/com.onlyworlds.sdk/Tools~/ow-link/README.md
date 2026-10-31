@@ -24,31 +24,38 @@ an argument.
 }
 ```
 
+- `scheme` (optional, default `ow`): the scheme this install answers. `ow:` is the standard's own address scheme, so
+  a link in it means whichever OnlyWorlds app a machine has. A game that wants links of its own gives its own name
+  (`"scheme": "windrose"`) and installs with `-Scheme` to match; its links are handed on as the `ow:` address they
+  carry (`windrose://<world>/...` reaches a listener and the player as `ow://<world>/...`), so nothing on the
+  receiving side changes.
 - `ports`: tried in order, typically your Editor's listener first, then your player's. Use the ports your own code
   passes to `OWLinkListener`.
 - `timeout_ms`: how long each port may take to answer (default 600).
 - `player` (optional): what to start when no port takes the link. `path` may hold environment variables; each of
   `args` is one argument, with `{link}` replaced by the link. Without a player, an untaken link is dropped.
 
-The installed config lives at `%LOCALAPPDATA%\OnlyWorlds\ow-link\ow-link.json`; edit it there at any time. The
-forwarder reads it fresh on every link.
+The installed config lives at `%LOCALAPPDATA%\OnlyWorlds\<scheme>-link\ow-link.json` (`ow-link` for the default);
+edit it there at any time. The forwarder reads it fresh on every link.
 
 ## Install and uninstall
 
 ```
 powershell -ExecutionPolicy Bypass -File install.ps1 -Config my-ow-link.json
 powershell -ExecutionPolicy Bypass -File "%LOCALAPPDATA%\OnlyWorlds\ow-link\install.ps1" -Uninstall
+powershell -ExecutionPolicy Bypass -File install.ps1 -Scheme mygame -Config my-game-link.json
+powershell -ExecutionPolicy Bypass -File "%LOCALAPPDATA%\OnlyWorlds\mygame-link\install.ps1" -Scheme mygame -Uninstall
 ```
 
-The installer copies the forwarder, itself and your config to `%LOCALAPPDATA%\OnlyWorlds\ow-link` (so the handler
-survives a package update or removal) and writes `HKCU\Software\Classes\ow` with `URL Protocol` and a
+The installer copies the forwarder, itself and your config to `%LOCALAPPDATA%\OnlyWorlds\<scheme>-link` (so the
+handler survives a package update or removal) and writes `HKCU\Software\Classes\<scheme>` with `URL Protocol` and a
 `shell\open\command` that runs the forwarder with a hidden window. It never writes `HKLM` and never asks for an
 administrator. It refuses to replace an `ow:` handler that is not its own unless you pass `-Force`. `-DryRun` prints
 what it would do and changes nothing. Uninstall removes the key, only when it is this forwarder's, and the folder.
 
 ## What it will and won't pass on
 
-- Only `ow:` links, at most 4096 characters, made of the characters an address can hold. A link with a quote, a
+- Only links in the install's scheme, at most 4096 characters, made of the characters an address can hold. A link with a quote, a
   space or a backslash is refused before anything is sent or started, so it can never reach a command line.
 - The config is never taken from an argument: an argument smuggled in beside the link cannot choose another config
   or another player.

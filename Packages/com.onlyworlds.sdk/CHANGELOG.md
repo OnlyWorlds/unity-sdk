@@ -8,6 +8,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Added
 
+- The link forwarder (`Tools~/ow-link`) answers a game's own scheme: `install.ps1 -Scheme mygame` registers
+  `mygame:` links for the user, and the config's `scheme` names the same. Such a link reaches the listener and the
+  player as the `ow:` address it carries, so nothing on the receiving side changes. `ow:` stays the default: it is
+  the standard's own scheme, and a link in it means whichever OnlyWorlds app a machine has. The installer refuses a
+  config that names another scheme than it registers.
 - The Open with menu's own site row says "You are here" when the surface's `Tool` is `onlyworlds` (the site itself),
   where before it said "Needs a connection" offline or nothing. Parity with the TypeScript SDK 4.123.0, the shared
   openers fixture re-vendored at 57 cases.
