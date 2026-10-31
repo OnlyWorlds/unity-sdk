@@ -204,8 +204,8 @@ namespace OnlyWorlds.Sdk
     public class OWAccountToken
     {
         /// <summary>
-        /// The token's id: <see cref="OWClient.RevokeAccountTokenAsync"/> takes it, and a sign-in answers it as
-        /// <see cref="OWSignedIn.TokenId"/>.
+        /// The token's id: <see cref="OWClient.RevokeAccountTokenAsync"/> takes it, and a sign-in answers it, as
+        /// <see cref="OWSignedIn.Id"/> (by password) or <see cref="OWSignInResult.TokenId"/> (Sign in with OnlyWorlds).
         /// </summary>
         [JsonProperty("id")]
         public string Id;

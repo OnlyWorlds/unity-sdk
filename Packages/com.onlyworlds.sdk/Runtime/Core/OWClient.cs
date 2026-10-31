@@ -1986,8 +1986,8 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// DELETE /account/tokens/{token_id} -- revoke one of the account's tokens, this client's own included (a tool done
-        /// with a sign-in revokes it by the <see cref="OWSignedIn.TokenId"/> the sign-in answered); every other token stays
-        /// live. Answers 204.
+        /// with a sign-in revokes it by the id the sign-in answered: <see cref="OWSignedIn.Id"/>, or
+        /// <see cref="OWSignInResult.TokenId"/>); every other token stays live. Answers 204.
         /// </summary>
         /// <param name="tokenId">The token's id (<see cref="OWAccountToken.Id"/>). Escaped.</param>
         /// <param name="ct">Cancels the request.</param>

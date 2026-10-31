@@ -13,7 +13,8 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   never the token itself, with when each was last used, whether it is revoked, when it expires, how many live world
   keys it minted, and who it is for (`audience`, and `Client` and `ReturnHost` on an `mcp` token).
   `RevokeAccountTokenAsync(tokenId)` revokes one (`DELETE /account/tokens/{token_id}`), this client's own included. A
-  tool done with a sign-in revokes the token by the `TokenId` the sign-in answered. Both need an account token, and
+  tool done with a sign-in revokes the token by the id the sign-in answered (`OWSignedIn.Id` from a password
+  sign-in, `OWSignInResult.TokenId` from Sign in with OnlyWorlds). Both need an account token, and
   any other key is refused before sending. They send the Bearer alone. An empty id is refused before sending, and an
   id that is not one of the account's tokens is keel's 404 (`IsNotFound`).
 
