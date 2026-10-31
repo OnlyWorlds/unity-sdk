@@ -39,6 +39,33 @@ namespace OnlyWorlds.Sdk
         /// <summary>Sparse fieldset, e.g. <c>id,name,supertype</c>.</summary>
         public string[] Fields;
 
+        /// <summary>
+        /// Link fields to expand one level into stubs (<c>friends</c>, <c>location</c>); sent as <c>expand</c>, joined by
+        /// commas. Null or empty sends nothing. Mirrors the TypeScript SDK's <c>list</c> option <c>expand</c>.
+        /// </summary>
+        public string[] Expand;
+
+        /// <summary>
+        /// Only these ids (1 to 200), in the list's own order; one this key cannot see is simply absent. Sent as <c>ids</c>,
+        /// joined by commas. Null or empty sends nothing. Mirrors the TypeScript SDK's <c>list</c> option <c>ids</c>.
+        /// </summary>
+        public string[] Ids;
+
+        /// <summary>
+        /// Only what one member created: a membership id, or <c>owner</c> for the owner's own writes. Sent as
+        /// <c>created_by</c>. Null or empty sends nothing. Mirrors the TypeScript SDK's <c>list</c> option <c>createdBy</c>.
+        /// </summary>
+        public string CreatedBy;
+
+        /// <summary>
+        /// View as, sent as <c>as</c>, last: the owner's key reads as another reader of this world would, a membership id
+        /// as that member's own key, a Character id as a guest of that Character, <c>public</c> as the public. A member key
+        /// gets a 403 <c>view_as_owner_only</c>; an element hidden from that reader is absent; an unknown value is a 422
+        /// (<c>param</c> <c>as</c>). Null or empty sends nothing. Mirrors the TypeScript SDK's <c>list</c> option
+        /// <c>viewAs</c> (4.37.0).
+        /// </summary>
+        public string ViewAs;
+
         /// <summary>Exact match on name (<c>name</c>).</summary>
         public string Name;
 
@@ -56,7 +83,9 @@ namespace OnlyWorlds.Sdk
         /// and an empty value lists the rows with none (<c>parent_location=</c>). Keel answers 422 for a malformed id or
         /// a field the type does not filter on, naming every filter it takes; a container the reader cannot see gives
         /// an empty page. Sent in field order, after the named filters above. <c>world</c> is no filter: an
-        /// <see cref="ArgumentException"/> before sending (the client's <see cref="OWClientConfig.World"/> names it).
+        /// <see cref="ArgumentException"/> before sending (the client's <see cref="OWClientConfig.World"/> names it). A key
+        /// one of the members above sends in the same request is refused the same way, since it would go out twice:
+        /// <c>limit</c> always, <c>ids</c> with <see cref="Ids"/> set, <c>as</c> with <see cref="ViewAs"/>, and so on.
         /// </summary>
         public IDictionary<string, string> Filter;
     }

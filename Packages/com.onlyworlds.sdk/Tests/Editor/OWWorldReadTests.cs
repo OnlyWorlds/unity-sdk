@@ -285,6 +285,17 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 ["ReviewNewElementAsync"] = (Does.Refused, c => c.ReviewNewElementAsync("location", El, OWReviewed.Accept)),
                 ["CreateAccountWorldAsync"] = (Does.Account, c => c.CreateAccountWorldAsync(new OWAccountWorldCreate { Name = "W" })),
                 ["SetMemberLensesAsync"] = (Does.Account, c => c.SetMemberLensesAsync(W, "owner", new string[0])),
+                ["ListAccountWorldsAsync"] = (Does.Account, c => c.ListAccountWorldsAsync()),
+                ["MintWorldKeyAsync"] = (Does.Account, c => c.MintWorldKeyAsync(W)),
+                ["RevokeWorldKeyAsync"] = (Does.Account, c => c.RevokeWorldKeyAsync(W, "k1")),
+                ["AcceptJoinAsync"] = (Does.Account, c => c.AcceptJoinAsync("ow_j_code")),
+                ["CreateWorldLinkAsync"] = (Does.Account, c => c.CreateWorldLinkAsync(W, new OWWorldLinkCreate { Reader = "person" })),
+                ["ListWorldLinksAsync"] = (Does.Account, c => c.ListWorldLinksAsync(W)),
+                ["RevokeWorldLinkAsync"] = (Does.Account, c => c.RevokeWorldLinkAsync(W, "l1")),
+                ["CreateSeatAsync"] = (Does.Account, c => c.CreateSeatAsync(W, "Scout")),
+                ["ListSeatsAsync"] = (Does.Account, c => c.ListSeatsAsync(W)),
+                ["RekeySeatAsync"] = (Does.Account, c => c.RekeySeatAsync(W, "s1")),
+                ["RemoveSeatAsync"] = (Does.Account, c => c.RemoveSeatAsync(W, "s1")),
                 ["ChangesAsync"] = (Does.Refused, c => c.ChangesAsync()),
             };
 

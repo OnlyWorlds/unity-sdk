@@ -85,6 +85,94 @@ namespace OnlyWorlds.Sdk
         public string Key;
     }
 
+    /// <summary>
+    /// One world of the account, as <see cref="OWClient.ListAccountWorldsAsync"/> lists it (GET /account/worlds; npm's
+    /// <c>OwAccountWorld</c>): a world the account owns or is a member of, with its keys by name and last four.
+    /// </summary>
+    [Serializable]
+    public class OWAccountWorld
+    {
+        /// <summary>The world's id.</summary>
+        [JsonProperty("id")]
+        public string Id;
+
+        [JsonProperty("name")]
+        public string Name;
+
+        /// <summary><c>owner</c> for a world the account owns, <c>collaborator</c> for one it is a member of.</summary>
+        [JsonProperty("role")]
+        public string Role;
+
+        /// <summary>
+        /// On a collaborator's row only: the membership's role (<c>co_builder</c>, <c>contributor</c>, <c>guest</c>).
+        /// Null on an owned world.
+        /// </summary>
+        [JsonProperty("member_role")]
+        public string MemberRole;
+
+        /// <summary>Whether anyone may read the world without a key.</summary>
+        [JsonProperty("public_read")]
+        public bool PublicRead;
+
+        /// <summary>
+        /// The world's keys, never in full: every key on an owned world, only the account's own member keys on a shared one.
+        /// </summary>
+        [JsonProperty("keys")]
+        public List<OWAccountWorldKey> Keys;
+    }
+
+    /// <summary>
+    /// <see cref="OWClient.MintWorldKeyAsync"/>'s 201 (npm's <c>OwMintedKey</c>): the key's row as the world's key list
+    /// shows it, plus the full key, once, in <see cref="Key"/>.
+    /// </summary>
+    [Serializable]
+    public class OWMintedKey
+    {
+        /// <summary>The key's id: <see cref="OWClient.RevokeWorldKeyAsync"/> takes it.</summary>
+        [JsonProperty("id")]
+        public string Id;
+
+        /// <summary>The key's name, as the website's key list shows it; empty when it has none.</summary>
+        [JsonProperty("name")]
+        public string Name;
+
+        /// <summary>The key's last four characters, to tell keys apart.</summary>
+        [JsonProperty("last4")]
+        public string Last4;
+
+        /// <summary><c>READ</c>, or <c>WRITE</c> (reads and writes).</summary>
+        [JsonProperty("scope")]
+        public string Scope;
+
+        /// <summary>The key's latest use, ISO 8601 as served, or null (a new key has none).</summary>
+        [JsonProperty("last_used_at")]
+        public string LastUsedAt;
+
+        [JsonProperty("revoked")]
+        public bool Revoked;
+
+        /// <summary>
+        /// The full key, shown in this answer only: keep it, it is never shown again. Its last four characters are
+        /// <see cref="Last4"/>.
+        /// </summary>
+        [JsonProperty("key")]
+        public string Key;
+
+        /// <summary>
+        /// On a member's key only: the membership it is bound to (<c>id</c>, and <c>username</c>, or a seat's
+        /// <c>agent_name</c> or a player's <c>kind</c> and <c>name</c>), as served. Null on the owner's key.
+        /// </summary>
+        [JsonProperty("member")]
+        public JObject Member;
+
+        /// <summary>
+        /// True when the key is kept across a sign-out: no revoke of the token that minted it takes it. keel sets it on a
+        /// mint that asked for it, which this client cannot send yet (<see cref="OWClient.MintWorldKeyAsync"/>).
+        /// </summary>
+        [JsonProperty("kept")]
+        public bool Kept;
+    }
+
     /// <summary>A world's key as the account's world list shows it (keel's <c>AccountWorldKey</c>): never the key itself.</summary>
     [Serializable]
     public class OWAccountWorldKey

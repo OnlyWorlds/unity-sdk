@@ -54,6 +54,41 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   or `X-OW-Client`, which keel's document declares on neither (the TypeScript SDK sends `X-OW-Agent` on an agent
   client). An account token and a keyless client are refused before sending. Mirrors the TypeScript SDK's
   `setMyCharacter()` (4.50.0).
+- The account's worlds and their keys, on an account token: `OWClient.ListAccountWorldsAsync` (GET /account/worlds),
+  every world the account owns or is a member of as `OWAccountWorld` rows (`Role` `owner` or `collaborator`,
+  `MemberRole` on a collaborator's, `PublicRead`, the `Keys` by name and last four); `MintWorldKeyAsync(worldId)`
+  (POST /account/worlds/{id}/keys), a write key for the owner or bound to a member's own membership, answered once
+  in full as `OWMintedKey.Key` beside its row (`Id`, `Last4`, `Scope`, `Member`, `Kept`); and
+  `RevokeWorldKeyAsync(worldId, keyId)` (DELETE …/keys/{key_id}), a 204 that answers the same for a key already
+  revoked. Each sends the Bearer alone, never a PIN or a write header, and any other key is refused before sending.
+  The mint sends no body, since keel's document declares none there, so it cannot yet ask for a read key, a name or
+  `keep`, which the TypeScript SDK sends. `OWApiError.IsPinRequired` (409 `pin_required`) reads a member's mint on
+  an account with no PIN. Mirrors the TypeScript SDK's `listAccountWorlds()`, `mintWorldKey()` (4.45.0; without
+  `X-OW-Agent`, as 4.120.0 sends it) and `revokeWorldKey()` (4.78.0).
+- `OWClient.AcceptJoinAsync(code)` (POST /account/join `{code}`): an account token accepts a person's invite link and
+  becomes a member with the link's role, answered as `OWJoinedMembership` (`Id`, `WorldId`, `WorldName`, `Role`,
+  `JoinedAt`, `RosterCharacter`). No PIN is needed to accept. A refusal leaves the code unspent: every bad code, and an
+  agent's, is a 404 (`IsNotFound`), an account already in the world a 409 (`OWApiError.IsAlreadyMember`, new). Any
+  other key, and a null or empty code, is refused before sending; a player's or an agent's code is still redeemed
+  with no key through `OWJoin.RedeemAsync`. Mirrors the TypeScript SDK's `acceptJoin()` (4.12.0).
+- A world's invite links, for its owner on an account token: `OWClient.CreateWorldLinkAsync(worldId, link)` (POST
+  /account/worlds/{id}/links) from an `OWWorldLinkCreate` (`Reader` `person`, `agent` or `player`, required; `Role`,
+  `Days`, `InviterName`, `WithCharacter`, `Character`, `Preview`, `MaxUses` and a table's `Characters`, each sent
+  only when given, in keel's spelling), answered as `OWWorldLinkCreated` with the code, the link and the line to
+  send, shown this once; `ListWorldLinksAsync(worldId)`, the links as `OWWorldLink` rows with no code (`Status`,
+  `Uses`, a player link's `Character`, a table's `MaxUses`, `Characters` and `IsTable`); and
+  `RevokeWorldLinkAsync(worldId, linkId)`, a 204. The Bearer alone; any other key, a null link and a link with no
+  reader are refused before sending. Mirrors the TypeScript SDK's `createWorldLink()`, `listWorldLinks()` and
+  `revokeWorldLink()` (4.24.0).
+- Seats for your own AI, on an account token: `OWClient.CreateSeatAsync(worldId, name, role, character)` (POST
+  /account/worlds/{id}/seats `{name, role?, character?}`, `character` `new`, `none` or `mine`) and
+  `RekeySeatAsync(worldId, seatId)` (POST …/seats/{seat_id}/key, no body: the old key and secret stop at once), each
+  answered as `OWSeatCreated` with the seat, its write key, its `ow_s_` secret and the `.env` lines, shown this
+  once; `ListSeatsAsync(worldId)`, the live seats as `OWSeat` rows with no key (`Name`, `Role`, `Character`,
+  `Sponsor`, `JoinedAt`, `LastActive`); and `RemoveSeatAsync(worldId, seatId)`, a 204. The Bearer alone, no
+  `Idempotency-Key` (keel takes none: a lost answer is mended with a rekey); any other key, and a seat with no name,
+  is refused before sending. Mirrors the TypeScript SDK's `createSeat()`, `listSeats()`, `removeSeat()` (4.28.0) and
+  `rekeySeat()` (4.29.0).
 
 ### Changed
 
@@ -67,6 +102,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   working: sent as `expand` and `fields` (joined by commas) and `as`, in the TypeScript SDK's order, beside `world=`
   on a client with `World` set; null or empty sends nothing. Until now a single get could send none of them. Mirrors
   the TypeScript SDK's `get` options (`viewAs` from 4.37.0).
+- `OWListParams` takes `Expand`, `Ids`, `CreatedBy` and `ViewAs`, so `ListAsync` and every page of `ListAllAsync` send
+  `expand` and `ids` (joined by commas), `created_by` (a membership id or `owner`) and `as` (view as), in the
+  TypeScript SDK's order (`limit`, `cursor`, `expand`, `fields`, `ids`, `created_by`, the filters, `as` last), beside
+  `world=` on a client with `World` set; null or empty sends nothing. Until now they went only through `Filter`,
+  untyped. A `Filter` key that a typed member sends in the same request (`limit`, always; `ids` with `Ids` set; `as`
+  with `ViewAs`; and so on) is now an `ArgumentException` before sending, where it went out twice; one whose member is
+  not set still goes once. Mirrors the TypeScript SDK's `list` options `ids`, `createdBy`, `expand` and `viewAs`
+  (`viewAs` from 4.37.0).
 - `OWListParams.Filter` refuses a `world` key with an `ArgumentException` before sending, on every client and on
   every page of `ListAllAsync`: it would go out beside the client's own `world=`, or to a world key that answers 422.
   The world an account token or a keyless client reads is `OWClientConfig.World`. Mirrors the TypeScript SDK's

@@ -407,21 +407,40 @@ namespace OnlyWorlds.Sdk
         /// GET /{type}/ -- one cursor page. On a client with <see cref="World"/> set (an account token or no key), it
         /// reads that world, sending <c>world=&lt;id&gt;</c> beside the page's own parameters.
         /// </summary>
+        /// <remarks>
+        /// The parameters go in the TypeScript SDK's order: <c>limit</c>, <c>cursor</c>, <c>expand</c>, <c>fields</c>,
+        /// <c>ids</c>, <c>created_by</c>, then the named filters and <see cref="OWListParams.Filter"/>'s, and <c>as</c>
+        /// last. Mirrors the TypeScript SDK's <c>list</c> options <c>expand</c>, <c>ids</c>, <c>createdBy</c> and
+        /// <c>viewAs</c> (<c>viewAs</c> from 4.37.0).
+        /// </remarks>
+        /// <exception cref="ArgumentException">
+        /// <see cref="OWListParams.Filter"/> holds <c>world</c>, a key that is no field name, or a key a typed member sends
+        /// in the same request; nothing was sent.
+        /// </exception>
         public Task<OWPage<T>> ListAsync<T>(string type, OWListParams p = default, CancellationToken ct = default)
         {
-            var query = new List<string>
+            // Each typed parameter as (name, value), in order; a null value is not sent.
+            var typed = new List<(string Name, string Value)>
             {
-                "limit=" + (p.Limit ?? PageSize),
+                ("limit", (p.Limit ?? PageSize).ToString(CultureInfo.InvariantCulture)),
+                ("cursor", NullIfEmpty(p.Cursor)),
+                ("expand", Joined(p.Expand)),
+                ("fields", Joined(p.Fields)),
+                ("ids", Joined(p.Ids)),
+                ("created_by", NullIfEmpty(p.CreatedBy)),
+                ("name", NullIfEmpty(p.Name)),
+                ("name__icontains", NullIfEmpty(p.NameContains)),
+                ("supertype", NullIfEmpty(p.Supertype)),
+                ("subtype", NullIfEmpty(p.Subtype)),
             };
+            var viewAs = NullIfEmpty(p.ViewAs);
 
-            if (!string.IsNullOrEmpty(p.Cursor)) query.Add("cursor=" + Uri.EscapeDataString(p.Cursor));
-            if (p.Fields != null && p.Fields.Length > 0)
-                query.Add("fields=" + Uri.EscapeDataString(string.Join(",", p.Fields)));
-            if (!string.IsNullOrEmpty(p.Name)) query.Add("name=" + Uri.EscapeDataString(p.Name));
-            if (!string.IsNullOrEmpty(p.NameContains))
-                query.Add("name__icontains=" + Uri.EscapeDataString(p.NameContains));
-            if (!string.IsNullOrEmpty(p.Supertype)) query.Add("supertype=" + Uri.EscapeDataString(p.Supertype));
-            if (!string.IsNullOrEmpty(p.Subtype)) query.Add("subtype=" + Uri.EscapeDataString(p.Subtype));
+            var query = new List<string>();
+            foreach (var (name, value) in typed)
+            {
+                if (value != null) query.Add(name + "=" + Uri.EscapeDataString(value));
+            }
+
             if (p.Filter != null)
             {
                 // world is the client's, set when it is built: in a filter it would go out twice beside World's world=,
@@ -439,12 +458,28 @@ namespace OnlyWorlds.Sdk
                 {
                     if (string.IsNullOrEmpty(field) || !IsFieldName(field))
                         throw new ArgumentException($"'{field}' is not a field name to filter on", nameof(p));
+
+                    // A key a typed member sends here would go out twice, and keel reads one of the two.
+                    if ((field == "as" && viewAs != null) || typed.Exists(t => t.Name == field && t.Value != null))
+                    {
+                        throw new ArgumentException(
+                            $"ListAsync: '{field}' is sent by its own OWListParams member in this request; give it there "
+                            + "or in Filter, not both. Nothing was sent.", nameof(p));
+                    }
+
                     query.Add(field + "=" + Uri.EscapeDataString(p.Filter[field] ?? ""));
                 }
             }
 
+            if (viewAs != null) query.Add("as=" + Uri.EscapeDataString(viewAs));
+
             return RequestAsync<OWPage<T>>("GET", $"/{type}/", query: string.Join("&", query), ct: ct, worldRead: true);
         }
+
+        private static string NullIfEmpty(string s) => string.IsNullOrEmpty(s) ? null : s;
+
+        /// <summary>A list of names joined by commas, or null for none (null or empty).</summary>
+        private static string Joined(string[] names) => names == null || names.Length == 0 ? null : string.Join(",", names);
 
         /// <summary>A schema field's shape (<c>parent_location</c>): a lowercase letter, then lowercase letters, digits and <c>_</c>.</summary>
         private static bool IsFieldName(string s)
@@ -1074,13 +1109,7 @@ namespace OnlyWorlds.Sdk
         /// </remarks>
         public async Task<OWAccountWorldCreated> CreateAccountWorldAsync(OWAccountWorldCreate world, CancellationToken ct = default)
         {
-            if (KeyKind != OWKeyKind.Account)
-            {
-                throw new InvalidOperationException(
-                    "CreateAccountWorldAsync needs an account token (ow_a_); this client holds "
-                    + (_keyless ? "none" : $"a {KeyKind.ToString().ToLowerInvariant()} key") + ". Nothing was sent.");
-            }
-
+            RequireAccountToken(nameof(CreateAccountWorldAsync));
             if (world == null) throw new ArgumentNullException(nameof(world));
             if (world.Name == null)
             {
@@ -1089,10 +1118,197 @@ namespace OnlyWorlds.Sdk
             }
 
             // Only the members given: keel reads a null and a missing key alike here, so none is sent.
-            var body = JObject.FromObject(world, Newtonsoft.Json.JsonSerializer.Create(
-                new Newtonsoft.Json.JsonSerializerSettings { NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore }));
+            var body = OnlyGiven(world);
 
             return await RequestAsync<OWAccountWorldCreated>("POST", "/account/worlds", body: body, ct: ct).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// GET /account/worlds -- every world the account owns or is a member of, the rows of keel's <c>{data}</c> (no
+        /// paging), each with its keys by name and last four: every key on a world it owns, only its own member keys on a
+        /// shared one.
+        /// </summary>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <remarks>
+        /// An account token only, sent as its Bearer, with or without <see cref="World"/> (never sent here). Mirrors the
+        /// TypeScript SDK's <c>listAccountWorlds</c> (4.45.0).
+        /// </remarks>
+        public async Task<List<OWAccountWorld>> ListAccountWorldsAsync(CancellationToken ct = default)
+        {
+            RequireAccountToken(nameof(ListAccountWorldsAsync));
+            var page = await RequestAsync<JObject>("GET", "/account/worlds", ct: ct).ConfigureAwait(false);
+            return RowsOf<OWAccountWorld>(page);
+        }
+
+        /// <summary>
+        /// POST /account/worlds/{world_id}/keys -- mint a write key for a world of the account: the owner mints a world
+        /// key, a member a key bound to its own membership. Returns the key's row and the full key, shown this once
+        /// (<see cref="OWMintedKey.Key"/>).
+        /// </summary>
+        /// <param name="worldId">The world. Escaped.</param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <exception cref="OWApiError">
+        /// The server refused: a world the account neither owns nor is a member of is a 404; a member's write key while
+        /// the account has no PIN is a 409 <c>pin_required</c> (<see cref="OWApiError.IsPinRequired"/>).
+        /// </exception>
+        /// <remarks>
+        /// <para>
+        /// Sent with no body, so keel mints with its defaults: a write key, with no name, not kept across a sign-out
+        /// (revoking the token that minted it revokes the key). keel's handler also reads <c>scope</c>, <c>name</c> and
+        /// <c>keep</c> from a body, which the TypeScript SDK sends, but keel's document declares no body on this route,
+        /// and this client sends only what the document declares.
+        /// </para>
+        /// <para>
+        /// An account token only, sent as its Bearer, never with <c>API-Pin</c>; no <c>X-OW-Agent</c> or
+        /// <c>X-OW-Client</c>, which keel's document does not list here, and no <c>Idempotency-Key</c>: if the answer is
+        /// lost, the key is on the world's key list without its full key, so revoke it and mint another. Mirrors the
+        /// TypeScript SDK's <c>mintWorldKey</c> (4.45.0; without <c>X-OW-Agent</c> from 4.120.0).
+        /// </para>
+        /// </remarks>
+        public Task<OWMintedKey> MintWorldKeyAsync(string worldId, CancellationToken ct = default)
+        {
+            RequireAccountToken(nameof(MintWorldKeyAsync));
+            return RequestAsync<OWMintedKey>("POST", $"/account/worlds/{Uri.EscapeDataString(worldId)}/keys", ct: ct);
+        }
+
+        /// <summary>
+        /// DELETE /account/worlds/{world_id}/keys/{key_id} -- revoke a world key, by the <see cref="OWMintedKey.Id"/> its
+        /// mint answered: from then on it answers 401 <c>key_revoked</c>. Answers 204.
+        /// </summary>
+        /// <param name="worldId">The world. Escaped.</param>
+        /// <param name="keyId">The key's id. Escaped.</param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <exception cref="OWApiError">
+        /// The server refused: an id this account may not revoke is a 404 (<see cref="OWApiError.IsNotFound"/>); an
+        /// account token already revoked or expired is a 401 (<see cref="OWApiError.IsAuthError"/>), and the key was not
+        /// revoked.
+        /// </exception>
+        /// <remarks>
+        /// The owner revokes any of the world's keys, a member only its own. Revoking a revoked key changes nothing and
+        /// answers the same 204, so a tool that signs out can revoke its key without knowing whether it already did. An
+        /// account token only, sent as its Bearer. Mirrors the TypeScript SDK's <c>revokeWorldKey</c> (4.78.0).
+        /// </remarks>
+        public Task RevokeWorldKeyAsync(string worldId, string keyId, CancellationToken ct = default)
+        {
+            RequireAccountToken(nameof(RevokeWorldKeyAsync));
+            return RequestAsync<object>("DELETE",
+                $"/account/worlds/{Uri.EscapeDataString(worldId)}/keys/{Uri.EscapeDataString(keyId)}",
+                allowEmpty: true, ct: ct);
+        }
+
+        /// <summary>
+        /// POST /account/join -- accept a person's invite link as the account this client's token belongs to: 201 with the
+        /// new membership.
+        /// </summary>
+        /// <param name="code">
+        /// The link's <c>ow_j_</c> code (<see cref="OWJoin.ParseLink"/> reads it out of a pasted link), sent as given.
+        /// </param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <exception cref="ArgumentException">The code is null or empty; nothing was sent.</exception>
+        /// <exception cref="OWApiError">
+        /// The server refused, and the code is not spent: every bad code (unknown, used, revoked or expired), and a code
+        /// made for an AI agent, is the same 404 <c>not_found</c> (<see cref="OWApiError.IsNotFound"/>); an account already
+        /// in the world is a 409 <c>already_member</c> (<see cref="OWApiError.IsAlreadyMember"/>).
+        /// </exception>
+        /// <remarks>
+        /// Accepting needs no account PIN, for any role; a write key for the membership waits for one
+        /// (<see cref="MintWorldKeyAsync"/>, <see cref="OWApiError.IsPinRequired"/>). An account token only, sent as its
+        /// Bearer: the body is <c>{"code"}</c> alone. A player's or an agent's code is redeemed with no key,
+        /// <see cref="OWJoin.RedeemAsync"/>. Mirrors the TypeScript SDK's <c>acceptJoin</c> (4.12.0).
+        /// </remarks>
+        public Task<OWJoinedMembership> AcceptJoinAsync(string code, CancellationToken ct = default)
+        {
+            RequireAccountToken(nameof(AcceptJoinAsync),
+                "A world key cannot join a world; a player's or an agent's code is redeemed with OWJoin.RedeemAsync.");
+            if (string.IsNullOrEmpty(code))
+                throw new ArgumentException("AcceptJoinAsync: a join code is required. Nothing was sent.", nameof(code));
+
+            return RequestAsync<OWJoinedMembership>("POST", "/account/join", body: new JObject { ["code"] = code }, ct: ct);
+        }
+
+        /// <summary>
+        /// POST /account/worlds/{world_id}/links -- a new invite link for a world the account owns. Returns the link's
+        /// row with its code, the link and the line to send, shown in this answer only
+        /// (<see cref="OWWorldLinkCreated.Code"/>).
+        /// </summary>
+        /// <param name="worldId">The world. Escaped.</param>
+        /// <param name="link">
+        /// The link: <see cref="OWWorldLinkCreate.Reader"/> is required; each other member is sent only when it is not
+        /// null, in keel's spelling (<c>inviter_name</c>, <c>with_character</c>, <c>max_uses</c>).
+        /// </param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <exception cref="ArgumentNullException"><paramref name="link"/> is null; nothing was sent.</exception>
+        /// <exception cref="ArgumentException">The link names no reader; nothing was sent.</exception>
+        /// <exception cref="OWApiError">
+        /// The server refused: anyone but the world's owner, and a world that does not exist, is a 404 <c>not_found</c>
+        /// (<see cref="OWApiError.IsNotFound"/>); an option the reader does not take is a 422 naming it
+        /// (<see cref="OWApiError.Param"/>).
+        /// </exception>
+        /// <remarks>
+        /// A person's link is accepted signed in (<see cref="AcceptJoinAsync"/>), an agent's and a player's are redeemed
+        /// with no key (<see cref="OWJoin.RedeemAsync"/>). A table (a player link with <see cref="OWWorldLinkCreate.MaxUses"/>
+        /// 2 to 50) counts once against the world's 50 pending invites; its seats count against the 50 players as each is
+        /// made, so a full world refuses the pick, never the link. An account token only, sent as its Bearer; no
+        /// <c>Idempotency-Key</c>, so a lost answer leaves a link whose code no one holds: revoke it and make another.
+        /// Mirrors the TypeScript SDK's <c>createWorldLink</c> (4.24.0).
+        /// </remarks>
+        public Task<OWWorldLinkCreated> CreateWorldLinkAsync(string worldId, OWWorldLinkCreate link, CancellationToken ct = default)
+        {
+            RequireAccountToken(nameof(CreateWorldLinkAsync), "Only the world's owner makes links, signed in.");
+            if (link == null) throw new ArgumentNullException(nameof(link));
+            if (link.Reader == null)
+            {
+                throw new ArgumentException(
+                    "CreateWorldLinkAsync: Reader is required: person, agent or player. Nothing was sent.", nameof(link));
+            }
+
+            return RequestAsync<OWWorldLinkCreated>("POST", $"/account/worlds/{Uri.EscapeDataString(worldId)}/links",
+                body: OnlyGiven(link), ct: ct);
+        }
+
+        /// <summary>
+        /// GET /account/worlds/{world_id}/links -- the world's invite links, the rows of keel's <c>{data}</c> (no paging),
+        /// never their codes: each with its <see cref="OWWorldLink.Status"/> and <see cref="OWWorldLink.Uses"/>.
+        /// </summary>
+        /// <param name="worldId">The world. Escaped.</param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <remarks>
+        /// The world's owner only, as <see cref="CreateWorldLinkAsync"/>: anyone else is a 404. An account token only, sent
+        /// as its Bearer. Mirrors the TypeScript SDK's <c>listWorldLinks</c> (4.24.0).
+        /// </remarks>
+        public async Task<List<OWWorldLink>> ListWorldLinksAsync(string worldId, CancellationToken ct = default)
+        {
+            RequireAccountToken(nameof(ListWorldLinksAsync), "Only the world's owner sees its links.");
+            var page = await RequestAsync<JObject>("GET", $"/account/worlds/{Uri.EscapeDataString(worldId)}/links", ct: ct)
+                .ConfigureAwait(false);
+            return RowsOf<OWWorldLink>(page);
+        }
+
+        /// <summary>
+        /// DELETE /account/worlds/{world_id}/links/{link_id} -- revoke a link: its code no longer works. Answers 204, and
+        /// the same for a used, revoked or expired link, which stays as it was.
+        /// </summary>
+        /// <param name="worldId">The world. Escaped.</param>
+        /// <param name="linkId">The link's id (<see cref="OWWorldLink.Id"/>). Escaped.</param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <remarks>
+        /// Whoever joined with it stays a member (remove them from the roster); a table revokes at any time before it is
+        /// full, and the players already seated stay. The world's owner only. An account token only, sent as its Bearer.
+        /// Mirrors the TypeScript SDK's <c>revokeWorldLink</c> (4.24.0).
+        /// </remarks>
+        public Task RevokeWorldLinkAsync(string worldId, string linkId, CancellationToken ct = default)
+        {
+            RequireAccountToken(nameof(RevokeWorldLinkAsync), "Only the world's owner revokes links.");
+            return RequestAsync<object>("DELETE",
+                $"/account/worlds/{Uri.EscapeDataString(worldId)}/links/{Uri.EscapeDataString(linkId)}",
+                allowEmpty: true, ct: ct);
         }
 
         /// <summary>
@@ -1130,14 +1346,7 @@ namespace OnlyWorlds.Sdk
         public Task<JObject> SetMemberLensesAsync(
             string worldId, string memberId, IEnumerable<string> lensIds, CancellationToken ct = default)
         {
-            if (KeyKind != OWKeyKind.Account)
-            {
-                throw new InvalidOperationException(
-                    "SetMemberLensesAsync needs an account token (ow_a_); this client holds "
-                    + (_keyless ? "none" : $"a {KeyKind.ToString().ToLowerInvariant()} key")
-                    + ". A world key sets its own holder's list with SetMyLensesAsync. Nothing was sent.");
-            }
-
+            RequireAccountToken(nameof(SetMemberLensesAsync), "A world key sets its own holder's list with SetMyLensesAsync.");
             var body = new JObject { ["lenses"] = LensList(lensIds) };
             return RequestAsync<JObject>("PATCH",
                 $"/account/worlds/{Uri.EscapeDataString(worldId)}/members/{Uri.EscapeDataString(memberId)}",
@@ -1147,6 +1356,135 @@ namespace OnlyWorlds.Sdk
         /// <summary>A lens list as the lens routes take it: the ids in order, or <c>null</c> for never chosen.</summary>
         private static JToken LensList(IEnumerable<string> lensIds)
             => lensIds == null ? JValue.CreateNull() : new JArray(lensIds);
+
+        // -- Seats for your own AI (account token) -----------------------------
+
+        /// <summary>
+        /// POST /account/worlds/{world_id}/seats -- a seat for your own AI in a world you own or are a member of: its own
+        /// membership, write key and <c>ow_s_</c> secret, no join link. You answer for it, and its writes are marked as an
+        /// agent's. Returns the seat, its key, its secret and the <c>.env</c> lines, shown in this answer only.
+        /// </summary>
+        /// <param name="worldId">The world. Escaped.</param>
+        /// <param name="name">The AI's own name in the world, 1 to 80 characters. Required.</param>
+        /// <param name="role">
+        /// At most your own (the owner may give any). Null: contributor, or your own role when that is lower.
+        /// </param>
+        /// <param name="character">
+        /// <c>new</c> (a Character of its own), <c>none</c>, or <c>mine</c> (members only: it plays the Character you
+        /// play). Null: <c>new</c>.
+        /// </param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <exception cref="ArgumentException"><paramref name="name"/> is null; nothing was sent.</exception>
+        /// <remarks>
+        /// The body is <c>{name}</c>, with <c>role</c> and <c>character</c> when given. No <c>Idempotency-Key</c>, by keel's
+        /// rule (a replay would have to keep the key): if the answer is lost, <see cref="ListSeatsAsync"/> shows the seat
+        /// without its key, and <see cref="RekeySeatAsync"/> gives it a new one. An account token only, sent as its
+        /// Bearer, never with a PIN or a write header. Mirrors the TypeScript SDK's <c>createSeat</c> (4.28.0).
+        /// </remarks>
+        public Task<OWSeatCreated> CreateSeatAsync(
+            string worldId, string name, string role = null, string character = null, CancellationToken ct = default)
+        {
+            RequireAccountToken(nameof(CreateSeatAsync), "A seat is made by the person who answers for it, signed in.");
+            if (name == null)
+            {
+                throw new ArgumentException(
+                    "CreateSeatAsync: name is required, the AI's own name in the world. Nothing was sent.", nameof(name));
+            }
+
+            var body = new JObject { ["name"] = name };
+            if (role != null) body["role"] = role;
+            if (character != null) body["character"] = character;
+
+            return RequestAsync<OWSeatCreated>("POST", $"/account/worlds/{Uri.EscapeDataString(worldId)}/seats",
+                body: body, ct: ct);
+        }
+
+        /// <summary>
+        /// GET /account/worlds/{world_id}/seats -- the live agent seats you can see, the rows of keel's <c>{data}</c> (no
+        /// paging): your own AI's, or, as the world's owner, every seat. No keys or secrets.
+        /// </summary>
+        /// <param name="worldId">The world. Escaped.</param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <remarks>An account token only, sent as its Bearer. Mirrors the TypeScript SDK's <c>listSeats</c> (4.28.0).</remarks>
+        public async Task<List<OWSeat>> ListSeatsAsync(string worldId, CancellationToken ct = default)
+        {
+            RequireAccountToken(nameof(ListSeatsAsync));
+            var page = await RequestAsync<JObject>("GET", $"/account/worlds/{Uri.EscapeDataString(worldId)}/seats", ct: ct)
+                .ConfigureAwait(false);
+            return RowsOf<OWSeat>(page);
+        }
+
+        /// <summary>
+        /// POST /account/worlds/{world_id}/seats/{seat_id}/key -- a new key and secret for a seat whose AI lost its own: the
+        /// old key and secret stop at once (the old key answers 401 <c>key_revoked</c>); nothing else about the seat
+        /// changes. Answers as <see cref="CreateSeatAsync"/> does, shown in this answer only.
+        /// </summary>
+        /// <param name="worldId">The world. Escaped.</param>
+        /// <param name="seatId">The seat's membership id (<see cref="OWSeat.Id"/>). Escaped.</param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <remarks>
+        /// Its sponsor or the world's owner may. Sent with no body, and no <c>Idempotency-Key</c>, by keel's rule: if this
+        /// answer is lost too, ask for another. An account token only, sent as its Bearer. Mirrors the TypeScript SDK's
+        /// <c>rekeySeat</c> (4.29.0).
+        /// </remarks>
+        public Task<OWSeatCreated> RekeySeatAsync(string worldId, string seatId, CancellationToken ct = default)
+        {
+            RequireAccountToken(nameof(RekeySeatAsync));
+            return RequestAsync<OWSeatCreated>("POST",
+                $"/account/worlds/{Uri.EscapeDataString(worldId)}/seats/{Uri.EscapeDataString(seatId)}/key", ct: ct);
+        }
+
+        /// <summary>
+        /// DELETE /account/worlds/{world_id}/seats/{seat_id} -- remove an agent seat: its key and secret stop at once; a
+        /// Character it made that nobody touched goes with it, any other stays. Answers 204.
+        /// </summary>
+        /// <param name="worldId">The world. Escaped.</param>
+        /// <param name="seatId">The seat's membership id. Escaped.</param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <remarks>
+        /// Its sponsor or the world's owner may; another member's seat is the same 404 as none. An account token only, sent
+        /// as its Bearer. Mirrors the TypeScript SDK's <c>removeSeat</c> (4.28.0).
+        /// </remarks>
+        public Task RemoveSeatAsync(string worldId, string seatId, CancellationToken ct = default)
+        {
+            RequireAccountToken(nameof(RemoveSeatAsync));
+            return RequestAsync<object>("DELETE",
+                $"/account/worlds/{Uri.EscapeDataString(worldId)}/seats/{Uri.EscapeDataString(seatId)}",
+                allowEmpty: true, ct: ct);
+        }
+
+        /// <summary>
+        /// A request model as a body of only the members given, in keel's spelling: a member left null is not sent, so
+        /// keel's default holds.
+        /// </summary>
+        private static JObject OnlyGiven(object model)
+            => JObject.FromObject(model, Newtonsoft.Json.JsonSerializer.Create(
+                new Newtonsoft.Json.JsonSerializerSettings { NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore }));
+
+        /// <summary>
+        /// An account route's own refusal: a client whose key is not an account token (<c>ow_a_</c>) is an
+        /// <see cref="InvalidOperationException"/> naming the call, and nothing is sent.
+        /// </summary>
+        /// <param name="method">The call, as the message names it.</param>
+        /// <param name="hint">A sentence after the key it holds (where such a key goes instead), or null.</param>
+        private void RequireAccountToken(string method, string hint = null)
+        {
+            if (KeyKind == OWKeyKind.Account) return;
+
+            throw new InvalidOperationException(
+                $"{method} needs an account token (ow_a_); this client holds "
+                + (_keyless ? "none" : $"a {KeyKind.ToString().ToLowerInvariant()} key") + "."
+                + (hint == null ? "" : " " + hint) + " Nothing was sent.");
+        }
+
+        /// <summary>The rows of a <c>{data}</c> answer with no paging; an answer without them is an empty list.</summary>
+        private static List<TRow> RowsOf<TRow>(JObject page)
+            => (page?["data"] as JArray)?.ToObject<List<TRow>>(Newtonsoft.Json.JsonSerializer.Create(OWJson.Settings))
+                ?? new List<TRow>();
 
         // -- Sync -------------------------------------------------------------
 

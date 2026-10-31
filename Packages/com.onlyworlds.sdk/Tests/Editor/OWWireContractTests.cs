@@ -116,6 +116,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 Limit = 5, Cursor = "c", Fields = new[] { "name" }, Name = "n", NameContains = "m",
                 Supertype = "s", Subtype = "u",
             });
+            // The typed options npm's list() takes: each must be a query parameter keel declares there.
+            await c.ListAsync<JObject>("character", new OWListParams
+            {
+                Expand = new[] { "friends" }, Ids = new[] { "c1", "c2" }, CreatedBy = "owner", ViewAs = "public",
+            });
             // Single-link filters: each field must be one keel declares on that list operation.
             await c.ListAsync<JObject>("location", new OWListParams
             {
@@ -168,6 +173,30 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 Name = "W", Pin = "4821", KeyName = "k",
                 Source = new JObject { ["world"] = "w0" }, Producer = new JObject { ["tool"] = "t" },
             });
+            // The account's worlds and their keys, on the agent account client: no write header goes on any.
+            t.ResponseBody = @"{""data"":[]}";
+            await account.ListAccountWorldsAsync();
+            t.ResponseBody = "{}";
+            await account.MintWorldKeyAsync("w1");
+            await account.RevokeWorldKeyAsync("w1", "k1");
+            await account.AcceptJoinAsync("ow_j_x");
+            // An invite link with every option at once (no real link takes all of them), so each body key is checked.
+            await account.CreateWorldLinkAsync("w1", new OWWorldLinkCreate
+            {
+                Reader = "player", Role = "guest", Days = 30, InviterName = "Ada", WithCharacter = true, Character = "c1",
+                Preview = true, MaxUses = 4, Characters = new List<string> { "c1", "c2" },
+            });
+            t.ResponseBody = @"{""data"":[]}";
+            await account.ListWorldLinksAsync("w1");
+            t.ResponseBody = "{}";
+            await account.RevokeWorldLinkAsync("w1", "l1");
+            // A seat for one's own AI, every option given; its list, a new key, its removal.
+            await account.CreateSeatAsync("w1", "Scout", role: "contributor", character: "mine");
+            t.ResponseBody = @"{""data"":[]}";
+            await account.ListSeatsAsync("w1");
+            t.ResponseBody = "{}";
+            await account.RekeySeatAsync("w1", "s1");
+            await account.RemoveSeatAsync("w1", "s1");
 
             // The lens routes on an account token: its own list in the world World names (world=), the world's lenses by
             // the path's world, and a row's list (PATCH with lenses alone).
@@ -398,6 +427,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.That(checkedOps, Does.Contain("POST /api/v2/join").And.Contain("POST /api/v2/join/preview"));
             Assert.That(checkedOps, Does.Contain("PATCH /api/v2/world"));
             Assert.That(checkedOps, Does.Contain("POST /api/v2/account/worlds"));
+            Assert.That(checkedOps, Does.Contain("POST /api/v2/account/join"));
+            Assert.That(checkedOps, Does.Contain("POST /api/v2/account/worlds/w1/links"));
+            Assert.That(checkedOps, Does.Contain("POST /api/v2/account/worlds/w1/seats"));
             Assert.That(checkedOps, Does.Contain("PUT /api/v2/me/lenses"));
             Assert.That(checkedOps, Does.Contain("PUT /api/v2/me/character"));
             Assert.That(checkedOps, Does.Contain("PATCH /api/v2/account/worlds/w1/members/owner"));
@@ -446,6 +478,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [TestCase(typeof(OWProposalAccepted), "/api/v2/character/{id}/proposals/{pid}/accept", "POST")]
         [TestCase(typeof(OWReviewed), "/api/v2/character/{id}/review", "POST")]
         [TestCase(typeof(OWAccountWorldCreated), "/api/v2/account/worlds", "POST")]
+        [TestCase(typeof(OWJoinedMembership), "/api/v2/account/join", "POST")]
+        [TestCase(typeof(OWWorldLinkCreated), "/api/v2/account/worlds/{world_id}/links", "POST")]
+        [TestCase(typeof(OWSeatCreated), "/api/v2/account/worlds/{world_id}/seats", "POST")]
+        [TestCase(typeof(OWSeatCreated), "/api/v2/account/worlds/{world_id}/seats/{seat_id}/key", "POST")]
         public void EveryKeyAModelReads_IsOneKeelServes(Type model, string path, string method)
         {
             var op = Wire["paths"]?[path]?[method] as JObject;
@@ -464,18 +500,49 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsEmpty(stale, "keel serves these now; drop them from NotServed: " + string.Join(", ", stale));
         }
 
-        [Test]
-        public void EveryKeyTheHiddenRowReads_IsOneTheHiddenListServes()
+        [TestCase(typeof(OWHiddenRow), "/api/v2/world/hidden")]
+        [TestCase(typeof(OWWorldLink), "/api/v2/account/worlds/{world_id}/links")]
+        [TestCase(typeof(OWSeat), "/api/v2/account/worlds/{world_id}/seats")]
+        public void EveryKeyAListRowReads_IsOneTheListServes_AndEveryOneItServesIsRead(Type row, string path)
         {
-            // ListHiddenAsync reads the rows of { data }, so the row's keys are checked one level down.
-            var served = Wire["paths"]["/api/v2/world/hidden"]["GET"]["response"].Values<string>().ToList();
-            var mapped = MappedKeys(typeof(OWHiddenRow), false).Select(k => "data[]." + k).ToList();
+            // ListHiddenAsync, ListWorldLinksAsync and ListSeatsAsync read the rows of { data }, so the row's keys are
+            // checked one level down.
+            var served = Wire["paths"][path]["GET"]["response"].Values<string>().ToList();
+            var mapped = MappedKeys(row, false).Select(k => "data[]." + k).ToList();
 
-            Assert.IsNotEmpty(mapped, "OWHiddenRow maps no keys");
+            Assert.IsNotEmpty(mapped, $"{row.Name} maps no keys");
             CollectionAssert.AreEquivalent(served.Where(k => k.StartsWith("data[].")).ToList(), mapped);
         }
 
+        [Test]
+        public void TheAccountAnswersKeelLeavesUndocumented_StayUndocumented_AndTheModelsMapWhatItsHandlersServe()
+        {
+            // keel's document declares no answer on GET /account/worlds or on a key's mint, and no body on the mint (its
+            // handler reads scope, name and keep from one, which the TypeScript SDK sends). So the models are held to the
+            // rows keel's handlers build (accounts/api.py _world_row, _key_row), which the TypeScript SDK's OwAccountWorld
+            // and OwMintedKey name, and MintWorldKeyAsync sends no body. When keel documents any of these, this fails:
+            // check the model against the document then, and port the mint's body.
+            var worlds = (JObject)Wire["paths"]["/api/v2/account/worlds"]["GET"];
+            var mint = (JObject)Wire["paths"]["/api/v2/account/worlds/{world_id}/keys"]["POST"];
+            Assert.IsNull(worlds["response"], "keel documents GET /account/worlds' answer now: check OWAccountWorld against it");
+            Assert.IsNull(mint["response"], "keel documents the mint's answer now: check OWMintedKey against it");
+            Assert.IsNull(mint["body"], "keel documents the mint's body now: MintWorldKeyAsync may send scope, name and keep");
+
+            CollectionAssert.AreEquivalent(
+                new[] { "id", "name", "role", "member_role", "public_read", "keys", "keys[].name", "keys[].last4", "keys[].scope", "keys[].revoked" },
+                MappedKeys(typeof(OWAccountWorld)));
+            CollectionAssert.AreEquivalent(
+                new[] { "id", "name", "last4", "scope", "last_used_at", "revoked", "key", "member", "kept" },
+                MappedKeys(typeof(OWMintedKey), false));
+
+            // The created world's row is the listed row's, plus its key (keel's AccountWorldCreated, which is documented).
+            var created = Wire["paths"]["/api/v2/account/worlds"]["POST"]["response"].Values<string>().ToList();
+            var listed = MappedKeys(typeof(OWAccountWorld)).Where(k => k != "member_role").ToList();
+            CollectionAssert.AreEquivalent(created.Where(k => k != "key").ToList(), listed);
+        }
+
         [TestCase(typeof(OWAccountWorldCreate), "/api/v2/account/worlds", "POST")]
+        [TestCase(typeof(OWWorldLinkCreate), "/api/v2/account/worlds/{world_id}/links", "POST")]
         public void EveryKeyARequestModelMaps_IsOneKeelTakes(Type model, string path, string method)
         {
             // The body is serialized from the model's attributes, so a key the model maps that keel's request schema does
@@ -573,7 +640,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             // An empty recording would pass the checks above with nothing checked.
             var calls = await RecordEveryCall();
-            Assert.AreEqual(53, calls.Count);
+            Assert.AreEqual(65, calls.Count);
 
             // The lens routes are on the wire here, so the checks above saw them.
             Assert.That(calls.Any(c => c.Method == "PUT" && new Uri(c.Url).AbsolutePath.EndsWith("/me/lenses")), "PUT /me/lenses is recorded");
