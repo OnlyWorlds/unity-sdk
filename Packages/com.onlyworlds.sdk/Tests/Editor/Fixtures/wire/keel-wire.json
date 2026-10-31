@@ -5,7 +5,7 @@
     "X-Session-Token",
     "Authorization"
   ],
-  "document_sha256": "e8b39c9307b2bd7fe040c1e4d2b6c69f71343f4bfda28e8192d71c1e66fbae62",
+  "document_sha256": "c8ec76f0ea86a5b0f8a18b081308fe17e07ca47db5929e121cc18bd8900a3fc4",
   "error_codes": {
     "already_member": 409,
     "already_reported": 409,
@@ -87,7 +87,7 @@
     "write_failed": 502,
     "wrong_audience": 401
   },
-  "fetched": "2026-10-30T18:41+01:00",
+  "fetched": "2026-10-31T03:41+01:00",
   "openapi_version": "2.0",
   "paths": {
     "/api/v2/ability": {
@@ -947,7 +947,16 @@
     "/api/v2/account/worlds": {
       "GET": {
         "header": [],
-        "query": []
+        "query": [],
+        "response": [
+          "data",
+          "data[].id",
+          "data[].keys",
+          "data[].member_role",
+          "data[].name",
+          "data[].public_read",
+          "data[].role"
+        ]
       },
       "POST": {
         "body": [
@@ -1025,11 +1034,43 @@
     "/api/v2/account/worlds/{world_id}/keys": {
       "GET": {
         "header": [],
-        "query": []
+        "query": [],
+        "response": [
+          "data",
+          "data[].id",
+          "data[].kept",
+          "data[].last4",
+          "data[].last_used_at",
+          "data[].member",
+          "data[].name",
+          "data[].revoked",
+          "data[].scope"
+        ]
       },
       "POST": {
+        "body": [
+          "keep",
+          "name",
+          "scope"
+        ],
         "header": [],
-        "query": []
+        "query": [],
+        "response": [
+          "id",
+          "kept",
+          "key",
+          "last4",
+          "last_used_at",
+          "member",
+          "member.agent_name",
+          "member.id",
+          "member.kind",
+          "member.name",
+          "member.username",
+          "name",
+          "revoked",
+          "scope"
+        ]
       }
     },
     "/api/v2/account/worlds/{world_id}/keys/{key_id}": {
