@@ -6,6 +6,82 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- The AI routes, on an account token: `OWClient.AskAsync(worldId, question, context)` (POST /account/ask
+  `{world_id, question, context}`), a question answered by keel's AI proxy from the context lines alone, as an
+  `OWAskAnswer` (`Answer`, `Model`, `StopReason`, `Usage` with `InputTokens` and `OutputTokens`, `Remaining`,
+  `TokensRemaining`, `TokenRating`); `SortAsync(worldId, notes, slice)` (POST /account/sort `{world_id, notes,
+  slice}`), the user's notes sorted against the elements the app found for them into rows to review, as an
+  `OWSortAnswer` (`Rows`, each an `OWSortRow` of kind `make`, `add_to`, `link` or `ask` with its `Proposal`, `Target`,
+  `Field`, `Op`, `Value`, `ValueId`, `ValueName`, `Question`, `Candidates` and `Then`; `NotProposed`; and the meter);
+  and `AllowanceAsync()` (GET /account/allowance), the account's daily token rating as an `OWAllowance`
+  (`TokenRating`, `TokensUsedToday`, `TokensRemaining`, `ResetsAt` as served). A note (`OWSortNote`, a string converts
+  to one) goes as its words alone, a string, or with a picture as `{text?, image_url}`; a slice row (`OWSortRef`) sends
+  its `anchor` only when given. Each sends its Bearer alone, no PIN and no write header. Any other key, no world, no
+  question, context, notes or slice, and a note with neither words nor a picture are refused before sending.
+  `OWApiError.IsAskUnavailable` (503 `ask_unavailable`) and `IsAskFailed` (502 `ask_failed`) are new. Mirrors the
+  TypeScript SDK's `ask()` (4.13.0), `sort()` (4.18.0) and `allowance()` (4.21.0).
+- The draught: `OWClient.DraughtAsync(characterId, policy)` (GET /character/{id}/context), one Character's context in
+  one read, answered as the packet keel serves (a `JObject`, as `GetMeAsync` answers; no reader of the packet is
+  added). `OWDraughtPolicy` carries the policy's nine keys, each sent only when given, in the TypeScript SDK's order
+  under keel's names: `Components` (joined by commas), `Mode`, `AsOf` (`as_of`), `Undated`, `Since`, `Budget`,
+  `Depth`, `Compact` (false sent as given) and `Lens`. A read: the key without its PIN, no write header; the
+  Character's id is escaped. No Character, or a component that is empty or holds a comma, is refused before sending,
+  and so are an account token and a keyless client, as the TypeScript SDK refuses them (keel's document also declares
+  `world` there; neither SDK sends it). Mirrors the TypeScript SDK's `draught()` (4.47.0; `compact` from 4.69.0,
+  `lens` from 4.92.0). The 0.24.0 "Not added" line about the draught's `lens` no longer holds: this is that client.
+- The escape hatch: `OWClient.RequestAsync(method, path, options)`, any route of keel's on the client's own rules,
+  answering the body as served (a `JToken`, null for a 204 or an empty body). `OWRequestOptions` carries the `Query`
+  (as given), the `Body` (any JSON value, sent exactly as given: nothing is cleaned, unlike the typed writes),
+  `IdempotencyKey`, `IfMatch`, and the rules a route asks for: `Write` (`X-OW-Agent` on an agent client),
+  `ElementWrite` (`X-OW-Client`), `Proposable` (a 202 is an `OWProposedError`), `WorldRead` (`world=` on a GET of a
+  client with `World` set), `AccountToken` (a new public `OWAccountTokenRoute`: `None`, `Path`, `World`) and `Auth`
+  (false: no credential). The key, the PIN where keel checks it, the Bearer, and the refusals of an account token or a
+  keyless client are the typed calls' own. A method other than keel's five in capitals, a path that does not start
+  with `/` or carries `?` or `#`, a body on a GET and a negative `IfMatch` are refused before sending. Mirrors the
+  TypeScript SDK's `request()` (public from 4.0.0).
+- Signing in, to an account token (`ow_a_`), on any client and with no credential of the client's. A password:
+  `OWClient.SignInWithPasswordAsync(email, username, password)` (exactly one of the first two) signs in at keel's
+  sign-in service (POST `{BaseUrl}/auth/app/v1/auth/login`, the password's one destination), mints the token (POST
+  /account/tokens with the session as `X-Session-Token`) and ends the session (DELETE
+  `{BaseUrl}/auth/app/v1/auth/session`, given five seconds at most, its failure ignored) whether the mint worked or
+  not, answering an `OWSignedIn` (`Token`, `Id`, `Name`, `Last4`). The mint goes with no body, as keel's document
+  declares none there, so the token is listed with no name (the TypeScript SDK sends its `tokenName`). Sign in with
+  OnlyWorlds: `SignInWithOnlyWorlds(clientId, redirectUri)` sends nothing and answers an `OWSignInBegun` (`Url`, the
+  site's authorize URL with the S256 challenge, to open in the system browser; `State`, `ClientId`, `RedirectUri`,
+  the secret `Verifier`, `Pending`); `CompleteSignInAsync(pending, url)` checks the return's state and page (scheme,
+  host with port, path) and trades its code once at POST /auth/token `{grant_type, code, code_verifier, client_id,
+  redirect_uri}`, answering an `OWSignInResult` (`Token`, `TokenId`, `ExpiresAt` as served or null, `TokenType`,
+  `Account` with `Id` and `Username`); a return with another state leaves the sign-in pending, a matching one spends
+  it. A return address keel cannot match (localhost, a loopback without its port, userinfo, a query, a fragment, a dot
+  segment, a reserved scheme) is refused saying why, in the TypeScript SDK's words. `OWSignIn.PkceChallenge` and
+  `Base64Url` are public (RFC 7636's vector holds). Every refusal after the call is an `OWSignInError` (`Reason`, one
+  of `OWSignInReason`'s words: `invalid_credentials`, `invalid_grant`, `state_mismatch`, `email_unverified`,
+  `rate_limited`, `offline`, `mint_failed`, `failed`; `Status`, `Code`, `RetryAfter`), which holds no password,
+  session, verifier, code or token and no inner exception. Mirrors the TypeScript SDK's `signInWithPassword()`
+  (4.31.0), `signInWithOnlyWorlds()` and `completeSignIn()` (4.46.0; `expiresAt` from 4.94.0), `pkceChallenge` and
+  `base64url`. The 0.24.0 "Not added" line about `completeSignIn`'s `expiresAt` no longer holds: `ExpiresAt` is it.
+
+### Changed
+
+- The bare client: `new OWClient(new OWClientConfig { Transport = ... })`, with no key and no `World`, is built,
+  where it threw an `ArgumentException` ("An API key is required, or World ..."); it is the TypeScript SDK's `new
+  OwV2Client()`, the client a person signing in has. On it, `HealthAsync`, `SignInWithPasswordAsync`,
+  `SignInWithOnlyWorlds` and `CompleteSignInAsync` work, with no credential (`OWJoin`'s keyless calls take no
+  client); every other call is refused before sending with an `InvalidOperationException` naming the request and
+  what works without a key, in the TypeScript SDK's words: "GET /location/ needs a key, and this client holds none:
+  without one, only HealthAsync, SignInWithPasswordAsync, SignInWithOnlyWorlds and CompleteSignInAsync work (and
+  OWJoin's PreviewAsync and RedeemAsync, which take no client), and ListAsync, ListAllAsync, GetAsync and
+  GetWorldAsync with World set. Nothing was sent." A keyless client with `World` set refuses with the same words, and
+  a transport is still required. Code that relied on the constructor to catch an empty key (an Editor settings
+  field, say) now gets that refusal from its first call instead.
+- `OWClient.ListAllAsync` stops when a page hands back the cursor it was sent (the caller's starting cursor
+  included) with more to come: an `OWTransportError` ("answered the cursor it was sent, with more to come; the walk
+  stopped rather than read the same page again"), where it read the same page forever. The elements read before are
+  not returned. A last page (`has_more` false) that repeats its cursor still ends the walk as before. Mirrors the
+  TypeScript SDK's `listAll` guard (4.88.0, its `OwNetworkError`).
+
 ## [0.27.0] - 2026-10-31
 
 Serials 97 to 100 in Unity, with the strand profile's reader (`OWStrand.Of`) and the strand on the front door

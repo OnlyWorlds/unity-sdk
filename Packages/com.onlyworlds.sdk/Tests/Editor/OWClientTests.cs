@@ -108,6 +108,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("world lenses", "GET", false, true, c => c.WorldLensesAsync("w1", resolve: true)),
             ("members", "GET", false, true, c => c.GetMembersAsync()),
             ("hidden list", "GET", false, false, c => c.ListHiddenAsync()),
+            ("draught", "GET", false, false, c => c.DraughtAsync("c1")),
+            ("draught (policy)", "GET", false, false, c => c.DraughtAsync("c1", new OWDraughtPolicy { Components = new[] { "self" }, Compact = true })),
             // the one read keel checks a PIN on
             ("me", "GET", true, false, c => c.GetMeAsync()),
             // writes, each verb
@@ -123,6 +125,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("patch world", "PATCH", true, false, c => c.PatchWorldAsync(new JObject { ["name"] = "W" })),
             ("set my lenses", "PUT", true, true, c => c.SetMyLensesAsync(new[] { "l1" })),
             ("set my character", "PUT", true, false, c => c.SetMyCharacterAsync("c1")),
+            // the escape hatch keeps the same rules: a world read, and an element write
+            ("request", "GET", false, true, c => c.RequestAsync("GET", "/world/", new OWRequestOptions { WorldRead = true })),
+            ("request (write)", "PATCH", true, false, c => c.RequestAsync("PATCH", "/location/l1/", new OWRequestOptions
+            {
+                Body = new JObject { ["name"] = "Harbour" }, Write = true, ElementWrite = true,
+            })),
             // the image tickets, and the two calls that spend one at the upload host (TwoStep): keel's request is checked
             // here as every other, the host's carries the ticket alone
             ("media ticket", "POST", true, false, c => c.CreateMediaTicketAsync()),
@@ -149,6 +157,34 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("seats", "GET", false, true, c => c.ListSeatsAsync("w1")),
             ("rekey seat", "POST", true, true, c => c.RekeySeatAsync("w1", "s1")),
             ("remove seat", "DELETE", true, true, c => c.RemoveSeatAsync("w1", "s1")),
+            // the AI routes, an account token's alone too
+            ("ask", "POST", true, true, c => c.AskAsync("w1", "q", new[] { "x" })),
+            ("sort", "POST", true, true, c => c.SortAsync("w1", new OWSortNote[] { "x" }, new OWSortRef[0])),
+            ("allowance", "GET", false, true, c => c.AllowanceAsync()),
+            // signing in, on every client with no credential of its own (NoCredential): the password's mint, keel's one
+            // request among its three (the sign-in and the session's end go to the sign-in service, SignInService), and
+            // Sign in with OnlyWorlds' exchange. Each answer is scripted (Scripted).
+            ("sign in (password)", "POST", false, true, c => c.SignInWithPasswordAsync("ana@example.org", null, "pw")),
+            ("complete sign in", "POST", false, true, c =>
+            {
+                var pending = c.SignInWithOnlyWorlds("atlas", "https://atlas.example.test/cb");
+                return c.CompleteSignInAsync(pending, "https://atlas.example.test/cb?code=c1&state=" + pending.State);
+            }),
+        };
+
+        /// <summary>The password sign-in's service under the base URL: not keel's document, so not swept as keel's.</summary>
+        private const string SignInService = "https://example.test/api/v2/auth/app/";
+
+        /// <summary>The calls whose answers are scripted, each request its own answer.</summary>
+        private static readonly Dictionary<string, Action<FakeTransport>> Scripted = new Dictionary<string, Action<FakeTransport>>
+        {
+            ["sign in (password)"] = t =>
+            {
+                t.Then(200, @"{""meta"":{""session_token"":""sess""}}");
+                t.Then(201, @"{""id"":""tok-1"",""name"":"""",""last4"":""wxyz"",""token"":""ow_a_xwxyz""}");
+                t.Then(401, "{}");
+            },
+            ["complete sign in"] = t => t.Then(200, @"{""token"":""ow_a_x"",""token_id"":""t1"",""account"":{""id"":""u1""}}"),
         };
 
         /// <summary>The calls only an account token sends: on any other key each is refused, and nothing is sent.</summary>
@@ -157,6 +193,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             "account worlds", "mint world key", "revoke world key", "accept join",
             "create world link", "world links", "revoke world link",
             "create seat", "seats", "rekey seat", "remove seat",
+            "ask", "sort", "allowance",
         };
 
         /// <summary>The calls that send a second request, to the upload host their ticket names, after keel's.</summary>
@@ -190,16 +227,25 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                     continue;
                 }
 
+                if (Scripted.TryGetValue(call.Name, out var script)) script(t);
                 await call.Run(Make(t, key, pin, world));
 
-                var keel = t.Calls.Where(r => !r.Url.StartsWith(UploadHost, StringComparison.Ordinal)).ToList();
+                var signIn = t.Calls.Where(r => r.Url.StartsWith(SignInService, StringComparison.Ordinal)).ToList();
                 var host = t.Calls.Where(r => r.Url.StartsWith(UploadHost, StringComparison.Ordinal)).ToList();
+                var keel = t.Calls.Where(r => !r.Url.StartsWith(UploadHost, StringComparison.Ordinal)
+                    && !r.Url.StartsWith(SignInService, StringComparison.Ordinal)).ToList();
                 Assert.AreEqual(1, keel.Count, $"{call.Name}: one request to keel");
                 Assert.AreEqual(TwoStep.Contains(call.Name) ? 1 : 0, host.Count, $"{call.Name}: the upload host's request");
                 foreach (var r in host)
                 {
                     CollectionAssert.IsSubsetOf(r.Headers.Keys, new[] { "Authorization", "X-Key" }, $"{call.Name}: nothing of ours to the host");
                     Assert.AreEqual("Bearer tk.sig", r.Headers["Authorization"], $"{call.Name}: the ticket, never the key");
+                }
+
+                Assert.AreEqual(call.Name == "sign in (password)" ? 2 : 0, signIn.Count, $"{call.Name}: the sign-in service's requests");
+                foreach (var r in signIn)
+                {
+                    CollectionAssert.IsSubsetOf(r.Headers.Keys, new[] { "Content-Type", "X-Session-Token" }, $"{call.Name}: nothing of ours to the sign-in service");
                 }
 
                 Assert.AreEqual(call.Verb, keel[0].Method, $"{call.Name}: sent as {call.Verb}");
@@ -213,7 +259,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             => sent.Headers.TryGetValue("API-Pin", out var pin) ? pin : null;
 
         /// <summary>The calls sent with no credential at all, whatever the client holds.</summary>
-        private static readonly string[] NoCredential = { "health" };
+        private static readonly string[] NoCredential = { "health", "sign in (password)", "complete sign in" };
 
         /// <summary>True for a call sent with no credential, after checking it carried none.</summary>
         private static bool SentWithNone(string name, OWRequest sent)
@@ -262,8 +308,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public async Task ApiPin_AccountToken_Never_EvenWithAPinConfigured_BearerAndNoApiKey()
         {
             var all = await PinSweep("ow_a_acct", "1234", "w1");
-            Assert.AreEqual(20, all.Count,
-                "the health pulse, the world reads, the two lens routes, the roster and the account routes sent");
+            Assert.AreEqual(26, all.Count,
+                "the health pulse, the world reads (the escape hatch's among them), the two lens routes, the roster, the "
+                + "account routes, the AI routes and the two sign-ins sent");
             foreach (var (name, _, sent) in all)
             {
                 if (SentWithNone(name, sent)) continue;
@@ -1157,6 +1204,36 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(1, t.Calls.Count);
         }
 
+        // The TypeScript SDK's listAll guard (4.88.0): a page that hands back the cursor it was sent, with more to come,
+        // would be read again forever, so the walk stops with an error. The third answer here ends the walk, so without
+        // the guard the test fails on a count, not a hang. Kills: the guard dropped, compared against the first cursor
+        // only, or against the caller's starting cursor not at all.
+        [Test]
+        public void ListAll_APageThatAnswersTheCursorItWasSent_StopsTheWalk_WithATransportError()
+        {
+            var t = new FakeTransport();
+            t.Bodies.Enqueue(@"{""data"":[{""name"":""a""}],""has_more"":true,""next_cursor"":""c1""}");
+            t.Bodies.Enqueue(@"{""data"":[{""name"":""b""}],""has_more"":true,""next_cursor"":""c1""}");
+            t.Bodies.Enqueue(@"{""data"":[{""name"":""c""}],""has_more"":false,""next_cursor"":null}");
+
+            var e = Assert.ThrowsAsync<OWTransportError>(() => Make(t).ListAllAsync<OWElement>("character"));
+            Assert.AreEqual("ListAllAsync: GET /character/ answered the cursor it was sent, with more to come; the walk "
+                + "stopped rather than read the same page again", e.Message);
+            Assert.AreEqual(2, t.Calls.Count, "the repeated page is not read a third time");
+
+            // The caller's own starting cursor counts too.
+            t = new FakeTransport { ResponseBody = @"{""data"":[],""has_more"":true,""next_cursor"":""c0""}" };
+            Assert.ThrowsAsync<OWTransportError>(() => Make(t).ListAllAsync<OWElement>("character", new OWListParams { Cursor = "c0" }));
+            Assert.AreEqual(1, t.Calls.Count);
+
+            // The same cursor on the last page (no more to come) is not a loop: the walk ends as it always did.
+            t = new FakeTransport();
+            t.Bodies.Enqueue(@"{""data"":[{""name"":""a""}],""has_more"":true,""next_cursor"":""c1""}");
+            t.Bodies.Enqueue(@"{""data"":[{""name"":""b""}],""has_more"":false,""next_cursor"":""c1""}");
+            Assert.DoesNotThrowAsync(() => Make(t).ListAllAsync<OWElement>("character"));
+            Assert.AreEqual(2, t.Calls.Count);
+        }
+
         [Test]
         public async Task List_SendsSparseFieldsets()
         {
@@ -1841,10 +1918,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
-        public void RequiresKeyAndTransport()
+        public void RequiresATransport_NotAKey()
         {
-            Assert.Throws<System.ArgumentException>(() =>
-                new OWClient(new OWClientConfig { ApiKey = "", Transport = new FakeTransport() }));
+            // No key is the bare client since 0.28.0 (OWWorldReadTests holds what it sends and refuses).
+            Assert.DoesNotThrow(() => new OWClient(new OWClientConfig { ApiKey = "", Transport = new FakeTransport() }));
 
             Assert.Throws<System.ArgumentException>(() =>
                 new OWClient(new OWClientConfig { ApiKey = "ow_w_x", Transport = null }));

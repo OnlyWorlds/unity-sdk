@@ -16,7 +16,11 @@ namespace OnlyWorlds.Sdk
         /// The key: an <c>ow_w_</c> (write) or <c>ow_r_</c> (read) world key, an <c>ow_a_</c> account token (sent as a
         /// Bearer, for the <c>/account</c> routes and the lens routes, and with <see cref="World"/> set for that world's
         /// reads), or a
-        /// 10-digit legacy key. Empty only with <see cref="World"/> set: a keyless reader of a public world.
+        /// 10-digit legacy key. Empty with <see cref="World"/> set: a keyless reader of a public world. Empty with no
+        /// <see cref="World"/>: the bare client, the TypeScript SDK's <c>new OwV2Client()</c>, which sends
+        /// <see cref="OWClient.HealthAsync"/> and the sign-ins (<see cref="OWClient.SignInWithPasswordAsync"/>,
+        /// <see cref="OWClient.SignInWithOnlyWorlds"/>, <see cref="OWClient.CompleteSignInAsync"/>), the client a person
+        /// signing in has, and refuses every other call before sending. <see cref="OWJoin"/>'s keyless calls take no client.
         /// </summary>
         public string ApiKey;
 
@@ -80,6 +84,77 @@ namespace OnlyWorlds.Sdk
     }
 
     /// <summary>
+    /// What <see cref="OWClient.RequestAsync(string, string, OWRequestOptions, CancellationToken)"/> sends beside the
+    /// method and path, and which of the client's rules it asks for. Every member left at its default sends nothing.
+    /// </summary>
+    public class OWRequestOptions
+    {
+        /// <summary>The query, without its <c>?</c>, sent as given: escape its values yourself. Null or empty: none.</summary>
+        public string Query;
+
+        /// <summary>
+        /// The JSON body, sent exactly as given (with <c>Content-Type: application/json</c>): nothing is cleaned, so no
+        /// read-only key is left out and a null stays null. Null: no body. Never on a GET.
+        /// </summary>
+        public JToken Body;
+
+        /// <summary>Sent as <c>Idempotency-Key</c> when not null or empty.</summary>
+        public string IdempotencyKey;
+
+        /// <summary>A <c>change_seq</c> sent as <c>If-Match</c>, quoted; a whole number, else refused before sending.</summary>
+        public long? IfMatch;
+
+        /// <summary>
+        /// A write keel's document lists <c>X-OW-Agent</c> on (the element writes, the links route, bulk, adopt, the file
+        /// ticket): an agent client (<see cref="OWClientConfig.Agent"/>) sends it.
+        /// </summary>
+        public bool Write;
+
+        /// <summary>
+        /// One of the writes keel reads <c>X-OW-Client</c> on (create, put, patch, delete, links, bulk, adopt, propose,
+        /// accept): the client's name (<see cref="OWClient.ClientName"/>) goes.
+        /// </summary>
+        public bool ElementWrite;
+
+        /// <summary>
+        /// A write keel may answer 202 with <c>{proposal}</c> (put, patch, links): a 202 is then an
+        /// <see cref="OWProposedError"/>, not a body that is not the element.
+        /// </summary>
+        public bool Proposable;
+
+        /// <summary>
+        /// A GET keel serves an account token, or no key, with <c>world=&lt;id&gt;</c> (element list and get, the world
+        /// GET): on a client with <see cref="OWClient.World"/> set, <c>world=&lt;id&gt;</c> is added to the query.
+        /// </summary>
+        public bool WorldRead;
+
+        /// <summary>
+        /// A route keel's document declares the account token on beside the world key (the lens routes, the roster): how an
+        /// account client sends it. <see cref="OWAccountTokenRoute.None"/> on any other route.
+        /// </summary>
+        public OWAccountTokenRoute AccountToken;
+
+        /// <summary>
+        /// False for a route keel serves with no credential (the health pulse): no key, PIN or Bearer is sent, no
+        /// <c>world=</c> is added, and no client is refused for the key it holds. True by default.
+        /// </summary>
+        public bool Auth = true;
+    }
+
+    /// <summary>How an account token sends a world route keel declares it on beside the world key.</summary>
+    public enum OWAccountTokenRoute
+    {
+        /// <summary>Not such a route: an account token sends only the <c>/account</c> routes and the world reads.</summary>
+        None,
+
+        /// <summary>The path names the world; nothing is added.</summary>
+        Path,
+
+        /// <summary>The world is named with <c>world=&lt;id&gt;</c>, from <see cref="OWClient.World"/>, which must be set.</summary>
+        World,
+    }
+
+    /// <summary>
     /// A thin typed client for the OnlyWorlds v2 API.
     /// </summary>
     /// <remarks>
@@ -102,7 +177,7 @@ namespace OnlyWorlds.Sdk
         private readonly IOWTransport _transport;
         private readonly bool _agent;
 
-        /// <summary>True for a client built with no key: a keyless reader of the world <see cref="World"/> names.</summary>
+        /// <summary>True for a client built with no key: a keyless reader of the world <see cref="World"/> names, or the bare client.</summary>
         private readonly bool _keyless;
 
         /// <summary>The name sent as <c>X-OW-Client</c> when <see cref="OWClientConfig.Client"/> is null.</summary>
@@ -132,12 +207,6 @@ namespace OnlyWorlds.Sdk
             _keyless = string.IsNullOrEmpty(config.ApiKey);
             KeyKind = OWKey.DetectKind(config.ApiKey);
             World = WorldOf(config.World, _keyless, KeyKind);
-
-            if (_keyless && World == null)
-            {
-                throw new ArgumentException(
-                    "An API key is required, or World for a keyless reader of a public world.", nameof(config));
-            }
 
             if (config.Transport == null)
                 throw new ArgumentException("A transport is required.", nameof(config));
@@ -326,7 +395,7 @@ namespace OnlyWorlds.Sdk
         /// </remarks>
         public async Task<JArray> GetMembersAsync(CancellationToken ct = default)
         {
-            var page = await RequestAsync<JObject>("GET", "/members/", ct: ct, accountToken: AccountTokenRoute.World)
+            var page = await RequestAsync<JObject>("GET", "/members/", ct: ct, accountToken: OWAccountTokenRoute.World)
                 .ConfigureAwait(false);
             return page?["data"] as JArray ?? new JArray();
         }
@@ -362,7 +431,7 @@ namespace OnlyWorlds.Sdk
         public Task<JObject> SetMyLensesAsync(IEnumerable<string> lensIds, CancellationToken ct = default)
         {
             var body = new JObject { ["lenses"] = LensList(lensIds) };
-            return RequestAsync<JObject>("PUT", "/me/lenses", body: body, ct: ct, accountToken: AccountTokenRoute.World);
+            return RequestAsync<JObject>("PUT", "/me/lenses", body: body, ct: ct, accountToken: OWAccountTokenRoute.World);
         }
 
         /// <summary>
@@ -398,7 +467,7 @@ namespace OnlyWorlds.Sdk
             if (!string.IsNullOrEmpty(readAs)) query.Add("read_as=" + Uri.EscapeDataString(readAs));
 
             return RequestAsync<JObject>("GET", $"/world/{Uri.EscapeDataString(worldId)}/lenses",
-                query: string.Join("&", query), ct: ct, accountToken: AccountTokenRoute.Path);
+                query: string.Join("&", query), ct: ct, accountToken: OWAccountTokenRoute.Path);
         }
 
         // -- Element reads ----------------------------------------------------
@@ -498,6 +567,11 @@ namespace OnlyWorlds.Sdk
         /// signal that iteration is done. Treating it as one loses elements with no error. On a client
         /// with <see cref="World"/> set, every page is read from that world, as <see cref="ListAsync{T}"/> reads it.
         /// </remarks>
+        /// <exception cref="OWTransportError">
+        /// A page answered the cursor it was sent (the caller's starting cursor included) with more to come: the walk
+        /// stops rather than read that page again, and the elements read so far are not returned. Mirrors the TypeScript
+        /// SDK's <c>listAll</c> guard (4.88.0, its <c>OwNetworkError</c>).
+        /// </exception>
         public async Task<List<T>> ListAllAsync<T>(
             string type, OWListParams p = default, CancellationToken ct = default,
             Action<int, int> onPage = null)
@@ -524,6 +598,15 @@ namespace OnlyWorlds.Sdk
                 // Guard against a server that says has_more but stops issuing cursors -- without
                 // this, that shape is an infinite loop rather than a bad page.
                 if (page == null || !page.HasMore || string.IsNullOrEmpty(page.NextCursor)) break;
+
+                // A page that hands back the cursor it was sent would be read again forever.
+                if (page.NextCursor == cursor)
+                {
+                    throw new OWTransportError(
+                        $"ListAllAsync: GET /{type}/ answered the cursor it was sent, with more to come; the walk stopped "
+                        + "rather than read the same page again");
+                }
+
                 cursor = page.NextCursor;
             }
             while (true);
@@ -879,6 +962,85 @@ namespace OnlyWorlds.Sdk
             var page = await RequestAsync<JObject>("GET", "/world/hidden", ct: ct).ConfigureAwait(false);
             return (page?["data"] as JArray)?.ToObject<List<OWHiddenRow>>(Newtonsoft.Json.JsonSerializer.Create(OWJson.Settings))
                 ?? new List<OWHiddenRow>();
+        }
+
+        // -- The draught -----------------------------------------------------------
+
+        /// <summary>
+        /// GET /character/{id}/context -- the draught: what one Character knows, as the recorded world holds it, in one
+        /// read. Her element, what she holds and sits in, her open work, how she works, the Events she was in, the
+        /// Narratives she knows, everything else that names her, her sheet, what changed around her
+        /// (<see cref="OWDraughtPolicy.Since"/>) and who plays whom; the world's name and calendar beside; the room's
+        /// messages, its other elements and elements written as proposed only when the policy's components name them. The
+        /// answer is the packet as served.
+        /// </summary>
+        /// <param name="characterId">The Character's id. Escaped.</param>
+        /// <param name="policy">What to serve and how; the default sends no query, and keel's defaults hold.</param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="ArgumentException">
+        /// No Character's id, or a component that is null, empty or holds a comma; nothing was sent.
+        /// </exception>
+        /// <exception cref="OWApiError">
+        /// The server refused: a Character this key may not read is a 404 (a player seat or a guest reads its own
+        /// Character only); <see cref="OWDraughtPolicy.Lens"/> beside a depth or a budget is a 422.
+        /// </exception>
+        /// <remarks>
+        /// <para>
+        /// Each row carries the list route's body for the same reader as <c>element</c>, beside <c>via</c>,
+        /// <c>her_links</c> and <c>grade</c>; nothing is inferred. A <c>cut</c> that is not empty means the serving is
+        /// partial. A Message without the room mark is placed as any Narrative unless <c>messages</c> is named, when it is
+        /// there and in no other section; a room-marked Message is in <c>messages</c> or nowhere. With no policy key but
+        /// <see cref="OWDraughtPolicy.Compact"/>, the packet adds one frame per lens chosen with
+        /// <see cref="SetMyLensesAsync"/>.
+        /// </para>
+        /// <para>
+        /// The policy's keys go in the TypeScript SDK's order (<c>components</c>, <c>mode</c>, <c>as_of</c>,
+        /// <c>undated</c>, <c>since</c>, <c>budget</c>, <c>depth</c>, <c>compact</c>, <c>lens</c>). A read: the key goes
+        /// without its PIN (a legacy key's goes with it), and with no write header. An account token or a keyless client
+        /// is refused, and nothing is sent, as the TypeScript SDK refuses them. Served <c>Cache-Control: private,
+        /// no-store</c>. Mirrors the TypeScript SDK's <c>draught</c> (4.47.0; <c>compact</c> from 4.69.0, <c>lens</c>
+        /// from 4.92.0).
+        /// </para>
+        /// </remarks>
+        public Task<JObject> DraughtAsync(string characterId, OWDraughtPolicy policy = default, CancellationToken ct = default)
+        {
+            if (string.IsNullOrEmpty(characterId))
+                throw new ArgumentException("DraughtAsync: the Character's id is required. Nothing was sent.", nameof(characterId));
+
+            if (policy.Components != null)
+            {
+                foreach (var component in policy.Components)
+                {
+                    if (string.IsNullOrEmpty(component) || component.Contains(","))
+                    {
+                        throw new ArgumentException(
+                            "DraughtAsync: each component is one section's name, not empty and without a comma. Nothing "
+                            + "was sent.", nameof(policy));
+                    }
+                }
+            }
+
+            var keys = new List<(string Name, string Value)>
+            {
+                ("components", Joined(policy.Components)),
+                ("mode", NullIfEmpty(policy.Mode)),
+                ("as_of", policy.AsOf?.ToString(CultureInfo.InvariantCulture)),
+                ("undated", NullIfEmpty(policy.Undated)),
+                ("since", NullIfEmpty(policy.Since)),
+                ("budget", policy.Budget?.ToString(CultureInfo.InvariantCulture)),
+                ("depth", policy.Depth?.ToString(CultureInfo.InvariantCulture)),
+                ("compact", policy.Compact.HasValue ? (policy.Compact.Value ? "true" : "false") : null),
+                ("lens", NullIfEmpty(policy.Lens)),
+            };
+
+            var query = new List<string>();
+            foreach (var (name, value) in keys)
+            {
+                if (value != null) query.Add(name + "=" + Uri.EscapeDataString(value));
+            }
+
+            return RequestAsync<JObject>("GET", $"/character/{Uri.EscapeDataString(characterId)}/context",
+                query: string.Join("&", query), ct: ct);
         }
 
         // -- Images --------------------------------------------------------------
@@ -1935,6 +2097,567 @@ namespace OnlyWorlds.Sdk
                 allowEmpty: true, ct: ct);
         }
 
+        // -- Signing in ---------------------------------------------------------------
+        //
+        // Two ways to an account token (ow_a_), on any client, keyless included, and with no credential of the client's:
+        // a password (three requests: the sign-in service, the mint, the session's end), or Sign in with OnlyWorlds
+        // (OAuth 2.1's code with PKCE: an authorize URL for the system browser, then one exchange). The SDK keeps no
+        // token: the caller stores it and makes a client with it. Every refusal after the call is an OWSignInError, which
+        // holds no secret and no inner exception. Mirrors the TypeScript SDK's signInWithPassword (4.31.0),
+        // signInWithOnlyWorlds and completeSignIn (4.46.0; expiresAt from 4.94.0).
+
+        /// <summary>How long the password sign-in waits for its session's end before it answers anyway.</summary>
+        internal static TimeSpan SessionEndLimit = TimeSpan.FromSeconds(5);
+
+        /// <summary>
+        /// Sign in with an email address (or a username) and password, and get a new account token (<c>ow_a_</c>) for this
+        /// device. Make a client with it (<c>new OWClientConfig { ApiKey = token }</c>) and store it as any account token.
+        /// </summary>
+        /// <param name="email">The account's email address; null when signing in by username. Trimmed.</param>
+        /// <param name="username">The account's username; null when signing in by email. Trimmed.</param>
+        /// <param name="password">The password: sent once, to the sign-in service alone, and held nowhere.</param>
+        /// <param name="ct">Cancels the requests (the session's end still goes).</param>
+        /// <exception cref="ArgumentException">
+        /// Both or neither of <paramref name="email"/> and <paramref name="username"/>, or no password; nothing was sent.
+        /// The message never holds the password.
+        /// </exception>
+        /// <exception cref="OWSignInError">
+        /// The sign-in was refused; <see cref="OWSignInError.Reason"/> says why: <c>invalid_credentials</c>,
+        /// <c>email_unverified</c>, <c>rate_limited</c> (with <see cref="OWSignInError.RetryAfter"/> when sent),
+        /// <c>offline</c>, <c>mint_failed</c> (signed in, but no token was made), or <c>failed</c> (with the server's words
+        /// when they hold no secret).
+        /// </exception>
+        /// <remarks>
+        /// <para>
+        /// Three requests, none with a key, PIN or Bearer of this client's whatever it holds: POST
+        /// <c>{BaseUrl}/auth/app/v1/auth/login</c> <c>{email|username, password}</c> at keel's sign-in service, which answers
+        /// a short-lived session; POST <c>/account/tokens</c> with that session as <c>X-Session-Token</c>, which mints the
+        /// token; then DELETE <c>{BaseUrl}/auth/app/v1/auth/session</c> with the session, whether the mint worked or not,
+        /// given five seconds at most and its failure ignored. Only the token is kept: the session never leaves this call.
+        /// </para>
+        /// <para>
+        /// The mint goes with no body: keel's document declares none there, though keel reads an optional
+        /// <c>{name}</c> and the TypeScript SDK sends its <c>tokenName</c> in one. So the token is listed with no name on
+        /// the account's tokens page, where it can be revoked; a name comes when keel documents the body. A person signing
+        /// in holds no key: the bare client (<c>new OWClientConfig { Transport }</c>) is theirs. Mirrors the TypeScript
+        /// SDK's <c>signInWithPassword</c> (4.31.0).
+        /// </para>
+        /// </remarks>
+        public Task<OWSignedIn> SignInWithPasswordAsync(
+            string email, string username, string password, CancellationToken ct = default)
+        {
+            var login = email?.Trim() ?? "";
+            var user = username?.Trim() ?? "";
+            if ((login.Length > 0) == (user.Length > 0))
+            {
+                throw new ArgumentException(
+                    "SignInWithPasswordAsync takes exactly one of email and username. Nothing was sent.",
+                    login.Length > 0 ? nameof(username) : nameof(email));
+            }
+
+            if (string.IsNullOrEmpty(password))
+                throw new ArgumentException("SignInWithPasswordAsync needs a password. Nothing was sent.", nameof(password));
+
+            var body = login.Length > 0
+                ? new JObject { ["email"] = login, ["password"] = password }
+                : new JObject { ["username"] = user, ["password"] = password };
+
+            return SignInWithPasswordCoreAsync(body, password, ct);
+        }
+
+        private async Task<OWSignedIn> SignInWithPasswordCoreAsync(JObject credentials, string password, CancellationToken ct)
+        {
+            var auth = BaseUrl + "/auth/app/v1";
+
+            var res = await SendSignInAsync(new OWRequest
+            {
+                Method = "POST",
+                Url = auth + "/auth/login",
+                Headers = new Dictionary<string, string> { ["Content-Type"] = "application/json" },
+                Body = credentials.ToString(Newtonsoft.Json.Formatting.None),
+            }, "OnlyWorlds could not be reached: signing in needs a connection.", ct).ConfigureAwait(false);
+
+            var retryAfter = OWApiError.ParseRetryAfter(ReadHeader(res, "Retry-After"), DateTimeOffset.UtcNow);
+            if (res.Status == 429)
+            {
+                // allauth's 429 may be an HTML page: the status alone says it.
+                throw new OWSignInError(OWSignInReason.RateLimited, "Too many sign-in attempts. Wait a while, then try again.",
+                    429, retryAfter: retryAfter);
+            }
+
+            var answer = JsonObjectOrNull(res.Body);
+            var session = (answer?["meta"] as JObject)?["session_token"] is JValue s && s.Type == JTokenType.String
+                && (string)s != "" ? (string)s : null;
+
+            // Any text the server sends back is shown only if it holds no secret.
+            string Safe(string text, string fallback)
+                => string.IsNullOrEmpty(text) || text.Contains(password) || (session != null && text.Contains(session))
+                    ? fallback : text;
+
+            if (!res.IsSuccess || session == null)
+            {
+                // A pending flow can still hand out a session: it is ended too.
+                if (session != null) await EndAuthSessionAsync(auth, session).ConfigureAwait(false);
+
+                var errors = answer?["errors"] as JArray ?? new JArray();
+                var codes = new List<string>();
+                string first = null;
+                foreach (var e in errors)
+                {
+                    if (e is JObject row && row["code"]?.Type == JTokenType.String) codes.Add((string)row["code"]);
+                    if (first == null && e is JObject said && said["message"]?.Type == JTokenType.String) first = (string)said["message"];
+                }
+
+                var code = codes.Find(c => Safe(c, null) != null);
+                var mismatch = codes.Find(c => c == "email_password_mismatch" || c == "username_password_mismatch");
+                if (mismatch != null)
+                {
+                    throw new OWSignInError(OWSignInReason.InvalidCredentials,
+                        Safe(first, "The email address and/or password you specified are not correct."), res.Status, mismatch);
+                }
+
+                if (codes.Contains("too_many_login_attempts"))
+                {
+                    throw new OWSignInError(OWSignInReason.RateLimited,
+                        Safe(first, "Too many failed sign-in attempts. Try again later."), res.Status, "too_many_login_attempts",
+                        retryAfter);
+                }
+
+                var flows = (answer?["data"] as JObject)?["flows"] as JArray ?? new JArray();
+                var unverified = false;
+                foreach (var f in flows)
+                {
+                    if (f is JObject flow && flow["id"]?.Type == JTokenType.String && (string)flow["id"] == "verify_email"
+                        && flow["is_pending"]?.Type == JTokenType.Boolean && (bool)flow["is_pending"]) unverified = true;
+                }
+
+                if (res.Status == 401 && unverified)
+                {
+                    throw new OWSignInError(OWSignInReason.EmailUnverified,
+                        "Confirm the account's email address first: the link is in the mail onlyworlds.com sent.", res.Status, code);
+                }
+
+                throw new OWSignInError(OWSignInReason.Failed,
+                    Safe(first, res.IsSuccess ? "Signing in did not work: onlyworlds.com sent no session." : $"Signing in did not work ({res.Status})."),
+                    res.Status, code);
+            }
+
+            try
+            {
+                // No body: keel's document declares none on the mint (the TypeScript SDK sends { name: tokenName }).
+                var minted = await SendSignInAsync(new OWRequest
+                {
+                    Method = "POST",
+                    Url = BaseUrl + "/account/tokens",
+                    Headers = new Dictionary<string, string> { ["X-Session-Token"] = session },
+                }, "The connection dropped after signing in: no token was made. Try again.", ct).ConfigureAwait(false);
+
+                var row = JsonObjectOrNull(minted.Body);
+                var token = row?["token"] is JValue t && t.Type == JTokenType.String && (string)t != "" ? (string)t : null;
+                if (minted.Status != 201 || token == null)
+                {
+                    // keel's envelope: { error: { code, message, ... } }.
+                    var err = row?["error"] as JObject;
+                    string SafeMint(string text, string fallback)
+                        => token != null && text != null && text.Contains(token) ? fallback : Safe(text, fallback);
+
+                    var said = err?["code"]?.Type == JTokenType.String ? (string)err["code"] : null;
+                    throw new OWSignInError(OWSignInReason.MintFailed,
+                        SafeMint(err?["message"]?.Type == JTokenType.String ? (string)err["message"] : null,
+                            $"Signed in, but no token was made ({minted.Status}). Try again."),
+                        minted.Status, SafeMint(said, null));
+                }
+
+                return new OWSignedIn
+                {
+                    Token = token,
+                    Id = row["id"]?.Type == JTokenType.String ? (string)row["id"] : "",
+                    Name = row["name"]?.Type == JTokenType.String ? (string)row["name"] : "",
+                    Last4 = row["last4"]?.Type == JTokenType.String ? (string)row["last4"] : token.Substring(Math.Max(0, token.Length - 4)),
+                };
+            }
+            finally
+            {
+                await EndAuthSessionAsync(auth, session).ConfigureAwait(false);
+            }
+        }
+
+        /// <summary>
+        /// The password sign-in's session ended: DELETE with the session alone, given <see cref="SessionEndLimit"/> at most
+        /// (the token is already minted, and a request hanging on a bad network must not hold the sign-in), its failure
+        /// ignored.
+        /// </summary>
+        private async Task EndAuthSessionAsync(string auth, string session)
+        {
+            var cut = new CancellationTokenSource();
+            try
+            {
+                var send = _transport.SendAsync(new OWRequest
+                {
+                    Method = "DELETE",
+                    Url = auth + "/auth/session",
+                    Headers = new Dictionary<string, string> { ["X-Session-Token"] = session },
+                }, cut.Token);
+
+                // Its failure, whenever it comes, is observed here and dropped.
+                _ = send.ContinueWith(x => x.Exception, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously);
+                await Task.WhenAny(send, Task.Delay(SessionEndLimit, cut.Token)).ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                // Swallowed on purpose.
+            }
+            finally
+            {
+                cut.Cancel();
+            }
+        }
+
+        /// <summary>
+        /// Begin Sign in with OnlyWorlds: a fresh state and PKCE verifier, and the authorize URL on the site
+        /// (<c>https://www.onlyworlds.com/signin/authorize</c>) to open in the system browser. No request is sent, on any
+        /// client. Keep the answer until the return reaches the app, then hand both to <see cref="CompleteSignInAsync"/>.
+        /// </summary>
+        /// <param name="clientId">The <c>client_id</c> keel's registry lists the tool under (<c>GET /api/v2/auth/clients</c>).</param>
+        /// <param name="redirectUri">
+        /// The registered return address, the exact string. A web tool's is <c>https:</c>. A tool registered as native
+        /// may pass a loopback address with the port it bound for this sign-in (<c>http://127.0.0.1:&lt;port&gt;/&lt;path&gt;</c>
+        /// or <c>http://[::1]:&lt;port&gt;/&lt;path&gt;</c>, registered without the port), or its own scheme as registered
+        /// (<c>obsidian://onlyworlds-signin</c>). <c>localhost</c>, a loopback without its port, userinfo, a query, a
+        /// fragment, a dot segment and the reserved schemes are refused.
+        /// </param>
+        /// <exception cref="ArgumentException">No client id, or a return address keel cannot match, saying why and what it takes.</exception>
+        /// <remarks>
+        /// The URL carries <c>client_id</c>, <c>redirect_uri</c>, <c>state</c>, <c>code_challenge</c> (the verifier's
+        /// S256, <see cref="OWSignIn.PkceChallenge"/>) and <c>code_challenge_method=S256</c>, in that order, written as a
+        /// browser's <c>URLSearchParams</c> writes them; the verifier never goes in it. The site is <see cref="BaseUrl"/>'s
+        /// origin. The TypeScript SDK also keeps the record in a storage and sends the browser itself; here the answer is the
+        /// record, and opening the URL is the caller's (<c>Application.OpenURL</c>). Mirrors the TypeScript SDK's
+        /// <c>signInWithOnlyWorlds</c> (4.46.0).
+        /// </remarks>
+        public OWSignInBegun SignInWithOnlyWorlds(string clientId, string redirectUri)
+        {
+            if (string.IsNullOrEmpty(clientId))
+                throw new ArgumentException("SignInWithOnlyWorlds needs clientId, the tool's id in keel's registry.", nameof(clientId));
+
+            var why = OWSignIn.RedirectProblem(redirectUri);
+            if (why != null)
+            {
+                throw new ArgumentException(
+                    $"SignInWithOnlyWorlds: redirectUri {why}. Pass the registered return address as a string: "
+                    + "https://<host>/<path>, or for a native app http://127.0.0.1:<port>/<path> or http://[::1]:<port>/<path> "
+                    + "with the port it bound, or its own scheme, <scheme>://<path>", nameof(redirectUri));
+            }
+
+            var state = OWSignIn.RandomToken(32);
+            var verifier = OWSignIn.RandomToken(32); // 43 characters of base64url: within PKCE's 43 to 128
+
+            var url = new Uri(BaseUrl).GetLeftPart(UriPartial.Authority) + "/signin/authorize"
+                + "?client_id=" + OWSignIn.FormEncode(clientId)
+                + "&redirect_uri=" + OWSignIn.FormEncode(redirectUri)
+                + "&state=" + OWSignIn.FormEncode(state)
+                + "&code_challenge=" + OWSignIn.FormEncode(OWSignIn.PkceChallenge(verifier))
+                + "&code_challenge_method=S256";
+
+            return new OWSignInBegun
+            {
+                Url = url, State = state, ClientId = clientId, RedirectUri = redirectUri, Verifier = verifier, Pending = true,
+            };
+        }
+
+        /// <summary>
+        /// Finish Sign in with OnlyWorlds: check the return's <c>state</c> against the pending sign-in and its page against
+        /// the registered return address (scheme, host with port, and path, each exactly), take <c>code</c> out of it, and
+        /// trade the code once at POST /auth/token with the PKCE verifier and no credential. Answers the <c>ow_a_</c> token
+        /// with its id, its expiry and the account.
+        /// </summary>
+        /// <param name="pending">The sign-in <see cref="SignInWithOnlyWorlds"/> began.</param>
+        /// <param name="url">The address the return reached: what the app's loopback server or scheme handler received.</param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="pending"/> is null; nothing was sent.</exception>
+        /// <exception cref="ArgumentException"><paramref name="url"/> is null or empty; nothing was sent.</exception>
+        /// <exception cref="OWSignInError">
+        /// <c>state_mismatch</c> (no sign-in pending, another state or none, or the wrong page; nothing sent),
+        /// <c>invalid_grant</c> (keel's 400: the code used, expired, or another tool's), <c>rate_limited</c>,
+        /// <c>offline</c>, <c>failed</c>.
+        /// </exception>
+        /// <remarks>
+        /// The sign-in is spent (<see cref="OWSignInBegun.Pending"/> false) once a return carries its state, on success and
+        /// on refusal; a return with another state leaves it pending, since anyone can open a custom scheme's address and a
+        /// forged one must not cancel a sign-in in flight. The body is <c>{grant_type, code, code_verifier, client_id,
+        /// redirect_uri}</c>, with <c>Content-Type</c> and nothing else of this client's, on any client. The SDK keeps no
+        /// token: the caller does. Mirrors the TypeScript SDK's <c>completeSignIn</c> (4.46.0; <c>expiresAt</c> from
+        /// 4.94.0), whose storage and address bar are the caller's here.
+        /// </remarks>
+        public Task<OWSignInResult> CompleteSignInAsync(OWSignInBegun pending, string url, CancellationToken ct = default)
+        {
+            if (pending == null) throw new ArgumentNullException(nameof(pending), "CompleteSignInAsync: the pending sign-in. Nothing was sent.");
+            if (string.IsNullOrEmpty(url))
+                throw new ArgumentException("CompleteSignInAsync: the address the return reached. Nothing was sent.", nameof(url));
+
+            if (!pending.Pending || string.IsNullOrEmpty(pending.State) || string.IsNullOrEmpty(pending.Verifier)
+                || string.IsNullOrEmpty(pending.RedirectUri) || string.IsNullOrEmpty(pending.ClientId))
+            {
+                throw new OWSignInError(OWSignInReason.StateMismatch,
+                    "No sign-in is pending for this tool here: start again from the sign-in button.");
+            }
+
+            // A return that does not carry this sign-in's state leaves it pending. Once the state matches, the sign-in that
+            // was started here has come back, and it is spent whatever happens next.
+            var code = OWSignIn.QueryValue(url, "code");
+            if (OWSignIn.QueryValue(url, "state") != pending.State)
+            {
+                throw new OWSignInError(OWSignInReason.StateMismatch,
+                    "This page was not reached from the sign-in that was started here: start again.");
+            }
+
+            pending.Pending = false;
+            if (string.IsNullOrEmpty(code))
+            {
+                throw new OWSignInError(OWSignInReason.StateMismatch,
+                    "This page was not reached from the sign-in that was started here: start again.");
+            }
+
+            if (!OWSignIn.SamePage(url, pending.RedirectUri))
+            {
+                throw new OWSignInError(OWSignInReason.StateMismatch,
+                    "This page is not the return address the sign-in was started with.");
+            }
+
+            return CompleteSignInCoreAsync(pending, code, ct);
+        }
+
+        private async Task<OWSignInResult> CompleteSignInCoreAsync(OWSignInBegun pending, string code, CancellationToken ct)
+        {
+            var body = new JObject
+            {
+                ["grant_type"] = "authorization_code",
+                ["code"] = code,
+                ["code_verifier"] = pending.Verifier,
+                ["client_id"] = pending.ClientId,
+                ["redirect_uri"] = pending.RedirectUri,
+            };
+
+            var res = await SendSignInAsync(new OWRequest
+            {
+                Method = "POST",
+                Url = BaseUrl + "/auth/token",
+                Headers = new Dictionary<string, string> { ["Content-Type"] = "application/json" },
+                Body = body.ToString(Newtonsoft.Json.Formatting.None),
+            }, "OnlyWorlds could not be reached: signing in needs a connection.", ct).ConfigureAwait(false);
+
+            var retryAfter = OWApiError.ParseRetryAfter(ReadHeader(res, "Retry-After"), DateTimeOffset.UtcNow);
+            var answer = JsonObjectOrNull(res.Body);
+            var err = answer?["error"] as JObject;
+            var errCode = err?["code"]?.Type == JTokenType.String ? (string)err["code"] : null;
+            var said = err?["message"]?.Type == JTokenType.String ? (string)err["message"] : null;
+
+            // keel's words, unless they hold the code or the verifier.
+            string Words(string fallback)
+                => said == null || said.Contains(code) || said.Contains(pending.Verifier) ? fallback : said;
+
+            if (errCode != null && (errCode.Contains(code) || errCode.Contains(pending.Verifier))) errCode = null;
+
+            if (res.Status == 429)
+            {
+                throw new OWSignInError(OWSignInReason.RateLimited, Words("Too many sign-in attempts. Wait a while, then try again."),
+                    429, errCode, retryAfter);
+            }
+
+            if (res.Status == 400 && errCode == "invalid_grant")
+            {
+                throw new OWSignInError(OWSignInReason.InvalidGrant,
+                    Words("The sign-in code could not be exchanged: it was used, expired, or made for another tool. Start again."),
+                    400, errCode);
+            }
+
+            var token = answer?["token"] is JValue t && t.Type == JTokenType.String && (string)t != "" ? (string)t : null;
+            var account = answer?["account"] as JObject;
+            if (!res.IsSuccess || token == null || account?["id"]?.Type != JTokenType.String)
+            {
+                throw new OWSignInError(OWSignInReason.Failed,
+                    token != null && said != null && said.Contains(token) ? $"Signing in did not work ({res.Status})." : Words($"Signing in did not work ({res.Status})."),
+                    res.Status, errCode);
+            }
+
+            string NonEmpty(JToken v) => v?.Type == JTokenType.String && (string)v != "" ? (string)v : null;
+
+            return new OWSignInResult
+            {
+                Token = token,
+                TokenId = NonEmpty(answer["token_id"]),
+                ExpiresAt = NonEmpty(answer["expires_at"]),
+                TokenType = "bearer",
+                Account = new OWSignInAccount
+                {
+                    Id = (string)account["id"],
+                    Username = account["username"]?.Type == JTokenType.String ? (string)account["username"] : "",
+                },
+            };
+        }
+
+        /// <summary>
+        /// One request of a sign-in, sent as built: none of <see cref="RequestWithResponseAsync{T}"/>'s rules, no key, PIN or
+        /// Bearer. No answer is an <see cref="OWSignInError"/> <c>offline</c> with <paramref name="offline"/> as its words
+        /// and no inner exception: a transport's failure can carry the request, and the request holds the secret.
+        /// </summary>
+        private async Task<OWResponse> SendSignInAsync(OWRequest request, string offline, CancellationToken ct)
+        {
+            try
+            {
+                return await _transport.SendAsync(request, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                throw new OWSignInError(OWSignInReason.Offline, offline);
+            }
+        }
+
+        /// <summary>A body as a JSON object, or null when it is empty, not JSON or not an object (allauth can answer with an HTML page).</summary>
+        private static JObject JsonObjectOrNull(string body)
+        {
+            if (string.IsNullOrWhiteSpace(body)) return null;
+            try
+            {
+                return OWJson.ParseObject(body);
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        // -- Ask your world -------------------------------------------------------
+        //
+        // keel's AI proxy, metered per account: one token rating a day that ask, sort and the Council spend from
+        // (AllowanceAsync reads it). A refusal does not count. Mirrors the TypeScript SDK's ask (4.13.0), sort (4.18.0)
+        // and allowance (4.21.0).
+
+        /// <summary>
+        /// POST /account/ask -- a question about a world the account owns or is in, answered by keel's AI proxy from
+        /// <paramref name="context"/> only: <c>The world doesn't say.</c> when the context does not hold the answer.
+        /// </summary>
+        /// <param name="worldId">The world the question is about, sent as <c>world_id</c>.</param>
+        /// <param name="question">The question, up to 500 characters.</param>
+        /// <param name="context">
+        /// The lines the answer may come from, in order, sent as given: built from the elements the user sees (the
+        /// TypeScript SDK's <c>buildAskContext</c> leaves proposed, hidden and room elements out unless asked).
+        /// </param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <exception cref="ArgumentException">No world, question or context; nothing was sent.</exception>
+        /// <exception cref="OWApiError">
+        /// keel refused, and nothing was counted: 429 <c>quota_exceeded</c> (<see cref="OWApiError.IsQuotaExceeded"/>, the
+        /// day's tokens used up, <see cref="OWApiError.RetryAfter"/> running to midnight UTC), 503 <c>ask_unavailable</c>
+        /// (<see cref="OWApiError.IsAskUnavailable"/>: switched off, or paused for the day), 502 <c>ask_failed</c>
+        /// (<see cref="OWApiError.IsAskFailed"/>), 422 for a question over 500 characters or a context past its limits.
+        /// </exception>
+        /// <remarks>
+        /// An account token only, sent as its Bearer, never with <c>API-Pin</c>, and with no write header. Mirrors the
+        /// TypeScript SDK's <c>ask</c> (4.13.0).
+        /// </remarks>
+        public Task<OWAskAnswer> AskAsync(
+            string worldId, string question, IEnumerable<string> context, CancellationToken ct = default)
+        {
+            RequireAccountToken(nameof(AskAsync), "The proxy meters per account.");
+            RequireWorldId(nameof(AskAsync), worldId);
+            if (question == null) throw new ArgumentNullException(nameof(question), "AskAsync: the question. Nothing was sent.");
+            if (context == null) throw new ArgumentNullException(nameof(context), "AskAsync: the context lines. Nothing was sent.");
+
+            var body = new JObject
+            {
+                ["world_id"] = worldId,
+                ["question"] = question,
+                ["context"] = new JArray(new List<string>(context).ToArray()),
+            };
+
+            return RequestAsync<OWAskAnswer>("POST", "/account/ask", body: body, ct: ct);
+        }
+
+        /// <summary>
+        /// POST /account/sort -- the user's unsorted notes, and the elements the app's own search found for them, sorted by
+        /// the same proxy as <see cref="AskAsync"/> into rows to review (<see cref="OWSortRow"/>: <c>make</c>,
+        /// <c>add_to</c>, <c>link</c>, <c>ask</c>). Nothing is written; the app applies what the user accepts.
+        /// </summary>
+        /// <param name="worldId">The world, sent as <c>world_id</c>.</param>
+        /// <param name="notes">
+        /// 1 to 8 notes, each up to 4,000 characters and 16,000 in all, at most four pictures, each uploaded into this world.
+        /// A note of words alone goes as a string, one with a picture as <c>{text?, image_url}</c>.
+        /// </param>
+        /// <param name="slice">
+        /// Up to 100 elements the notes may be about (id, lower-case type, name up to 200 characters, anchor up to 120);
+        /// an anchor goes only when given. Every id in a row is from the slice: keel moves any other row to
+        /// <see cref="OWSortAnswer.NotProposed"/> with its reason.
+        /// </param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <exception cref="ArgumentException">
+        /// No world, notes or slice, or a note that is null or holds neither words nor a picture; nothing was sent.
+        /// </exception>
+        /// <exception cref="OWApiError">
+        /// <see cref="AskAsync"/>'s refusals, and a 422 naming the param past its limits.
+        /// </exception>
+        /// <remarks>
+        /// The same account token and token rating as <see cref="AskAsync"/> (it spends the tokens it uses). Mirrors the
+        /// TypeScript SDK's <c>sort</c> (4.18.0).
+        /// </remarks>
+        public Task<OWSortAnswer> SortAsync(
+            string worldId, IEnumerable<OWSortNote> notes, IEnumerable<OWSortRef> slice, CancellationToken ct = default)
+        {
+            RequireAccountToken(nameof(SortAsync), "The proxy meters per account.");
+            RequireWorldId(nameof(SortAsync), worldId);
+            if (notes == null) throw new ArgumentNullException(nameof(notes), "SortAsync: the notes. Nothing was sent.");
+            if (slice == null) throw new ArgumentNullException(nameof(slice), "SortAsync: the slice. Nothing was sent.");
+
+            var sent = new JArray();
+            foreach (var note in notes)
+            {
+                var json = note?.ToJson();
+                if (json == null)
+                {
+                    throw new ArgumentException(
+                        "SortAsync: each note is its words, a picture's image_url, or both. Nothing was sent.", nameof(notes));
+                }
+
+                sent.Add(json);
+            }
+
+            var rows = new JArray();
+            foreach (var row in slice)
+            {
+                if (row == null) throw new ArgumentException("SortAsync: a slice row is null. Nothing was sent.", nameof(slice));
+                rows.Add(OnlyGiven(row));
+            }
+
+            var body = new JObject { ["world_id"] = worldId, ["notes"] = sent, ["slice"] = rows };
+            return RequestAsync<OWSortAnswer>("POST", "/account/sort", body: body, ct: ct);
+        }
+
+        /// <summary>
+        /// GET /account/allowance -- the account's token rating, the one daily meter <see cref="AskAsync"/>,
+        /// <see cref="SortAsync"/> and the Council spend from: the rating, what is used and left today, and when it resets
+        /// (the next midnight UTC). Spends nothing.
+        /// </summary>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <remarks>An account token only, sent as its Bearer. Mirrors the TypeScript SDK's <c>allowance</c> (4.21.0).</remarks>
+        public Task<OWAllowance> AllowanceAsync(CancellationToken ct = default)
+        {
+            RequireAccountToken(nameof(AllowanceAsync), "The allowance is per account.");
+            return RequestAsync<OWAllowance>("GET", "/account/allowance", ct: ct);
+        }
+
+        /// <summary>A world's id, not null or empty: an <see cref="ArgumentException"/> naming the call, before sending.</summary>
+        private static void RequireWorldId(string method, string worldId)
+        {
+            if (string.IsNullOrEmpty(worldId))
+                throw new ArgumentException($"{method}: the world's id is required. Nothing was sent.", nameof(worldId));
+        }
+
         /// <summary>
         /// A request model as a body of only the members given, in keel's spelling: a member left null is not sent, so
         /// keel's default holds.
@@ -2092,12 +2815,78 @@ namespace OnlyWorlds.Sdk
 
         // -- Core -------------------------------------------------------------
 
+        /// <summary>
+        /// Any route of keel's, on this client's own rules: the escape hatch for a route no typed call here makes. Answers
+        /// the body as served (a <see cref="JToken"/>, its dates kept as the strings they were), or null for a 204 or an
+        /// empty body.
+        /// </summary>
+        /// <param name="method"><c>GET</c>, <c>POST</c>, <c>PUT</c>, <c>PATCH</c> or <c>DELETE</c>, in capitals.</param>
+        /// <param name="path">The path under <see cref="BaseUrl"/>, starting with <c>/</c> (<c>/world/files</c>); its query goes in <see cref="OWRequestOptions.Query"/>.</param>
+        /// <param name="options">The query, the body, and which of the client's rules the route asks for; null for none.</param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="ArgumentException">
+        /// Another method; a path that is empty, does not start with <c>/</c> or carries a <c>?</c> or <c>#</c>; a body on a
+        /// GET; a negative <see cref="OWRequestOptions.IfMatch"/>. Nothing was sent.
+        /// </exception>
+        /// <exception cref="InvalidOperationException">
+        /// The client's own refusals, as every typed call has them: an account token on a route it does not send, or no key
+        /// on a route that needs one. Nothing was sent.
+        /// </exception>
+        /// <exception cref="OWApiError">The server refused; a 202 on a <see cref="OWRequestOptions.Proposable"/> write is an <see cref="OWProposedError"/>.</exception>
+        /// <exception cref="OWTransportError">The request never got an answer.</exception>
+        /// <remarks>
+        /// <para>
+        /// What it adds is what every typed call adds: the key as <c>API-Key</c>, or an account token as its Bearer; the PIN
+        /// only where keel checks it (any method but GET, <c>/me</c>, and every request of a legacy key); <c>world=</c> on a
+        /// <see cref="OWRequestOptions.WorldRead"/> GET or an <see cref="OWAccountTokenRoute.World"/> route of a client with
+        /// <see cref="World"/> set; <c>Content-Type</c> with a body; <c>X-OW-Agent</c> on an agent client's
+        /// <see cref="OWRequestOptions.Write"/> and <c>X-OW-Client</c> on an <see cref="OWRequestOptions.ElementWrite"/>.
+        /// An account token and a keyless client are refused here exactly where the typed calls refuse them.
+        /// </para>
+        /// <para>
+        /// What it never does: clean the body. The typed writes leave the read-only keys out, send a null scalar string as
+        /// <c>""</c> and refuse a known-of stub; this sends the body as given, so the caller owns its shape. Prefer the typed
+        /// calls for elements. Mirrors the TypeScript SDK's <c>request</c> (public from 4.0.0), which does not apply
+        /// <c>sanitizePayload</c> either.
+        /// </para>
+        /// </remarks>
+        public Task<JToken> RequestAsync(
+            string method, string path, OWRequestOptions options = null, CancellationToken ct = default)
+        {
+            if (Array.IndexOf(RequestMethods, method) < 0)
+            {
+                throw new ArgumentException(
+                    $"RequestAsync: the method is one of {string.Join(", ", RequestMethods)}, in capitals. Nothing was sent.",
+                    nameof(method));
+            }
+
+            if (string.IsNullOrEmpty(path) || path[0] != '/' || path.IndexOf('?') >= 0 || path.IndexOf('#') >= 0)
+            {
+                throw new ArgumentException(
+                    "RequestAsync: the path is the route under BaseUrl, starting with '/', and its query goes in "
+                    + "OWRequestOptions.Query. Nothing was sent.", nameof(path));
+            }
+
+            var o = options ?? new OWRequestOptions();
+            if (o.Body != null && method == "GET")
+                throw new ArgumentException("RequestAsync: a GET carries no body. Nothing was sent.", nameof(options));
+            RefuseNegative(o.IfMatch);
+
+            return RequestAsync<JToken>(method, path, query: o.Query, body: o.Body, idempotencyKey: o.IdempotencyKey,
+                allowEmpty: true, write: o.Write && o.ElementWrite, ct: ct, ifMatch: o.IfMatch,
+                named: o.ElementWrite && !o.Write, proposable: o.Proposable, worldRead: o.WorldRead,
+                accountToken: o.AccountToken, auth: o.Auth, agentOnly: o.Write && !o.ElementWrite);
+        }
+
+        /// <summary>The methods <see cref="RequestAsync(string, string, OWRequestOptions, CancellationToken)"/> sends: keel's five.</summary>
+        private static readonly string[] RequestMethods = { "GET", "POST", "PUT", "PATCH", "DELETE" };
+
         private async Task<T> RequestAsync<T>(
             string method, string path,
-            string query = null, JObject body = null, string idempotencyKey = null,
+            string query = null, JToken body = null, string idempotencyKey = null,
             bool allowEmpty = false, bool write = false, CancellationToken ct = default, long? ifMatch = null,
             bool named = false, bool proposable = false, bool worldRead = false,
-            AccountTokenRoute accountToken = AccountTokenRoute.None, bool auth = true, bool agentOnly = false)
+            OWAccountTokenRoute accountToken = OWAccountTokenRoute.None, bool auth = true, bool agentOnly = false)
         {
             var result = await RequestWithResponseAsync<T>(
                 method, path, query, body, idempotencyKey, allowEmpty, write, ct,
@@ -2129,8 +2918,8 @@ namespace OnlyWorlds.Sdk
         /// </param>
         /// <param name="accountToken">
         /// A world route keel's document declares the account token on beside the world key (the lens routes): an account
-        /// client sends it with its Bearer token. <see cref="AccountTokenRoute.Path"/>: the path names the world, nothing is
-        /// added. <see cref="AccountTokenRoute.World"/>: <c>world=&lt;id&gt;</c> is added from <see cref="World"/>, and an
+        /// client sends it with its Bearer token. <see cref="OWAccountTokenRoute.Path"/>: the path names the world, nothing is
+        /// added. <see cref="OWAccountTokenRoute.World"/>: <c>world=&lt;id&gt;</c> is added from <see cref="World"/>, and an
         /// account client without it is refused before sending. A world key sends as without it; a keyless client is
         /// still refused.
         /// </param>
@@ -2144,11 +2933,11 @@ namespace OnlyWorlds.Sdk
         /// </param>
         private async Task<(T Value, OWResponse Response)> RequestWithResponseAsync<T>(
             string method, string path,
-            string query = null, JObject body = null, string idempotencyKey = null,
+            string query = null, JToken body = null, string idempotencyKey = null,
             bool allowEmpty = false, bool write = false, CancellationToken ct = default,
             string ifNoneMatch = null, bool notModified = false, long? ifMatch = null,
             bool named = false, bool proposable = false, bool worldRead = false,
-            AccountTokenRoute accountToken = AccountTokenRoute.None, bool auth = true, bool agentOnly = false)
+            OWAccountTokenRoute accountToken = OWAccountTokenRoute.None, bool auth = true, bool agentOnly = false)
         {
             // The one rule for what an account token or no key may send, read from the request itself (keel's
             // account reads, ruled 2026-10-26): an /account route, a GET marked as a world read, or a route marked as
@@ -2156,18 +2945,19 @@ namespace OnlyWorlds.Sdk
             // 401, so it is refused here and nothing is sent. Mirrors the TypeScript SDK's request() (4.88.0; the
             // account token's lens routes from 4.94.0).
             var reads = auth && worldRead && string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase);
-            var tokenRoute = auth && KeyKind == OWKeyKind.Account ? accountToken : AccountTokenRoute.None;
+            var tokenRoute = auth && KeyKind == OWKeyKind.Account ? accountToken : OWAccountTokenRoute.None;
 
             if (auth && _keyless && !(reads && World != null))
             {
                 throw new InvalidOperationException(
-                    $"{method} {path} needs a key, and this client holds none: without one it reads the world World "
-                    + $"names through {WorldReads} only. Nothing was sent.");
+                    $"{method} {path} needs a key, and this client holds none: without one, only HealthAsync, "
+                    + "SignInWithPasswordAsync, SignInWithOnlyWorlds and CompleteSignInAsync work (and OWJoin's PreviewAsync "
+                    + $"and RedeemAsync, which take no client), and {WorldReads} with World set. Nothing was sent.");
             }
 
             if (auth && KeyKind == OWKeyKind.Account && !IsAccountRoute(path))
             {
-                if (!reads && tokenRoute == AccountTokenRoute.None)
+                if (!reads && tokenRoute == OWAccountTokenRoute.None)
                 {
                     throw new InvalidOperationException(
                         $"{method} {path} needs a world key: an account token sends the /account routes, "
@@ -2182,7 +2972,7 @@ namespace OnlyWorlds.Sdk
                         + $"(new OWClientConfig {{ ApiKey, World }}), through {WorldReads}. Nothing was sent.");
                 }
 
-                if (tokenRoute == AccountTokenRoute.World && World == null)
+                if (tokenRoute == OWAccountTokenRoute.World && World == null)
                 {
                     throw new InvalidOperationException(
                         $"{method} {path}: an account token names the world it sends to with World: set it "
@@ -2190,7 +2980,7 @@ namespace OnlyWorlds.Sdk
                 }
             }
 
-            if ((reads || tokenRoute == AccountTokenRoute.World) && World != null)
+            if ((reads || tokenRoute == OWAccountTokenRoute.World) && World != null)
             {
                 var world = "world=" + Uri.EscapeDataString(World);
                 query = string.IsNullOrEmpty(query) ? world : query + "&" + world;
@@ -2277,19 +3067,6 @@ namespace OnlyWorlds.Sdk
             }
 
             return (OWJson.Deserialize<T>(response.Body), response);
-        }
-
-        /// <summary>How an account token sends a world route keel declares it on beside the world key.</summary>
-        private enum AccountTokenRoute
-        {
-            /// <summary>Not such a route: an account token sends only the /account routes and the world reads.</summary>
-            None,
-
-            /// <summary>The path names the world; nothing is added.</summary>
-            Path,
-
-            /// <summary>The world is named with <c>world=&lt;id&gt;</c>, from <see cref="OWClient.World"/>, which must be set.</summary>
-            World,
         }
 
         /// <summary>
