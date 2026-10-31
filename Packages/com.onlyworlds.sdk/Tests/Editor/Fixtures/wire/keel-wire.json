@@ -5,7 +5,7 @@
     "X-Session-Token",
     "Authorization"
   ],
-  "document_sha256": "25d8b44bec5e10a72c5b97a82b2d5963ff481fa3aa02292f7e6d65d5eb56e3e7",
+  "document_sha256": "6f0b315bf57192250ce069b0b6f4a0cf52d1ef1274f7a1fcc518585422980cfa",
   "error_codes": {
     "already_member": 409,
     "already_reported": 409,
@@ -87,7 +87,7 @@
     "write_failed": 502,
     "wrong_audience": 401
   },
-  "fetched": "2026-10-31T04:18+01:00",
+  "fetched": "2026-10-31T07:00+01:00",
   "openapi_version": "2.0",
   "paths": {
     "/api/v2/ability": {
@@ -905,6 +905,9 @@
         ]
       },
       "POST": {
+        "body": [
+          "name"
+        ],
         "header": [],
         "query": [],
         "response": [
@@ -967,6 +970,9 @@
           "producer.tool",
           "source",
           "source.world"
+        ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
         ],
         "header": [],
         "query": [],
