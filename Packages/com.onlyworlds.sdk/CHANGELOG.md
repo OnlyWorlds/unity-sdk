@@ -6,6 +6,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-10-31
+
+The rest of the TypeScript SDK's client in Unity: sign-in by password and by Sign in with OnlyWorlds (PKCE), the AI
+routes, a public `RequestAsync` that keeps the client's own rules, and `DraughtAsync`, read from a world key, an
+account token or no key. A client with no key and no World is now built, as `new OwV2Client()` is, so a signed-out
+person can call health and sign in. `ListAllAsync` stops on a page that answers the cursor it was sent. A minor release
+because it adds public API (below).
+
 ### Added
 
 - The AI routes, on an account token: `OWClient.AskAsync(worldId, question, context)` (POST /account/ask
