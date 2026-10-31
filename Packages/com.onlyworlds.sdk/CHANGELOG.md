@@ -89,8 +89,29 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   `Idempotency-Key` (keel takes none: a lost answer is mended with a rekey); any other key, and a seat with no name,
   is refused before sending. Mirrors the TypeScript SDK's `createSeat()`, `listSeats()`, `removeSeat()` (4.28.0) and
   `rekeySeat()` (4.29.0).
+- Images, in two steps: a ticket from keel, then one POST to the upload host the ticket names, with the ticket alone
+  as its Bearer. `OWClient.CreateMediaTicketAsync()` (POST /media/ticket, no body) answers an `OWMediaTicket`
+  (`Ticket`, `UploadUrl`, `Prefix`, `MaxBytes`, `Exp`, `Uses`, `IssuedTo`); `UploadImageAsync(bytes, key, ticket)` asks
+  for one (or uses the one given) and POSTs the raw bytes to its `UploadUrl` with `X-Key` when a key is given,
+  answering the host's `OWUploadedImage` (`Url`, the permanent public URL to set as `image_url`, `Key`, `Bytes`,
+  `Type`, `Etag`). `CreateRemovalTicketAsync(keyOrUrl)` (POST /media/remove-ticket `{key}`, a whole `image_url` cut to
+  its key) answers an `OWRemovalTicket` (`Ticket`, `RemoveUrl`, `Exp`, `Key`, `Referenced`), and
+  `RemoveImageAsync(keyOrUrl, ticket)` spends one at its `RemoveUrl`, answering `OWRemovedImage` (`Removed`, `Bytes`,
+  `Cache`). keel's requests go with the key and its PIN and no write header (keel's document lists none there); the
+  host's carry the ticket and nothing of this client's: no key, PIN, Bearer token, write header or Content-Type.
+  Bytes past the ticket's `MaxBytes` are a 413 `too_large` before any is sent; the host's refusals arrive as
+  `OWApiError` with its code (`ticket_used`, `exists`, `unsupported_type`, `not_removable`, ...); a host that does not
+  answer is an `OWTransportError` naming its host, never the ticket. A null image, an empty key and a ticket with no
+  ticket or no absolute http(s) URL are refused before sending. Mirrors the TypeScript SDK's `createMediaTicket()`,
+  `uploadImage()` (4.6.0), `createRemovalTicket()` and `removeImage()` (4.8.0).
 
 ### Changed
+
+- `OWRequest.BodyBytes`: a request may carry raw bytes instead of a JSON `Body`, set only on an upload to the media
+  host. `UnityWebRequestTransport` sends them as the body; a transport of your own must too, or an upload goes out
+  empty. The JSON path is unchanged.
+- An error answer whose `error` is a string (`{"error": "ticket_used"}`, the upload host's shape) reads the string as
+  `OWApiError.Code`, as the TypeScript SDK's `parseErrorEnvelope` does; keel's envelope reads as before.
 
 - Schema pin to `v0.33.0-dist.99`: the strand profile's mark relaxed (only the story's id required; the event and
   the place null or absent read as unset, any other value there no mark) and its readings for a non-list multi-link,

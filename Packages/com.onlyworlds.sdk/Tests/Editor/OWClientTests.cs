@@ -123,6 +123,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("patch world", "PATCH", true, false, c => c.PatchWorldAsync(new JObject { ["name"] = "W" })),
             ("set my lenses", "PUT", true, true, c => c.SetMyLensesAsync(new[] { "l1" })),
             ("set my character", "PUT", true, false, c => c.SetMyCharacterAsync("c1")),
+            // the image tickets, and the two calls that spend one at the upload host (TwoStep): keel's request is checked
+            // here as every other, the host's carries the ticket alone
+            ("media ticket", "POST", true, false, c => c.CreateMediaTicketAsync()),
+            ("upload image", "POST", true, false, c => c.UploadImageAsync(new byte[] { 1, 2, 3 }, key: "u/w1/x.png")),
+            ("removal ticket", "POST", true, false, c => c.CreateRemovalTicketAsync("u/w1/x.png")),
+            ("remove image", "POST", true, false, c => c.RemoveImageAsync("u/w1/x.png")),
             // the account routes: an account token's alone (AccountOnly), so every other key is refused with nothing sent and
             // `Pin` is never read (an account token sends none)
             ("account worlds", "GET", false, true, c => c.ListAccountWorldsAsync()),
@@ -146,9 +152,17 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             "create seat", "seats", "rekey seat", "remove seat",
         };
 
+        /// <summary>The calls that send a second request, to the upload host their ticket names, after keel's.</summary>
+        private static readonly string[] TwoStep = { "upload image", "remove image" };
+
+        /// <summary>Where the sweep's tickets send their second request: not keel, so not swept as keel's.</summary>
+        private const string UploadHost = "https://upload.example.test/v1/";
+
         /// <summary>
-        /// Every call the client may make, each through its own client; the request each sent. With a world (an account
-        /// token's), only the calls such a client sends; each of the others is refused with nothing sent.
+        /// Every call the client may make, each through its own client; the request each sent to keel. With a world (an
+        /// account token's), only the calls such a client sends; each of the others is refused with nothing sent. A
+        /// <see cref="TwoStep"/> call's request to the upload host is checked here to carry the ticket alone, whatever the
+        /// client holds, and is not returned.
         /// </summary>
         private static async Task<List<(string Name, bool Pin, OWRequest Sent)>> PinSweep(string key, string pin, string world = null)
         {
@@ -157,7 +171,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             {
                 var t = new FakeTransport
                 {
-                    ResponseBody = @"{""data"":[],""has_more"":false,""changes"":[],""head"":0,""cursor"":""0"",""results"":[]}",
+                    ResponseBody = @"{""data"":[],""has_more"":false,""changes"":[],""head"":0,""cursor"":""0"",""results"":[],"
+                        + @"""ticket"":""tk.sig"",""upload_url"":""" + UploadHost + @"upload"",""remove_url"":""" + UploadHost
+                        + @"remove"",""max_bytes"":100}",
                 };
 
                 if ((world != null && !call.Any) || (AccountOnly.Contains(call.Name) && !key.StartsWith("ow_a_")))
@@ -169,9 +185,18 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
                 await call.Run(Make(t, key, pin, world));
 
-                Assert.AreEqual(1, t.Calls.Count, $"{call.Name}: one request");
-                Assert.AreEqual(call.Verb, t.Last.Method, $"{call.Name}: sent as {call.Verb}");
-                sent.Add((call.Name, call.Pin, t.Last));
+                var keel = t.Calls.Where(r => !r.Url.StartsWith(UploadHost, StringComparison.Ordinal)).ToList();
+                var host = t.Calls.Where(r => r.Url.StartsWith(UploadHost, StringComparison.Ordinal)).ToList();
+                Assert.AreEqual(1, keel.Count, $"{call.Name}: one request to keel");
+                Assert.AreEqual(TwoStep.Contains(call.Name) ? 1 : 0, host.Count, $"{call.Name}: the upload host's request");
+                foreach (var r in host)
+                {
+                    CollectionAssert.IsSubsetOf(r.Headers.Keys, new[] { "Authorization", "X-Key" }, $"{call.Name}: nothing of ours to the host");
+                    Assert.AreEqual("Bearer tk.sig", r.Headers["Authorization"], $"{call.Name}: the ticket, never the key");
+                }
+
+                Assert.AreEqual(call.Verb, keel[0].Method, $"{call.Name}: sent as {call.Verb}");
+                sent.Add((call.Name, call.Pin, keel[0]));
             }
 
             return sent;
