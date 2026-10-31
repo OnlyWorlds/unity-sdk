@@ -8,6 +8,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Added
 
+- `OWReadingAids.Strand`: the world's strand on the front door (serial 100), as keel serves it in `reading_aids`
+  beside the Charter, the Guide and the Domains on `GET /me` (`OWReadingAids.Of`) and an agent's join answer
+  (`OWJoined.ReadingAids`): an `OWStrand` read as served, each slot `{id, name}` or null and `Same` as served. Six null
+  slots read as an empty strand (`IsEmpty`), the world having none or its story being out of the key's view; a packet
+  with no `strand` (an older keel) reads `Strand` null. `ToJson` writes the packet back in the charter profile's
+  order, the strand fourth, and only when it was served.
 - `OWStrand.Of(world, elements, reader, open, hiddenIds)`: the strand profile's reader (serial 98), a world's strand
   as one reader sees it through the lens reader's own view: the story the World's `x_strand` names (`Narrative`), one
   of its events (`Event`), that event's place (`Location`), the story's `protagonist` (`Character`), where the hero is
@@ -131,7 +137,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   empty. The JSON path is unchanged.
 - An error answer whose `error` is a string (`{"error": "ticket_used"}`, the upload host's shape) reads the string as
   `OWApiError.Code`, as the TypeScript SDK's `parseErrorEnvelope` does; keel's envelope reads as before.
-
+- Schema pin to `v0.33.0-dist.100`: the strand on the front door. The strand profile's rule 2 says the server's front
+  door (`GET /me` and an agent's join reply) serves `reading_aids.strand`, the six slots of the strand as that key
+  reads the world, six null slots when the world has none or its story is out of the key's view; the charter
+  profile's rule 2 orders the aids the Charter, the Guide, the Domains, then the strand. No fixture or schema file
+  moved; the generated models' headers move with the serial.
 - Schema pin to `v0.33.0-dist.99`: the strand profile's mark relaxed (only the story's id required; the event and
   the place null or absent read as unset, any other value there no mark) and its readings for a non-list multi-link,
   a nameless slot and the public rung, nine new cases (26). `OWStrand.Of` already answered them so.
