@@ -8,6 +8,10 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Added
 
+- Schema pin to `v0.33.0-dist.101`: the strand profile's Where it shows says what a reader draws. An empty slot as
+  the next thing to make is a writer's rule; a surface that only reads may draw the filled slots alone, and still
+  shows a half-built strand as the strand. No fixture, schema or reader rule moved; the generated models' headers
+  move with the serial.
 - The account's own tokens, in parity with the TypeScript SDK 4.122.0 (its test vector ported).
   `ListAccountTokensAsync()` lists them (`GET /account/tokens`) as `OWAccountToken` rows: by name and last four,
   never the token itself, with when each was last used, whether it is revoked, when it expires, how many live world
