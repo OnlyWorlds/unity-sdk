@@ -88,6 +88,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   from an account-token client and a keyless one and fails a read whose operation declares `world` that either never
   sends (the roster, `GetMembersAsync`, is the account token's alone, as the document's security has it). Mirrors the
   TypeScript SDK's `draught` (4.121.1).
+- `OWClient.CreateAccountWorldAsync` holds `OWAccountWorldCreate.KeyName` to keel's rule for the key's name
+  (`_clean_key_name`, the key mint's since keel PR 385): trimmed as Python's `str.strip()` trims, then 1 to 80
+  characters counted in code points. A name blank or past 80 once trimmed is refused before sending with an
+  `ArgumentException` ("KeyName is 1 to 80 characters once trimmed, as keel holds it; null for a key with no name.
+  Nothing was sent."), where it was sent and answered 422 `key_name`. Blank is refused here because keel refuses it
+  on this route; the mint reads a blank name as none. The name still goes as given and null still sends no
+  `key_name`. The check is `MintWorldKeyAsync`'s own (0.27.0). The TypeScript SDK's `createAccountWorld` checks
+  neither and leaves both to keel.
 
 ## [0.27.0] - 2026-10-31
 

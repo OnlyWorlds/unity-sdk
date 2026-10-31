@@ -115,6 +115,42 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(@"{""name"":""Ostvik""}", t.Last.Body);
         }
 
+        // keel's rule for the key's name (accounts/api.py _clean_key_name, Keel #363; the key mint's from PR 385): trimmed
+        // as Python's str.strip() trims, then 1 to 80 characters counted in code points, a 422 past it; blank is a 422 here
+        // too ("omit it for a key without a name"), where the mint reads blank as no name. Kills: the length taken before
+        // trimming, trimmed by .NET's whitespace (which keeps U+001C to U+001F), or counted in UTF-16 units (an emoji is
+        // two), each refusing a name keel takes; a name past 80, or a blank one, sent; or the name sent trimmed.
+        [Test]
+        public async Task CreateAccountWorld_AKeyNameOf80AfterKeelsTrim_IsSent_81OrBlankIsRefused_NothingSent()
+        {
+            var eighty = new string('a', 80);
+            var emoji = string.Concat(Enumerable.Repeat("\U0001F5FA", 80));
+            var t = Answering();
+            var c = Account(t);
+            var taken = new[]
+            {
+                eighty, " \t" + eighty + "\n ", "\u001c" + eighty + "\u001f", "　" + eighty + " ", emoji, "k",
+            };
+            foreach (var name in taken)
+            {
+                await c.CreateAccountWorldAsync(new OWAccountWorldCreate { Name = "Ostvik", KeyName = name });
+                Assert.AreEqual(new JObject { ["name"] = "Ostvik", ["key_name"] = name }.ToString(Formatting.None), t.Last.Body,
+                    "1 to 80 characters after keel's trim: sent, as given");
+            }
+
+            Assert.AreEqual(6, t.Calls.Count);
+            foreach (var name in new[] { eighty + "b", " " + eighty + "b ", emoji + "\U0001F5FA", "", " ", "\t\n", "\u001c　" })
+            {
+                var e = Assert.ThrowsAsync<ArgumentException>(
+                    () => c.CreateAccountWorldAsync(new OWAccountWorldCreate { Name = "Ostvik", KeyName = name }), $"\"{name}\"");
+                Assert.AreEqual("world", e.ParamName);
+                StringAssert.Contains("KeyName is 1 to 80 characters once trimmed", e.Message);
+                StringAssert.Contains("Nothing was sent", e.Message);
+            }
+
+            Assert.AreEqual(6, t.Calls.Count, "a key name past 80, or blank, is never sent");
+        }
+
         [Test]
         public async Task CreateAccountWorld_AProvenanceLine_IsSentAsGiven_ItsOwnNullsIncluded()
         {
