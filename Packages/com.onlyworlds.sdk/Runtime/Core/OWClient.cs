@@ -881,6 +881,85 @@ namespace OnlyWorlds.Sdk
                 ?? new List<OWHiddenRow>();
         }
 
+        // -- The draught -----------------------------------------------------------
+
+        /// <summary>
+        /// GET /character/{id}/context -- the draught: what one Character knows, as the recorded world holds it, in one
+        /// read. Her element, what she holds and sits in, her open work, how she works, the Events she was in, the
+        /// Narratives she knows, everything else that names her, her sheet, what changed around her
+        /// (<see cref="OWDraughtPolicy.Since"/>) and who plays whom; the world's name and calendar beside; the room's
+        /// messages, its other elements and elements written as proposed only when the policy's components name them. The
+        /// answer is the packet as served.
+        /// </summary>
+        /// <param name="characterId">The Character's id. Escaped.</param>
+        /// <param name="policy">What to serve and how; the default sends no query, and keel's defaults hold.</param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="ArgumentException">
+        /// No Character's id, or a component that is null, empty or holds a comma; nothing was sent.
+        /// </exception>
+        /// <exception cref="OWApiError">
+        /// The server refused: a Character this key may not read is a 404 (a player seat or a guest reads its own
+        /// Character only); <see cref="OWDraughtPolicy.Lens"/> beside a depth or a budget is a 422.
+        /// </exception>
+        /// <remarks>
+        /// <para>
+        /// Each row carries the list route's body for the same reader as <c>element</c>, beside <c>via</c>,
+        /// <c>her_links</c> and <c>grade</c>; nothing is inferred. A <c>cut</c> that is not empty means the serving is
+        /// partial. A Message without the room mark is placed as any Narrative unless <c>messages</c> is named, when it is
+        /// there and in no other section; a room-marked Message is in <c>messages</c> or nowhere. With no policy key but
+        /// <see cref="OWDraughtPolicy.Compact"/>, the packet adds one frame per lens chosen with
+        /// <see cref="SetMyLensesAsync"/>.
+        /// </para>
+        /// <para>
+        /// The policy's keys go in the TypeScript SDK's order (<c>components</c>, <c>mode</c>, <c>as_of</c>,
+        /// <c>undated</c>, <c>since</c>, <c>budget</c>, <c>depth</c>, <c>compact</c>, <c>lens</c>). A read: the key goes
+        /// without its PIN (a legacy key's goes with it), and with no write header. An account token or a keyless client
+        /// is refused, and nothing is sent, as the TypeScript SDK refuses them. Served <c>Cache-Control: private,
+        /// no-store</c>. Mirrors the TypeScript SDK's <c>draught</c> (4.47.0; <c>compact</c> from 4.69.0, <c>lens</c>
+        /// from 4.92.0).
+        /// </para>
+        /// </remarks>
+        public Task<JObject> DraughtAsync(string characterId, OWDraughtPolicy policy = default, CancellationToken ct = default)
+        {
+            if (string.IsNullOrEmpty(characterId))
+                throw new ArgumentException("DraughtAsync: the Character's id is required. Nothing was sent.", nameof(characterId));
+
+            if (policy.Components != null)
+            {
+                foreach (var component in policy.Components)
+                {
+                    if (string.IsNullOrEmpty(component) || component.Contains(","))
+                    {
+                        throw new ArgumentException(
+                            "DraughtAsync: each component is one section's name, not empty and without a comma. Nothing "
+                            + "was sent.", nameof(policy));
+                    }
+                }
+            }
+
+            var keys = new List<(string Name, string Value)>
+            {
+                ("components", Joined(policy.Components)),
+                ("mode", NullIfEmpty(policy.Mode)),
+                ("as_of", policy.AsOf?.ToString(CultureInfo.InvariantCulture)),
+                ("undated", NullIfEmpty(policy.Undated)),
+                ("since", NullIfEmpty(policy.Since)),
+                ("budget", policy.Budget?.ToString(CultureInfo.InvariantCulture)),
+                ("depth", policy.Depth?.ToString(CultureInfo.InvariantCulture)),
+                ("compact", policy.Compact.HasValue ? (policy.Compact.Value ? "true" : "false") : null),
+                ("lens", NullIfEmpty(policy.Lens)),
+            };
+
+            var query = new List<string>();
+            foreach (var (name, value) in keys)
+            {
+                if (value != null) query.Add(name + "=" + Uri.EscapeDataString(value));
+            }
+
+            return RequestAsync<JObject>("GET", $"/character/{Uri.EscapeDataString(characterId)}/context",
+                query: string.Join("&", query), ct: ct);
+        }
+
         // -- Images --------------------------------------------------------------
         //
         // Two steps: a ticket from keel, then one POST to the upload host the ticket names, carrying the ticket alone as its

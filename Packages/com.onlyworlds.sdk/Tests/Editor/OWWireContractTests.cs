@@ -87,6 +87,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             @"{""ticket"":""tk.sig"",""upload_url"":""" + UploadHost + @"upload"",""remove_url"":""" + UploadHost
             + @"remove"",""max_bytes"":100,""data"":[]}";
 
+        /// <summary>The draught's policy with every key given, so the recording sends each of its query parameters.</summary>
+        private static readonly OWDraughtPolicy DraughtWithEveryKey = new OWDraughtPolicy
+        {
+            Components = new[] { "self", "messages" }, Mode = "act", AsOf = 300, Undated = "exclude", Since = "4:x",
+            Budget = 20, Depth = 1, Compact = true, Lens = "l1",
+        };
+
         /// <summary>A request to keel: under the client's base URL. The upload host's are not keel's to judge.</summary>
         private static bool IsKeel(OWRequest request) => request.Url.StartsWith(Base + "/", StringComparison.Ordinal);
 
@@ -162,6 +169,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             await c.HideAsync("character", "c1");
             await c.UnhideAsync("character", "c1");
             await c.ListHiddenAsync();
+            // The draught, bare and with every policy key, so each query parameter is checked.
+            await c.DraughtAsync("c1");
+            await c.DraughtAsync("c1", DraughtWithEveryKey);
             // The image tickets, and the two calls that spend one at the upload host (a ticket passed: the host alone).
             t.ResponseBody = Ticketed;
             await c.CreateMediaTicketAsync();
@@ -622,6 +632,23 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             CollectionAssert.AreEquivalent(new[] { "name", "membership", "agent" }, MappedKeys(typeof(OWFileAddedBy)));
         }
 
+        [Test]
+        public async Task TheDraughtsPolicy_SendsEveryQueryParameterKeelDeclares_ButWorld()
+        {
+            // The policy's nine keys are every one keel's document declares on the draught, but `world`: an account
+            // token's or a keyless reader's world, which the TypeScript SDK's draught never sends (it refuses both
+            // clients), so neither does this one. A key keel adds to the draught fails here: add it to OWDraughtPolicy.
+            var declared = Wire["paths"]["/api/v2/character/{id}/context"]["GET"]["query"].Values<string>().ToList();
+
+            var t = new FakeTransport();
+            await new OWClient(new OWClientConfig { ApiKey = "ow_w_test", Transport = t, BaseUrl = Base })
+                .DraughtAsync("c1", DraughtWithEveryKey);
+            var sent = new Uri(t.Last.Url).Query.TrimStart('?').Split('&').Select(p => p.Split('=')[0]).ToList();
+
+            CollectionAssert.AreEquivalent(declared.Where(k => k != "world"), sent);
+            CollectionAssert.Contains(declared, "world", "keel declares world= on the draught; the client leaves it out");
+        }
+
         [TestCase(typeof(OWAccountWorldCreate), "/api/v2/account/worlds", "POST")]
         [TestCase(typeof(OWWorldLinkCreate), "/api/v2/account/worlds/{world_id}/links", "POST")]
         public void EveryKeyARequestModelMaps_IsOneKeelTakes(Type model, string path, string method)
@@ -727,7 +754,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             // An empty recording would pass the checks above with nothing checked.
             var calls = await RecordEveryCall();
-            Assert.AreEqual(78, calls.Count);
+            Assert.AreEqual(80, calls.Count);
 
             // The upload host's requests are recorded and left out of the checks; the keel request of each two-step call
             // is in, so the checks above judged it.

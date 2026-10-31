@@ -22,6 +22,15 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   question, context, notes or slice, and a note with neither words nor a picture are refused before sending.
   `OWApiError.IsAskUnavailable` (503 `ask_unavailable`) and `IsAskFailed` (502 `ask_failed`) are new. Mirrors the
   TypeScript SDK's `ask()` (4.13.0), `sort()` (4.18.0) and `allowance()` (4.21.0).
+- The draught: `OWClient.DraughtAsync(characterId, policy)` (GET /character/{id}/context), one Character's context in
+  one read, answered as the packet keel serves (a `JObject`, as `GetMeAsync` answers; no reader of the packet is
+  added). `OWDraughtPolicy` carries the policy's nine keys, each sent only when given, in the TypeScript SDK's order
+  under keel's names: `Components` (joined by commas), `Mode`, `AsOf` (`as_of`), `Undated`, `Since`, `Budget`,
+  `Depth`, `Compact` (false sent as given) and `Lens`. A read: the key without its PIN, no write header; the
+  Character's id is escaped. No Character, or a component that is empty or holds a comma, is refused before sending,
+  and so are an account token and a keyless client, as the TypeScript SDK refuses them (keel's document also declares
+  `world` there; neither SDK sends it). Mirrors the TypeScript SDK's `draught()` (4.47.0; `compact` from 4.69.0,
+  `lens` from 4.92.0). The 0.24.0 "Not added" line about the draught's `lens` no longer holds: this is that client.
 
 ## [0.27.0] - 2026-10-31
 

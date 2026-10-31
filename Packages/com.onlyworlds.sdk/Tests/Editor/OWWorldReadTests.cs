@@ -272,6 +272,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 ["HideAsync"] = (Does.Refused, c => c.HideAsync("location", El)),
                 ["UnhideAsync"] = (Does.Refused, c => c.UnhideAsync("location", El)),
                 ["ListHiddenAsync"] = (Does.Refused, c => c.ListHiddenAsync()),
+                ["DraughtAsync"] = (Does.Refused, c => c.DraughtAsync(El)),
                 ["CreateMediaTicketAsync"] = (Does.Refused, c => c.CreateMediaTicketAsync()),
                 ["UploadImageAsync"] = (Does.Refused, c => c.UploadImageAsync(new byte[] { 1 })),
                 ["CreateRemovalTicketAsync"] = (Does.Refused, c => c.CreateRemovalTicketAsync("u/w1/x.png")),

@@ -108,6 +108,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("world lenses", "GET", false, true, c => c.WorldLensesAsync("w1", resolve: true)),
             ("members", "GET", false, true, c => c.GetMembersAsync()),
             ("hidden list", "GET", false, false, c => c.ListHiddenAsync()),
+            ("draught", "GET", false, false, c => c.DraughtAsync("c1")),
+            ("draught (policy)", "GET", false, false, c => c.DraughtAsync("c1", new OWDraughtPolicy { Components = new[] { "self" }, Compact = true })),
             // the one read keel checks a PIN on
             ("me", "GET", true, false, c => c.GetMeAsync()),
             // writes, each verb
