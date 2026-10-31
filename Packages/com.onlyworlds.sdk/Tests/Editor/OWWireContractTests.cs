@@ -174,6 +174,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             t.ResponseBody = "{}";
             await account.MintWorldKeyAsync("w1");
             await account.RevokeWorldKeyAsync("w1", "k1");
+            await account.AcceptJoinAsync("ow_j_x");
 
             // The lens routes on an account token: its own list in the world World names (world=), the world's lenses by
             // the path's world, and a row's list (PATCH with lenses alone).
@@ -404,6 +405,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.That(checkedOps, Does.Contain("POST /api/v2/join").And.Contain("POST /api/v2/join/preview"));
             Assert.That(checkedOps, Does.Contain("PATCH /api/v2/world"));
             Assert.That(checkedOps, Does.Contain("POST /api/v2/account/worlds"));
+            Assert.That(checkedOps, Does.Contain("POST /api/v2/account/join"));
             Assert.That(checkedOps, Does.Contain("PUT /api/v2/me/lenses"));
             Assert.That(checkedOps, Does.Contain("PUT /api/v2/me/character"));
             Assert.That(checkedOps, Does.Contain("PATCH /api/v2/account/worlds/w1/members/owner"));
@@ -452,6 +454,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [TestCase(typeof(OWProposalAccepted), "/api/v2/character/{id}/proposals/{pid}/accept", "POST")]
         [TestCase(typeof(OWReviewed), "/api/v2/character/{id}/review", "POST")]
         [TestCase(typeof(OWAccountWorldCreated), "/api/v2/account/worlds", "POST")]
+        [TestCase(typeof(OWJoinedMembership), "/api/v2/account/join", "POST")]
         public void EveryKeyAModelReads_IsOneKeelServes(Type model, string path, string method)
         {
             var op = Wire["paths"]?[path]?[method] as JObject;
@@ -606,7 +609,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             // An empty recording would pass the checks above with nothing checked.
             var calls = await RecordEveryCall();
-            Assert.AreEqual(56, calls.Count);
+            Assert.AreEqual(57, calls.Count);
 
             // The lens routes are on the wire here, so the checks above saw them.
             Assert.That(calls.Any(c => c.Method == "PUT" && new Uri(c.Url).AbsolutePath.EndsWith("/me/lenses")), "PUT /me/lenses is recorded");

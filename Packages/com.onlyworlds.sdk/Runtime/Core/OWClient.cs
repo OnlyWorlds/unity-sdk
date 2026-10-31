@@ -1166,6 +1166,37 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
+        /// POST /account/join -- accept a person's invite link as the account this client's token belongs to: 201 with the
+        /// new membership.
+        /// </summary>
+        /// <param name="code">
+        /// The link's <c>ow_j_</c> code (<see cref="OWJoin.ParseLink"/> reads it out of a pasted link), sent as given.
+        /// </param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <exception cref="ArgumentException">The code is null or empty; nothing was sent.</exception>
+        /// <exception cref="OWApiError">
+        /// The server refused, and the code is not spent: every bad code (unknown, used, revoked or expired), and a code
+        /// made for an AI agent, is the same 404 <c>not_found</c> (<see cref="OWApiError.IsNotFound"/>); an account already
+        /// in the world is a 409 <c>already_member</c> (<see cref="OWApiError.IsAlreadyMember"/>).
+        /// </exception>
+        /// <remarks>
+        /// Accepting needs no account PIN, for any role; a write key for the membership waits for one
+        /// (<see cref="MintWorldKeyAsync"/>, <see cref="OWApiError.IsPinRequired"/>). An account token only, sent as its
+        /// Bearer: the body is <c>{"code"}</c> alone. A player's or an agent's code is redeemed with no key,
+        /// <see cref="OWJoin.RedeemAsync"/>. Mirrors the TypeScript SDK's <c>acceptJoin</c> (4.12.0).
+        /// </remarks>
+        public Task<OWJoinedMembership> AcceptJoinAsync(string code, CancellationToken ct = default)
+        {
+            RequireAccountToken(nameof(AcceptJoinAsync),
+                "A world key cannot join a world; a player's or an agent's code is redeemed with OWJoin.RedeemAsync.");
+            if (string.IsNullOrEmpty(code))
+                throw new ArgumentException("AcceptJoinAsync: a join code is required. Nothing was sent.", nameof(code));
+
+            return RequestAsync<OWJoinedMembership>("POST", "/account/join", body: new JObject { ["code"] = code }, ct: ct);
+        }
+
+        /// <summary>
         /// An account route's own refusal: a client whose key is not an account token (<c>ow_a_</c>) is an
         /// <see cref="InvalidOperationException"/> naming the call, and nothing is sent.
         /// </summary>

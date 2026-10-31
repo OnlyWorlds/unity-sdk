@@ -39,6 +39,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("ListAccountWorldsAsync", c => c.ListAccountWorldsAsync()),
             ("MintWorldKeyAsync", c => c.MintWorldKeyAsync("w1")),
             ("RevokeWorldKeyAsync", c => c.RevokeWorldKeyAsync("w1", "k1")),
+            ("AcceptJoinAsync", c => c.AcceptJoinAsync("ow_j_code")),
         };
 
         // Kills: a world key, a read key, a legacy key or no key reaching an /account route, which keel answers 401; the
@@ -181,6 +182,67 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(Base + "/account/worlds/w%2F1/keys/k%209", a.Url, "the path, both ids escaped, no query");
             Assert.IsNull(a.Body);
             CollectionAssert.AreEqual(new[] { "Authorization" }, HeaderNames(a));
+        }
+
+        // -- AcceptJoinAsync --------------------------------------------------------------------------------
+
+        private const string JoinedBody =
+            @"{""id"":""m7"",""world_id"":""w1"",""world_name"":""Ostvik"",""role"":""contributor"","
+            + @"""joined_at"":""2026-10-31T01:00:00+00:00"",""roster_character"":null}";
+
+        // The TypeScript SDK's acceptJoin() (4.12.0): POST /account/join with { code } alone, the Bearer, no PIN (accepting
+        // needs none) and no write header. Kills: the wrong verb or path, the code under another key or beside others, the
+        // PIN or a write header sent, or the membership misread.
+        [Test]
+        public async Task AcceptJoin_PostsAccountJoin_TheCodeAlone_TheBearer_AndAnswersTheMembership()
+        {
+            var t = new FakeTransport { Status = 201, ResponseBody = JoinedBody };
+            var joined = await Make(t).AcceptJoinAsync("ow_j_abc");
+
+            var a = t.Calls.Single();
+            Assert.AreEqual("POST", a.Method);
+            Assert.AreEqual(Base + "/account/join", a.Url, "the path, no query");
+            Assert.AreEqual(@"{""code"":""ow_j_abc""}", a.Body);
+            CollectionAssert.AreEqual(new[] { "Authorization", "Content-Type" }, HeaderNames(a));
+
+            Assert.AreEqual(("m7", "w1", "Ostvik", "contributor", "2026-10-31T01:00:00+00:00", (string)null),
+                (joined.Id, joined.WorldId, joined.WorldName, joined.Role, joined.JoinedAt, joined.RosterCharacter));
+        }
+
+        // Kills: an empty code reaching the transport (keel's 404 would read as a bad code, not a missing one), and the
+        // code itself in the message.
+        [Test]
+        public void AcceptJoin_NoCode_IsRefused_NothingSent()
+        {
+            var t = new FakeTransport();
+            foreach (var code in new[] { null, "" })
+            {
+                var e = Assert.ThrowsAsync<ArgumentException>(() => Make(t).AcceptJoinAsync(code), code ?? "null");
+                StringAssert.Contains("a join code is required", e.Message);
+                StringAssert.Contains("Nothing was sent", e.Message);
+            }
+
+            Assert.IsEmpty(t.Calls);
+        }
+
+        // Kills: keel's two refusals read as anything else (each leaves the code unspent).
+        [Test]
+        public void AcceptJoin_A409AlreadyMember_IsAlreadyMember_AndA404IsNotFound()
+        {
+            var t = new FakeTransport
+            {
+                Status = 409,
+                ResponseBody = @"{""error"":{""type"":""conflict_error"",""code"":""already_member"",""message"":""Already a member.""}}",
+            };
+            var member = Assert.ThrowsAsync<OWApiError>(() => Make(t).AcceptJoinAsync("ow_j_abc"));
+            Assert.IsTrue(member.IsAlreadyMember);
+            Assert.IsFalse(member.IsPinRequired);
+
+            t.Status = 404;
+            t.ResponseBody = @"{""error"":{""type"":""not_found_error"",""code"":""not_found"",""message"":""Not a valid link.""}}";
+            var bad = Assert.ThrowsAsync<OWApiError>(() => Make(t).AcceptJoinAsync("ow_j_abc"));
+            Assert.IsTrue(bad.IsNotFound);
+            Assert.IsFalse(bad.IsAlreadyMember);
         }
     }
 }

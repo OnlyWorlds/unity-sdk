@@ -113,6 +113,13 @@ namespace OnlyWorlds.Sdk
         public bool IsPinRequired => StatusCode == 409 && Code == "pin_required";
 
         /// <summary>
+        /// The account is already a member of the world a person's link names (409 <c>already_member</c>,
+        /// <see cref="OWClient.AcceptJoinAsync"/>). The code is not spent. Mirrors the TypeScript SDK's
+        /// <c>isAlreadyMember</c>.
+        /// </summary>
+        public bool IsAlreadyMember => StatusCode == 409 && Code == "already_member";
+
+        /// <summary>
         /// <c>/changes</c> refused the cursor (409 <c>resync_required</c>): a guest key's view of the
         /// world changed, or the key's role did. Walk the feed again from the start and REPLACE the
         /// local copy: a guest never receives deletes, so only a replace drops what it no longer sees.

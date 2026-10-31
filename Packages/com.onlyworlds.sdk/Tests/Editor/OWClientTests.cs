@@ -124,10 +124,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("account worlds", "GET", false, true, c => c.ListAccountWorldsAsync()),
             ("mint world key", "POST", true, true, c => c.MintWorldKeyAsync("w1")),
             ("revoke world key", "DELETE", true, true, c => c.RevokeWorldKeyAsync("w1", "k1")),
+            ("accept join", "POST", true, true, c => c.AcceptJoinAsync("ow_j_code")),
         };
 
         /// <summary>The calls only an account token sends: on any other key each is refused, and nothing is sent.</summary>
-        private static readonly string[] AccountOnly = { "account worlds", "mint world key", "revoke world key" };
+        private static readonly string[] AccountOnly = { "account worlds", "mint world key", "revoke world key", "accept join" };
 
         /// <summary>
         /// Every call the client may make, each through its own client; the request each sent. With a world (an account
@@ -213,7 +214,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public async Task ApiPin_AccountToken_Never_EvenWithAPinConfigured_BearerAndNoApiKey()
         {
             var all = await PinSweep("ow_a_acct", "1234", "w1");
-            Assert.AreEqual(11, all.Count,
+            Assert.AreEqual(12, all.Count,
                 "the health pulse, the four world reads, the two lens routes, the roster and the account routes sent");
             foreach (var (name, _, sent) in all)
             {

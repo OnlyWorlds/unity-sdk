@@ -196,6 +196,36 @@ namespace OnlyWorlds.Sdk
     }
 
     /// <summary>
+    /// <see cref="OWClient.AcceptJoinAsync"/>'s 201 (POST /account/join; npm's <c>OwJoinedMembership</c>): the account's
+    /// new membership, the same row as accepting an email invite.
+    /// </summary>
+    [Serializable]
+    public class OWJoinedMembership
+    {
+        /// <summary>The membership's id, as GET /members and an element's <c>created_by</c> name it.</summary>
+        [JsonProperty("id")]
+        public string Id;
+
+        [JsonProperty("world_id")]
+        public string WorldId;
+
+        [JsonProperty("world_name")]
+        public string WorldName;
+
+        /// <summary>The role the link gave: <c>co_builder</c>, <c>contributor</c> or <c>guest</c>.</summary>
+        [JsonProperty("role")]
+        public string Role;
+
+        /// <summary>When it joined, ISO 8601 as served, or null.</summary>
+        [JsonProperty("joined_at")]
+        public string JoinedAt;
+
+        /// <summary>The id of the joiner's roster Character, or null.</summary>
+        [JsonProperty("roster_character")]
+        public string RosterCharacter;
+    }
+
+    /// <summary>
     /// Joining a world by link, with no account: a player's code (a friend reading as one Character)
     /// or an AI agent's. Sends no credential.
     /// </summary>

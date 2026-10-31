@@ -65,6 +65,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   `keep`, which the TypeScript SDK sends. `OWApiError.IsPinRequired` (409 `pin_required`) reads a member's mint on
   an account with no PIN. Mirrors the TypeScript SDK's `listAccountWorlds()`, `mintWorldKey()` (4.45.0; without
   `X-OW-Agent`, as 4.120.0 sends it) and `revokeWorldKey()` (4.78.0).
+- `OWClient.AcceptJoinAsync(code)` (POST /account/join `{code}`): an account token accepts a person's invite link and
+  becomes a member with the link's role, answered as `OWJoinedMembership` (`Id`, `WorldId`, `WorldName`, `Role`,
+  `JoinedAt`, `RosterCharacter`). No PIN is needed to accept. A refusal leaves the code unspent: every bad code, and an
+  agent's, is a 404 (`IsNotFound`), an account already in the world a 409 (`OWApiError.IsAlreadyMember`, new). Any
+  other key, and a null or empty code, is refused before sending; a player's or an agent's code is still redeemed
+  with no key through `OWJoin.RedeemAsync`. Mirrors the TypeScript SDK's `acceptJoin()` (4.12.0).
 
 ### Changed
 

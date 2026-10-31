@@ -288,6 +288,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 ["ListAccountWorldsAsync"] = (Does.Account, c => c.ListAccountWorldsAsync()),
                 ["MintWorldKeyAsync"] = (Does.Account, c => c.MintWorldKeyAsync(W)),
                 ["RevokeWorldKeyAsync"] = (Does.Account, c => c.RevokeWorldKeyAsync(W, "k1")),
+                ["AcceptJoinAsync"] = (Does.Account, c => c.AcceptJoinAsync("ow_j_code")),
                 ["ChangesAsync"] = (Does.Refused, c => c.ChangesAsync()),
             };
 
