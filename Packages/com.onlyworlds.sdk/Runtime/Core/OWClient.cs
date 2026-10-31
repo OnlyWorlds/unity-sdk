@@ -1554,35 +1554,101 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
-        /// POST /account/worlds/{world_id}/keys -- mint a write key for a world of the account: the owner mints a world
-        /// key, a member a key bound to its own membership. Returns the key's row and the full key, shown this once
-        /// (<see cref="OWMintedKey.Key"/>).
+        /// POST /account/worlds/{world_id}/keys -- mint a key for a world of the account, a write key unless
+        /// <paramref name="scope"/> asks for a read key: the owner mints a world key, a member a key bound to its own
+        /// membership. Returns the key's row and the full key, shown this once (<see cref="OWMintedKey.Key"/>).
         /// </summary>
         /// <param name="worldId">The world. Escaped.</param>
         /// <param name="ct">Cancels the request.</param>
+        /// <param name="scope">
+        /// <c>read</c> or <c>write</c> (<c>r</c> and <c>w</c> the same, in any case, as keel reads it); null or empty:
+        /// a write key.
+        /// </param>
+        /// <param name="name">
+        /// The key's name, as the website's key list shows it: at most 80 characters once keel trims it. Null, empty
+        /// or blank: no name.
+        /// </param>
+        /// <param name="keep">
+        /// True keeps the key across a sign-out: no revoke of the token that minted it takes it, while disconnecting the
+        /// tool, or a replay of the sign-in code that gave the token, still does (a tool that stores the key on the
+        /// device passes it). Null or false: revoking the token revokes the key, unless the tool holds another live
+        /// token. The answer says <see cref="OWMintedKey.Kept"/>.
+        /// </param>
         /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <exception cref="ArgumentException">
+        /// <paramref name="scope"/> is neither read nor write, or <paramref name="name"/> is past 80 characters after
+        /// keel's trim, each a 422 at keel; nothing was sent.
+        /// </exception>
         /// <exception cref="OWApiError">
         /// The server refused: a world the account neither owns nor is a member of is a 404; a member's write key while
         /// the account has no PIN is a 409 <c>pin_required</c> (<see cref="OWApiError.IsPinRequired"/>).
         /// </exception>
         /// <remarks>
         /// <para>
-        /// Sent with no body, so keel mints with its defaults: a write key, with no name, not kept across a sign-out
-        /// (revoking the token that minted it revokes the key). keel's handler also reads <c>scope</c>, <c>name</c> and
-        /// <c>keep</c> from a body, which the TypeScript SDK sends, but keel's document declares no body on this route,
-        /// and this client sends only what the document declares.
+        /// Each option is sent only when given, as given, under keel's own key (<c>scope</c>, <c>name</c>,
+        /// <c>keep</c>); with none given no body is sent, which keel's document makes optional, all of it, and mints with
+        /// its defaults: a write key, with no name, not kept (the TypeScript SDK sends <c>{}</c> there, the same mint).
+        /// The name is checked as keel checks it, trimmed of what Python's <c>str.strip()</c> trims and counted in code
+        /// points, so no name keel takes is refused here; keel trims the name it stores.
         /// </para>
         /// <para>
         /// An account token only, sent as its Bearer, never with <c>API-Pin</c>; no <c>X-OW-Agent</c> or
         /// <c>X-OW-Client</c>, which keel's document does not list here, and no <c>Idempotency-Key</c>: if the answer is
-        /// lost, the key is on the world's key list without its full key, so revoke it and mint another. Mirrors the
-        /// TypeScript SDK's <c>mintWorldKey</c> (4.45.0; without <c>X-OW-Agent</c> from 4.120.0).
+        /// lost, the key is on the world's key list without its full key, so revoke it and mint another. The options
+        /// come after <paramref name="ct"/>, so a caller passing it by position keeps working. Mirrors the TypeScript
+        /// SDK's <c>mintWorldKey</c> (4.45.0; without <c>X-OW-Agent</c> from 4.120.0).
         /// </para>
         /// </remarks>
-        public Task<OWMintedKey> MintWorldKeyAsync(string worldId, CancellationToken ct = default)
+        public Task<OWMintedKey> MintWorldKeyAsync(
+            string worldId, CancellationToken ct = default, string scope = null, string name = null, bool? keep = null)
         {
             RequireAccountToken(nameof(MintWorldKeyAsync));
-            return RequestAsync<OWMintedKey>("POST", $"/account/worlds/{Uri.EscapeDataString(worldId)}/keys", ct: ct);
+            if (!string.IsNullOrEmpty(scope)
+                && !Array.Exists(KeyScopes, s => string.Equals(s, scope, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new ArgumentException(
+                    $"MintWorldKeyAsync: scope is read or write (r or w), got \"{scope}\". Nothing was sent.", nameof(scope));
+            }
+
+            if (!string.IsNullOrEmpty(name) && CodePoints(name.Trim(PythonSpace)) > KeyNameMax)
+            {
+                throw new ArgumentException(
+                    $"MintWorldKeyAsync: name is at most {KeyNameMax} characters once trimmed, as keel holds it. "
+                    + "Nothing was sent.",
+                    nameof(name));
+            }
+
+            var body = new JObject();
+            if (!string.IsNullOrEmpty(scope)) body["scope"] = scope;
+            if (!string.IsNullOrEmpty(name)) body["name"] = name;
+            if (keep.HasValue) body["keep"] = keep.Value;
+
+            return RequestAsync<OWMintedKey>("POST", $"/account/worlds/{Uri.EscapeDataString(worldId)}/keys",
+                body: body.Count > 0 ? body : null, ct: ct);
+        }
+
+        // keel's key mint (accounts/api.py _scope_param, _key_name_param, KEY_NAME_MAX): the scopes it takes, lower-cased
+        // first; a name's longest, in code points after Python's str.strip(), whose whitespace is this set (.NET's Trim()
+        // keeps U+001C to U+001F).
+        private static readonly string[] KeyScopes = { "read", "write", "r", "w" };
+        private const int KeyNameMax = 80;
+
+        private static readonly char[] PythonSpace =
+        {
+            '\t', '\n', '\v', '\f', '\r', '\u001c', '\u001d', '\u001e', '\u001f', ' ', '\u0085', '\u00a0', '\u1680',
+            '\u2000', '\u2001', '\u2002', '\u2003', '\u2004', '\u2005', '\u2006', '\u2007', '\u2008', '\u2009', '\u200a',
+            '\u2028', '\u2029', '\u202f', '\u205f', '\u3000',
+        };
+
+        private static int CodePoints(string text)
+        {
+            var n = 0;
+            for (var i = 0; i < text.Length; i++, n++)
+            {
+                if (char.IsHighSurrogate(text[i]) && i + 1 < text.Length && char.IsLowSurrogate(text[i + 1])) i++;
+            }
+
+            return n;
         }
 
         /// <summary>

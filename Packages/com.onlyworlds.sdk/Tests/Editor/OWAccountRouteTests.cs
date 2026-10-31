@@ -136,10 +136,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             + @"""kept"":false,""member"":{""id"":""m1"",""username"":""ada""},""key"":""ow_w_fullmintedkeyq7r8""}";
 
         // The TypeScript SDK's mintWorldKey() (4.45.0; no X-OW-Agent from 4.120.0, 0e311fe): POST
-        // /account/worlds/{id}/keys, the Bearer alone. keel's document declares no body on the route, so none is sent
-        // (and no Content-Type), where the TypeScript SDK sends { scope?, name?, keep? }. Kills: the wrong verb or path,
-        // the world id unescaped, a body (even {}) or a Content-Type sent, X-OW-Agent sent on an agent client (the
-        // TypeScript SDK's way before 4.120.0), the PIN sent, or the answer's key, id or member misread.
+        // /account/worlds/{id}/keys, the Bearer alone. With no option given no body is sent (and no Content-Type): keel's
+        // document makes the body optional, all of it, and says no body mints a write key with no name, not kept, where
+        // the TypeScript SDK sends {}. Kills: the wrong verb or path, the world id unescaped, a body (even {}) or a
+        // Content-Type sent with nothing given, X-OW-Agent sent on an agent client (the TypeScript SDK's way before
+        // 4.120.0), the PIN sent, or the answer's key, id or member misread.
         [Test]
         public async Task MintWorldKey_PostsKeys_NoBody_TheBearerAlone_AndAnswersTheKeyOnce()
         {
@@ -149,7 +150,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var a = t.Calls.Single();
             Assert.AreEqual("POST", a.Method);
             Assert.AreEqual(Base + "/account/worlds/w%201%2F%C3%A4/keys", a.Url, "the path, the id escaped, no query");
-            Assert.IsNull(a.Body, "keel's document declares no body here");
+            Assert.IsNull(a.Body, "no option given: no body, keel's defaults");
             CollectionAssert.AreEqual(new[] { "Authorization" }, HeaderNames(a));
 
             Assert.AreEqual("k9", minted.Id);
@@ -174,6 +175,89 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var e = Assert.ThrowsAsync<OWApiError>(() => Make(t).MintWorldKeyAsync("w1"));
             Assert.IsTrue(e.IsPinRequired);
             Assert.AreEqual(409, e.StatusCode);
+        }
+
+        // The TypeScript SDK's mintWorldKey({ scope, name, keep }) (4.45.0), as keel's document declares the body (keel
+        // a5158cb): each option sent only when given, under its own key, in the TypeScript SDK's order, as given (keel
+        // trims the name and reads the scope in any case); null or empty sends nothing. Kills: an option sent under
+        // another key or when not given, keep sent as a string, the name trimmed or the scope's case changed before
+        // sending, the order moved, or a body sent without its Content-Type.
+        [TestCase("read", null, null, @"{""scope"":""read""}")]
+        [TestCase("write", null, null, @"{""scope"":""write""}")]
+        [TestCase("r", null, null, @"{""scope"":""r""}")]
+        [TestCase("READ", null, null, @"{""scope"":""READ""}")]
+        [TestCase("", "Atlas on my laptop", null, @"{""name"":""Atlas on my laptop""}")]
+        [TestCase(null, null, true, @"{""keep"":true}")]
+        [TestCase(null, "", false, @"{""keep"":false}")]
+        [TestCase("read", "  Atlas  ", true, @"{""scope"":""read"",""name"":""  Atlas  "",""keep"":true}")]
+        public async Task MintWorldKey_EachOptionGiven_IsSentAsGiven_TheRestLeftOut(
+            string scope, string name, bool? keep, string body)
+        {
+            var t = new FakeTransport { Status = 201, ResponseBody = MintedBody };
+            await Make(t).MintWorldKeyAsync("w1", scope: scope, name: name, keep: keep);
+
+            var a = t.Calls.Single();
+            Assert.AreEqual("POST", a.Method);
+            Assert.AreEqual(Base + "/account/worlds/w1/keys", a.Url);
+            Assert.AreEqual(body, a.Body);
+            CollectionAssert.AreEqual(new[] { "Authorization", "Content-Type" }, HeaderNames(a));
+        }
+
+        // A caller that passes ct by position, as before the options, compiles and sends no body.
+        [Test]
+        public async Task MintWorldKey_CtByPosition_StillTheDefaults()
+        {
+            var t = new FakeTransport { Status = 201, ResponseBody = MintedBody };
+            await Make(t).MintWorldKeyAsync("w1", System.Threading.CancellationToken.None);
+            Assert.IsNull(t.Calls.Single().Body);
+        }
+
+        // keel's rule for the scope (accounts/api.py _scope_param): read or write, r and w the same, in any case; anything
+        // else is a 422. Kills: a scope keel refuses sent anyway, or the refusal not naming the parameter.
+        [TestCase("admin")]
+        [TestCase("reader")]
+        [TestCase(" read")]
+        [TestCase("rw")]
+        public void MintWorldKey_AScopeKeelRefuses_IsRefused_NothingSent(string scope)
+        {
+            var t = new FakeTransport { Status = 201, ResponseBody = MintedBody };
+            var e = Assert.ThrowsAsync<ArgumentException>(() => Make(t).MintWorldKeyAsync("w1", scope: scope));
+            Assert.AreEqual("scope", e.ParamName);
+            StringAssert.Contains("Nothing was sent", e.Message);
+            CollectionAssert.IsEmpty(t.Calls);
+        }
+
+        // keel's rule for the name (accounts/api.py _key_name_param, Keel #990): trimmed as Python's str.strip() trims, then
+        // at most 80 characters, counted as Python counts them (code points), a 422 past it. Kills: the length taken before
+        // trimming, trimmed by .NET's whitespace (which keeps U+001C to U+001F, Python's separators), or counted in UTF-16
+        // units (an emoji is two), each refusing a name keel takes; or a name past 80 sent.
+        [Test]
+        public async Task MintWorldKey_ANameOf80AfterKeelsTrim_IsSent_81IsRefused_NothingSent()
+        {
+            var eighty = new string('a', 80);
+            var emoji = string.Concat(Enumerable.Repeat("\U0001F5FA", 80));
+            var t = new FakeTransport { Status = 201, ResponseBody = MintedBody };
+            var c = Make(t);
+            var taken = new[]
+            {
+                eighty, " \t" + eighty + "\n ", "\u001c" + eighty + "\u001f", "\u3000" + eighty + "\u00a0", emoji,
+            };
+            foreach (var name in taken)
+            {
+                await c.MintWorldKeyAsync("w1", name: name);
+                Assert.AreEqual(new JObject { ["name"] = name }.ToString(Newtonsoft.Json.Formatting.None), t.Last.Body,
+                    "80 characters after keel's trim: sent, as given");
+            }
+
+            Assert.AreEqual(5, t.Calls.Count);
+            foreach (var name in new[] { eighty + "b", " " + eighty + "b ", emoji + "\U0001F5FA" })
+            {
+                var e = Assert.ThrowsAsync<ArgumentException>(() => c.MintWorldKeyAsync("w1", name: name));
+                Assert.AreEqual("name", e.ParamName);
+                StringAssert.Contains("80", e.Message);
+            }
+
+            Assert.AreEqual(5, t.Calls.Count, "a name past 80 is never sent");
         }
 
         // -- RevokeWorldKeyAsync ----------------------------------------------------------------------------
