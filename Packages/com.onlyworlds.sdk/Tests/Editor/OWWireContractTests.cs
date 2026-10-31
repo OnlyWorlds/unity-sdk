@@ -211,7 +211,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             t.ResponseBody = @"{""data"":[]}";
             await account.ListAccountWorldsAsync();
             t.ResponseBody = "{}";
-            await account.MintWorldKeyAsync("w1");
+            // The key mint with every option, so each body key is checked.
+            await account.MintWorldKeyAsync("w1", scope: "read", name: "laptop", keep: true);
             await account.RevokeWorldKeyAsync("w1", "k1");
             await account.AcceptJoinAsync("ow_j_x");
             // An invite link with every option at once (no real link takes all of them), so each body key is checked.
@@ -514,6 +515,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [TestCase(typeof(OWProposalAccepted), "/api/v2/character/{id}/proposals/{pid}/accept", "POST")]
         [TestCase(typeof(OWReviewed), "/api/v2/character/{id}/review", "POST")]
         [TestCase(typeof(OWAccountWorldCreated), "/api/v2/account/worlds", "POST")]
+        [TestCase(typeof(OWMintedKey), "/api/v2/account/worlds/{world_id}/keys", "POST")]
         [TestCase(typeof(OWJoinedMembership), "/api/v2/account/join", "POST")]
         [TestCase(typeof(OWWorldLinkCreated), "/api/v2/account/worlds/{world_id}/links", "POST")]
         [TestCase(typeof(OWSeatCreated), "/api/v2/account/worlds/{world_id}/seats", "POST")]
@@ -541,6 +543,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsEmpty(stale, "keel serves these now; drop them from NotServed: " + string.Join(", ", stale));
         }
 
+        [TestCase(typeof(OWAccountWorld), "/api/v2/account/worlds")]
         [TestCase(typeof(OWHiddenRow), "/api/v2/world/hidden")]
         [TestCase(typeof(OWWorldLink), "/api/v2/account/worlds/{world_id}/links")]
         [TestCase(typeof(OWSeat), "/api/v2/account/worlds/{world_id}/seats")]
@@ -548,8 +551,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [TestCase(typeof(OWWorldFileRow), "/api/v2/world/files")]
         public void EveryKeyAListRowReads_IsOneTheListServes_AndEveryOneItServesIsRead(Type row, string path)
         {
-            // ListHiddenAsync, ListWorldLinksAsync and ListSeatsAsync read the rows of { data }, so the row's keys are
-            // checked one level down.
+            // ListAccountWorldsAsync, ListHiddenAsync, ListWorldLinksAsync and ListSeatsAsync read the rows of { data }, so
+            // the row's keys are checked one level down.
             var served = Wire["paths"][path]["GET"]["response"].Values<string>().ToList();
             var mapped = MappedKeys(row, false).Select(k => "data[]." + k).ToList();
 
@@ -558,27 +561,27 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
-        public void TheAccountAnswersKeelLeavesUndocumented_StayUndocumented_AndTheModelsMapWhatItsHandlersServe()
+        public void TheAccountsWorldsAndTheKeyMint_AreTheRowsKeelDocuments()
         {
-            // keel's document declares no answer on GET /account/worlds or on a key's mint, and no body on the mint (its
-            // handler reads scope, name and keep from one, which the TypeScript SDK sends). So the models are held to the
-            // rows keel's handlers build (accounts/api.py _world_row, _key_row), which the TypeScript SDK's OwAccountWorld
-            // and OwMintedKey name, and MintWorldKeyAsync sends no body. When keel documents any of these, this fails:
-            // check the model against the document then, and port the mint's body.
-            var worlds = (JObject)Wire["paths"]["/api/v2/account/worlds"]["GET"];
+            // keel documents these since a5158cb (PR 385): the mint's body (scope, name, keep, none required), its 201 row
+            // with the full key, and GET /account/worlds' rows. MintWorldKeyAsync sends exactly the body's three keys, and
+            // OWMintedKey reads every key of the 201 (member as served), so a key keel adds there fails here.
             var mint = (JObject)Wire["paths"]["/api/v2/account/worlds/{world_id}/keys"]["POST"];
-            Assert.IsNull(worlds["response"], "keel documents GET /account/worlds' answer now: check OWAccountWorld against it");
-            Assert.IsNull(mint["response"], "keel documents the mint's answer now: check OWMintedKey against it");
-            Assert.IsNull(mint["body"], "keel documents the mint's body now: MintWorldKeyAsync may send scope, name and keep");
-
+            CollectionAssert.AreEquivalent(new[] { "scope", "name", "keep" }, mint["body"].Values<string>());
             CollectionAssert.AreEquivalent(
-                new[] { "id", "name", "role", "member_role", "public_read", "keys", "keys[].name", "keys[].last4", "keys[].scope", "keys[].revoked" },
-                MappedKeys(typeof(OWAccountWorld)));
-            CollectionAssert.AreEquivalent(
-                new[] { "id", "name", "last4", "scope", "last_used_at", "revoked", "key", "member", "kept" },
+                mint["response"].Values<string>().Where(k => !k.Contains('.')),
                 MappedKeys(typeof(OWMintedKey), false));
 
-            // The created world's row is the listed row's, plus its key (keel's AccountWorldCreated, which is documented).
+            // The fixture lists a list row's keys one level down, so a world's keys stop at data[].keys: keel's document
+            // names theirs (name, last4, scope READ or WRITE, revoked, all required; read off it by hand 2026-10-31), which
+            // OWAccountWorldKey maps. When the fixture reaches them, this fails: check OWAccountWorldKey against it then.
+            var worlds = Wire["paths"]["/api/v2/account/worlds"]["GET"]["response"].Values<string>().ToList();
+            Assert.That(worlds, Does.Contain("data[].keys").And.Not.Contains("data[].keys[].name"),
+                "the fixture names a world's keys' keys now: check OWAccountWorldKey against them");
+            CollectionAssert.AreEquivalent(
+                new[] { "name", "last4", "scope", "revoked" }, MappedKeys(typeof(OWAccountWorldKey)));
+
+            // The created world's row is the listed row's, plus its key (keel's AccountWorldCreated).
             var created = Wire["paths"]["/api/v2/account/worlds"]["POST"]["response"].Values<string>().ToList();
             var listed = MappedKeys(typeof(OWAccountWorld)).Where(k => k != "member_role").ToList();
             CollectionAssert.AreEquivalent(created.Where(k => k != "key").ToList(), listed);

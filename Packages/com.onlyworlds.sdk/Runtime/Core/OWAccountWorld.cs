@@ -167,7 +167,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// True when the key is kept across a sign-out: no revoke of the token that minted it takes it. keel sets it on a
-        /// mint that asked for it, which this client cannot send yet (<see cref="OWClient.MintWorldKeyAsync"/>).
+        /// mint that asked for it (<see cref="OWClient.MintWorldKeyAsync"/>'s <c>keep</c>).
         /// </summary>
         [JsonProperty("kept")]
         public bool Kept;
