@@ -10,8 +10,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// <summary>
     /// The TypeScript SDK's account calls this client gained in its second tranche: the account's worlds and their keys
     /// (<see cref="OWClient.ListAccountWorldsAsync"/>, <see cref="OWClient.MintWorldKeyAsync"/>,
-    /// <see cref="OWClient.RevokeWorldKeyAsync"/>). What each sends, what it answers, and what is refused before anything
-    /// is sent, on every kind of client.
+    /// <see cref="OWClient.RevokeWorldKeyAsync"/>), a person's join (<see cref="OWClient.AcceptJoinAsync"/>), a world's
+    /// invite links (<see cref="OWClient.CreateWorldLinkAsync"/>, <see cref="OWClient.ListWorldLinksAsync"/>,
+    /// <see cref="OWClient.RevokeWorldLinkAsync"/>) and seats for one's own AI (<see cref="OWClient.CreateSeatAsync"/>,
+    /// <see cref="OWClient.ListSeatsAsync"/>, <see cref="OWClient.RekeySeatAsync"/>, <see cref="OWClient.RemoveSeatAsync"/>).
+    /// What each sends, what it answers, and what is refused before anything is sent, on every kind of client.
     /// </summary>
     public class OWAccountRouteTests
     {
