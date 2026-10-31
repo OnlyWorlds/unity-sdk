@@ -92,6 +92,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
+- Schema pin to `v0.33.0-dist.100`: the strand on the front door. The strand profile's rule 2 says the server's front
+  door (`GET /me` and an agent's join reply) serves `reading_aids.strand`, the six slots of the strand as that key
+  reads the world, six null slots when the world has none or its story is out of the key's view; the charter
+  profile's rule 2 orders the aids the Charter, the Guide, the Domains, then the strand. No fixture or schema file
+  moved; the generated models' headers move with the serial.
 - Schema pin to `v0.33.0-dist.99`: the strand profile's mark relaxed (only the story's id required; the event and
   the place null or absent read as unset, any other value there no mark) and its readings for a non-list multi-link,
   a nameless slot and the public rung, nine new cases (26). `OWStrand.Of` already answered them so.
