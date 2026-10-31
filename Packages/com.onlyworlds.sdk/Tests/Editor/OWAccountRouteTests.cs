@@ -40,6 +40,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("MintWorldKeyAsync", c => c.MintWorldKeyAsync("w1")),
             ("RevokeWorldKeyAsync", c => c.RevokeWorldKeyAsync("w1", "k1")),
             ("AcceptJoinAsync", c => c.AcceptJoinAsync("ow_j_code")),
+            ("CreateWorldLinkAsync", c => c.CreateWorldLinkAsync("w1", new OWWorldLinkCreate { Reader = "person" })),
+            ("ListWorldLinksAsync", c => c.ListWorldLinksAsync("w1")),
+            ("RevokeWorldLinkAsync", c => c.RevokeWorldLinkAsync("w1", "l1")),
         };
 
         // Kills: a world key, a read key, a legacy key or no key reaching an /account route, which keel answers 401; the
@@ -243,6 +246,123 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var bad = Assert.ThrowsAsync<OWApiError>(() => Make(t).AcceptJoinAsync("ow_j_abc"));
             Assert.IsTrue(bad.IsNotFound);
             Assert.IsFalse(bad.IsAlreadyMember);
+        }
+
+        // -- CreateWorldLinkAsync, ListWorldLinksAsync, RevokeWorldLinkAsync --------------------------------
+
+        private const string CreatedLinkBody =
+            @"{""id"":""l1"",""reader"":""player"",""role"":""guest"",""label"":"""",""inviter_name"":""Ada"","
+            + @"""with_character"":true,""last4"":""wxyz"",""created_at"":""2026-10-31T01:00:00+00:00"","
+            + @"""expires_at"":""2026-11-07T01:00:00+00:00"",""uses"":0,""status"":""pending"",""minted_by"":null,"
+            + @"""preview"":false,""character"":null,""max_uses"":3,"
+            + @"""characters"":[{""id"":""c1"",""name"":""Brine"",""taken"":false},{""id"":""c2"",""name"":null,""taken"":true}],"
+            + @"""code"":""ow_j_secretcodewxyz"",""link"":""https://www.onlyworlds.com/join#ow_j_secretcodewxyz"","
+            + @"""line"":""Ada invites you to Ostvik: https://www.onlyworlds.com/join#ow_j_secretcodewxyz""}";
+
+        // The TypeScript SDK's createWorldLink() (4.24.0): POST /account/worlds/{id}/links with the reader alone when
+        // nothing else is given, the Bearer, no PIN and no write header. Kills: the wrong verb or path, the world id
+        // unescaped, a member left null sent (as null) instead of left out, a write header sent, or the answer's code,
+        // link, line, table or picks misread.
+        [Test]
+        public async Task CreateWorldLink_PostsLinks_TheReaderAlone_TheBearer_AndAnswersTheCodeOnce()
+        {
+            var t = new FakeTransport { Status = 201, ResponseBody = CreatedLinkBody };
+            var made = await Make(t).CreateWorldLinkAsync("w 1", new OWWorldLinkCreate { Reader = "player" });
+
+            var a = t.Calls.Single();
+            Assert.AreEqual("POST", a.Method);
+            Assert.AreEqual(Base + "/account/worlds/w%201/links", a.Url, "the path, the id escaped, no query");
+            Assert.AreEqual(@"{""reader"":""player""}", a.Body);
+            CollectionAssert.AreEqual(new[] { "Authorization", "Content-Type" }, HeaderNames(a));
+
+            Assert.AreEqual("ow_j_secretcodewxyz", made.Code);
+            StringAssert.EndsWith("#ow_j_secretcodewxyz", made.Link);
+            StringAssert.StartsWith("Ada invites you", made.Line);
+            Assert.AreEqual(("l1", "player", "guest", "pending", 0, "wxyz"), (made.Id, made.Reader, made.Role, made.Status, made.Uses, made.Last4));
+            Assert.AreEqual((true, (bool?)false, (string)null), (made.WithCharacter, made.Preview, made.MintedBy));
+            Assert.IsNull(made.Character);
+            Assert.AreEqual(3, made.MaxUses);
+            Assert.IsTrue(made.IsTable);
+            Assert.AreEqual(2, made.Characters.Count);
+            Assert.AreEqual(("c2", (string)null, true), (made.Characters[1].Id, made.Characters[1].Name, made.Characters[1].Taken));
+        }
+
+        // npm builds the body key by key, each only when given. Kills: a member sent under its C# name or camelCase, an
+        // empty Characters list dropped (on a link for one keel answers it 422, so it is the caller's to send), or a false
+        // or a 0 left out as if it were null.
+        [Test]
+        public async Task CreateWorldLink_EveryMemberGiven_IsSentInKeelsSpelling_FalseAndEmptyIncluded()
+        {
+            var t = new FakeTransport { Status = 201, ResponseBody = CreatedLinkBody };
+            await Make(t).CreateWorldLinkAsync("w1", new OWWorldLinkCreate
+            {
+                Reader = "player", Role = "guest", Days = 30, InviterName = "Ada", WithCharacter = false, Character = "new",
+                Preview = false, MaxUses = 1, Characters = new List<string>(),
+            });
+
+            var expected = JObject.Parse(@"{""reader"":""player"",""role"":""guest"",""days"":30,""inviter_name"":""Ada"","
+                + @"""with_character"":false,""character"":""new"",""preview"":false,""max_uses"":1,""characters"":[]}");
+            Assert.IsTrue(JToken.DeepEquals(expected, JObject.Parse(t.Last.Body)), t.Last.Body);
+
+            await Make(t).CreateWorldLinkAsync("w1", new OWWorldLinkCreate { Reader = "player", Characters = new List<string> { "c1", "c2" } });
+            Assert.AreEqual(@"{""reader"":""player"",""characters"":[""c1"",""c2""]}", t.Last.Body, "the picks in the caller's order");
+        }
+
+        // Kills: a link with no reader (keel's 422) or no options at all reaching the transport.
+        [Test]
+        public void CreateWorldLink_NoLink_OrNoReader_IsRefused_NothingSent()
+        {
+            var t = new FakeTransport();
+            Assert.ThrowsAsync<ArgumentNullException>(() => Make(t).CreateWorldLinkAsync("w1", null));
+            var e = Assert.ThrowsAsync<ArgumentException>(() => Make(t).CreateWorldLinkAsync("w1", new OWWorldLinkCreate { Days = 7 }));
+            StringAssert.Contains("Reader is required", e.Message);
+            StringAssert.Contains("Nothing was sent", e.Message);
+            Assert.IsEmpty(t.Calls);
+        }
+
+        // The TypeScript SDK's listWorldLinks() (4.24.0): GET /account/worlds/{id}/links, the Bearer alone, the rows of
+        // keel's { data } in its order, no codes. Kills: the wrong path, a query, the PIN sent, the rows reordered, a
+        // player link's Character or an agent link's absent preview misread, or an answer without data thrown on.
+        [Test]
+        public async Task ListWorldLinks_SendsGetLinks_TheBearerAlone_AndAnswersTheRowsInOrder()
+        {
+            var t = new FakeTransport
+            {
+                ResponseBody = @"{""data"":[{""id"":""l2"",""reader"":""player"",""role"":""guest"",""uses"":1,""status"":""used"","
+                    + @"""preview"":true,""character"":{""id"":""c1"",""name"":""Brine""}},"
+                    + @"{""id"":""l3"",""reader"":""agent"",""role"":""contributor"",""uses"":0,""status"":""revoked"",""minted_by"":""m4""}]}",
+            };
+            var links = await Make(t).ListWorldLinksAsync("w1");
+
+            var a = t.Calls.Single();
+            Assert.AreEqual("GET", a.Method);
+            Assert.AreEqual(Base + "/account/worlds/w1/links", a.Url, "the path, no query");
+            CollectionAssert.AreEqual(new[] { "Authorization" }, HeaderNames(a));
+
+            Assert.AreEqual(2, links.Count);
+            Assert.AreEqual(("l2", "player", "used", 1, (bool?)true), (links[0].Id, links[0].Reader, links[0].Status, links[0].Uses, links[0].Preview));
+            Assert.AreEqual(("c1", "Brine"), (links[0].Character.Id, links[0].Character.Name));
+            Assert.IsFalse(links[0].IsTable);
+            Assert.AreEqual(("l3", "agent", "revoked", "m4"), (links[1].Id, links[1].Reader, links[1].Status, links[1].MintedBy));
+            Assert.IsNull(links[1].Preview, "an agent link has no preview");
+
+            t.ResponseBody = "{}";
+            CollectionAssert.IsEmpty(await Make(t).ListWorldLinksAsync("w1"), "no data: no rows");
+        }
+
+        // The TypeScript SDK's revokeWorldLink() (4.24.0): DELETE /account/worlds/{id}/links/{link_id}, the Bearer alone,
+        // a 204. Kills: the wrong verb or path, either id unescaped, a body or a write header sent.
+        [Test]
+        public async Task RevokeWorldLink_SendsDeleteLinksLinkId_TheBearerAlone_AndTakesThe204()
+        {
+            var t = new FakeTransport { Status = 204, ResponseBody = "" };
+            await Make(t).RevokeWorldLinkAsync("w/1", "l 2");
+
+            var a = t.Calls.Single();
+            Assert.AreEqual("DELETE", a.Method);
+            Assert.AreEqual(Base + "/account/worlds/w%2F1/links/l%202", a.Url, "the path, both ids escaped, no query");
+            Assert.IsNull(a.Body);
+            CollectionAssert.AreEqual(new[] { "Authorization" }, HeaderNames(a));
         }
     }
 }

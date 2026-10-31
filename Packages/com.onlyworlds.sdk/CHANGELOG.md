@@ -71,6 +71,15 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   agent's, is a 404 (`IsNotFound`), an account already in the world a 409 (`OWApiError.IsAlreadyMember`, new). Any
   other key, and a null or empty code, is refused before sending; a player's or an agent's code is still redeemed
   with no key through `OWJoin.RedeemAsync`. Mirrors the TypeScript SDK's `acceptJoin()` (4.12.0).
+- A world's invite links, for its owner on an account token: `OWClient.CreateWorldLinkAsync(worldId, link)` (POST
+  /account/worlds/{id}/links) from an `OWWorldLinkCreate` (`Reader` `person`, `agent` or `player`, required; `Role`,
+  `Days`, `InviterName`, `WithCharacter`, `Character`, `Preview`, `MaxUses` and a table's `Characters`, each sent
+  only when given, in keel's spelling), answered as `OWWorldLinkCreated` with the code, the link and the line to
+  send, shown this once; `ListWorldLinksAsync(worldId)`, the links as `OWWorldLink` rows with no code (`Status`,
+  `Uses`, a player link's `Character`, a table's `MaxUses`, `Characters` and `IsTable`); and
+  `RevokeWorldLinkAsync(worldId, linkId)`, a 204. The Bearer alone; any other key, a null link and a link with no
+  reader are refused before sending. Mirrors the TypeScript SDK's `createWorldLink()`, `listWorldLinks()` and
+  `revokeWorldLink()` (4.24.0).
 
 ### Changed
 
