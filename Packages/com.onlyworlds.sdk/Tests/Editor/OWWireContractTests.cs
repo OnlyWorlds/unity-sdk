@@ -168,6 +168,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 Name = "W", Pin = "4821", KeyName = "k",
                 Source = new JObject { ["world"] = "w0" }, Producer = new JObject { ["tool"] = "t" },
             });
+            // The account's worlds and their keys, on the agent account client: no write header goes on any.
+            t.ResponseBody = @"{""data"":[]}";
+            await account.ListAccountWorldsAsync();
+            t.ResponseBody = "{}";
+            await account.MintWorldKeyAsync("w1");
+            await account.RevokeWorldKeyAsync("w1", "k1");
 
             // The lens routes on an account token: its own list in the world World names (world=), the world's lenses by
             // the path's world, and a row's list (PATCH with lenses alone).
@@ -475,6 +481,33 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             CollectionAssert.AreEquivalent(served.Where(k => k.StartsWith("data[].")).ToList(), mapped);
         }
 
+        [Test]
+        public void TheAccountAnswersKeelLeavesUndocumented_StayUndocumented_AndTheModelsMapWhatItsHandlersServe()
+        {
+            // keel's document declares no answer on GET /account/worlds or on a key's mint, and no body on the mint (its
+            // handler reads scope, name and keep from one, which the TypeScript SDK sends). So the models are held to the
+            // rows keel's handlers build (accounts/api.py _world_row, _key_row), which the TypeScript SDK's OwAccountWorld
+            // and OwMintedKey name, and MintWorldKeyAsync sends no body. When keel documents any of these, this fails:
+            // check the model against the document then, and port the mint's body.
+            var worlds = (JObject)Wire["paths"]["/api/v2/account/worlds"]["GET"];
+            var mint = (JObject)Wire["paths"]["/api/v2/account/worlds/{world_id}/keys"]["POST"];
+            Assert.IsNull(worlds["response"], "keel documents GET /account/worlds' answer now: check OWAccountWorld against it");
+            Assert.IsNull(mint["response"], "keel documents the mint's answer now: check OWMintedKey against it");
+            Assert.IsNull(mint["body"], "keel documents the mint's body now: MintWorldKeyAsync may send scope, name and keep");
+
+            CollectionAssert.AreEquivalent(
+                new[] { "id", "name", "role", "member_role", "public_read", "keys", "keys[].name", "keys[].last4", "keys[].scope", "keys[].revoked" },
+                MappedKeys(typeof(OWAccountWorld)));
+            CollectionAssert.AreEquivalent(
+                new[] { "id", "name", "last4", "scope", "last_used_at", "revoked", "key", "member", "kept" },
+                MappedKeys(typeof(OWMintedKey), false));
+
+            // The created world's row is the listed row's, plus its key (keel's AccountWorldCreated, which is documented).
+            var created = Wire["paths"]["/api/v2/account/worlds"]["POST"]["response"].Values<string>().ToList();
+            var listed = MappedKeys(typeof(OWAccountWorld)).Where(k => k != "member_role").ToList();
+            CollectionAssert.AreEquivalent(created.Where(k => k != "key").ToList(), listed);
+        }
+
         [TestCase(typeof(OWAccountWorldCreate), "/api/v2/account/worlds", "POST")]
         public void EveryKeyARequestModelMaps_IsOneKeelTakes(Type model, string path, string method)
         {
@@ -573,7 +606,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             // An empty recording would pass the checks above with nothing checked.
             var calls = await RecordEveryCall();
-            Assert.AreEqual(53, calls.Count);
+            Assert.AreEqual(56, calls.Count);
 
             // The lens routes are on the wire here, so the checks above saw them.
             Assert.That(calls.Any(c => c.Method == "PUT" && new Uri(c.Url).AbsolutePath.EndsWith("/me/lenses")), "PUT /me/lenses is recorded");

@@ -119,7 +119,15 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("patch world", "PATCH", true, false, c => c.PatchWorldAsync(new JObject { ["name"] = "W" })),
             ("set my lenses", "PUT", true, true, c => c.SetMyLensesAsync(new[] { "l1" })),
             ("set my character", "PUT", true, false, c => c.SetMyCharacterAsync("c1")),
+            // the account routes: an account token's alone (AccountOnly), so every other key is refused with nothing sent and
+            // `Pin` is never read (an account token sends none)
+            ("account worlds", "GET", false, true, c => c.ListAccountWorldsAsync()),
+            ("mint world key", "POST", true, true, c => c.MintWorldKeyAsync("w1")),
+            ("revoke world key", "DELETE", true, true, c => c.RevokeWorldKeyAsync("w1", "k1")),
         };
+
+        /// <summary>The calls only an account token sends: on any other key each is refused, and nothing is sent.</summary>
+        private static readonly string[] AccountOnly = { "account worlds", "mint world key", "revoke world key" };
 
         /// <summary>
         /// Every call the client may make, each through its own client; the request each sent. With a world (an account
@@ -135,7 +143,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                     ResponseBody = @"{""data"":[],""has_more"":false,""changes"":[],""head"":0,""cursor"":""0"",""results"":[]}",
                 };
 
-                if (world != null && !call.Any)
+                if ((world != null && !call.Any) || (AccountOnly.Contains(call.Name) && !key.StartsWith("ow_a_")))
                 {
                     Assert.ThrowsAsync<System.InvalidOperationException>(() => call.Run(Make(t, key, pin, world)), call.Name);
                     Assert.IsEmpty(t.Calls, $"{call.Name}: nothing sent");
@@ -205,7 +213,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public async Task ApiPin_AccountToken_Never_EvenWithAPinConfigured_BearerAndNoApiKey()
         {
             var all = await PinSweep("ow_a_acct", "1234", "w1");
-            Assert.AreEqual(8, all.Count, "the health pulse, the four world reads, the two lens routes and the roster sent");
+            Assert.AreEqual(11, all.Count,
+                "the health pulse, the four world reads, the two lens routes, the roster and the account routes sent");
             foreach (var (name, _, sent) in all)
             {
                 if (SentWithNone(name, sent)) continue;

@@ -1074,13 +1074,7 @@ namespace OnlyWorlds.Sdk
         /// </remarks>
         public async Task<OWAccountWorldCreated> CreateAccountWorldAsync(OWAccountWorldCreate world, CancellationToken ct = default)
         {
-            if (KeyKind != OWKeyKind.Account)
-            {
-                throw new InvalidOperationException(
-                    "CreateAccountWorldAsync needs an account token (ow_a_); this client holds "
-                    + (_keyless ? "none" : $"a {KeyKind.ToString().ToLowerInvariant()} key") + ". Nothing was sent.");
-            }
-
+            RequireAccountToken(nameof(CreateAccountWorldAsync));
             if (world == null) throw new ArgumentNullException(nameof(world));
             if (world.Name == null)
             {
@@ -1094,6 +1088,103 @@ namespace OnlyWorlds.Sdk
 
             return await RequestAsync<OWAccountWorldCreated>("POST", "/account/worlds", body: body, ct: ct).ConfigureAwait(false);
         }
+
+        /// <summary>
+        /// GET /account/worlds -- every world the account owns or is a member of, the rows of keel's <c>{data}</c> (no
+        /// paging), each with its keys by name and last four: every key on a world it owns, only its own member keys on a
+        /// shared one.
+        /// </summary>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <remarks>
+        /// An account token only, sent as its Bearer, with or without <see cref="World"/> (never sent here). Mirrors the
+        /// TypeScript SDK's <c>listAccountWorlds</c> (4.45.0).
+        /// </remarks>
+        public async Task<List<OWAccountWorld>> ListAccountWorldsAsync(CancellationToken ct = default)
+        {
+            RequireAccountToken(nameof(ListAccountWorldsAsync));
+            var page = await RequestAsync<JObject>("GET", "/account/worlds", ct: ct).ConfigureAwait(false);
+            return RowsOf<OWAccountWorld>(page);
+        }
+
+        /// <summary>
+        /// POST /account/worlds/{world_id}/keys -- mint a write key for a world of the account: the owner mints a world
+        /// key, a member a key bound to its own membership. Returns the key's row and the full key, shown this once
+        /// (<see cref="OWMintedKey.Key"/>).
+        /// </summary>
+        /// <param name="worldId">The world. Escaped.</param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <exception cref="OWApiError">
+        /// The server refused: a world the account neither owns nor is a member of is a 404; a member's write key while
+        /// the account has no PIN is a 409 <c>pin_required</c> (<see cref="OWApiError.IsPinRequired"/>).
+        /// </exception>
+        /// <remarks>
+        /// <para>
+        /// Sent with no body, so keel mints with its defaults: a write key, with no name, not kept across a sign-out
+        /// (revoking the token that minted it revokes the key). keel's handler also reads <c>scope</c>, <c>name</c> and
+        /// <c>keep</c> from a body, which the TypeScript SDK sends, but keel's document declares no body on this route,
+        /// and this client sends only what the document declares.
+        /// </para>
+        /// <para>
+        /// An account token only, sent as its Bearer, never with <c>API-Pin</c>; no <c>X-OW-Agent</c> or
+        /// <c>X-OW-Client</c>, which keel's document does not list here, and no <c>Idempotency-Key</c>: if the answer is
+        /// lost, the key is on the world's key list without its full key, so revoke it and mint another. Mirrors the
+        /// TypeScript SDK's <c>mintWorldKey</c> (4.45.0; without <c>X-OW-Agent</c> from 4.120.0).
+        /// </para>
+        /// </remarks>
+        public Task<OWMintedKey> MintWorldKeyAsync(string worldId, CancellationToken ct = default)
+        {
+            RequireAccountToken(nameof(MintWorldKeyAsync));
+            return RequestAsync<OWMintedKey>("POST", $"/account/worlds/{Uri.EscapeDataString(worldId)}/keys", ct: ct);
+        }
+
+        /// <summary>
+        /// DELETE /account/worlds/{world_id}/keys/{key_id} -- revoke a world key, by the <see cref="OWMintedKey.Id"/> its
+        /// mint answered: from then on it answers 401 <c>key_revoked</c>. Answers 204.
+        /// </summary>
+        /// <param name="worldId">The world. Escaped.</param>
+        /// <param name="keyId">The key's id. Escaped.</param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <exception cref="OWApiError">
+        /// The server refused: an id this account may not revoke is a 404 (<see cref="OWApiError.IsNotFound"/>); an
+        /// account token already revoked or expired is a 401 (<see cref="OWApiError.IsAuthError"/>), and the key was not
+        /// revoked.
+        /// </exception>
+        /// <remarks>
+        /// The owner revokes any of the world's keys, a member only its own. Revoking a revoked key changes nothing and
+        /// answers the same 204, so a tool that signs out can revoke its key without knowing whether it already did. An
+        /// account token only, sent as its Bearer. Mirrors the TypeScript SDK's <c>revokeWorldKey</c> (4.78.0).
+        /// </remarks>
+        public Task RevokeWorldKeyAsync(string worldId, string keyId, CancellationToken ct = default)
+        {
+            RequireAccountToken(nameof(RevokeWorldKeyAsync));
+            return RequestAsync<object>("DELETE",
+                $"/account/worlds/{Uri.EscapeDataString(worldId)}/keys/{Uri.EscapeDataString(keyId)}",
+                allowEmpty: true, ct: ct);
+        }
+
+        /// <summary>
+        /// An account route's own refusal: a client whose key is not an account token (<c>ow_a_</c>) is an
+        /// <see cref="InvalidOperationException"/> naming the call, and nothing is sent.
+        /// </summary>
+        /// <param name="method">The call, as the message names it.</param>
+        /// <param name="hint">A sentence after the key it holds (where such a key goes instead), or null.</param>
+        private void RequireAccountToken(string method, string hint = null)
+        {
+            if (KeyKind == OWKeyKind.Account) return;
+
+            throw new InvalidOperationException(
+                $"{method} needs an account token (ow_a_); this client holds "
+                + (_keyless ? "none" : $"a {KeyKind.ToString().ToLowerInvariant()} key") + "."
+                + (hint == null ? "" : " " + hint) + " Nothing was sent.");
+        }
+
+        /// <summary>The rows of a <c>{data}</c> answer with no paging; an answer without them is an empty list.</summary>
+        private static List<TRow> RowsOf<TRow>(JObject page)
+            => (page?["data"] as JArray)?.ToObject<List<TRow>>(Newtonsoft.Json.JsonSerializer.Create(OWJson.Settings))
+                ?? new List<TRow>();
 
         /// <summary>
         /// PATCH /account/worlds/{world_id}/members/{member_id} with <c>lenses</c> alone -- set the lenses a row of the
@@ -1130,14 +1221,7 @@ namespace OnlyWorlds.Sdk
         public Task<JObject> SetMemberLensesAsync(
             string worldId, string memberId, IEnumerable<string> lensIds, CancellationToken ct = default)
         {
-            if (KeyKind != OWKeyKind.Account)
-            {
-                throw new InvalidOperationException(
-                    "SetMemberLensesAsync needs an account token (ow_a_); this client holds "
-                    + (_keyless ? "none" : $"a {KeyKind.ToString().ToLowerInvariant()} key")
-                    + ". A world key sets its own holder's list with SetMyLensesAsync. Nothing was sent.");
-            }
-
+            RequireAccountToken(nameof(SetMemberLensesAsync), "A world key sets its own holder's list with SetMyLensesAsync.");
             var body = new JObject { ["lenses"] = LensList(lensIds) };
             return RequestAsync<JObject>("PATCH",
                 $"/account/worlds/{Uri.EscapeDataString(worldId)}/members/{Uri.EscapeDataString(memberId)}",

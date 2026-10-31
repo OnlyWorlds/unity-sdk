@@ -54,6 +54,17 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   or `X-OW-Client`, which keel's document declares on neither (the TypeScript SDK sends `X-OW-Agent` on an agent
   client). An account token and a keyless client are refused before sending. Mirrors the TypeScript SDK's
   `setMyCharacter()` (4.50.0).
+- The account's worlds and their keys, on an account token: `OWClient.ListAccountWorldsAsync` (GET /account/worlds),
+  every world the account owns or is a member of as `OWAccountWorld` rows (`Role` `owner` or `collaborator`,
+  `MemberRole` on a collaborator's, `PublicRead`, the `Keys` by name and last four); `MintWorldKeyAsync(worldId)`
+  (POST /account/worlds/{id}/keys), a write key for the owner or bound to a member's own membership, answered once
+  in full as `OWMintedKey.Key` beside its row (`Id`, `Last4`, `Scope`, `Member`, `Kept`); and
+  `RevokeWorldKeyAsync(worldId, keyId)` (DELETE …/keys/{key_id}), a 204 that answers the same for a key already
+  revoked. Each sends the Bearer alone, never a PIN or a write header, and any other key is refused before sending.
+  The mint sends no body, since keel's document declares none there, so it cannot yet ask for a read key, a name or
+  `keep`, which the TypeScript SDK sends. `OWApiError.IsPinRequired` (409 `pin_required`) reads a member's mint on
+  an account with no PIN. Mirrors the TypeScript SDK's `listAccountWorlds()`, `mintWorldKey()` (4.45.0; without
+  `X-OW-Agent`, as 4.120.0 sends it) and `revokeWorldKey()` (4.78.0).
 
 ### Changed
 

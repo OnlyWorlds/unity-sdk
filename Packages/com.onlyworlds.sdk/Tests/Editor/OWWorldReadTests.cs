@@ -285,6 +285,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 ["ReviewNewElementAsync"] = (Does.Refused, c => c.ReviewNewElementAsync("location", El, OWReviewed.Accept)),
                 ["CreateAccountWorldAsync"] = (Does.Account, c => c.CreateAccountWorldAsync(new OWAccountWorldCreate { Name = "W" })),
                 ["SetMemberLensesAsync"] = (Does.Account, c => c.SetMemberLensesAsync(W, "owner", new string[0])),
+                ["ListAccountWorldsAsync"] = (Does.Account, c => c.ListAccountWorldsAsync()),
+                ["MintWorldKeyAsync"] = (Does.Account, c => c.MintWorldKeyAsync(W)),
+                ["RevokeWorldKeyAsync"] = (Does.Account, c => c.RevokeWorldKeyAsync(W, "k1")),
                 ["ChangesAsync"] = (Does.Refused, c => c.ChangesAsync()),
             };
 
