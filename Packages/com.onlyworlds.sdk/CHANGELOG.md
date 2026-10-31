@@ -41,6 +41,27 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   keyless client are the typed calls' own. A method other than keel's five in capitals, a path that does not start
   with `/` or carries `?` or `#`, a body on a GET and a negative `IfMatch` are refused before sending. Mirrors the
   TypeScript SDK's `request()` (public from 4.0.0).
+- Signing in, to an account token (`ow_a_`), on any client and with no credential of the client's. A password:
+  `OWClient.SignInWithPasswordAsync(email, username, password)` (exactly one of the first two) signs in at keel's
+  sign-in service (POST `{BaseUrl}/auth/app/v1/auth/login`, the password's one destination), mints the token (POST
+  /account/tokens with the session as `X-Session-Token`) and ends the session (DELETE
+  `{BaseUrl}/auth/app/v1/auth/session`, given five seconds at most, its failure ignored) whether the mint worked or
+  not, answering an `OWSignedIn` (`Token`, `Id`, `Name`, `Last4`). The mint goes with no body, as keel's document
+  declares none there, so the token is listed with no name (the TypeScript SDK sends its `tokenName`). Sign in with
+  OnlyWorlds: `SignInWithOnlyWorlds(clientId, redirectUri)` sends nothing and answers an `OWSignInBegun` (`Url`, the
+  site's authorize URL with the S256 challenge, to open in the system browser; `State`, `ClientId`, `RedirectUri`,
+  the secret `Verifier`, `Pending`); `CompleteSignInAsync(pending, url)` checks the return's state and page (scheme,
+  host with port, path) and trades its code once at POST /auth/token `{grant_type, code, code_verifier, client_id,
+  redirect_uri}`, answering an `OWSignInResult` (`Token`, `TokenId`, `ExpiresAt` as served or null, `TokenType`,
+  `Account` with `Id` and `Username`); a return with another state leaves the sign-in pending, a matching one spends
+  it. A return address keel cannot match (localhost, a loopback without its port, userinfo, a query, a fragment, a dot
+  segment, a reserved scheme) is refused saying why, in the TypeScript SDK's words. `OWSignIn.PkceChallenge` and
+  `Base64Url` are public (RFC 7636's vector holds). Every refusal after the call is an `OWSignInError` (`Reason`, one
+  of `OWSignInReason`'s words: `invalid_credentials`, `invalid_grant`, `state_mismatch`, `email_unverified`,
+  `rate_limited`, `offline`, `mint_failed`, `failed`; `Status`, `Code`, `RetryAfter`), which holds no password,
+  session, verifier, code or token and no inner exception. Mirrors the TypeScript SDK's `signInWithPassword()`
+  (4.31.0), `signInWithOnlyWorlds()` and `completeSignIn()` (4.46.0; `expiresAt` from 4.94.0), `pkceChallenge` and
+  `base64url`. The 0.24.0 "Not added" line about `completeSignIn`'s `expiresAt` no longer holds: `ExpiresAt` is it.
 
 ## [0.27.0] - 2026-10-31
 

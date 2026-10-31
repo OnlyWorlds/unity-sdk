@@ -94,8 +94,19 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Budget = 20, Depth = 1, Compact = true, Lens = "l1",
         };
 
-        /// <summary>A request to keel: under the client's base URL. The upload host's are not keel's to judge.</summary>
-        private static bool IsKeel(OWRequest request) => request.Url.StartsWith(Base + "/", StringComparison.Ordinal);
+        /// <summary>
+        /// The password sign-in's service (allauth's app API under the base URL), which keel's document does not
+        /// describe: its two requests are left out of the checks as the upload host's are; the mint between them is keel's.
+        /// </summary>
+        private const string SignInService = Base + "/auth/app/";
+
+        /// <summary>
+        /// A request to keel: under the client's base URL, and not to the sign-in service. The upload host's are not
+        /// keel's to judge.
+        /// </summary>
+        private static bool IsKeel(OWRequest request)
+            => request.Url.StartsWith(Base + "/", StringComparison.Ordinal)
+               && !request.Url.StartsWith(SignInService, StringComparison.Ordinal);
 
         /// <summary>
         /// Every public call on the client, recorded through a fake transport: keel's requests, which the checks below
@@ -287,6 +298,18 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                     Supertype = "s", Subtype = "u",
                 });
             }
+
+            // Signing in, on a keyless client: the password's three requests (the sign-in and the session's end go to the
+            // sign-in service, left out of the checks; the mint between them is keel's), then Sign in with OnlyWorlds'
+            // exchange.
+            var signer = new OWClient(new OWClientConfig { World = "w1", Transport = t, BaseUrl = Base });
+            t.Then(200, @"{""meta"":{""session_token"":""sess""}}");
+            t.Then(201, @"{""id"":""tok-1"",""name"":"""",""last4"":""wxyz"",""token"":""ow_a_xwxyz""}");
+            t.Then(401, "{}");
+            await signer.SignInWithPasswordAsync("ana@example.org", null, "pw");
+            var pending = signer.SignInWithOnlyWorlds("atlas", "https://atlas.example.test/cb");
+            t.ResponseBody = @"{""token"":""ow_a_x"",""token_id"":""t1"",""token_type"":""bearer"",""account"":{""id"":""u1"",""username"":""a""}}";
+            await signer.CompleteSignInAsync(pending, "https://atlas.example.test/cb?code=c1&state=" + pending.State);
 
             // Joining is keyless, so it is not on the client; the same transport records it. The redeem passes every
             // option at once (no real code takes all three) so each key it can put in the body is on the wire here.
@@ -498,6 +521,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.That(checkedOps, Does.Contain("POST /api/v2/media/remove-ticket"));
             Assert.That(checkedOps, Does.Contain("POST /api/v2/character/c1/files"));
             Assert.That(checkedOps, Does.Contain("POST /api/v2/account/ask").And.Contain("POST /api/v2/account/sort"));
+            Assert.That(checkedOps, Does.Contain("POST /api/v2/auth/token"));
         }
 
         /// <summary>
@@ -556,6 +580,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [TestCase(typeof(OWAskAnswer), "/api/v2/account/ask", "POST")]
         [TestCase(typeof(OWSortAnswer), "/api/v2/account/sort", "POST")]
         [TestCase(typeof(OWAllowance), "/api/v2/account/allowance", "GET")]
+        [TestCase(typeof(OWSignedIn), "/api/v2/account/tokens", "POST")]
+        [TestCase(typeof(OWSignInResult), "/api/v2/auth/token", "POST")]
         public void EveryKeyAModelReads_IsOneKeelServes(Type model, string path, string method)
         {
             var op = Wire["paths"]?[path]?[method] as JObject;
@@ -638,6 +664,24 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.That(rows, Does.Contain("data[].added_by").And.Not.Contains("data[].added_by.name"),
                 "keel's document names added_by's keys now: check OWFileAddedBy against it");
             CollectionAssert.AreEquivalent(new[] { "name", "membership", "agent" }, MappedKeys(typeof(OWFileAddedBy)));
+        }
+
+        [Test]
+        public void TheSignInService_AndTheTokenMintsBody_AreWhatKeelLeavesUndocumented()
+        {
+            // The password sign-in's first and last requests go to allauth's app API under the base URL, which keel's
+            // document does not describe: they are left out of the checks, as the upload host's are. The day keel
+            // documents a path there, check SignInWithPasswordAsync's two requests against it.
+            foreach (var path in ((JObject)Wire["paths"]).Properties().Select(p => p.Name))
+                StringAssert.DoesNotStartWith("/api/v2/auth/app/", path, "keel's document describes the sign-in service now");
+
+            // keel's mint reads an optional {name} (accounts/api.py mint_token: _name_param), and the TypeScript SDK sends
+            // { name: tokenName }, but the document declares no body there, so SignInWithPasswordAsync sends none and its
+            // token is minted with no name. The day keel documents the body, this fails: add the token's name then.
+            var mint = (JObject)Wire["paths"]["/api/v2/account/tokens"]["POST"];
+            Assert.IsNull(mint["body"], "keel's document declares the mint's body now: send the token's name");
+            CollectionAssert.IsEmpty(mint["header"], "X-Session-Token is one of the document's auth headers, not the operation's");
+            CollectionAssert.Contains(Wire["auth_headers"].Values<string>().ToList(), "X-Session-Token");
         }
 
         [Test]
@@ -762,11 +806,19 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             // An empty recording would pass the checks above with nothing checked.
             var calls = await RecordEveryCall();
-            Assert.AreEqual(82, calls.Count);
+            Assert.AreEqual(84, calls.Count);
 
-            // The upload host's requests are recorded and left out of the checks; the keel request of each two-step call
-            // is in, so the checks above judged it.
-            var host = (await RecordAllCalls()).Where(c => !IsKeel(c)).ToList();
+            // The upload host's and the sign-in service's requests are recorded and left out of the checks; the keel
+            // request of each two-step call, and the password sign-in's mint, are in, so the checks above judged them.
+            var all = (await RecordAllCalls()).Where(c => !IsKeel(c)).ToList();
+            var signIn = all.Where(c => c.Url.StartsWith(SignInService, StringComparison.Ordinal)).ToList();
+            CollectionAssert.AreEqual(new[] { "POST " + SignInService + "v1/auth/login", "DELETE " + SignInService + "v1/auth/session" },
+                signIn.Select(c => c.Method + " " + c.Url).ToArray(), "the sign-in and the session's end, at the sign-in service");
+            Assert.AreEqual(1, calls.Count(c => c.Method == "POST" && new Uri(c.Url).AbsolutePath.EndsWith("/account/tokens")),
+                "the password sign-in's mint is judged");
+            Assert.AreEqual(1, calls.Count(c => c.Method == "POST" && new Uri(c.Url).AbsolutePath.EndsWith("/auth/token")),
+                "Sign in with OnlyWorlds' exchange is judged");
+            var host = all.Where(c => !c.Url.StartsWith(SignInService, StringComparison.Ordinal)).ToList();
             Assert.AreEqual(4, host.Count, "the two image uploads, the removal and the file upload reached the upload host");
             Assert.AreEqual(2, calls.Count(c => c.Method == "POST" && new Uri(c.Url).AbsolutePath.EndsWith("/character/c1/files")),
                 "the file ticket alone and the upload's own ticket are judged");

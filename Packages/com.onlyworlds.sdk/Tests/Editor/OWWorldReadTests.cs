@@ -247,10 +247,19 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         // Bearer on an account client (SetMyLensesAsync, the one write that names its world so, and GetMembersAsync, the
         // roster) and is refused on a keyless one, `Path` sends the Bearer to a world route whose path names the world,
         // without world= (WorldLensesAsync), `Account` sends the Bearer to an /account route, `Open` sends no credential
-        // and no world= on any client (HealthAsync), `Refused` is an InvalidOperationException before the transport is
-        // called. A method the table does not hold fails the sweep, so a new call is classified when it is added.
+        // and no world= on any client (HealthAsync), `SignIn` sends no credential of the client's and no world= on any
+        // client (the sign-ins: its answers are scripted elsewhere, so a refusal of the answer here is swallowed),
+        // `Nothing` sends no request at all (SignInWithOnlyWorlds), `Refused` is an InvalidOperationException before the
+        // transport is called. A method the table does not hold fails the sweep, so a new call is classified when it is added.
 
-        private enum Does { Read, Named, Path, Account, Open, Refused }
+        private enum Does { Read, Named, Path, Account, Open, SignIn, Nothing, Refused }
+
+        /// <summary>A sign-in run for what it sends: the answer this sweep's transport gives it is refused, and that refusal is not the sweep's.</summary>
+        private static async Task Sent(Func<Task> signIn)
+        {
+            try { await signIn(); }
+            catch (OWSignInError) { }
+        }
 
         private static readonly Dictionary<string, (Does Does, Func<OWClient, Task> Run)> Methods =
             new Dictionary<string, (Does, Func<OWClient, Task>)>
@@ -310,6 +319,17 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 ["AskAsync"] = (Does.Account, c => c.AskAsync(W, "q", new[] { "x" })),
                 ["SortAsync"] = (Does.Account, c => c.SortAsync(W, new OWSortNote[] { "x" }, new OWSortRef[0])),
                 ["AllowanceAsync"] = (Does.Account, c => c.AllowanceAsync()),
+                ["SignInWithPasswordAsync"] = (Does.SignIn, c => Sent(() => c.SignInWithPasswordAsync("ana@example.org", null, "pw"))),
+                ["SignInWithOnlyWorlds"] = (Does.Nothing, c =>
+                {
+                    c.SignInWithOnlyWorlds("atlas", "https://atlas.example.test/cb");
+                    return Task.CompletedTask;
+                }),
+                ["CompleteSignInAsync"] = (Does.SignIn, c => Sent(() =>
+                {
+                    var pending = c.SignInWithOnlyWorlds("atlas", "https://atlas.example.test/cb");
+                    return c.CompleteSignInAsync(pending, "https://atlas.example.test/cb?code=c1&state=" + pending.State);
+                })),
                 ["ChangesAsync"] = (Does.Refused, c => c.ChangesAsync()),
                 // The escape hatch as a world read; its other rules are OWRequestRouteTests'.
                 ["RequestAsync"] = (Does.Read, c => c.RequestAsync("GET", "/world/", new OWRequestOptions { WorldRead = true })),
@@ -352,10 +372,24 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 }
 
                 await row.Value.Run(Account(t));
+                if (row.Value.Does == Does.Nothing)
+                {
+                    Assert.IsEmpty(t.Calls, $"{name}: nothing sent");
+                    continue;
+                }
+
                 Assert.IsNotEmpty(t.Calls, $"{name}: sent");
 
                 foreach (var sent in t.Calls)
                 {
+                    if (row.Value.Does == Does.SignIn)
+                    {
+                        foreach (var h in new[] { "Authorization", "API-Key", "API-Pin" })
+                            Assert.IsFalse(sent.Headers.ContainsKey(h), $"{name}: no {h}");
+                        Assert.IsEmpty(Values(sent, "world"), $"{name}: no world=");
+                        continue;
+                    }
+
                     if (row.Value.Does == Does.Open)
                     {
                         CollectionAssert.IsEmpty(sent.Headers.Keys, $"{name}: no header");
@@ -393,7 +427,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 var name = row.Key;
                 var t = Answering();
 
-                if (row.Value.Does != Does.Read && row.Value.Does != Does.Open)
+                if (row.Value.Does != Does.Read && row.Value.Does != Does.Open && row.Value.Does != Does.SignIn
+                    && row.Value.Does != Does.Nothing)
                 {
                     var e = Assert.ThrowsAsync<InvalidOperationException>(() => row.Value.Run(Keyless(t)), name);
                     StringAssert.Contains("holds none", e.Message, name);
@@ -403,6 +438,25 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 }
 
                 await row.Value.Run(Keyless(t));
+                if (row.Value.Does == Does.Nothing)
+                {
+                    Assert.IsEmpty(t.Calls, $"{name}: nothing sent");
+                    continue;
+                }
+
+                if (row.Value.Does == Does.SignIn)
+                {
+                    Assert.IsNotEmpty(t.Calls, $"{name}: sent");
+                    foreach (var sent in t.Calls)
+                    {
+                        foreach (var h in new[] { "Authorization", "API-Key", "API-Pin" })
+                            Assert.IsFalse(sent.Headers.ContainsKey(h), $"{name}: no {h}");
+                        Assert.IsEmpty(Values(sent, "world"), $"{name}: no world=");
+                    }
+
+                    continue;
+                }
+
                 Assert.AreEqual(1, t.Calls.Count, name);
                 CollectionAssert.IsEmpty(t.Last.Headers.Keys, $"{name}: no header");
                 if (row.Value.Does == Does.Open) Assert.IsEmpty(Values(t.Last, "world"), $"{name}: no world=");

@@ -161,6 +161,30 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("ask", "POST", true, true, c => c.AskAsync("w1", "q", new[] { "x" })),
             ("sort", "POST", true, true, c => c.SortAsync("w1", new OWSortNote[] { "x" }, new OWSortRef[0])),
             ("allowance", "GET", false, true, c => c.AllowanceAsync()),
+            // signing in, on every client with no credential of its own (NoCredential): the password's mint, keel's one
+            // request among its three (the sign-in and the session's end go to the sign-in service, SignInService), and
+            // Sign in with OnlyWorlds' exchange. Each answer is scripted (Scripted).
+            ("sign in (password)", "POST", false, true, c => c.SignInWithPasswordAsync("ana@example.org", null, "pw")),
+            ("complete sign in", "POST", false, true, c =>
+            {
+                var pending = c.SignInWithOnlyWorlds("atlas", "https://atlas.example.test/cb");
+                return c.CompleteSignInAsync(pending, "https://atlas.example.test/cb?code=c1&state=" + pending.State);
+            }),
+        };
+
+        /// <summary>The password sign-in's service under the base URL: not keel's document, so not swept as keel's.</summary>
+        private const string SignInService = "https://example.test/api/v2/auth/app/";
+
+        /// <summary>The calls whose answers are scripted, each request its own answer.</summary>
+        private static readonly Dictionary<string, Action<FakeTransport>> Scripted = new Dictionary<string, Action<FakeTransport>>
+        {
+            ["sign in (password)"] = t =>
+            {
+                t.Then(200, @"{""meta"":{""session_token"":""sess""}}");
+                t.Then(201, @"{""id"":""tok-1"",""name"":"""",""last4"":""wxyz"",""token"":""ow_a_xwxyz""}");
+                t.Then(401, "{}");
+            },
+            ["complete sign in"] = t => t.Then(200, @"{""token"":""ow_a_x"",""token_id"":""t1"",""account"":{""id"":""u1""}}"),
         };
 
         /// <summary>The calls only an account token sends: on any other key each is refused, and nothing is sent.</summary>
@@ -203,16 +227,25 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                     continue;
                 }
 
+                if (Scripted.TryGetValue(call.Name, out var script)) script(t);
                 await call.Run(Make(t, key, pin, world));
 
-                var keel = t.Calls.Where(r => !r.Url.StartsWith(UploadHost, StringComparison.Ordinal)).ToList();
+                var signIn = t.Calls.Where(r => r.Url.StartsWith(SignInService, StringComparison.Ordinal)).ToList();
                 var host = t.Calls.Where(r => r.Url.StartsWith(UploadHost, StringComparison.Ordinal)).ToList();
+                var keel = t.Calls.Where(r => !r.Url.StartsWith(UploadHost, StringComparison.Ordinal)
+                    && !r.Url.StartsWith(SignInService, StringComparison.Ordinal)).ToList();
                 Assert.AreEqual(1, keel.Count, $"{call.Name}: one request to keel");
                 Assert.AreEqual(TwoStep.Contains(call.Name) ? 1 : 0, host.Count, $"{call.Name}: the upload host's request");
                 foreach (var r in host)
                 {
                     CollectionAssert.IsSubsetOf(r.Headers.Keys, new[] { "Authorization", "X-Key" }, $"{call.Name}: nothing of ours to the host");
                     Assert.AreEqual("Bearer tk.sig", r.Headers["Authorization"], $"{call.Name}: the ticket, never the key");
+                }
+
+                Assert.AreEqual(call.Name == "sign in (password)" ? 2 : 0, signIn.Count, $"{call.Name}: the sign-in service's requests");
+                foreach (var r in signIn)
+                {
+                    CollectionAssert.IsSubsetOf(r.Headers.Keys, new[] { "Content-Type", "X-Session-Token" }, $"{call.Name}: nothing of ours to the sign-in service");
                 }
 
                 Assert.AreEqual(call.Verb, keel[0].Method, $"{call.Name}: sent as {call.Verb}");
@@ -226,7 +259,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             => sent.Headers.TryGetValue("API-Pin", out var pin) ? pin : null;
 
         /// <summary>The calls sent with no credential at all, whatever the client holds.</summary>
-        private static readonly string[] NoCredential = { "health" };
+        private static readonly string[] NoCredential = { "health", "sign in (password)", "complete sign in" };
 
         /// <summary>True for a call sent with no credential, after checking it carried none.</summary>
         private static bool SentWithNone(string name, OWRequest sent)
@@ -275,9 +308,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public async Task ApiPin_AccountToken_Never_EvenWithAPinConfigured_BearerAndNoApiKey()
         {
             var all = await PinSweep("ow_a_acct", "1234", "w1");
-            Assert.AreEqual(24, all.Count,
+            Assert.AreEqual(26, all.Count,
                 "the health pulse, the world reads (the escape hatch's among them), the two lens routes, the roster, the "
-                + "account routes and the AI routes sent");
+                + "account routes, the AI routes and the two sign-ins sent");
             foreach (var (name, _, sent) in all)
             {
                 if (SentWithNone(name, sent)) continue;

@@ -2085,6 +2085,440 @@ namespace OnlyWorlds.Sdk
                 allowEmpty: true, ct: ct);
         }
 
+        // -- Signing in ---------------------------------------------------------------
+        //
+        // Two ways to an account token (ow_a_), on any client, keyless included, and with no credential of the client's:
+        // a password (three requests: the sign-in service, the mint, the session's end), or Sign in with OnlyWorlds
+        // (OAuth 2.1's code with PKCE: an authorize URL for the system browser, then one exchange). The SDK keeps no
+        // token: the caller stores it and makes a client with it. Every refusal after the call is an OWSignInError, which
+        // holds no secret and no inner exception. Mirrors the TypeScript SDK's signInWithPassword (4.31.0),
+        // signInWithOnlyWorlds and completeSignIn (4.46.0; expiresAt from 4.94.0).
+
+        /// <summary>How long the password sign-in waits for its session's end before it answers anyway.</summary>
+        internal static TimeSpan SessionEndLimit = TimeSpan.FromSeconds(5);
+
+        /// <summary>
+        /// Sign in with an email address (or a username) and password, and get a new account token (<c>ow_a_</c>) for this
+        /// device. Make a client with it (<c>new OWClientConfig { ApiKey = token }</c>) and store it as any account token.
+        /// </summary>
+        /// <param name="email">The account's email address; null when signing in by username. Trimmed.</param>
+        /// <param name="username">The account's username; null when signing in by email. Trimmed.</param>
+        /// <param name="password">The password: sent once, to the sign-in service alone, and held nowhere.</param>
+        /// <param name="ct">Cancels the requests (the session's end still goes).</param>
+        /// <exception cref="ArgumentException">
+        /// Both or neither of <paramref name="email"/> and <paramref name="username"/>, or no password; nothing was sent.
+        /// The message never holds the password.
+        /// </exception>
+        /// <exception cref="OWSignInError">
+        /// The sign-in was refused; <see cref="OWSignInError.Reason"/> says why: <c>invalid_credentials</c>,
+        /// <c>email_unverified</c>, <c>rate_limited</c> (with <see cref="OWSignInError.RetryAfter"/> when sent),
+        /// <c>offline</c>, <c>mint_failed</c> (signed in, but no token was made), or <c>failed</c> (with the server's words
+        /// when they hold no secret).
+        /// </exception>
+        /// <remarks>
+        /// <para>
+        /// Three requests, none with a key, PIN or Bearer of this client's whatever it holds: POST
+        /// <c>{BaseUrl}/auth/app/v1/auth/login</c> <c>{email|username, password}</c> at keel's sign-in service, which answers
+        /// a short-lived session; POST <c>/account/tokens</c> with that session as <c>X-Session-Token</c>, which mints the
+        /// token; then DELETE <c>{BaseUrl}/auth/app/v1/auth/session</c> with the session, whether the mint worked or not,
+        /// given five seconds at most and its failure ignored. Only the token is kept: the session never leaves this call.
+        /// </para>
+        /// <para>
+        /// The mint goes with no body: keel's document declares none there, though keel reads an optional
+        /// <c>{name}</c> and the TypeScript SDK sends its <c>tokenName</c> in one. So the token is listed with no name on
+        /// the account's tokens page, where it can be revoked; a name comes when keel documents the body. A person signing
+        /// in holds no key, and a client here needs a key or <see cref="OWClientConfig.World"/>: a keyless client names a
+        /// world. Mirrors the TypeScript SDK's <c>signInWithPassword</c> (4.31.0).
+        /// </para>
+        /// </remarks>
+        public Task<OWSignedIn> SignInWithPasswordAsync(
+            string email, string username, string password, CancellationToken ct = default)
+        {
+            var login = email?.Trim() ?? "";
+            var user = username?.Trim() ?? "";
+            if ((login.Length > 0) == (user.Length > 0))
+            {
+                throw new ArgumentException(
+                    "SignInWithPasswordAsync takes exactly one of email and username. Nothing was sent.",
+                    login.Length > 0 ? nameof(username) : nameof(email));
+            }
+
+            if (string.IsNullOrEmpty(password))
+                throw new ArgumentException("SignInWithPasswordAsync needs a password. Nothing was sent.", nameof(password));
+
+            var body = login.Length > 0
+                ? new JObject { ["email"] = login, ["password"] = password }
+                : new JObject { ["username"] = user, ["password"] = password };
+
+            return SignInWithPasswordCoreAsync(body, password, ct);
+        }
+
+        private async Task<OWSignedIn> SignInWithPasswordCoreAsync(JObject credentials, string password, CancellationToken ct)
+        {
+            var auth = BaseUrl + "/auth/app/v1";
+
+            var res = await SendSignInAsync(new OWRequest
+            {
+                Method = "POST",
+                Url = auth + "/auth/login",
+                Headers = new Dictionary<string, string> { ["Content-Type"] = "application/json" },
+                Body = credentials.ToString(Newtonsoft.Json.Formatting.None),
+            }, "OnlyWorlds could not be reached: signing in needs a connection.", ct).ConfigureAwait(false);
+
+            var retryAfter = OWApiError.ParseRetryAfter(ReadHeader(res, "Retry-After"), DateTimeOffset.UtcNow);
+            if (res.Status == 429)
+            {
+                // allauth's 429 may be an HTML page: the status alone says it.
+                throw new OWSignInError(OWSignInReason.RateLimited, "Too many sign-in attempts. Wait a while, then try again.",
+                    429, retryAfter: retryAfter);
+            }
+
+            var answer = JsonObjectOrNull(res.Body);
+            var session = (answer?["meta"] as JObject)?["session_token"] is JValue s && s.Type == JTokenType.String
+                && (string)s != "" ? (string)s : null;
+
+            // Any text the server sends back is shown only if it holds no secret.
+            string Safe(string text, string fallback)
+                => string.IsNullOrEmpty(text) || text.Contains(password) || (session != null && text.Contains(session))
+                    ? fallback : text;
+
+            if (!res.IsSuccess || session == null)
+            {
+                // A pending flow can still hand out a session: it is ended too.
+                if (session != null) await EndAuthSessionAsync(auth, session).ConfigureAwait(false);
+
+                var errors = answer?["errors"] as JArray ?? new JArray();
+                var codes = new List<string>();
+                string first = null;
+                foreach (var e in errors)
+                {
+                    if (e is JObject row && row["code"]?.Type == JTokenType.String) codes.Add((string)row["code"]);
+                    if (first == null && e is JObject said && said["message"]?.Type == JTokenType.String) first = (string)said["message"];
+                }
+
+                var code = codes.Find(c => Safe(c, null) != null);
+                var mismatch = codes.Find(c => c == "email_password_mismatch" || c == "username_password_mismatch");
+                if (mismatch != null)
+                {
+                    throw new OWSignInError(OWSignInReason.InvalidCredentials,
+                        Safe(first, "The email address and/or password you specified are not correct."), res.Status, mismatch);
+                }
+
+                if (codes.Contains("too_many_login_attempts"))
+                {
+                    throw new OWSignInError(OWSignInReason.RateLimited,
+                        Safe(first, "Too many failed sign-in attempts. Try again later."), res.Status, "too_many_login_attempts",
+                        retryAfter);
+                }
+
+                var flows = (answer?["data"] as JObject)?["flows"] as JArray ?? new JArray();
+                var unverified = false;
+                foreach (var f in flows)
+                {
+                    if (f is JObject flow && flow["id"]?.Type == JTokenType.String && (string)flow["id"] == "verify_email"
+                        && flow["is_pending"]?.Type == JTokenType.Boolean && (bool)flow["is_pending"]) unverified = true;
+                }
+
+                if (res.Status == 401 && unverified)
+                {
+                    throw new OWSignInError(OWSignInReason.EmailUnverified,
+                        "Confirm the account's email address first: the link is in the mail onlyworlds.com sent.", res.Status, code);
+                }
+
+                throw new OWSignInError(OWSignInReason.Failed,
+                    Safe(first, res.IsSuccess ? "Signing in did not work: onlyworlds.com sent no session." : $"Signing in did not work ({res.Status})."),
+                    res.Status, code);
+            }
+
+            try
+            {
+                // No body: keel's document declares none on the mint (the TypeScript SDK sends { name: tokenName }).
+                var minted = await SendSignInAsync(new OWRequest
+                {
+                    Method = "POST",
+                    Url = BaseUrl + "/account/tokens",
+                    Headers = new Dictionary<string, string> { ["X-Session-Token"] = session },
+                }, "The connection dropped after signing in: no token was made. Try again.", ct).ConfigureAwait(false);
+
+                var row = JsonObjectOrNull(minted.Body);
+                var token = row?["token"] is JValue t && t.Type == JTokenType.String && (string)t != "" ? (string)t : null;
+                if (minted.Status != 201 || token == null)
+                {
+                    // keel's envelope: { error: { code, message, ... } }.
+                    var err = row?["error"] as JObject;
+                    string SafeMint(string text, string fallback)
+                        => token != null && text != null && text.Contains(token) ? fallback : Safe(text, fallback);
+
+                    var said = err?["code"]?.Type == JTokenType.String ? (string)err["code"] : null;
+                    throw new OWSignInError(OWSignInReason.MintFailed,
+                        SafeMint(err?["message"]?.Type == JTokenType.String ? (string)err["message"] : null,
+                            $"Signed in, but no token was made ({minted.Status}). Try again."),
+                        minted.Status, SafeMint(said, null));
+                }
+
+                return new OWSignedIn
+                {
+                    Token = token,
+                    Id = row["id"]?.Type == JTokenType.String ? (string)row["id"] : "",
+                    Name = row["name"]?.Type == JTokenType.String ? (string)row["name"] : "",
+                    Last4 = row["last4"]?.Type == JTokenType.String ? (string)row["last4"] : token.Substring(Math.Max(0, token.Length - 4)),
+                };
+            }
+            finally
+            {
+                await EndAuthSessionAsync(auth, session).ConfigureAwait(false);
+            }
+        }
+
+        /// <summary>
+        /// The password sign-in's session ended: DELETE with the session alone, given <see cref="SessionEndLimit"/> at most
+        /// (the token is already minted, and a request hanging on a bad network must not hold the sign-in), its failure
+        /// ignored.
+        /// </summary>
+        private async Task EndAuthSessionAsync(string auth, string session)
+        {
+            var cut = new CancellationTokenSource();
+            try
+            {
+                var send = _transport.SendAsync(new OWRequest
+                {
+                    Method = "DELETE",
+                    Url = auth + "/auth/session",
+                    Headers = new Dictionary<string, string> { ["X-Session-Token"] = session },
+                }, cut.Token);
+
+                // Its failure, whenever it comes, is observed here and dropped.
+                _ = send.ContinueWith(x => x.Exception, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously);
+                await Task.WhenAny(send, Task.Delay(SessionEndLimit, cut.Token)).ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                // Swallowed on purpose.
+            }
+            finally
+            {
+                cut.Cancel();
+            }
+        }
+
+        /// <summary>
+        /// Begin Sign in with OnlyWorlds: a fresh state and PKCE verifier, and the authorize URL on the site
+        /// (<c>https://www.onlyworlds.com/signin/authorize</c>) to open in the system browser. No request is sent, on any
+        /// client. Keep the answer until the return reaches the app, then hand both to <see cref="CompleteSignInAsync"/>.
+        /// </summary>
+        /// <param name="clientId">The <c>client_id</c> keel's registry lists the tool under (<c>GET /api/v2/auth/clients</c>).</param>
+        /// <param name="redirectUri">
+        /// The registered return address, the exact string. A web tool's is <c>https:</c>. A tool registered as native
+        /// may pass a loopback address with the port it bound for this sign-in (<c>http://127.0.0.1:&lt;port&gt;/&lt;path&gt;</c>
+        /// or <c>http://[::1]:&lt;port&gt;/&lt;path&gt;</c>, registered without the port), or its own scheme as registered
+        /// (<c>obsidian://onlyworlds-signin</c>). <c>localhost</c>, a loopback without its port, userinfo, a query, a
+        /// fragment, a dot segment and the reserved schemes are refused.
+        /// </param>
+        /// <exception cref="ArgumentException">No client id, or a return address keel cannot match, saying why and what it takes.</exception>
+        /// <remarks>
+        /// The URL carries <c>client_id</c>, <c>redirect_uri</c>, <c>state</c>, <c>code_challenge</c> (the verifier's
+        /// S256, <see cref="OWSignIn.PkceChallenge"/>) and <c>code_challenge_method=S256</c>, in that order, written as a
+        /// browser's <c>URLSearchParams</c> writes them; the verifier never goes in it. The site is <see cref="BaseUrl"/>'s
+        /// origin. The TypeScript SDK also keeps the record in a storage and sends the browser itself; here the answer is the
+        /// record, and opening the URL is the caller's (<c>Application.OpenURL</c>). Mirrors the TypeScript SDK's
+        /// <c>signInWithOnlyWorlds</c> (4.46.0).
+        /// </remarks>
+        public OWSignInBegun SignInWithOnlyWorlds(string clientId, string redirectUri)
+        {
+            if (string.IsNullOrEmpty(clientId))
+                throw new ArgumentException("SignInWithOnlyWorlds needs clientId, the tool's id in keel's registry.", nameof(clientId));
+
+            var why = OWSignIn.RedirectProblem(redirectUri);
+            if (why != null)
+            {
+                throw new ArgumentException(
+                    $"SignInWithOnlyWorlds: redirectUri {why}. Pass the registered return address as a string: "
+                    + "https://<host>/<path>, or for a native app http://127.0.0.1:<port>/<path> or http://[::1]:<port>/<path> "
+                    + "with the port it bound, or its own scheme, <scheme>://<path>", nameof(redirectUri));
+            }
+
+            var state = OWSignIn.RandomToken(32);
+            var verifier = OWSignIn.RandomToken(32); // 43 characters of base64url: within PKCE's 43 to 128
+
+            var url = new Uri(BaseUrl).GetLeftPart(UriPartial.Authority) + "/signin/authorize"
+                + "?client_id=" + OWSignIn.FormEncode(clientId)
+                + "&redirect_uri=" + OWSignIn.FormEncode(redirectUri)
+                + "&state=" + OWSignIn.FormEncode(state)
+                + "&code_challenge=" + OWSignIn.FormEncode(OWSignIn.PkceChallenge(verifier))
+                + "&code_challenge_method=S256";
+
+            return new OWSignInBegun
+            {
+                Url = url, State = state, ClientId = clientId, RedirectUri = redirectUri, Verifier = verifier, Pending = true,
+            };
+        }
+
+        /// <summary>
+        /// Finish Sign in with OnlyWorlds: check the return's <c>state</c> against the pending sign-in and its page against
+        /// the registered return address (scheme, host with port, and path, each exactly), take <c>code</c> out of it, and
+        /// trade the code once at POST /auth/token with the PKCE verifier and no credential. Answers the <c>ow_a_</c> token
+        /// with its id, its expiry and the account.
+        /// </summary>
+        /// <param name="pending">The sign-in <see cref="SignInWithOnlyWorlds"/> began.</param>
+        /// <param name="url">The address the return reached: what the app's loopback server or scheme handler received.</param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="pending"/> is null; nothing was sent.</exception>
+        /// <exception cref="ArgumentException"><paramref name="url"/> is null or empty; nothing was sent.</exception>
+        /// <exception cref="OWSignInError">
+        /// <c>state_mismatch</c> (no sign-in pending, another state or none, or the wrong page; nothing sent),
+        /// <c>invalid_grant</c> (keel's 400: the code used, expired, or another tool's), <c>rate_limited</c>,
+        /// <c>offline</c>, <c>failed</c>.
+        /// </exception>
+        /// <remarks>
+        /// The sign-in is spent (<see cref="OWSignInBegun.Pending"/> false) once a return carries its state, on success and
+        /// on refusal; a return with another state leaves it pending, since anyone can open a custom scheme's address and a
+        /// forged one must not cancel a sign-in in flight. The body is <c>{grant_type, code, code_verifier, client_id,
+        /// redirect_uri}</c>, with <c>Content-Type</c> and nothing else of this client's, on any client. The SDK keeps no
+        /// token: the caller does. Mirrors the TypeScript SDK's <c>completeSignIn</c> (4.46.0; <c>expiresAt</c> from
+        /// 4.94.0), whose storage and address bar are the caller's here.
+        /// </remarks>
+        public Task<OWSignInResult> CompleteSignInAsync(OWSignInBegun pending, string url, CancellationToken ct = default)
+        {
+            if (pending == null) throw new ArgumentNullException(nameof(pending), "CompleteSignInAsync: the pending sign-in. Nothing was sent.");
+            if (string.IsNullOrEmpty(url))
+                throw new ArgumentException("CompleteSignInAsync: the address the return reached. Nothing was sent.", nameof(url));
+
+            if (!pending.Pending || string.IsNullOrEmpty(pending.State) || string.IsNullOrEmpty(pending.Verifier)
+                || string.IsNullOrEmpty(pending.RedirectUri) || string.IsNullOrEmpty(pending.ClientId))
+            {
+                throw new OWSignInError(OWSignInReason.StateMismatch,
+                    "No sign-in is pending for this tool here: start again from the sign-in button.");
+            }
+
+            // A return that does not carry this sign-in's state leaves it pending. Once the state matches, the sign-in that
+            // was started here has come back, and it is spent whatever happens next.
+            var code = OWSignIn.QueryValue(url, "code");
+            if (OWSignIn.QueryValue(url, "state") != pending.State)
+            {
+                throw new OWSignInError(OWSignInReason.StateMismatch,
+                    "This page was not reached from the sign-in that was started here: start again.");
+            }
+
+            pending.Pending = false;
+            if (string.IsNullOrEmpty(code))
+            {
+                throw new OWSignInError(OWSignInReason.StateMismatch,
+                    "This page was not reached from the sign-in that was started here: start again.");
+            }
+
+            if (!OWSignIn.SamePage(url, pending.RedirectUri))
+            {
+                throw new OWSignInError(OWSignInReason.StateMismatch,
+                    "This page is not the return address the sign-in was started with.");
+            }
+
+            return CompleteSignInCoreAsync(pending, code, ct);
+        }
+
+        private async Task<OWSignInResult> CompleteSignInCoreAsync(OWSignInBegun pending, string code, CancellationToken ct)
+        {
+            var body = new JObject
+            {
+                ["grant_type"] = "authorization_code",
+                ["code"] = code,
+                ["code_verifier"] = pending.Verifier,
+                ["client_id"] = pending.ClientId,
+                ["redirect_uri"] = pending.RedirectUri,
+            };
+
+            var res = await SendSignInAsync(new OWRequest
+            {
+                Method = "POST",
+                Url = BaseUrl + "/auth/token",
+                Headers = new Dictionary<string, string> { ["Content-Type"] = "application/json" },
+                Body = body.ToString(Newtonsoft.Json.Formatting.None),
+            }, "OnlyWorlds could not be reached: signing in needs a connection.", ct).ConfigureAwait(false);
+
+            var retryAfter = OWApiError.ParseRetryAfter(ReadHeader(res, "Retry-After"), DateTimeOffset.UtcNow);
+            var answer = JsonObjectOrNull(res.Body);
+            var err = answer?["error"] as JObject;
+            var errCode = err?["code"]?.Type == JTokenType.String ? (string)err["code"] : null;
+            var said = err?["message"]?.Type == JTokenType.String ? (string)err["message"] : null;
+
+            // keel's words, unless they hold the code or the verifier.
+            string Words(string fallback)
+                => said == null || said.Contains(code) || said.Contains(pending.Verifier) ? fallback : said;
+
+            if (errCode != null && (errCode.Contains(code) || errCode.Contains(pending.Verifier))) errCode = null;
+
+            if (res.Status == 429)
+            {
+                throw new OWSignInError(OWSignInReason.RateLimited, Words("Too many sign-in attempts. Wait a while, then try again."),
+                    429, errCode, retryAfter);
+            }
+
+            if (res.Status == 400 && errCode == "invalid_grant")
+            {
+                throw new OWSignInError(OWSignInReason.InvalidGrant,
+                    Words("The sign-in code could not be exchanged: it was used, expired, or made for another tool. Start again."),
+                    400, errCode);
+            }
+
+            var token = answer?["token"] is JValue t && t.Type == JTokenType.String && (string)t != "" ? (string)t : null;
+            var account = answer?["account"] as JObject;
+            if (!res.IsSuccess || token == null || account?["id"]?.Type != JTokenType.String)
+            {
+                throw new OWSignInError(OWSignInReason.Failed,
+                    token != null && said != null && said.Contains(token) ? $"Signing in did not work ({res.Status})." : Words($"Signing in did not work ({res.Status})."),
+                    res.Status, errCode);
+            }
+
+            string NonEmpty(JToken v) => v?.Type == JTokenType.String && (string)v != "" ? (string)v : null;
+
+            return new OWSignInResult
+            {
+                Token = token,
+                TokenId = NonEmpty(answer["token_id"]),
+                ExpiresAt = NonEmpty(answer["expires_at"]),
+                TokenType = "bearer",
+                Account = new OWSignInAccount
+                {
+                    Id = (string)account["id"],
+                    Username = account["username"]?.Type == JTokenType.String ? (string)account["username"] : "",
+                },
+            };
+        }
+
+        /// <summary>
+        /// One request of a sign-in, sent as built: none of <see cref="RequestWithResponseAsync{T}"/>'s rules, no key, PIN or
+        /// Bearer. No answer is an <see cref="OWSignInError"/> <c>offline</c> with <paramref name="offline"/> as its words
+        /// and no inner exception: a transport's failure can carry the request, and the request holds the secret.
+        /// </summary>
+        private async Task<OWResponse> SendSignInAsync(OWRequest request, string offline, CancellationToken ct)
+        {
+            try
+            {
+                return await _transport.SendAsync(request, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                throw new OWSignInError(OWSignInReason.Offline, offline);
+            }
+        }
+
+        /// <summary>A body as a JSON object, or null when it is empty, not JSON or not an object (allauth can answer with an HTML page).</summary>
+        private static JObject JsonObjectOrNull(string body)
+        {
+            if (string.IsNullOrWhiteSpace(body)) return null;
+            try
+            {
+                return OWJson.ParseObject(body);
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
         // -- Ask your world -------------------------------------------------------
         //
         // keel's AI proxy, metered per account: one token rating a day that ask, sort and the Council spend from
