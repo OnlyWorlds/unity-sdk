@@ -108,8 +108,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("world lenses", "GET", false, true, c => c.WorldLensesAsync("w1", resolve: true)),
             ("members", "GET", false, true, c => c.GetMembersAsync()),
             ("hidden list", "GET", false, false, c => c.ListHiddenAsync()),
-            ("draught", "GET", false, false, c => c.DraughtAsync("c1")),
-            ("draught (policy)", "GET", false, false, c => c.DraughtAsync("c1", new OWDraughtPolicy { Components = new[] { "self" }, Compact = true })),
+            ("draught", "GET", false, true, c => c.DraughtAsync("c1")),
+            ("draught (policy)", "GET", false, true, c => c.DraughtAsync("c1", new OWDraughtPolicy { Components = new[] { "self" }, Compact = true })),
             // the one read keel checks a PIN on
             ("me", "GET", true, false, c => c.GetMeAsync()),
             // writes, each verb
@@ -308,8 +308,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public async Task ApiPin_AccountToken_Never_EvenWithAPinConfigured_BearerAndNoApiKey()
         {
             var all = await PinSweep("ow_a_acct", "1234", "w1");
-            Assert.AreEqual(26, all.Count,
-                "the health pulse, the world reads (the escape hatch's among them), the two lens routes, the roster, the "
+            Assert.AreEqual(28, all.Count,
+                "the health pulse, the world reads (the draught's two and the escape hatch's among them), the two lens routes, the roster, the "
                 + "account routes, the AI routes and the two sign-ins sent");
             foreach (var (name, _, sent) in all)
             {

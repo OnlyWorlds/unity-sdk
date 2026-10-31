@@ -26,9 +26,9 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// A world's id, for a client that holds an account token (<c>ow_a_</c>) or no key. <see cref="OWClient.ListAsync{T}"/>,
-        /// <see cref="OWClient.ListAllAsync{T}"/> (every page), <see cref="OWClient.GetAsync{T}"/> and
-        /// <see cref="OWClient.GetWorldAsync"/> then read that world, sending <c>world=&lt;id&gt;</c>: an account token
-        /// reads it as that account's own access there (the owner the whole world, a member its member key's view,
+        /// <see cref="OWClient.ListAllAsync{T}"/> (every page), <see cref="OWClient.GetAsync{T}"/>,
+        /// <see cref="OWClient.GetWorldAsync"/> and <see cref="OWClient.DraughtAsync"/> then read that world, sending
+        /// <c>world=&lt;id&gt;</c>: an account token reads it as that account's own access there (the owner the whole world, a member its member key's view,
         /// anyone else the public view, and a world not open to the public is a 404), and no key reads it as the public
         /// does. Null by default.
         /// </summary>
@@ -184,7 +184,7 @@ namespace OnlyWorlds.Sdk
         public const string DefaultClientName = "unity-sdk";
 
         /// <summary>The reads that send <c>world=&lt;id&gt;</c>, as the refusals name them.</summary>
-        private const string WorldReads = "ListAsync, ListAllAsync, GetAsync and GetWorldAsync";
+        private const string WorldReads = "ListAsync, ListAllAsync, GetAsync, GetWorldAsync and DraughtAsync";
 
         public string BaseUrl { get; }
 
@@ -996,10 +996,11 @@ namespace OnlyWorlds.Sdk
         /// <para>
         /// The policy's keys go in the TypeScript SDK's order (<c>components</c>, <c>mode</c>, <c>as_of</c>,
         /// <c>undated</c>, <c>since</c>, <c>budget</c>, <c>depth</c>, <c>compact</c>, <c>lens</c>). A read: the key goes
-        /// without its PIN (a legacy key's goes with it), and with no write header. An account token or a keyless client
-        /// is refused, and nothing is sent, as the TypeScript SDK refuses them. Served <c>Cache-Control: private,
-        /// no-store</c>. Mirrors the TypeScript SDK's <c>draught</c> (4.47.0; <c>compact</c> from 4.69.0, <c>lens</c>
-        /// from 4.92.0).
+        /// without its PIN (a legacy key's goes with it), and with no write header. A world read: with
+        /// <see cref="World"/> set, an account token reads the draught as the account's own access there (the Bearer and
+        /// <c>world=&lt;id&gt;</c>), and no key reads it as the public reads the world (<c>world=&lt;id&gt;</c> alone).
+        /// Served <c>Cache-Control: private, no-store</c>. Mirrors the TypeScript SDK's <c>draught</c> (4.47.0;
+        /// <c>compact</c> from 4.69.0, <c>lens</c> from 4.92.0, a world read from 4.121.1).
         /// </para>
         /// </remarks>
         public Task<JObject> DraughtAsync(string characterId, OWDraughtPolicy policy = default, CancellationToken ct = default)
@@ -1040,7 +1041,7 @@ namespace OnlyWorlds.Sdk
             }
 
             return RequestAsync<JObject>("GET", $"/character/{Uri.EscapeDataString(characterId)}/context",
-                query: string.Join("&", query), ct: ct);
+                query: string.Join("&", query), ct: ct, worldRead: true);
         }
 
         // -- Images --------------------------------------------------------------

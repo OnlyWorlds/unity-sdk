@@ -27,9 +27,8 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   added). `OWDraughtPolicy` carries the policy's nine keys, each sent only when given, in the TypeScript SDK's order
   under keel's names: `Components` (joined by commas), `Mode`, `AsOf` (`as_of`), `Undated`, `Since`, `Budget`,
   `Depth`, `Compact` (false sent as given) and `Lens`. A read: the key without its PIN, no write header; the
-  Character's id is escaped. No Character, or a component that is empty or holds a comma, is refused before sending,
-  and so are an account token and a keyless client, as the TypeScript SDK refuses them (keel's document also declares
-  `world` there; neither SDK sends it). Mirrors the TypeScript SDK's `draught()` (4.47.0; `compact` from 4.69.0,
+  Character's id is escaped. No Character, or a component that is empty or holds a comma, is refused before sending.
+  A world read, as the list and get reads are (see Changed). Mirrors the TypeScript SDK's `draught()` (4.47.0; `compact` from 4.69.0,
   `lens` from 4.92.0). The 0.24.0 "Not added" line about the draught's `lens` no longer holds: this is that client.
 - The escape hatch: `OWClient.RequestAsync(method, path, options)`, any route of keel's on the client's own rules,
   answering the body as served (a `JToken`, null for a 204 or an empty body). `OWRequestOptions` carries the `Query`
@@ -72,8 +71,8 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   client); every other call is refused before sending with an `InvalidOperationException` naming the request and
   what works without a key, in the TypeScript SDK's words: "GET /location/ needs a key, and this client holds none:
   without one, only HealthAsync, SignInWithPasswordAsync, SignInWithOnlyWorlds and CompleteSignInAsync work (and
-  OWJoin's PreviewAsync and RedeemAsync, which take no client), and ListAsync, ListAllAsync, GetAsync and
-  GetWorldAsync with World set. Nothing was sent." A keyless client with `World` set refuses with the same words, and
+  OWJoin's PreviewAsync and RedeemAsync, which take no client), and ListAsync, ListAllAsync, GetAsync, GetWorldAsync
+  and DraughtAsync with World set. Nothing was sent." A keyless client with `World` set refuses with the same words, and
   a transport is still required. Code that relied on the constructor to catch an empty key (an Editor settings
   field, say) now gets that refusal from its first call instead.
 - `OWClient.ListAllAsync` stops when a page hands back the cursor it was sent (the caller's starting cursor
@@ -81,6 +80,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   stopped rather than read the same page again"), where it read the same page forever. The elements read before are
   not returned. A last page (`has_more` false) that repeats its cursor still ends the walk as before. Mirrors the
   TypeScript SDK's `listAll` guard (4.88.0, its `OwNetworkError`).
+- `OWClient.DraughtAsync` reads with `World` set, as `ListAsync`, `ListAllAsync`, `GetAsync` and `GetWorldAsync` do:
+  an account token sends its Bearer and `world=<id>` (the account's own access there), and no key sends `world=<id>`
+  alone (the public's read of a world open to it), where both were refused before sending. keel's document opens the
+  draught to both and declares `world` there. The refusals that name the world reads now name `DraughtAsync` too
+  ("... ListAsync, ListAllAsync, GetAsync, GetWorldAsync and DraughtAsync ..."). A new test drives every call again
+  from an account-token client and a keyless one and fails a read whose operation declares `world` that either never
+  sends (the roster, `GetMembersAsync`, is the account token's alone, as the document's security has it). Mirrors the
+  TypeScript SDK's `draught` (4.121.1).
 
 ## [0.27.0] - 2026-10-31
 
