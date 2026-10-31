@@ -5,7 +5,7 @@
     "X-Session-Token",
     "Authorization"
   ],
-  "document_sha256": "c8ec76f0ea86a5b0f8a18b081308fe17e07ca47db5929e121cc18bd8900a3fc4",
+  "document_sha256": "25d8b44bec5e10a72c5b97a82b2d5963ff481fa3aa02292f7e6d65d5eb56e3e7",
   "error_codes": {
     "already_member": 409,
     "already_reported": 409,
@@ -87,7 +87,7 @@
     "write_failed": 502,
     "wrong_audience": 401
   },
-  "fetched": "2026-10-31T03:41+01:00",
+  "fetched": "2026-10-31T04:18+01:00",
   "openapi_version": "2.0",
   "paths": {
     "/api/v2/ability": {
@@ -6622,6 +6622,7 @@
           "reading_aids.charter",
           "reading_aids.domains",
           "reading_aids.guide",
+          "reading_aids.strand",
           "role",
           "seat",
           "seat.agent_name",
@@ -9947,6 +9948,7 @@
           "reading_aids.charter",
           "reading_aids.domains",
           "reading_aids.guide",
+          "reading_aids.strand",
           "role",
           "scope",
           "world",
@@ -9981,6 +9983,7 @@
           "reading_aids.charter",
           "reading_aids.domains",
           "reading_aids.guide",
+          "reading_aids.strand",
           "role",
           "scope",
           "world",
@@ -10017,6 +10020,7 @@
           "reading_aids.charter",
           "reading_aids.domains",
           "reading_aids.guide",
+          "reading_aids.strand",
           "role",
           "scope",
           "world",

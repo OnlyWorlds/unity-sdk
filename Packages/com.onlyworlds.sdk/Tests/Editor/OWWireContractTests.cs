@@ -643,12 +643,18 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [TestCase("/api/v2/join", "POST")]
         public void TheReadingAids_AreThePacketOWReadingAidsReads(string path, string method)
         {
-            // reading_aids beside front_door: OWReadingAids.Of reads {charter, guide, domains}, the packet ToJson writes.
+            // reading_aids beside front_door: OWReadingAids.Of reads {charter, guide, domains, strand}, the packet ToJson
+            // writes. keel always serves the strand (serial 100), six null slots for a world with none.
             var served = Wire["paths"][path][method]["response"].Values<string>()
                 .Where(k => k.StartsWith("reading_aids.")).ToList();
             var read = OWReadingAids.Of(new JObject { ["reading_aids"] = new JObject
                 {
                     ["charter"] = null, ["guide"] = null, ["domains"] = new JArray(),
+                    ["strand"] = new JObject
+                    {
+                        ["narrative"] = null, ["event"] = null, ["location"] = null,
+                        ["character"] = null, ["now"] = null, ["same"] = null,
+                    },
                 } }).ToJson().Properties().Select(p => "reading_aids." + p.Name).ToList();
 
             Assert.IsNotEmpty(served, $"{method} {path} serves no reading_aids keys in the fixture");
