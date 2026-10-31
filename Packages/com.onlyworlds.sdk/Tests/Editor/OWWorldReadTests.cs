@@ -292,6 +292,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 ["CreateWorldLinkAsync"] = (Does.Account, c => c.CreateWorldLinkAsync(W, new OWWorldLinkCreate { Reader = "person" })),
                 ["ListWorldLinksAsync"] = (Does.Account, c => c.ListWorldLinksAsync(W)),
                 ["RevokeWorldLinkAsync"] = (Does.Account, c => c.RevokeWorldLinkAsync(W, "l1")),
+                ["CreateSeatAsync"] = (Does.Account, c => c.CreateSeatAsync(W, "Scout")),
+                ["ListSeatsAsync"] = (Does.Account, c => c.ListSeatsAsync(W)),
+                ["RekeySeatAsync"] = (Does.Account, c => c.RekeySeatAsync(W, "s1")),
+                ["RemoveSeatAsync"] = (Does.Account, c => c.RemoveSeatAsync(W, "s1")),
                 ["ChangesAsync"] = (Does.Refused, c => c.ChangesAsync()),
             };
 

@@ -1277,35 +1277,6 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
-        /// A request model as a body of only the members given, in keel's spelling: a member left null is not sent, so
-        /// keel's default holds.
-        /// </summary>
-        private static JObject OnlyGiven(object model)
-            => JObject.FromObject(model, Newtonsoft.Json.JsonSerializer.Create(
-                new Newtonsoft.Json.JsonSerializerSettings { NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore }));
-
-        /// <summary>
-        /// An account route's own refusal: a client whose key is not an account token (<c>ow_a_</c>) is an
-        /// <see cref="InvalidOperationException"/> naming the call, and nothing is sent.
-        /// </summary>
-        /// <param name="method">The call, as the message names it.</param>
-        /// <param name="hint">A sentence after the key it holds (where such a key goes instead), or null.</param>
-        private void RequireAccountToken(string method, string hint = null)
-        {
-            if (KeyKind == OWKeyKind.Account) return;
-
-            throw new InvalidOperationException(
-                $"{method} needs an account token (ow_a_); this client holds "
-                + (_keyless ? "none" : $"a {KeyKind.ToString().ToLowerInvariant()} key") + "."
-                + (hint == null ? "" : " " + hint) + " Nothing was sent.");
-        }
-
-        /// <summary>The rows of a <c>{data}</c> answer with no paging; an answer without them is an empty list.</summary>
-        private static List<TRow> RowsOf<TRow>(JObject page)
-            => (page?["data"] as JArray)?.ToObject<List<TRow>>(Newtonsoft.Json.JsonSerializer.Create(OWJson.Settings))
-                ?? new List<TRow>();
-
-        /// <summary>
         /// PATCH /account/worlds/{world_id}/members/{member_id} with <c>lenses</c> alone -- set the lenses a row of the
         /// world starts with: lens ids in order, 0 to 20, repeats dropped by the server; an empty list is a choice too, and
         /// keeps a seat off its Titles' lenses. Null puts the row back to never chosen. Answers the row as served, a
@@ -1350,6 +1321,135 @@ namespace OnlyWorlds.Sdk
         /// <summary>A lens list as the lens routes take it: the ids in order, or <c>null</c> for never chosen.</summary>
         private static JToken LensList(IEnumerable<string> lensIds)
             => lensIds == null ? JValue.CreateNull() : new JArray(lensIds);
+
+        // -- Seats for your own AI (account token) -----------------------------
+
+        /// <summary>
+        /// POST /account/worlds/{world_id}/seats -- a seat for your own AI in a world you own or are a member of: its own
+        /// membership, write key and <c>ow_s_</c> secret, no join link. You answer for it, and its writes are marked as an
+        /// agent's. Returns the seat, its key, its secret and the <c>.env</c> lines, shown in this answer only.
+        /// </summary>
+        /// <param name="worldId">The world. Escaped.</param>
+        /// <param name="name">The AI's own name in the world, 1 to 80 characters. Required.</param>
+        /// <param name="role">
+        /// At most your own (the owner may give any). Null: contributor, or your own role when that is lower.
+        /// </param>
+        /// <param name="character">
+        /// <c>new</c> (a Character of its own), <c>none</c>, or <c>mine</c> (members only: it plays the Character you
+        /// play). Null: <c>new</c>.
+        /// </param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <exception cref="ArgumentException"><paramref name="name"/> is null; nothing was sent.</exception>
+        /// <remarks>
+        /// The body is <c>{name}</c>, with <c>role</c> and <c>character</c> when given. No <c>Idempotency-Key</c>, by keel's
+        /// rule (a replay would have to keep the key): if the answer is lost, <see cref="ListSeatsAsync"/> shows the seat
+        /// without its key, and <see cref="RekeySeatAsync"/> gives it a new one. An account token only, sent as its
+        /// Bearer, never with a PIN or a write header. Mirrors the TypeScript SDK's <c>createSeat</c> (4.28.0).
+        /// </remarks>
+        public Task<OWSeatCreated> CreateSeatAsync(
+            string worldId, string name, string role = null, string character = null, CancellationToken ct = default)
+        {
+            RequireAccountToken(nameof(CreateSeatAsync), "A seat is made by the person who answers for it, signed in.");
+            if (name == null)
+            {
+                throw new ArgumentException(
+                    "CreateSeatAsync: name is required, the AI's own name in the world. Nothing was sent.", nameof(name));
+            }
+
+            var body = new JObject { ["name"] = name };
+            if (role != null) body["role"] = role;
+            if (character != null) body["character"] = character;
+
+            return RequestAsync<OWSeatCreated>("POST", $"/account/worlds/{Uri.EscapeDataString(worldId)}/seats",
+                body: body, ct: ct);
+        }
+
+        /// <summary>
+        /// GET /account/worlds/{world_id}/seats -- the live agent seats you can see, the rows of keel's <c>{data}</c> (no
+        /// paging): your own AI's, or, as the world's owner, every seat. No keys or secrets.
+        /// </summary>
+        /// <param name="worldId">The world. Escaped.</param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <remarks>An account token only, sent as its Bearer. Mirrors the TypeScript SDK's <c>listSeats</c> (4.28.0).</remarks>
+        public async Task<List<OWSeat>> ListSeatsAsync(string worldId, CancellationToken ct = default)
+        {
+            RequireAccountToken(nameof(ListSeatsAsync));
+            var page = await RequestAsync<JObject>("GET", $"/account/worlds/{Uri.EscapeDataString(worldId)}/seats", ct: ct)
+                .ConfigureAwait(false);
+            return RowsOf<OWSeat>(page);
+        }
+
+        /// <summary>
+        /// POST /account/worlds/{world_id}/seats/{seat_id}/key -- a new key and secret for a seat whose AI lost its own: the
+        /// old key and secret stop at once (the old key answers 401 <c>key_revoked</c>); nothing else about the seat
+        /// changes. Answers as <see cref="CreateSeatAsync"/> does, shown in this answer only.
+        /// </summary>
+        /// <param name="worldId">The world. Escaped.</param>
+        /// <param name="seatId">The seat's membership id (<see cref="OWSeat.Id"/>). Escaped.</param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <remarks>
+        /// Its sponsor or the world's owner may. Sent with no body, and no <c>Idempotency-Key</c>, by keel's rule: if this
+        /// answer is lost too, ask for another. An account token only, sent as its Bearer. Mirrors the TypeScript SDK's
+        /// <c>rekeySeat</c> (4.29.0).
+        /// </remarks>
+        public Task<OWSeatCreated> RekeySeatAsync(string worldId, string seatId, CancellationToken ct = default)
+        {
+            RequireAccountToken(nameof(RekeySeatAsync));
+            return RequestAsync<OWSeatCreated>("POST",
+                $"/account/worlds/{Uri.EscapeDataString(worldId)}/seats/{Uri.EscapeDataString(seatId)}/key", ct: ct);
+        }
+
+        /// <summary>
+        /// DELETE /account/worlds/{world_id}/seats/{seat_id} -- remove an agent seat: its key and secret stop at once; a
+        /// Character it made that nobody touched goes with it, any other stays. Answers 204.
+        /// </summary>
+        /// <param name="worldId">The world. Escaped.</param>
+        /// <param name="seatId">The seat's membership id. Escaped.</param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <remarks>
+        /// Its sponsor or the world's owner may; another member's seat is the same 404 as none. An account token only, sent
+        /// as its Bearer. Mirrors the TypeScript SDK's <c>removeSeat</c> (4.28.0).
+        /// </remarks>
+        public Task RemoveSeatAsync(string worldId, string seatId, CancellationToken ct = default)
+        {
+            RequireAccountToken(nameof(RemoveSeatAsync));
+            return RequestAsync<object>("DELETE",
+                $"/account/worlds/{Uri.EscapeDataString(worldId)}/seats/{Uri.EscapeDataString(seatId)}",
+                allowEmpty: true, ct: ct);
+        }
+
+        /// <summary>
+        /// A request model as a body of only the members given, in keel's spelling: a member left null is not sent, so
+        /// keel's default holds.
+        /// </summary>
+        private static JObject OnlyGiven(object model)
+            => JObject.FromObject(model, Newtonsoft.Json.JsonSerializer.Create(
+                new Newtonsoft.Json.JsonSerializerSettings { NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore }));
+
+        /// <summary>
+        /// An account route's own refusal: a client whose key is not an account token (<c>ow_a_</c>) is an
+        /// <see cref="InvalidOperationException"/> naming the call, and nothing is sent.
+        /// </summary>
+        /// <param name="method">The call, as the message names it.</param>
+        /// <param name="hint">A sentence after the key it holds (where such a key goes instead), or null.</param>
+        private void RequireAccountToken(string method, string hint = null)
+        {
+            if (KeyKind == OWKeyKind.Account) return;
+
+            throw new InvalidOperationException(
+                $"{method} needs an account token (ow_a_); this client holds "
+                + (_keyless ? "none" : $"a {KeyKind.ToString().ToLowerInvariant()} key") + "."
+                + (hint == null ? "" : " " + hint) + " Nothing was sent.");
+        }
+
+        /// <summary>The rows of a <c>{data}</c> answer with no paging; an answer without them is an empty list.</summary>
+        private static List<TRow> RowsOf<TRow>(JObject page)
+            => (page?["data"] as JArray)?.ToObject<List<TRow>>(Newtonsoft.Json.JsonSerializer.Create(OWJson.Settings))
+                ?? new List<TRow>();
 
         // -- Sync -------------------------------------------------------------
 

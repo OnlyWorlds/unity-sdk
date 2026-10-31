@@ -128,6 +128,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("create world link", "POST", true, true, c => c.CreateWorldLinkAsync("w1", new OWWorldLinkCreate { Reader = "person" })),
             ("world links", "GET", false, true, c => c.ListWorldLinksAsync("w1")),
             ("revoke world link", "DELETE", true, true, c => c.RevokeWorldLinkAsync("w1", "l1")),
+            ("create seat", "POST", true, true, c => c.CreateSeatAsync("w1", "Scout")),
+            ("seats", "GET", false, true, c => c.ListSeatsAsync("w1")),
+            ("rekey seat", "POST", true, true, c => c.RekeySeatAsync("w1", "s1")),
+            ("remove seat", "DELETE", true, true, c => c.RemoveSeatAsync("w1", "s1")),
         };
 
         /// <summary>The calls only an account token sends: on any other key each is refused, and nothing is sent.</summary>
@@ -135,6 +139,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             "account worlds", "mint world key", "revoke world key", "accept join",
             "create world link", "world links", "revoke world link",
+            "create seat", "seats", "rekey seat", "remove seat",
         };
 
         /// <summary>
@@ -221,7 +226,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public async Task ApiPin_AccountToken_Never_EvenWithAPinConfigured_BearerAndNoApiKey()
         {
             var all = await PinSweep("ow_a_acct", "1234", "w1");
-            Assert.AreEqual(15, all.Count,
+            Assert.AreEqual(19, all.Count,
                 "the health pulse, the four world reads, the two lens routes, the roster and the account routes sent");
             foreach (var (name, _, sent) in all)
             {

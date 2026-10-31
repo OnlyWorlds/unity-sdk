@@ -80,6 +80,15 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   `RevokeWorldLinkAsync(worldId, linkId)`, a 204. The Bearer alone; any other key, a null link and a link with no
   reader are refused before sending. Mirrors the TypeScript SDK's `createWorldLink()`, `listWorldLinks()` and
   `revokeWorldLink()` (4.24.0).
+- Seats for your own AI, on an account token: `OWClient.CreateSeatAsync(worldId, name, role, character)` (POST
+  /account/worlds/{id}/seats `{name, role?, character?}`, `character` `new`, `none` or `mine`) and
+  `RekeySeatAsync(worldId, seatId)` (POST …/seats/{seat_id}/key, no body: the old key and secret stop at once), each
+  answered as `OWSeatCreated` with the seat, its write key, its `ow_s_` secret and the `.env` lines, shown this
+  once; `ListSeatsAsync(worldId)`, the live seats as `OWSeat` rows with no key (`Name`, `Role`, `Character`,
+  `Sponsor`, `JoinedAt`, `LastActive`); and `RemoveSeatAsync(worldId, seatId)`, a 204. The Bearer alone, no
+  `Idempotency-Key` (keel takes none: a lost answer is mended with a rekey); any other key, and a seat with no name,
+  is refused before sending. Mirrors the TypeScript SDK's `createSeat()`, `listSeats()`, `removeSeat()` (4.28.0) and
+  `rekeySeat()` (4.29.0).
 
 ### Changed
 

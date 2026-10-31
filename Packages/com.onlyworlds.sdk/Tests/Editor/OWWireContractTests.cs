@@ -185,6 +185,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             await account.ListWorldLinksAsync("w1");
             t.ResponseBody = "{}";
             await account.RevokeWorldLinkAsync("w1", "l1");
+            // A seat for one's own AI, every option given; its list, a new key, its removal.
+            await account.CreateSeatAsync("w1", "Scout", role: "contributor", character: "mine");
+            t.ResponseBody = @"{""data"":[]}";
+            await account.ListSeatsAsync("w1");
+            t.ResponseBody = "{}";
+            await account.RekeySeatAsync("w1", "s1");
+            await account.RemoveSeatAsync("w1", "s1");
 
             // The lens routes on an account token: its own list in the world World names (world=), the world's lenses by
             // the path's world, and a row's list (PATCH with lenses alone).
@@ -417,6 +424,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.That(checkedOps, Does.Contain("POST /api/v2/account/worlds"));
             Assert.That(checkedOps, Does.Contain("POST /api/v2/account/join"));
             Assert.That(checkedOps, Does.Contain("POST /api/v2/account/worlds/w1/links"));
+            Assert.That(checkedOps, Does.Contain("POST /api/v2/account/worlds/w1/seats"));
             Assert.That(checkedOps, Does.Contain("PUT /api/v2/me/lenses"));
             Assert.That(checkedOps, Does.Contain("PUT /api/v2/me/character"));
             Assert.That(checkedOps, Does.Contain("PATCH /api/v2/account/worlds/w1/members/owner"));
@@ -467,6 +475,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [TestCase(typeof(OWAccountWorldCreated), "/api/v2/account/worlds", "POST")]
         [TestCase(typeof(OWJoinedMembership), "/api/v2/account/join", "POST")]
         [TestCase(typeof(OWWorldLinkCreated), "/api/v2/account/worlds/{world_id}/links", "POST")]
+        [TestCase(typeof(OWSeatCreated), "/api/v2/account/worlds/{world_id}/seats", "POST")]
+        [TestCase(typeof(OWSeatCreated), "/api/v2/account/worlds/{world_id}/seats/{seat_id}/key", "POST")]
         public void EveryKeyAModelReads_IsOneKeelServes(Type model, string path, string method)
         {
             var op = Wire["paths"]?[path]?[method] as JObject;
@@ -487,9 +497,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
         [TestCase(typeof(OWHiddenRow), "/api/v2/world/hidden")]
         [TestCase(typeof(OWWorldLink), "/api/v2/account/worlds/{world_id}/links")]
+        [TestCase(typeof(OWSeat), "/api/v2/account/worlds/{world_id}/seats")]
         public void EveryKeyAListRowReads_IsOneTheListServes_AndEveryOneItServesIsRead(Type row, string path)
         {
-            // ListHiddenAsync and ListWorldLinksAsync read the rows of { data }, so the row's keys are checked one level down.
+            // ListHiddenAsync, ListWorldLinksAsync and ListSeatsAsync read the rows of { data }, so the row's keys are
+            // checked one level down.
             var served = Wire["paths"][path]["GET"]["response"].Values<string>().ToList();
             var mapped = MappedKeys(row, false).Select(k => "data[]." + k).ToList();
 
@@ -623,7 +635,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             // An empty recording would pass the checks above with nothing checked.
             var calls = await RecordEveryCall();
-            Assert.AreEqual(60, calls.Count);
+            Assert.AreEqual(64, calls.Count);
 
             // The lens routes are on the wire here, so the checks above saw them.
             Assert.That(calls.Any(c => c.Method == "PUT" && new Uri(c.Url).AbsolutePath.EndsWith("/me/lenses")), "PUT /me/lenses is recorded");

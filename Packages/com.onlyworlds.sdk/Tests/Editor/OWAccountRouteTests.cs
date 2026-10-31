@@ -43,6 +43,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("CreateWorldLinkAsync", c => c.CreateWorldLinkAsync("w1", new OWWorldLinkCreate { Reader = "person" })),
             ("ListWorldLinksAsync", c => c.ListWorldLinksAsync("w1")),
             ("RevokeWorldLinkAsync", c => c.RevokeWorldLinkAsync("w1", "l1")),
+            ("CreateSeatAsync", c => c.CreateSeatAsync("w1", "Scout")),
+            ("ListSeatsAsync", c => c.ListSeatsAsync("w1")),
+            ("RekeySeatAsync", c => c.RekeySeatAsync("w1", "s1")),
+            ("RemoveSeatAsync", c => c.RemoveSeatAsync("w1", "s1")),
         };
 
         // Kills: a world key, a read key, a legacy key or no key reaching an /account route, which keel answers 401; the
@@ -363,6 +367,122 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(Base + "/account/worlds/w%2F1/links/l%202", a.Url, "the path, both ids escaped, no query");
             Assert.IsNull(a.Body);
             CollectionAssert.AreEqual(new[] { "Authorization" }, HeaderNames(a));
+        }
+
+        // -- CreateSeatAsync, ListSeatsAsync, RekeySeatAsync, RemoveSeatAsync -------------------------------
+
+        private const string SeatBody =
+            @"{""world"":{""id"":""w1"",""name"":""Ostvik""},""seat"":{""id"":""s1"",""name"":""Scout"",""role"":""contributor"",""kind"":""agent""},"
+            + @"""character"":""c9"",""key"":""ow_w_seatkeyabcd"",""pin"":""ow_s_seatsecret"","
+            + @"""env"":""OW_API_KEY=ow_w_seatkeyabcd\nOW_API_PIN=ow_s_seatsecret\nOW_WORLD=w1\n""}";
+
+        // The TypeScript SDK's createSeat() (4.28.0): POST /account/worlds/{id}/seats with { name } alone when nothing else
+        // is given, then role and character as given, the Bearer, no PIN, no write header and no Idempotency-Key. Kills:
+        // the wrong verb or path, the world id unescaped, a null role or character sent, either under another key, a
+        // header the document does not list, or the key, secret or .env lines misread.
+        [Test]
+        public async Task CreateSeat_PostsSeats_TheNameAlone_ThenRoleAndCharacter_TheBearer_AndAnswersTheKeyAndSecretOnce()
+        {
+            var t = new FakeTransport { Status = 201, ResponseBody = SeatBody };
+            var c = Make(t);
+            var made = await c.CreateSeatAsync("w/1", "Scout");
+            await c.CreateSeatAsync("w1", "Scout", role: "guest", character: "mine");
+
+            var a = t.Calls[0];
+            Assert.AreEqual("POST", a.Method);
+            Assert.AreEqual(Base + "/account/worlds/w%2F1/seats", a.Url, "the path, the id escaped, no query");
+            Assert.AreEqual(@"{""name"":""Scout""}", a.Body);
+            CollectionAssert.AreEqual(new[] { "Authorization", "Content-Type" }, HeaderNames(a));
+            Assert.AreEqual(@"{""name"":""Scout"",""role"":""guest"",""character"":""mine""}", t.Calls[1].Body);
+
+            Assert.AreEqual(("w1", "Ostvik"), (made.World.Id, made.World.Name));
+            Assert.AreEqual(("s1", "Scout", "contributor", "agent"), (made.Seat.Id, made.Seat.Name, made.Seat.Role, made.Seat.Kind));
+            Assert.AreEqual(("c9", "ow_w_seatkeyabcd", "ow_s_seatsecret"), (made.Character, made.Key, made.Pin));
+            StringAssert.StartsWith("OW_API_KEY=ow_w_seatkeyabcd\n", made.Env);
+        }
+
+        // Kills: a seat with no name (keel's 422) reaching the transport.
+        [Test]
+        public void CreateSeat_NoName_IsRefused_NothingSent()
+        {
+            var t = new FakeTransport();
+            var e = Assert.ThrowsAsync<ArgumentException>(() => Make(t).CreateSeatAsync("w1", null));
+            StringAssert.Contains("name is required", e.Message);
+            StringAssert.Contains("Nothing was sent", e.Message);
+            Assert.IsEmpty(t.Calls);
+        }
+
+        // The TypeScript SDK's listSeats() (4.28.0): GET /account/worlds/{id}/seats, the Bearer alone, the rows of keel's
+        // { data } in its order. Kills: the wrong path, a query or the PIN sent, the rows reordered, a null sponsor or
+        // Character misread, or an answer without data thrown on.
+        [Test]
+        public async Task ListSeats_SendsGetSeats_TheBearerAlone_AndAnswersTheRowsInOrder()
+        {
+            var t = new FakeTransport
+            {
+                ResponseBody = @"{""data"":[{""id"":""s1"",""name"":""Scout"",""role"":""contributor"",""kind"":""agent"",""character"":""c9"","
+                    + @"""sponsor"":""ada"",""joined_at"":""2026-10-30T09:00:00+00:00"",""last_active"":null},"
+                    + @"{""id"":""s2"",""name"":""Tally"",""role"":""guest"",""kind"":""agent"",""character"":null,""sponsor"":null,"
+                    + @"""joined_at"":null,""last_active"":""2026-10-31T00:30:00+00:00""}]}",
+            };
+            var seats = await Make(t).ListSeatsAsync("w1");
+
+            var a = t.Calls.Single();
+            Assert.AreEqual("GET", a.Method);
+            Assert.AreEqual(Base + "/account/worlds/w1/seats", a.Url, "the path, no query");
+            CollectionAssert.AreEqual(new[] { "Authorization" }, HeaderNames(a));
+
+            Assert.AreEqual(2, seats.Count);
+            Assert.AreEqual(("s1", "Scout", "contributor", "agent", "c9", "ada"),
+                (seats[0].Id, seats[0].Name, seats[0].Role, seats[0].Kind, seats[0].Character, seats[0].Sponsor));
+            Assert.AreEqual(("2026-10-30T09:00:00+00:00", (string)null), (seats[0].JoinedAt, seats[0].LastActive));
+            Assert.AreEqual(("s2", (string)null, (string)null, "2026-10-31T00:30:00+00:00"),
+                (seats[1].Id, seats[1].Character, seats[1].Sponsor, seats[1].LastActive));
+
+            t.ResponseBody = "{}";
+            CollectionAssert.IsEmpty(await Make(t).ListSeatsAsync("w1"), "no data: no rows");
+        }
+
+        // The TypeScript SDK's rekeySeat() (4.29.0): POST /account/worlds/{id}/seats/{seat_id}/key with no body, the
+        // Bearer alone, answered as a created seat. Kills: the wrong path (the seat itself, which is the removal's), either
+        // id unescaped, a body or a Content-Type sent (keel's document declares none), or the new key misread.
+        [Test]
+        public async Task RekeySeat_PostsSeatKey_NoBody_TheBearerAlone_AndAnswersTheNewKeyOnce()
+        {
+            var t = new FakeTransport { Status = 201, ResponseBody = SeatBody };
+            var made = await Make(t).RekeySeatAsync("w 1", "s/1");
+
+            var a = t.Calls.Single();
+            Assert.AreEqual("POST", a.Method);
+            Assert.AreEqual(Base + "/account/worlds/w%201/seats/s%2F1/key", a.Url, "the path, both ids escaped, no query");
+            Assert.IsNull(a.Body);
+            CollectionAssert.AreEqual(new[] { "Authorization" }, HeaderNames(a));
+            Assert.AreEqual(("ow_w_seatkeyabcd", "ow_s_seatsecret"), (made.Key, made.Pin));
+        }
+
+        // The TypeScript SDK's removeSeat() (4.28.0): DELETE /account/worlds/{id}/seats/{seat_id}, the Bearer alone, a
+        // 204. Kills: the wrong verb or path, either id unescaped, a body or a write header sent.
+        [Test]
+        public async Task RemoveSeat_SendsDeleteSeatsSeatId_TheBearerAlone_AndTakesThe204()
+        {
+            var t = new FakeTransport { Status = 204, ResponseBody = "" };
+            await Make(t).RemoveSeatAsync("w1", "s 1");
+
+            var a = t.Calls.Single();
+            Assert.AreEqual("DELETE", a.Method);
+            Assert.AreEqual(Base + "/account/worlds/w1/seats/s%201", a.Url, "the path, the ids escaped, no query");
+            Assert.IsNull(a.Body);
+            CollectionAssert.AreEqual(new[] { "Authorization" }, HeaderNames(a));
+        }
+
+        // A key or secret in an answer reaches the caller's model and nothing else: no exception the client builds from a
+        // success carries the body. Kills: a malformed 201 thrown with its body in the message (the key with it).
+        [Test]
+        public void ASecretInAMalformedAnswer_NeverReachesTheExceptionMessage()
+        {
+            var t = new FakeTransport { Status = 201, ResponseBody = @"{""key"":""ow_w_leakme"",""pin"":""ow_s_leakme"",""seat"":[" };
+            var e = Assert.CatchAsync<Exception>(() => Make(t).CreateSeatAsync("w1", "Scout"));
+            StringAssert.DoesNotContain("leakme", e.ToString());
         }
     }
 }
