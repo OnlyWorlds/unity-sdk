@@ -180,8 +180,8 @@ namespace OnlyWorlds.Sdk
         public OWFrontDoor FrontDoor;
 
         /// <summary>
-        /// An agent's: the world's reading aids as the new seat reads them, the Charter, the Guide and the Domains (the
-        /// same packet as <c>GET /me</c>'s, <see cref="OWReadingAids.Of"/>); null for a player or an older keel.
+        /// An agent's: the world's reading aids as the new seat reads them, the Charter, the Guide, the Domains and the
+        /// strand (the same packet as <c>GET /me</c>'s, <see cref="OWReadingAids.Of"/>); null for a player or an older keel.
         /// </summary>
         public OWReadingAids ReadingAids => OWReadingAids.Read(_readingAids);
 

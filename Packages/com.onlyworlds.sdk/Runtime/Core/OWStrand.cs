@@ -57,6 +57,12 @@ namespace OnlyWorlds.Sdk
             Same = now != null && location != null ? now.Id == location.Id : (bool?)null;
         }
 
+        private OWStrand(OWStrandSlot narrative, OWStrandSlot @event, OWStrandSlot location, OWStrandSlot character,
+            OWStrandSlot now, bool? same) : this(narrative, @event, location, character, now)
+        {
+            Same = same;
+        }
+
         /// <summary>The story: the Narrative the mark names.</summary>
         public OWStrandSlot Narrative { get; }
 
@@ -188,6 +194,23 @@ namespace OnlyWorlds.Sdk
             if (token == null || token.Type == JTokenType.Null) return true;
             id = StringOf(token);
             return !string.IsNullOrEmpty(id);
+        }
+
+        /// <summary>
+        /// The six slots as a server serves them (<c>reading_aids.strand</c> on <c>GET /me</c> and an agent's join reply,
+        /// <see cref="OWReadingAids.Strand"/>), read as served, never recomputed: a slot is <c>{id, name}</c> or null (one
+        /// that is not an object with a string id reads empty, a name that is not a string an empty string), and
+        /// <c>same</c> a boolean or null. Null for null.
+        /// </summary>
+        internal static OWStrand Read(JObject served)
+        {
+            if (served == null) return null;
+            OWStrandSlot Served(string slot) => served[slot] is JObject body && StringOf(body["id"]) is string id
+                ? new OWStrandSlot(id, StringOf(body["name"]) ?? string.Empty)
+                : null;
+            var same = served["same"]?.Type == JTokenType.Boolean ? (bool)served["same"] : (bool?)null;
+            return new OWStrand(Served("narrative"), Served("event"), Served("location"), Served("character"), Served("now"),
+                same);
         }
 
         private static JToken Slot(OWStrandSlot slot) => slot?.ToJson() ?? (JToken)JValue.CreateNull();

@@ -117,11 +117,13 @@ namespace OnlyWorlds.Sdk
     /// <summary>A world's reading aids as one reader sees it: the packet a front door shows first, in this order.</summary>
     public sealed class OWReadingAids
     {
-        internal OWReadingAids(OWReadingAidsCharter charter, OWReadingAidsGuide guide, IReadOnlyList<OWReadingAidsDomain> domains)
+        internal OWReadingAids(OWReadingAidsCharter charter, OWReadingAidsGuide guide, IReadOnlyList<OWReadingAidsDomain> domains,
+            OWStrand strand = null)
         {
             Charter = charter;
             Guide = guide;
             Domains = domains;
+            Strand = strand;
         }
 
         /// <summary>The newest marked Charter the reader sees; null when there is none.</summary>
@@ -134,15 +136,30 @@ namespace OnlyWorlds.Sdk
         public IReadOnlyList<OWReadingAidsDomain> Domains { get; }
 
         /// <summary>
-        /// The packet in the profile's words, as the fixture writes it and keel serves it as <c>reading_aids</c>:
-        /// <c>{charter, guide, domains}</c>, an absent aid null and no Domains an empty list.
+        /// The world's strand as the key reads it, fourth at the door (the strand profile's rule 2, serial 100): keel serves
+        /// it as <c>reading_aids.strand</c>, six null slots (an empty <see cref="OWStrand"/>, <see cref="OWStrand.IsEmpty"/>)
+        /// when the world has none or its story is out of the key's view. Null when the packet carries no <c>strand</c>
+        /// (a keel from before serial 100) and from <see cref="OWCharter.CharterOf"/>, which reads the three aids alone;
+        /// <see cref="OWStrand.Of"/> reads the strand from a world snapshot.
         /// </summary>
-        public JObject ToJson() => new JObject
+        public OWStrand Strand { get; }
+
+        /// <summary>
+        /// The packet in the profile's words, as the fixture writes it and keel serves it as <c>reading_aids</c>:
+        /// <c>{charter, guide, domains, strand}</c>, an absent aid null and no Domains an empty list; <c>strand</c> only
+        /// when <see cref="Strand"/> was read.
+        /// </summary>
+        public JObject ToJson()
         {
-            ["charter"] = Charter?.ToJson() ?? (JToken)JValue.CreateNull(),
-            ["guide"] = Guide?.ToJson() ?? (JToken)JValue.CreateNull(),
-            ["domains"] = new JArray(Domains.Select(d => d.ToJson())),
-        };
+            var json = new JObject
+            {
+                ["charter"] = Charter?.ToJson() ?? (JToken)JValue.CreateNull(),
+                ["guide"] = Guide?.ToJson() ?? (JToken)JValue.CreateNull(),
+                ["domains"] = new JArray(Domains.Select(d => d.ToJson())),
+            };
+            if (Strand != null) json["strand"] = Strand.ToJson();
+            return json;
+        }
 
         /// <summary>
         /// The packet keel serves as <c>reading_aids</c> beside <c>front_door</c> in a <c>GET /me</c> answer
@@ -171,7 +188,7 @@ namespace OnlyWorlds.Sdk
                     ?? new List<(string, string)>()))
                 .ToList() ?? new List<OWReadingAidsDomain>();
 
-            return new OWReadingAids(charter, guide, domains);
+            return new OWReadingAids(charter, guide, domains, OWStrand.Read(aids["strand"] as JObject));
         }
 
         private static string Text(JObject body, string key) =>

@@ -8,6 +8,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Added
 
+- `OWReadingAids.Strand`: the world's strand on the front door (serial 100), as keel serves it in `reading_aids`
+  beside the Charter, the Guide and the Domains on `GET /me` (`OWReadingAids.Of`) and an agent's join answer
+  (`OWJoined.ReadingAids`): an `OWStrand` read as served, each slot `{id, name}` or null and `Same` as served. Six null
+  slots read as an empty strand (`IsEmpty`), the world having none or its story being out of the key's view; a packet
+  with no `strand` (an older keel) reads `Strand` null. `ToJson` writes the packet back in the charter profile's
+  order, the strand fourth, and only when it was served.
 - `OWStrand.Of(world, elements, reader, open, hiddenIds)`: the strand profile's reader (serial 98), a world's strand
   as one reader sees it through the lens reader's own view: the story the World's `x_strand` names (`Narrative`), one
   of its events (`Event`), that event's place (`Location`), the story's `protagonist` (`Character`), where the hero is
