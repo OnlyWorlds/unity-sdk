@@ -542,7 +542,7 @@ namespace OnlyWorlds.Sdk
 
             if (viewAs != null) query.Add("as=" + Uri.EscapeDataString(viewAs));
 
-            return RequestAsync<OWPage<T>>("GET", $"/{type}/", query: string.Join("&", query), ct: ct, worldRead: true);
+            return RequestAsync<OWPage<T>>("GET", $"/{Uri.EscapeDataString(type)}/", query: string.Join("&", query), ct: ct, worldRead: true);
         }
 
         private static string NullIfEmpty(string s) => string.IsNullOrEmpty(s) ? null : s;
@@ -643,7 +643,7 @@ namespace OnlyWorlds.Sdk
             if (fields != null && fields.Length > 0) query.Add("fields=" + Uri.EscapeDataString(string.Join(",", fields)));
             if (!string.IsNullOrEmpty(viewAs)) query.Add("as=" + Uri.EscapeDataString(viewAs));
 
-            return RequestAsync<T>("GET", $"/{type}/{id}/", query: string.Join("&", query), ct: ct, worldRead: true);
+            return RequestAsync<T>("GET", $"/{Uri.EscapeDataString(type)}/{Uri.EscapeDataString(id)}/", query: string.Join("&", query), ct: ct, worldRead: true);
         }
 
         // -- Element writes ---------------------------------------------------
@@ -686,7 +686,7 @@ namespace OnlyWorlds.Sdk
                 body["id"] = OWId.Mint(idempotencyKey, 0);
             }
 
-            return RequestAsync<T>("POST", $"/{type}/", body: body,
+            return RequestAsync<T>("POST", $"/{Uri.EscapeDataString(type)}/", body: body,
                 idempotencyKey: idempotencyKey, write: true, ct: ct);
         }
 
@@ -718,7 +718,7 @@ namespace OnlyWorlds.Sdk
 
             var raw = JObject.FromObject(element, Newtonsoft.Json.JsonSerializer.Create(OWJson.Settings));
             RefuseKnownOf(raw, "upsert", nameof(element));
-            return RequestAsync<T>("PUT", $"/{type}/{id}/", body: Sanitize(raw, type), write: true, ct: ct, proposable: true);
+            return RequestAsync<T>("PUT", $"/{Uri.EscapeDataString(type)}/{Uri.EscapeDataString(id)}/", body: Sanitize(raw, type), write: true, ct: ct, proposable: true);
         }
 
         /// <summary>
@@ -752,7 +752,7 @@ namespace OnlyWorlds.Sdk
             RefuseNegative(ifMatch);
             var raw = JObject.FromObject(partial, Newtonsoft.Json.JsonSerializer.Create(OWJson.Settings));
             RefuseKnownOf(raw, "patch", nameof(partial));
-            return RequestAsync<T>("PATCH", $"/{type}/{id}/", body: Sanitize(raw, type), write: true, ct: ct, ifMatch: ifMatch, proposable: true);
+            return RequestAsync<T>("PATCH", $"/{Uri.EscapeDataString(type)}/{Uri.EscapeDataString(id)}/", body: Sanitize(raw, type), write: true, ct: ct, ifMatch: ifMatch, proposable: true);
         }
 
         /// <summary>DELETE /{type}/{id}/</summary>
@@ -766,7 +766,7 @@ namespace OnlyWorlds.Sdk
         public Task DeleteAsync(string type, string id, CancellationToken ct = default, long? ifMatch = null)
         {
             RefuseNegative(ifMatch);
-            return RequestAsync<object>("DELETE", $"/{type}/{id}/", allowEmpty: true, write: true, ct: ct, ifMatch: ifMatch);
+            return RequestAsync<object>("DELETE", $"/{Uri.EscapeDataString(type)}/{Uri.EscapeDataString(id)}/", allowEmpty: true, write: true, ct: ct, ifMatch: ifMatch);
         }
 
         /// <summary>An <c>If-Match</c> is an element's <c>change_seq</c>, a whole number; anything else is refused before sending.</summary>
@@ -889,7 +889,7 @@ namespace OnlyWorlds.Sdk
             if (add != null) body["add"] = new JArray(add);
             if (remove != null) body["remove"] = new JArray(remove);
 
-            return RequestAsync<T>("POST", $"/{type}/{id}/links/{Uri.EscapeDataString(field)}",
+            return RequestAsync<T>("POST", $"/{Uri.EscapeDataString(type)}/{Uri.EscapeDataString(id)}/links/{Uri.EscapeDataString(field)}",
                 body: body, write: true, ct: ct, ifMatch: ifMatch, proposable: true);
         }
 
@@ -918,7 +918,7 @@ namespace OnlyWorlds.Sdk
                     "adopt: member must be a membership id or 'owner'. Nothing was sent.", nameof(member));
             }
 
-            return RequestAsync<T>("POST", $"/{type}/{id}/adopt", body: new JObject { ["member"] = member },
+            return RequestAsync<T>("POST", $"/{Uri.EscapeDataString(type)}/{Uri.EscapeDataString(id)}/adopt", body: new JObject { ["member"] = member },
                 write: true, ct: ct);
         }
 
@@ -940,14 +940,14 @@ namespace OnlyWorlds.Sdk
         /// others lose it from their copies as a delete.
         /// </remarks>
         public Task HideAsync(string type, string id, CancellationToken ct = default)
-            => RequestAsync<object>("PUT", $"/{type}/{id}/hidden", body: new JObject(), allowEmpty: true, ct: ct);
+            => RequestAsync<object>("PUT", $"/{Uri.EscapeDataString(type)}/{Uri.EscapeDataString(id)}/hidden", body: new JObject(), allowEmpty: true, ct: ct);
 
         /// <summary>
         /// DELETE /{type}/{id}/hidden -- clear the mark; an element that is not hidden stays as it is. Answers 204. The
         /// same keys as <see cref="HideAsync"/>, with the PIN.
         /// </summary>
         public Task UnhideAsync(string type, string id, CancellationToken ct = default)
-            => RequestAsync<object>("DELETE", $"/{type}/{id}/hidden", allowEmpty: true, ct: ct);
+            => RequestAsync<object>("DELETE", $"/{Uri.EscapeDataString(type)}/{Uri.EscapeDataString(id)}/hidden", allowEmpty: true, ct: ct);
 
         /// <summary>
         /// GET /world/hidden -- every hidden element of the world, newest first, the rows of keel's <c>{data}</c> (no
@@ -1442,7 +1442,7 @@ namespace OnlyWorlds.Sdk
         public Task RemoveFileAsync(string type, string id, string fileId, CancellationToken ct = default)
             => RequestAsync<object>("DELETE", $"{FilesPath(type, id)}/{Uri.EscapeDataString(fileId)}", allowEmpty: true, ct: ct);
 
-        private static string FilesPath(string type, string id) => $"/{type}/{Uri.EscapeDataString(id)}/files";
+        private static string FilesPath(string type, string id) => $"/{Uri.EscapeDataString(type)}/{Uri.EscapeDataString(id)}/files";
 
         /// <summary><see cref="OWFileKinds.Of"/>, or an <see cref="ArgumentException"/> naming the extensions keel takes.</summary>
         private static string RequireFileKind(string name)
@@ -1613,7 +1613,7 @@ namespace OnlyWorlds.Sdk
             var body = new JObject { ["decision"] = decision };
             if (reason != null) body["reason"] = reason;
 
-            var path = $"/{type}/{Uri.EscapeDataString(id)}/review";
+            var path = $"/{Uri.EscapeDataString(type)}/{Uri.EscapeDataString(id)}/review";
             var answer = await RequestAsync<OWReviewed>("POST", path, body: body, named: true, ct: ct).ConfigureAwait(false);
 
             // keel answers exactly one of the two; a 200 without the one this decision settles is never read as settled.
@@ -1628,7 +1628,7 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>The proposals of one element: /{type}/{id}/proposals.</summary>
-        private static string ProposalsPath(string type, string id) => $"/{type}/{Uri.EscapeDataString(id)}/proposals";
+        private static string ProposalsPath(string type, string id) => $"/{Uri.EscapeDataString(type)}/{Uri.EscapeDataString(id)}/proposals";
 
         private string ProposalQuery(OWProposalQuery q)
         {
