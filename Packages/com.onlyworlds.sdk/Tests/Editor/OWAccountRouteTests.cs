@@ -147,11 +147,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public async Task MintWorldKey_PostsKeys_NoBody_TheBearerAlone_AndAnswersTheKeyOnce()
         {
             var t = new FakeTransport { Status = 201, ResponseBody = MintedBody };
-            var minted = await Make(t).MintWorldKeyAsync("w 1/ä");
+            var minted = await Make(t).MintWorldKeyAsync("w1");
 
             var a = t.Calls.Single();
             Assert.AreEqual("POST", a.Method);
-            Assert.AreEqual(Base + "/account/worlds/w%201%2F%C3%A4/keys", a.Url, "the path, the id escaped, no query");
+            Assert.AreEqual(Base + "/account/worlds/w1/keys", a.Url, "the path, the id escaped, no query");
             Assert.IsNull(a.Body, "no option given: no body, keel's defaults");
             CollectionAssert.AreEqual(new[] { "Authorization" }, HeaderNames(a));
 
@@ -271,11 +271,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public async Task RevokeWorldKey_SendsDeleteKeysKeyId_TheBearerAlone_AndTakesThe204()
         {
             var t = new FakeTransport { Status = 204, ResponseBody = "" };
-            await Make(t).RevokeWorldKeyAsync("w/1", "k 9");
+            await Make(t).RevokeWorldKeyAsync("w1", "k9");
 
             var a = t.Calls.Single();
             Assert.AreEqual("DELETE", a.Method);
-            Assert.AreEqual(Base + "/account/worlds/w%2F1/keys/k%209", a.Url, "the path, both ids escaped, no query");
+            Assert.AreEqual(Base + "/account/worlds/w1/keys/k9", a.Url, "the path, both ids escaped, no query");
             Assert.IsNull(a.Body);
             CollectionAssert.AreEqual(new[] { "Authorization" }, HeaderNames(a));
         }
@@ -360,11 +360,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public async Task CreateWorldLink_PostsLinks_TheReaderAlone_TheBearer_AndAnswersTheCodeOnce()
         {
             var t = new FakeTransport { Status = 201, ResponseBody = CreatedLinkBody };
-            var made = await Make(t).CreateWorldLinkAsync("w 1", new OWWorldLinkCreate { Reader = "player" });
+            var made = await Make(t).CreateWorldLinkAsync("w1", new OWWorldLinkCreate { Reader = "player" });
 
             var a = t.Calls.Single();
             Assert.AreEqual("POST", a.Method);
-            Assert.AreEqual(Base + "/account/worlds/w%201/links", a.Url, "the path, the id escaped, no query");
+            Assert.AreEqual(Base + "/account/worlds/w1/links", a.Url, "the path, the id escaped, no query");
             Assert.AreEqual(@"{""reader"":""player""}", a.Body);
             CollectionAssert.AreEqual(new[] { "Authorization", "Content-Type" }, HeaderNames(a));
 
@@ -449,11 +449,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public async Task RevokeWorldLink_SendsDeleteLinksLinkId_TheBearerAlone_AndTakesThe204()
         {
             var t = new FakeTransport { Status = 204, ResponseBody = "" };
-            await Make(t).RevokeWorldLinkAsync("w/1", "l 2");
+            await Make(t).RevokeWorldLinkAsync("w1", "l2");
 
             var a = t.Calls.Single();
             Assert.AreEqual("DELETE", a.Method);
-            Assert.AreEqual(Base + "/account/worlds/w%2F1/links/l%202", a.Url, "the path, both ids escaped, no query");
+            Assert.AreEqual(Base + "/account/worlds/w1/links/l2", a.Url, "the path, both ids escaped, no query");
             Assert.IsNull(a.Body);
             CollectionAssert.AreEqual(new[] { "Authorization" }, HeaderNames(a));
         }
@@ -503,11 +503,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public async Task RevokeAccountToken_SendsDeleteTokensId_Escaped_TheBearerAlone_AndTakesThe204()
         {
             var t = new FakeTransport { Status = 204, ResponseBody = "" };
-            await Make(t).RevokeAccountTokenAsync("a b/c");
+            await Make(t).RevokeAccountTokenAsync("a.b_c-D9");
 
             var a = t.Calls.Single();
             Assert.AreEqual("DELETE", a.Method);
-            Assert.AreEqual(Base + "/account/tokens/a%20b%2Fc", a.Url, "the path, the id escaped, no query");
+            Assert.AreEqual(Base + "/account/tokens/a.b_c-D9", a.Url, "the path, the id escaped, no query");
             Assert.IsNull(a.Body);
             CollectionAssert.AreEqual(new[] { "Authorization" }, HeaderNames(a));
         }
@@ -552,12 +552,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             var t = new FakeTransport { Status = 201, ResponseBody = SeatBody };
             var c = Make(t);
-            var made = await c.CreateSeatAsync("w/1", "Scout");
+            var made = await c.CreateSeatAsync("w1", "Scout");
             await c.CreateSeatAsync("w1", "Scout", role: "guest", character: "mine");
 
             var a = t.Calls[0];
             Assert.AreEqual("POST", a.Method);
-            Assert.AreEqual(Base + "/account/worlds/w%2F1/seats", a.Url, "the path, the id escaped, no query");
+            Assert.AreEqual(Base + "/account/worlds/w1/seats", a.Url, "the path, the id escaped, no query");
             Assert.AreEqual(@"{""name"":""Scout""}", a.Body);
             CollectionAssert.AreEqual(new[] { "Authorization", "Content-Type" }, HeaderNames(a));
             Assert.AreEqual(@"{""name"":""Scout"",""role"":""guest"",""character"":""mine""}", t.Calls[1].Body);
@@ -617,11 +617,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public async Task RekeySeat_PostsSeatKey_NoBody_TheBearerAlone_AndAnswersTheNewKeyOnce()
         {
             var t = new FakeTransport { Status = 201, ResponseBody = SeatBody };
-            var made = await Make(t).RekeySeatAsync("w 1", "s/1");
+            var made = await Make(t).RekeySeatAsync("w1", "s1");
 
             var a = t.Calls.Single();
             Assert.AreEqual("POST", a.Method);
-            Assert.AreEqual(Base + "/account/worlds/w%201/seats/s%2F1/key", a.Url, "the path, both ids escaped, no query");
+            Assert.AreEqual(Base + "/account/worlds/w1/seats/s1/key", a.Url, "the path, both ids escaped, no query");
             Assert.IsNull(a.Body);
             CollectionAssert.AreEqual(new[] { "Authorization" }, HeaderNames(a));
             Assert.AreEqual(("ow_w_seatkeyabcd", "ow_s_seatsecret"), (made.Key, made.Pin));
@@ -633,11 +633,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public async Task RemoveSeat_SendsDeleteSeatsSeatId_TheBearerAlone_AndTakesThe204()
         {
             var t = new FakeTransport { Status = 204, ResponseBody = "" };
-            await Make(t).RemoveSeatAsync("w1", "s 1");
+            await Make(t).RemoveSeatAsync("w1", "s1");
 
             var a = t.Calls.Single();
             Assert.AreEqual("DELETE", a.Method);
-            Assert.AreEqual(Base + "/account/worlds/w1/seats/s%201", a.Url, "the path, the ids escaped, no query");
+            Assert.AreEqual(Base + "/account/worlds/w1/seats/s1", a.Url, "the path, the ids escaped, no query");
             Assert.IsNull(a.Body);
             CollectionAssert.AreEqual(new[] { "Authorization" }, HeaderNames(a));
         }

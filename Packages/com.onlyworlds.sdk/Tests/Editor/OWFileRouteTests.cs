@@ -22,9 +22,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         private const string El = "018f0000-0000-7000-8000-0000000000e1";
         private const string Fid = "018f0000-0000-7000-8000-0000000000f1";
 
-        // An id with characters a path must escape: each route escapes the element's id and the file's.
-        private const string OddId = "a b/c";
-        private const string OddIdEscaped = "a%20b%2Fc";
+        // An id that is one segment but not a uuid (dots, an underscore, a dash, capitals), sent as given. An id that is
+        // not one segment is refused before sending (OWPathSegmentTests).
+        private const string OddId = "a.b_c-D9";
+        private const string OddIdEscaped = "a.b_c-D9";
 
         private const string Row =
             @"{""id"":""" + Fid + @""",""name"":""Map notes.pdf"",""kind"":""pdf"",""size"":5,""label"":""description"","
@@ -237,11 +238,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public async Task FileDownloadLink_GetsDownload_IdsEscaped_TheKeyAlone_AndReadsTheLink()
         {
             var t = new FakeTransport { ResponseBody = Link };
-            var link = await Make(t).FileDownloadLinkAsync("location", OddId, "f 1");
+            var link = await Make(t).FileDownloadLinkAsync("location", OddId, "f.1");
 
             var sent = t.Calls.Single();
             Assert.AreEqual("GET", sent.Method);
-            Assert.AreEqual($"{Base}/location/{OddIdEscaped}/files/f%201/download", sent.Url);
+            Assert.AreEqual($"{Base}/location/{OddIdEscaped}/files/f.1/download", sent.Url);
             CollectionAssert.AreEqual(new[] { "API-Key" }, HeaderNames(sent));
 
             Assert.AreEqual("https://files.example.test/v1/get?t=g1.sig", link.Url);

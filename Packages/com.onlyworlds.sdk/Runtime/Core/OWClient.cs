@@ -466,7 +466,7 @@ namespace OnlyWorlds.Sdk
             if (resolve.HasValue) query.Add("resolve=" + (resolve.Value ? "true" : "false"));
             if (!string.IsNullOrEmpty(readAs)) query.Add("read_as=" + Uri.EscapeDataString(readAs));
 
-            return RequestAsync<JObject>("GET", $"/world/{Uri.EscapeDataString(worldId)}/lenses",
+            return RequestAsync<JObject>("GET", $"/world/{Seg("worldId", worldId)}/lenses",
                 query: string.Join("&", query), ct: ct, accountToken: OWAccountTokenRoute.Path);
         }
 
@@ -542,7 +542,7 @@ namespace OnlyWorlds.Sdk
 
             if (viewAs != null) query.Add("as=" + Uri.EscapeDataString(viewAs));
 
-            return RequestAsync<OWPage<T>>("GET", $"/{Uri.EscapeDataString(type)}/", query: string.Join("&", query), ct: ct, worldRead: true);
+            return RequestAsync<OWPage<T>>("GET", $"/{Seg("type", type)}/", query: string.Join("&", query), ct: ct, worldRead: true);
         }
 
         private static string NullIfEmpty(string s) => string.IsNullOrEmpty(s) ? null : s;
@@ -643,7 +643,7 @@ namespace OnlyWorlds.Sdk
             if (fields != null && fields.Length > 0) query.Add("fields=" + Uri.EscapeDataString(string.Join(",", fields)));
             if (!string.IsNullOrEmpty(viewAs)) query.Add("as=" + Uri.EscapeDataString(viewAs));
 
-            return RequestAsync<T>("GET", $"/{Uri.EscapeDataString(type)}/{Uri.EscapeDataString(id)}/", query: string.Join("&", query), ct: ct, worldRead: true);
+            return RequestAsync<T>("GET", $"/{Seg("type", type)}/{Seg("id", id)}/", query: string.Join("&", query), ct: ct, worldRead: true);
         }
 
         // -- Element writes ---------------------------------------------------
@@ -686,7 +686,7 @@ namespace OnlyWorlds.Sdk
                 body["id"] = OWId.Mint(idempotencyKey, 0);
             }
 
-            return RequestAsync<T>("POST", $"/{Uri.EscapeDataString(type)}/", body: body,
+            return RequestAsync<T>("POST", $"/{Seg("type", type)}/", body: body,
                 idempotencyKey: idempotencyKey, write: true, ct: ct);
         }
 
@@ -718,7 +718,7 @@ namespace OnlyWorlds.Sdk
 
             var raw = JObject.FromObject(element, Newtonsoft.Json.JsonSerializer.Create(OWJson.Settings));
             RefuseKnownOf(raw, "upsert", nameof(element));
-            return RequestAsync<T>("PUT", $"/{Uri.EscapeDataString(type)}/{Uri.EscapeDataString(id)}/", body: Sanitize(raw, type), write: true, ct: ct, proposable: true);
+            return RequestAsync<T>("PUT", $"/{Seg("type", type)}/{Seg("id", id)}/", body: Sanitize(raw, type), write: true, ct: ct, proposable: true);
         }
 
         /// <summary>
@@ -752,7 +752,7 @@ namespace OnlyWorlds.Sdk
             RefuseNegative(ifMatch);
             var raw = JObject.FromObject(partial, Newtonsoft.Json.JsonSerializer.Create(OWJson.Settings));
             RefuseKnownOf(raw, "patch", nameof(partial));
-            return RequestAsync<T>("PATCH", $"/{Uri.EscapeDataString(type)}/{Uri.EscapeDataString(id)}/", body: Sanitize(raw, type), write: true, ct: ct, ifMatch: ifMatch, proposable: true);
+            return RequestAsync<T>("PATCH", $"/{Seg("type", type)}/{Seg("id", id)}/", body: Sanitize(raw, type), write: true, ct: ct, ifMatch: ifMatch, proposable: true);
         }
 
         /// <summary>DELETE /{type}/{id}/</summary>
@@ -766,7 +766,7 @@ namespace OnlyWorlds.Sdk
         public Task DeleteAsync(string type, string id, CancellationToken ct = default, long? ifMatch = null)
         {
             RefuseNegative(ifMatch);
-            return RequestAsync<object>("DELETE", $"/{Uri.EscapeDataString(type)}/{Uri.EscapeDataString(id)}/", allowEmpty: true, write: true, ct: ct, ifMatch: ifMatch);
+            return RequestAsync<object>("DELETE", $"/{Seg("type", type)}/{Seg("id", id)}/", allowEmpty: true, write: true, ct: ct, ifMatch: ifMatch);
         }
 
         /// <summary>An <c>If-Match</c> is an element's <c>change_seq</c>, a whole number; anything else is refused before sending.</summary>
@@ -889,7 +889,7 @@ namespace OnlyWorlds.Sdk
             if (add != null) body["add"] = new JArray(add);
             if (remove != null) body["remove"] = new JArray(remove);
 
-            return RequestAsync<T>("POST", $"/{Uri.EscapeDataString(type)}/{Uri.EscapeDataString(id)}/links/{Uri.EscapeDataString(field)}",
+            return RequestAsync<T>("POST", $"/{Seg("type", type)}/{Seg("id", id)}/links/{Seg("field", field)}",
                 body: body, write: true, ct: ct, ifMatch: ifMatch, proposable: true);
         }
 
@@ -918,7 +918,7 @@ namespace OnlyWorlds.Sdk
                     "adopt: member must be a membership id or 'owner'. Nothing was sent.", nameof(member));
             }
 
-            return RequestAsync<T>("POST", $"/{Uri.EscapeDataString(type)}/{Uri.EscapeDataString(id)}/adopt", body: new JObject { ["member"] = member },
+            return RequestAsync<T>("POST", $"/{Seg("type", type)}/{Seg("id", id)}/adopt", body: new JObject { ["member"] = member },
                 write: true, ct: ct);
         }
 
@@ -940,14 +940,14 @@ namespace OnlyWorlds.Sdk
         /// others lose it from their copies as a delete.
         /// </remarks>
         public Task HideAsync(string type, string id, CancellationToken ct = default)
-            => RequestAsync<object>("PUT", $"/{Uri.EscapeDataString(type)}/{Uri.EscapeDataString(id)}/hidden", body: new JObject(), allowEmpty: true, ct: ct);
+            => RequestAsync<object>("PUT", $"/{Seg("type", type)}/{Seg("id", id)}/hidden", body: new JObject(), allowEmpty: true, ct: ct);
 
         /// <summary>
         /// DELETE /{type}/{id}/hidden -- clear the mark; an element that is not hidden stays as it is. Answers 204. The
         /// same keys as <see cref="HideAsync"/>, with the PIN.
         /// </summary>
         public Task UnhideAsync(string type, string id, CancellationToken ct = default)
-            => RequestAsync<object>("DELETE", $"/{Uri.EscapeDataString(type)}/{Uri.EscapeDataString(id)}/hidden", allowEmpty: true, ct: ct);
+            => RequestAsync<object>("DELETE", $"/{Seg("type", type)}/{Seg("id", id)}/hidden", allowEmpty: true, ct: ct);
 
         /// <summary>
         /// GET /world/hidden -- every hidden element of the world, newest first, the rows of keel's <c>{data}</c> (no
@@ -1040,7 +1040,7 @@ namespace OnlyWorlds.Sdk
                 if (value != null) query.Add(name + "=" + Uri.EscapeDataString(value));
             }
 
-            return RequestAsync<JObject>("GET", $"/character/{Uri.EscapeDataString(characterId)}/context",
+            return RequestAsync<JObject>("GET", $"/character/{Seg("characterId", characterId)}/context",
                 query: string.Join("&", query), ct: ct, worldRead: true);
         }
 
@@ -1424,7 +1424,7 @@ namespace OnlyWorlds.Sdk
         /// a read, with no PIN. Mirrors the TypeScript SDK's <c>fileDownloadLink</c> (4.32.0).
         /// </remarks>
         public Task<OWFileDownload> FileDownloadLinkAsync(string type, string id, string fileId, CancellationToken ct = default)
-            => RequestAsync<OWFileDownload>("GET", $"{FilesPath(type, id)}/{Uri.EscapeDataString(fileId)}/download", ct: ct);
+            => RequestAsync<OWFileDownload>("GET", $"{FilesPath(type, id)}/{Seg("fileId", fileId)}/download", ct: ct);
 
         /// <summary>
         /// DELETE /{type}/{id}/files/{file_id} -- remove a file for real: it leaves the lists and the world's total at once,
@@ -1440,9 +1440,9 @@ namespace OnlyWorlds.Sdk
         /// </exception>
         /// <remarks>With the PIN; no write header. Mirrors the TypeScript SDK's <c>removeFile</c> (4.32.0).</remarks>
         public Task RemoveFileAsync(string type, string id, string fileId, CancellationToken ct = default)
-            => RequestAsync<object>("DELETE", $"{FilesPath(type, id)}/{Uri.EscapeDataString(fileId)}", allowEmpty: true, ct: ct);
+            => RequestAsync<object>("DELETE", $"{FilesPath(type, id)}/{Seg("fileId", fileId)}", allowEmpty: true, ct: ct);
 
-        private static string FilesPath(string type, string id) => $"/{Uri.EscapeDataString(type)}/{Uri.EscapeDataString(id)}/files";
+        private static string FilesPath(string type, string id) => $"/{Seg("type", type)}/{Seg("id", id)}/files";
 
         /// <summary><see cref="OWFileKinds.Of"/>, or an <see cref="ArgumentException"/> naming the extensions keel takes.</summary>
         private static string RequireFileKind(string name)
@@ -1548,7 +1548,7 @@ namespace OnlyWorlds.Sdk
         /// <c>invalid_link</c>). A lapsed proposal may still be accepted; a decided one is a 422.
         /// </remarks>
         public Task<OWProposalAccepted> AcceptProposalAsync(string type, string id, string pid, CancellationToken ct = default)
-            => RequestAsync<OWProposalAccepted>("POST", $"{ProposalsPath(type, id)}/{Uri.EscapeDataString(pid)}/accept",
+            => RequestAsync<OWProposalAccepted>("POST", $"{ProposalsPath(type, id)}/{Seg("pid", pid)}/accept",
                 named: true, ct: ct);
 
         /// <summary>
@@ -1560,7 +1560,7 @@ namespace OnlyWorlds.Sdk
             string type, string id, string pid, string reason = null, CancellationToken ct = default)
         {
             var body = reason != null ? new JObject { ["reason"] = reason } : null;
-            var answer = await RequestAsync<JObject>("POST", $"{ProposalsPath(type, id)}/{Uri.EscapeDataString(pid)}/decline",
+            var answer = await RequestAsync<JObject>("POST", $"{ProposalsPath(type, id)}/{Seg("pid", pid)}/decline",
                 body: body, ct: ct).ConfigureAwait(false);
             return ProposalOf(answer);
         }
@@ -1571,7 +1571,7 @@ namespace OnlyWorlds.Sdk
         /// a 422.
         /// </summary>
         public Task WithdrawProposalAsync(string type, string id, string pid, CancellationToken ct = default)
-            => RequestAsync<object>("DELETE", $"{ProposalsPath(type, id)}/{Uri.EscapeDataString(pid)}", allowEmpty: true, ct: ct);
+            => RequestAsync<object>("DELETE", $"{ProposalsPath(type, id)}/{Seg("pid", pid)}", allowEmpty: true, ct: ct);
 
         /// <summary>
         /// POST /{type}/{id}/review -- settle a new element written as proposed, one carrying <c>x_review_proposed</c>
@@ -1613,7 +1613,7 @@ namespace OnlyWorlds.Sdk
             var body = new JObject { ["decision"] = decision };
             if (reason != null) body["reason"] = reason;
 
-            var path = $"/{Uri.EscapeDataString(type)}/{Uri.EscapeDataString(id)}/review";
+            var path = $"/{Seg("type", type)}/{Seg("id", id)}/review";
             var answer = await RequestAsync<OWReviewed>("POST", path, body: body, named: true, ct: ct).ConfigureAwait(false);
 
             // keel answers exactly one of the two; a 200 without the one this decision settles is never read as settled.
@@ -1628,7 +1628,33 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>The proposals of one element: /{type}/{id}/proposals.</summary>
-        private static string ProposalsPath(string type, string id) => $"/{Uri.EscapeDataString(type)}/{Uri.EscapeDataString(id)}/proposals";
+        private static string ProposalsPath(string type, string id) => $"/{Seg("type", type)}/{Seg("id", id)}/proposals";
+
+        /// <summary>An element type in a path: a lower-case word. <c>\z</c>, as a .NET <c>$</c> also matches before a trailing newline.</summary>
+        private static readonly System.Text.RegularExpressions.Regex PathType =
+            new System.Text.RegularExpressions.Regex(@"\A[a-z][a-z0-9_]*\z", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+        /// <summary>Any other value in a path (an id, a link field): one segment, no slash, no escape, no dot or dash first.</summary>
+        private static readonly System.Text.RegularExpressions.Regex PathValue =
+            new System.Text.RegularExpressions.Regex(@"\A[A-Za-z0-9][A-Za-z0-9_.-]*\z", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+        /// <summary>
+        /// One caller value as one path segment, or an <see cref="ArgumentException"/> before anything is sent. keel
+        /// decodes an escaped slash before it routes (<c>/character/&lt;id&gt;%2Fhidden</c> reaches the hide route), so
+        /// escaping alone cannot keep a value in its segment: a value that is not one segment is refused, named, and what
+        /// passes is escaped too. Every value in a request path goes through here (a test reads the source to hold it).
+        /// Mirrors the TypeScript SDK's <c>seg</c> (4.123.3).
+        /// </summary>
+        private static string Seg(string name, string value)
+        {
+            if (value == null || !(name == "type" ? PathType : PathValue).IsMatch(value))
+            {
+                throw new ArgumentException(
+                    $"{name} {Newtonsoft.Json.JsonConvert.SerializeObject(value)} is not one path segment. Nothing was sent.", name);
+            }
+
+            return Uri.EscapeDataString(value);
+        }
 
         private string ProposalQuery(OWProposalQuery q)
         {
@@ -1802,7 +1828,7 @@ namespace OnlyWorlds.Sdk
             if (!string.IsNullOrEmpty(name)) body["name"] = name;
             if (keep.HasValue) body["keep"] = keep.Value;
 
-            return RequestAsync<OWMintedKey>("POST", $"/account/worlds/{Uri.EscapeDataString(worldId)}/keys",
+            return RequestAsync<OWMintedKey>("POST", $"/account/worlds/{Seg("worldId", worldId)}/keys",
                 body: body.Count > 0 ? body : null, ct: ct);
         }
 
@@ -1852,7 +1878,7 @@ namespace OnlyWorlds.Sdk
         {
             RequireAccountToken(nameof(RevokeWorldKeyAsync));
             return RequestAsync<object>("DELETE",
-                $"/account/worlds/{Uri.EscapeDataString(worldId)}/keys/{Uri.EscapeDataString(keyId)}",
+                $"/account/worlds/{Seg("worldId", worldId)}/keys/{Seg("keyId", keyId)}",
                 allowEmpty: true, ct: ct);
         }
 
@@ -1924,7 +1950,7 @@ namespace OnlyWorlds.Sdk
                     "CreateWorldLinkAsync: Reader is required: person, agent or player. Nothing was sent.", nameof(link));
             }
 
-            return RequestAsync<OWWorldLinkCreated>("POST", $"/account/worlds/{Uri.EscapeDataString(worldId)}/links",
+            return RequestAsync<OWWorldLinkCreated>("POST", $"/account/worlds/{Seg("worldId", worldId)}/links",
                 body: OnlyGiven(link), ct: ct);
         }
 
@@ -1942,7 +1968,7 @@ namespace OnlyWorlds.Sdk
         public async Task<List<OWWorldLink>> ListWorldLinksAsync(string worldId, CancellationToken ct = default)
         {
             RequireAccountToken(nameof(ListWorldLinksAsync), "Only the world's owner sees its links.");
-            var page = await RequestAsync<JObject>("GET", $"/account/worlds/{Uri.EscapeDataString(worldId)}/links", ct: ct)
+            var page = await RequestAsync<JObject>("GET", $"/account/worlds/{Seg("worldId", worldId)}/links", ct: ct)
                 .ConfigureAwait(false);
             return RowsOf<OWWorldLink>(page);
         }
@@ -1964,7 +1990,7 @@ namespace OnlyWorlds.Sdk
         {
             RequireAccountToken(nameof(RevokeWorldLinkAsync), "Only the world's owner revokes links.");
             return RequestAsync<object>("DELETE",
-                $"/account/worlds/{Uri.EscapeDataString(worldId)}/links/{Uri.EscapeDataString(linkId)}",
+                $"/account/worlds/{Seg("worldId", worldId)}/links/{Seg("linkId", linkId)}",
                 allowEmpty: true, ct: ct);
         }
 
@@ -2009,7 +2035,7 @@ namespace OnlyWorlds.Sdk
                     "RevokeAccountTokenAsync: tokenId is a token's id, a non-empty string. Nothing was sent.", nameof(tokenId));
             }
 
-            return RequestAsync<object>("DELETE", $"/account/tokens/{Uri.EscapeDataString(tokenId)}", allowEmpty: true, ct: ct);
+            return RequestAsync<object>("DELETE", $"/account/tokens/{Seg("tokenId", tokenId)}", allowEmpty: true, ct: ct);
         }
 
         /// <summary>
@@ -2050,7 +2076,7 @@ namespace OnlyWorlds.Sdk
             RequireAccountToken(nameof(SetMemberLensesAsync), "A world key sets its own holder's list with SetMyLensesAsync.");
             var body = new JObject { ["lenses"] = LensList(lensIds) };
             return RequestAsync<JObject>("PATCH",
-                $"/account/worlds/{Uri.EscapeDataString(worldId)}/members/{Uri.EscapeDataString(memberId)}",
+                $"/account/worlds/{Seg("worldId", worldId)}/members/{Seg("memberId", memberId)}",
                 body: body, ct: ct);
         }
 
@@ -2097,7 +2123,7 @@ namespace OnlyWorlds.Sdk
             if (role != null) body["role"] = role;
             if (character != null) body["character"] = character;
 
-            return RequestAsync<OWSeatCreated>("POST", $"/account/worlds/{Uri.EscapeDataString(worldId)}/seats",
+            return RequestAsync<OWSeatCreated>("POST", $"/account/worlds/{Seg("worldId", worldId)}/seats",
                 body: body, ct: ct);
         }
 
@@ -2112,7 +2138,7 @@ namespace OnlyWorlds.Sdk
         public async Task<List<OWSeat>> ListSeatsAsync(string worldId, CancellationToken ct = default)
         {
             RequireAccountToken(nameof(ListSeatsAsync));
-            var page = await RequestAsync<JObject>("GET", $"/account/worlds/{Uri.EscapeDataString(worldId)}/seats", ct: ct)
+            var page = await RequestAsync<JObject>("GET", $"/account/worlds/{Seg("worldId", worldId)}/seats", ct: ct)
                 .ConfigureAwait(false);
             return RowsOf<OWSeat>(page);
         }
@@ -2135,7 +2161,7 @@ namespace OnlyWorlds.Sdk
         {
             RequireAccountToken(nameof(RekeySeatAsync));
             return RequestAsync<OWSeatCreated>("POST",
-                $"/account/worlds/{Uri.EscapeDataString(worldId)}/seats/{Uri.EscapeDataString(seatId)}/key", ct: ct);
+                $"/account/worlds/{Seg("worldId", worldId)}/seats/{Seg("seatId", seatId)}/key", ct: ct);
         }
 
         /// <summary>
@@ -2154,7 +2180,7 @@ namespace OnlyWorlds.Sdk
         {
             RequireAccountToken(nameof(RemoveSeatAsync));
             return RequestAsync<object>("DELETE",
-                $"/account/worlds/{Uri.EscapeDataString(worldId)}/seats/{Uri.EscapeDataString(seatId)}",
+                $"/account/worlds/{Seg("worldId", worldId)}/seats/{Seg("seatId", seatId)}",
                 allowEmpty: true, ct: ct);
         }
 

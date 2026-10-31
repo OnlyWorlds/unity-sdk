@@ -38,6 +38,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   `vbscript:`, `file:`, `blob:` or `about:` in any case, where before it drew the row with that link as its href. Both
   templates of every row are checked on either menu, a row built in code as well as one read by `OWTool.FromJson`; a
   null template is still no door. The shared openers fixture is re-vendored at 61 cases.
+- Parity with the TypeScript SDK 4.123.3: a value in a request path that is not one segment is refused before
+  anything is sent. The API decodes an escaped slash before it routes, so the escape below could not keep an id
+  carrying `/` on its route. Every element type, id, link field, file and proposal id, Character id and account-route
+  id (world, key, link, seat, member, token) is now checked: a type must be a lower-case word (`^[a-z][a-z0-9_]*$`),
+  any other value letters, digits, `_`, `.` and `-`, not starting with a dot or a dash. Anything else, an empty
+  string or null included, throws an `ArgumentException` named for the value
+  (`id "abc/hidden" is not one path segment. Nothing was sent.`, its `ParamName` `id`). What passes is still escaped;
+  a uuid, a word id and a real type go out as before.
 
 ### Fixed
 
@@ -50,8 +58,8 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   `EditLinksAsync`. On a real id (the API declares every element id a UUID) and a real type nothing on the wire
   changes. A test reads every request path in the client's source and fails on one that puts a value in unescaped
   or is built in a way it cannot read.
-  A null type or id now throws `ArgumentNullException` before anything is sent, as it already did on the files,
-  proposal and review routes; before, it went out as an empty segment (`/character//`).
+  A null type or id is now refused before anything is sent (see Changed: 4.123.3); before, it went out as an empty
+  segment (`/character//`).
 
 ## [0.29.0] - 2026-10-31
 

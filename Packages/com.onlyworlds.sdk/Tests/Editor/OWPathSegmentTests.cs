@@ -11,11 +11,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// A caller's string never changes which route is asked: every type, id, link field and other caller-supplied value
-    /// in a request path is sent as one escaped segment (<c>Uri.EscapeDataString</c>). keel's document declares each element
-    /// id a UUID, so the escape changes nothing on a real id; on <c>abc/hidden</c> the raw form asked a different route.
-    /// Parity with the TypeScript SDK 4.122.1 (its <c>test/path-segments.test.mjs</c>, ported). Two halves: the source scan
-    /// holds every path the client builds, so a new route that interpolates a value raw, or builds its path some way the
-    /// scan cannot read, fails here; the calls show the wire for the routes that sent raw.
+    /// in a request path goes through <c>Seg</c>, which refuses a value that is not one segment before anything is sent
+    /// (a type a lower-case word, anything else letters, digits, <c>_ . -</c>, not starting with a dot or dash) and
+    /// escapes what passes. keel decodes an escaped slash before it routes (<c>/character/abc%2Fhidden/</c> answers as
+    /// <c>/character/abc/hidden/</c> does), so the escape alone cannot hold one. Parity with the TypeScript SDK 4.123.3
+    /// (its <c>test/path-segments.test.mjs</c>, ported). Two halves: the source scan holds every path the client builds,
+    /// so a new route that skips <c>Seg</c>, or builds its path some way the scan cannot read, fails here; the calls show
+    /// each refusal sends nothing, and a value that is one segment goes out as given.
     /// </summary>
     public class OWPathSegmentTests
     {
@@ -31,7 +33,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         private const string Lit = "\"[^\"\\n]*\"";
-        private const string Interp = "\\$\"[^\"\\n]*\"";
+        // An interpolated string on one line, its holes read whole (a hole may quote: Seg("id", id)).
+        private const string Interp = "\\$\"(?:[^\"{}\\n]|\\{[^{}\\n]*\\})*\"";
         private const string Calls = @"\b(?:RequestAsync|RequestWithResponseAsync)<[\w<>, ]+>\(";
 
         // A path helper: `private static string XPath(string type, string id) => $"...";`. Found by shape, so a new
@@ -42,7 +45,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         private static readonly Regex Hole = new Regex(@"\{([^{}]*)\}");
 
         [Test]
-        public void Source_EveryValueInARequestPath_IsEscaped_AndEveryPathIsOneTheScanReads()
+        public void Source_EveryValueInARequestPath_GoesThroughSeg_AndEveryPathIsOneTheScanReads()
         {
             var src = Code("OWClient.cs");
 
@@ -82,13 +85,24 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 foreach (Match h in Hole.Matches(t))
                 {
                     var e = h.Groups[1].Value;
-                    if (Regex.IsMatch(e, @"^Uri\.EscapeDataString\(\w+\)$")) continue;
+                    // Seg("id", id): the checking helper, its name the variable's, so the refusal names what the
+                    // caller passed. A bare escape is not enough: keel decodes %2F before it routes.
+                    var seg = Regex.Match(e, @"^Seg\(""(\w+)"", (\w+)\)$");
+                    if (seg.Success && seg.Groups[1].Value == seg.Groups[2].Value) continue;
                     if (Regex.IsMatch(e, "^" + helperCall + "$")) continue;
                     raw.Add($"{{{e}}} in {t}");
                 }
             }
 
-            CollectionAssert.IsEmpty(raw, "a raw segment in a request path:\n" + string.Join("\n", raw));
+            CollectionAssert.IsEmpty(raw, "a segment in a request path that does not go through Seg:\n" + string.Join("\n", raw));
+
+            // Seg checks before it escapes: a type a lower-case word, anything else one segment, both anchored at the
+            // string's very end (\z: a .NET $ also matches before a trailing newline).
+            var body = Regex.Match(src, @"private static string Seg\(string name, string value\)\s*\{(.*?)\n        \}", RegexOptions.Singleline);
+            Assert.IsTrue(body.Success, "the Seg helper was not found");
+            StringAssert.Contains("Uri.EscapeDataString(value)", body.Groups[1].Value, "Seg escapes what passes");
+            StringAssert.Contains(@"@""\A[a-z][a-z0-9_]*\z""", src, "the type's pattern");
+            StringAssert.Contains(@"@""\A[A-Za-z0-9][A-Za-z0-9_.-]*\z""", src, "the value's pattern");
         }
 
         [Test]
@@ -129,56 +143,110 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         // -- The wire ---------------------------------------------------------------------------------------
 
         private const string Base = "https://example.test/api/v2";
-        private const string Id = "abc/hidden?x=1#y";
-        private const string Esc = "abc%2Fhidden%3Fx%3D1%23y";
+        private const string Uuid = "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e0f";
+        private const string Id = Uuid + "/hidden";
 
-        private static OWClient Make(FakeTransport t)
-            => new OWClient(new OWClientConfig { ApiKey = "ow_w_test", ApiPin = "1234", Transport = t, BaseUrl = Base });
+        private static OWClient Make(FakeTransport t, bool account = false)
+            => new OWClient(account
+                ? new OWClientConfig { ApiKey = "ow_a_acct", Transport = t, BaseUrl = Base }
+                : new OWClientConfig { ApiKey = "ow_w_test", ApiPin = "1234", Transport = t, BaseUrl = Base });
 
-        private static IEnumerable<TestCaseData> Cases()
+        /// <summary>
+        /// The TypeScript SDK's 16 refusals (its <c>test/path-segments.test.mjs</c>), then this client's other routes
+        /// with a value in the path (files, proposals, review, create, the account routes), then a trailing newline,
+        /// which a .NET <c>$</c> would let through.
+        /// </summary>
+        private static IEnumerable<TestCaseData> Refusals()
         {
-            TestCaseData Case(string name, Func<OWClient, Task> call, string want)
-                => new TestCaseData(call, want).SetName("Wire_TheCallersStringIsOneSegment_" + name);
+            TestCaseData Case(string name, Func<OWClient, Task> call, string what, bool account = false)
+                => new TestCaseData(call, what, account).SetName("Refused_NotOneSegment_NothingSent_" + name);
 
             var x = new JObject { ["name"] = "x" };
-            yield return Case("Get", c => c.GetAsync<JObject>("character", Id), $"/character/{Esc}/");
-            yield return Case("Upsert", c => c.UpsertAsync<JObject>("character", Id, x), $"/character/{Esc}/");
-            yield return Case("Patch", c => c.PatchAsync<JObject>("character", Id, x), $"/character/{Esc}/");
-            yield return Case("Delete", c => c.DeleteAsync("character", Id), $"/character/{Esc}/");
-            yield return Case("EditLinks", c => c.EditLinksAsync<JObject>("character", Id, "friends/x", add: new string[0]),
-                $"/character/{Esc}/links/friends%2Fx");
-            yield return Case("Adopt", c => c.AdoptAsync<JObject>("character", Id, "owner"), $"/character/{Esc}/adopt");
-            yield return Case("Hide", c => c.HideAsync("character", Id), $"/character/{Esc}/hidden");
-            yield return Case("Unhide", c => c.UnhideAsync("character", Id), $"/character/{Esc}/hidden");
-            yield return Case("Draught", c => c.DraughtAsync(Id), $"/character/{Esc}/context");
-            yield return Case("ListType", c => c.ListAsync<JObject>("character/x"), "/character%2Fx/");
-            yield return Case("GetType", c => c.GetAsync<JObject>("character/x", "y"), "/character%2Fx/y/");
-            yield return Case("CreateType", c => c.CreateAsync<JObject>("character/x", x), "/character%2Fx/");
-            yield return Case("ListFilesType", c => c.ListFilesAsync("character/x", "y"), "/character%2Fx/y/files");
-            yield return Case("ListProposalsType", c => c.ListProposalsAsync("character/x", "y"), "/character%2Fx/y/proposals");
-            yield return Case("ReviewType", c => c.ReviewNewElementAsync("character/x", "y", OWReviewed.Decline),
-                "/character%2Fx/y/review");
+            yield return Case("Get", c => c.GetAsync<JObject>("character", Id), "id");
+            yield return Case("Upsert", c => c.UpsertAsync<JObject>("character", Id, x), "id");
+            yield return Case("Patch", c => c.PatchAsync<JObject>("character", Id, x), "id");
+            yield return Case("Delete", c => c.DeleteAsync("character", Id), "id");
+            yield return Case("EditLinksId", c => c.EditLinksAsync<JObject>("character", Id, "friends", add: new string[0]), "id");
+            yield return Case("EditLinksField", c => c.EditLinksAsync<JObject>("character", Uuid, "friends/x", add: new string[0]), "field");
+            yield return Case("Adopt", c => c.AdoptAsync<JObject>("character", Id, "owner"), "id");
+            yield return Case("Hide", c => c.HideAsync("character", Id), "id");
+            yield return Case("Unhide", c => c.UnhideAsync("character", Id), "id");
+            yield return Case("Draught", c => c.DraughtAsync(Id), "characterId");
+            yield return Case("ListType", c => c.ListAsync<JObject>("character/x"), "type");
+            yield return Case("GetTypeCapitalised", c => c.GetAsync<JObject>("Character", Uuid), "type");
+            yield return Case("GetEscapedSlash", c => c.GetAsync<JObject>("character", Uuid + "%2Fhidden"), "id");
+            yield return Case("GetDotSegment", c => c.GetAsync<JObject>("character", ".."), "id");
+            yield return Case("GetEmpty", c => c.GetAsync<JObject>("character", ""), "id");
+            yield return Case("RevokeAccountToken", c => c.RevokeAccountTokenAsync("t/../x"), "tokenId", true);
+
+            yield return Case("CreateType", c => c.CreateAsync<JObject>("character/x", x), "type");
+            yield return Case("ListFilesType", c => c.ListFilesAsync("character/x", Uuid), "type");
+            yield return Case("FileDownloadLinkFileId", c => c.FileDownloadLinkAsync("character", Uuid, "f/1"), "fileId");
+            yield return Case("RemoveFileFileId", c => c.RemoveFileAsync("character", Uuid, ".f"), "fileId");
+            yield return Case("ListProposalsId", c => c.ListProposalsAsync("character", Id), "id");
+            yield return Case("AcceptProposalPid", c => c.AcceptProposalAsync("character", Uuid, "p/1"), "pid");
+            yield return Case("WithdrawProposalPid", c => c.WithdrawProposalAsync("character", Uuid, "-p"), "pid");
+            yield return Case("ReviewType", c => c.ReviewNewElementAsync("character/x", Uuid, OWReviewed.Decline), "type");
+            yield return Case("WorldLensesWorldId", c => c.WorldLensesAsync("w/1"), "worldId", true);
+            yield return Case("RevokeWorldKeyKeyId", c => c.RevokeWorldKeyAsync("w1", "k 9"), "keyId", true);
+            yield return Case("RevokeWorldLinkWorldId", c => c.RevokeWorldLinkAsync("w/1", "l2"), "worldId", true);
+            yield return Case("CreateSeatWorldId", c => c.CreateSeatAsync("w/1", "Scout"), "worldId", true);
+            yield return Case("RekeySeatSeatId", c => c.RekeySeatAsync("w1", "s/1"), "seatId", true);
+            yield return Case("SetMemberLensesMemberId", c => c.SetMemberLensesAsync("w1", "m/1", new[] { "l1" }), "memberId", true);
+            yield return Case("GetTrailingNewline", c => c.GetAsync<JObject>("character", Uuid + "\n"), "id");
+            yield return Case("GetIdAbcNewline", c => c.GetAsync<JObject>("character", "abc\n"), "id");
+            yield return Case("GetTypeNewline", c => c.GetAsync<JObject>("character\n", Uuid), "type");
         }
 
-        [TestCaseSource(nameof(Cases))]
-        public async Task Wire(Func<OWClient, Task> call, string want)
+        [TestCaseSource(nameof(Refusals))]
+        public void Refused(Func<OWClient, Task> call, string what, bool account)
         {
             var t = new FakeTransport { ResponseBody = @"{""id"":""x"",""name"":""x""}" };
-            try
+            var c = Make(t, account);
+            var e = Assert.ThrowsAsync<ArgumentException>(async () => await call(c));
+            StringAssert.StartsWith(what + " ", e.Message, "the error names the value");
+            StringAssert.Contains("is not one path segment. Nothing was sent.", e.Message);
+            Assert.AreEqual(what, e.ParamName);
+            Assert.AreEqual(0, t.Calls.Count, "something was sent");
+        }
+
+        [Test]
+        public void TheRefusal_ShowsTheValueAsJson()
+        {
+            var t = new FakeTransport();
+            var e = Assert.ThrowsAsync<ArgumentException>(async () => await Make(t).GetAsync<JObject>("character", "a\"b/c"));
+            StringAssert.StartsWith("id \"a\\\"b/c\" is not one path segment. Nothing was sent.", e.Message);
+            e = Assert.ThrowsAsync<ArgumentException>(async () => await Make(t).GetAsync<JObject>(null, Uuid));
+            StringAssert.StartsWith("type null is not one path segment. Nothing was sent.", e.Message);
+            Assert.AreEqual(0, t.Calls.Count, "something was sent");
+        }
+
+        [Test]
+        public async Task AValueThatIsOneSegment_GoesOutAsGiven()
+        {
+            // A uuid, dots, dashes and underscores inside, and the link field.
+            var t = new FakeTransport { ResponseBody = @"{""id"":""x"",""name"":""x""}" };
+            var c = Make(t);
+            foreach (var call in new Func<Task>[]
+                     {
+                         () => c.GetAsync<JObject>("character", Uuid),
+                         () => c.GetAsync<JObject>("character", "a.b_c-D9"),
+                         () => c.EditLinksAsync<JObject>("character", Uuid, "friends", add: new string[0]),
+                     })
             {
-                await call(Make(t));
-            }
-            catch (Exception)
-            {
-                // The fake's body need not satisfy the reader; the wire is the claim.
+                try
+                {
+                    await call();
+                }
+                catch (Exception)
+                {
+                    // The fake's body need not satisfy the reader; the wire is the claim.
+                }
             }
 
-            Assert.GreaterOrEqual(t.Calls.Count, 1, "nothing was sent");
-            var url = t.Calls[0].Url;
-            StringAssert.StartsWith(Base, url);
-            var path = url.Substring(Base.Length);
-            var q = path.IndexOf('?');
-            Assert.AreEqual(want, q < 0 ? path : path.Substring(0, q));
+            CollectionAssert.AreEqual(
+                new[] { $"/character/{Uuid}/", "/character/a.b_c-D9/", $"/character/{Uuid}/links/friends" },
+                t.Calls.Select(r => r.Url.Substring(Base.Length).Split('?')[0]).ToList());
         }
     }
 }

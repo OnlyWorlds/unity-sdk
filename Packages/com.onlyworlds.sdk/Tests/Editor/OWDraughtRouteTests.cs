@@ -45,11 +45,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public async Task Draught_NoPolicy_GetsTheContext_NoQuery_TheKeyAlone_AndAnswersThePacketAsServed()
         {
             var t = new FakeTransport { ResponseBody = Packet };
-            var packet = await Make(t).DraughtAsync("c 1/ä");
+            var packet = await Make(t).DraughtAsync("c1");
 
             var a = t.Calls.Single();
             Assert.AreEqual("GET", a.Method);
-            Assert.AreEqual(Base + "/character/c%201%2F%C3%A4/context", a.Url, "the id escaped, no query");
+            Assert.AreEqual(Base + "/character/c1/context", a.Url, "the id escaped, no query");
             Assert.IsNull(a.Body);
             CollectionAssert.AreEqual(new[] { "API-Key" }, HeaderNames(a), "a read: no PIN, no write header");
 

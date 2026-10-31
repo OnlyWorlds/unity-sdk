@@ -137,7 +137,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var t = new FakeTransport { ResponseBody = LensesBody };
             var c = Make(t);
 
-            var answer = await c.WorldLensesAsync("w 1", resolve: true, readAs: "guest");
+            var answer = await c.WorldLensesAsync("w1", resolve: true, readAs: "guest");
             Assert.IsTrue(JToken.DeepEquals(JObject.Parse(LensesBody), answer), "the answer as served: " + answer);
 
             await c.WorldLensesAsync("w1");
@@ -146,7 +146,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(3, t.Calls.Count);
             var a = t.Calls[0];
             Assert.AreEqual("GET", a.Method);
-            Assert.AreEqual("/api/v2/world/w%201/lenses", new Uri(a.Url).AbsolutePath);
+            Assert.AreEqual("/api/v2/world/w1/lenses", new Uri(a.Url).AbsolutePath);
             Assert.AreEqual("resolve=true&read_as=guest", Query(a));
             Assert.IsNull(a.Body);
             Assert.AreEqual(new[] { "API-Key" }, a.Headers.Keys.ToArray(), "a read: the key alone, no PIN, no write header");
@@ -155,14 +155,14 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual("resolve=false", Query(t.Calls[2]), "false is sent as false");
         }
 
-        // Kills: the world id or read_as put in raw, so a character that means something in a URL reaches keel as
-        // another path or another parameter.
+        // Kills: read_as put in raw, so a character that means something in a URL reaches keel as another parameter. A
+        // world id that is not one segment is refused before sending (OWPathSegmentTests); a dot inside goes as given.
         [Test]
         public async Task WorldLenses_TheWorldIdAndReadAs_AreEscaped()
         {
             var t = new FakeTransport { ResponseBody = LensesBody };
-            await Make(t).WorldLensesAsync("w?1", resolve: true, readAs: "co-builder & co");
-            Assert.AreEqual("/api/v2/world/w%3F1/lenses", new Uri(t.Last.Url).AbsolutePath);
+            await Make(t).WorldLensesAsync("w.1", resolve: true, readAs: "co-builder & co");
+            Assert.AreEqual("/api/v2/world/w.1/lenses", new Uri(t.Last.Url).AbsolutePath);
             Assert.AreEqual("resolve=true&read_as=co-builder%20%26%20co", Query(t.Last));
 
             // An empty readAs is left out, as the TypeScript SDK's query builder leaves out an empty string.
@@ -179,12 +179,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             foreach (var world in new[] { null, "other" })
             {
                 var t = new FakeTransport { ResponseBody = LensesBody };
-                var answer = await Make(t, "ow_a_test", null, world).WorldLensesAsync("w 1", resolve: true);
+                var answer = await Make(t, "ow_a_test", null, world).WorldLensesAsync("w1", resolve: true);
                 Assert.IsTrue(JToken.DeepEquals(JObject.Parse(LensesBody), answer), "the answer as served: " + answer);
 
                 var a = t.Calls.Single();
                 Assert.AreEqual("GET", a.Method);
-                Assert.AreEqual("/api/v2/world/w%201/lenses", new Uri(a.Url).AbsolutePath);
+                Assert.AreEqual("/api/v2/world/w1/lenses", new Uri(a.Url).AbsolutePath);
                 Assert.AreEqual("resolve=true", Query(a), $"World {world ?? "null"}: no world=");
                 Assert.AreEqual(new[] { "Authorization" }, a.Headers.Keys.ToArray(), "the Bearer alone");
                 Assert.AreEqual("Bearer ow_a_test", a.Headers["Authorization"]);
@@ -215,14 +215,14 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var t = new FakeTransport { ResponseBody = row };
             var c = Make(t, "ow_a_test", "1234", "w9");
 
-            var answer = await c.SetMemberLensesAsync("w 1", "m/1", new[] { "l2", "l1" });
+            var answer = await c.SetMemberLensesAsync("w1", "m1", new[] { "l2", "l1" });
             Assert.IsTrue(JToken.DeepEquals(JObject.Parse(row), answer), "the row as served: " + answer);
             await c.SetMemberLensesAsync("w1", "owner", new string[0]);
 
             Assert.AreEqual(2, t.Calls.Count);
             var a = t.Calls[0];
             Assert.AreEqual("PATCH", a.Method);
-            Assert.AreEqual(Base + "/account/worlds/w%201/members/m%2F1", a.Url, "both ids escaped, no query");
+            Assert.AreEqual(Base + "/account/worlds/w1/members/m1", a.Url, "both ids escaped, no query");
             Assert.AreEqual(@"{""lenses"":[""l2"",""l1""]}", a.Body, "exactly { lenses }");
             CollectionAssert.AreEquivalent(new[] { "Authorization", "Content-Type" }, a.Headers.Keys.ToArray(),
                 "the Bearer, no key, PIN, agent or client header");
