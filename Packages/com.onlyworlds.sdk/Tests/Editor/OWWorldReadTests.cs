@@ -221,15 +221,19 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             }
         }
 
+        // The bare client, the TypeScript SDK's `new OwV2Client()`: no key and no World is built (it threw before 0.28.0).
+        // Kills: the old refusal kept, a bare client given a world or a key kind, or a transport no longer required.
         [Test]
-        public void Construction_NoKeyNoWorld_IsStillRefused_AndTheOnesThatStand()
+        public void Construction_TheBareClient_NoKeyNoWorld_IsBuilt_AndTheOnesThatStand()
         {
             foreach (var key in new[] { null, "" })
             {
-                var e = Assert.Throws<ArgumentException>(
-                    () => new OWClient(new OWClientConfig { ApiKey = key, Transport = new FakeTransport() }));
-                StringAssert.Contains("An API key is required", e.Message);
+                var bare = new OWClient(new OWClientConfig { ApiKey = key, Transport = new FakeTransport() });
+                Assert.IsNull(bare.World, key ?? "null");
+                Assert.AreEqual(OWKeyKind.Unknown, bare.KeyKind, key ?? "null");
             }
+
+            Assert.Throws<ArgumentException>(() => new OWClient(new OWClientConfig()), "a transport is still required");
 
             Assert.DoesNotThrow(() => new OWClient(new OWClientConfig { ApiKey = "ow_a_acct", World = W, Transport = new FakeTransport() }));
             Assert.DoesNotThrow(() => new OWClient(new OWClientConfig { World = W, Transport = new FakeTransport() }));
@@ -462,6 +466,49 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 if (row.Value.Does == Does.Open) Assert.IsEmpty(Values(t.Last, "world"), $"{name}: no world=");
                 else Assert.AreEqual(W, One(t.Last, "world"), $"{name}: world=");
             }
+        }
+
+        // The bare client (no key, no World): health and the sign-ins work, sending no credential; every other call is
+        // refused before sending, naming the request and what does work, as the TypeScript SDK's request() refuses
+        // (its words, in this SDK's names). Kills: a bare client's call reaching the transport, a world read let through
+        // with no world to name, or the refusal not saying what works.
+        [Test]
+        public async Task EveryMethod_OnTheBareClient_SendsHealthOrASignIn_OrIsRefusedBeforeSending()
+        {
+            foreach (var row in Methods)
+            {
+                var name = row.Key;
+                var t = Answering();
+                var bare = new OWClient(new OWClientConfig { Transport = t, BaseUrl = Api });
+
+                if (row.Value.Does == Does.Open || row.Value.Does == Does.SignIn || row.Value.Does == Does.Nothing)
+                {
+                    await row.Value.Run(bare);
+                    if (row.Value.Does == Does.Nothing) Assert.IsEmpty(t.Calls, $"{name}: nothing sent");
+                    else Assert.IsNotEmpty(t.Calls, $"{name}: sent");
+                    foreach (var sent in t.Calls)
+                    {
+                        foreach (var h in new[] { "Authorization", "API-Key", "API-Pin" })
+                            Assert.IsFalse(sent.Headers.ContainsKey(h), $"{name}: no {h}");
+                        Assert.IsEmpty(Values(sent, "world"), $"{name}: no world=");
+                    }
+
+                    continue;
+                }
+
+                var e = Assert.ThrowsAsync<InvalidOperationException>(() => row.Value.Run(bare), name);
+                StringAssert.Contains("holds none", e.Message, name);
+                StringAssert.EndsWith("Nothing was sent.", e.Message, name);
+                Assert.IsEmpty(t.Calls, $"{name}: nothing sent");
+            }
+
+            var refused = Assert.ThrowsAsync<InvalidOperationException>(
+                () => new OWClient(new OWClientConfig { Transport = new FakeTransport(), BaseUrl = Api }).ListAsync<JObject>("location"));
+            Assert.AreEqual(
+                "GET /location/ needs a key, and this client holds none: without one, only HealthAsync, SignInWithPasswordAsync, "
+                + "SignInWithOnlyWorlds and CompleteSignInAsync work (and OWJoin's PreviewAsync and RedeemAsync, which take no "
+                + "client), and ListAsync, ListAllAsync, GetAsync and GetWorldAsync with World set. Nothing was sent.",
+                refused.Message);
         }
 
         [Test]

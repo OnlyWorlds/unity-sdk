@@ -299,10 +299,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 });
             }
 
-            // Signing in, on a keyless client: the password's three requests (the sign-in and the session's end go to the
+            // Signing in, on the bare client (no key, no World), a signed-out person's: the password's three requests (the sign-in and the session's end go to the
             // sign-in service, left out of the checks; the mint between them is keel's), then Sign in with OnlyWorlds'
             // exchange.
-            var signer = new OWClient(new OWClientConfig { World = "w1", Transport = t, BaseUrl = Base });
+            var signer = new OWClient(new OWClientConfig { Transport = t, BaseUrl = Base });
             t.Then(200, @"{""meta"":{""session_token"":""sess""}}");
             t.Then(201, @"{""id"":""tok-1"",""name"":"""",""last4"":""wxyz"",""token"":""ow_a_xwxyz""}");
             t.Then(401, "{}");

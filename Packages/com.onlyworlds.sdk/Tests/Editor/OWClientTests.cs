@@ -1918,10 +1918,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
-        public void RequiresKeyAndTransport()
+        public void RequiresATransport_NotAKey()
         {
-            Assert.Throws<System.ArgumentException>(() =>
-                new OWClient(new OWClientConfig { ApiKey = "", Transport = new FakeTransport() }));
+            // No key is the bare client since 0.28.0 (OWWorldReadTests holds what it sends and refuses).
+            Assert.DoesNotThrow(() => new OWClient(new OWClientConfig { ApiKey = "", Transport = new FakeTransport() }));
 
             Assert.Throws<System.ArgumentException>(() =>
                 new OWClient(new OWClientConfig { ApiKey = "ow_w_x", Transport = null }));

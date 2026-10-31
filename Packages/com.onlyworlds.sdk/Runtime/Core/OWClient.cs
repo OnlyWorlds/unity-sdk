@@ -16,7 +16,11 @@ namespace OnlyWorlds.Sdk
         /// The key: an <c>ow_w_</c> (write) or <c>ow_r_</c> (read) world key, an <c>ow_a_</c> account token (sent as a
         /// Bearer, for the <c>/account</c> routes and the lens routes, and with <see cref="World"/> set for that world's
         /// reads), or a
-        /// 10-digit legacy key. Empty only with <see cref="World"/> set: a keyless reader of a public world.
+        /// 10-digit legacy key. Empty with <see cref="World"/> set: a keyless reader of a public world. Empty with no
+        /// <see cref="World"/>: the bare client, the TypeScript SDK's <c>new OwV2Client()</c>, which sends
+        /// <see cref="OWClient.HealthAsync"/> and the sign-ins (<see cref="OWClient.SignInWithPasswordAsync"/>,
+        /// <see cref="OWClient.SignInWithOnlyWorlds"/>, <see cref="OWClient.CompleteSignInAsync"/>), the client a person
+        /// signing in has, and refuses every other call before sending. <see cref="OWJoin"/>'s keyless calls take no client.
         /// </summary>
         public string ApiKey;
 
@@ -173,7 +177,7 @@ namespace OnlyWorlds.Sdk
         private readonly IOWTransport _transport;
         private readonly bool _agent;
 
-        /// <summary>True for a client built with no key: a keyless reader of the world <see cref="World"/> names.</summary>
+        /// <summary>True for a client built with no key: a keyless reader of the world <see cref="World"/> names, or the bare client.</summary>
         private readonly bool _keyless;
 
         /// <summary>The name sent as <c>X-OW-Client</c> when <see cref="OWClientConfig.Client"/> is null.</summary>
@@ -203,12 +207,6 @@ namespace OnlyWorlds.Sdk
             _keyless = string.IsNullOrEmpty(config.ApiKey);
             KeyKind = OWKey.DetectKind(config.ApiKey);
             World = WorldOf(config.World, _keyless, KeyKind);
-
-            if (_keyless && World == null)
-            {
-                throw new ArgumentException(
-                    "An API key is required, or World for a keyless reader of a public world.", nameof(config));
-            }
 
             if (config.Transport == null)
                 throw new ArgumentException("A transport is required.", nameof(config));
@@ -2141,8 +2139,8 @@ namespace OnlyWorlds.Sdk
         /// The mint goes with no body: keel's document declares none there, though keel reads an optional
         /// <c>{name}</c> and the TypeScript SDK sends its <c>tokenName</c> in one. So the token is listed with no name on
         /// the account's tokens page, where it can be revoked; a name comes when keel documents the body. A person signing
-        /// in holds no key, and a client here needs a key or <see cref="OWClientConfig.World"/>: a keyless client names a
-        /// world. Mirrors the TypeScript SDK's <c>signInWithPassword</c> (4.31.0).
+        /// in holds no key: the bare client (<c>new OWClientConfig { Transport }</c>) is theirs. Mirrors the TypeScript
+        /// SDK's <c>signInWithPassword</c> (4.31.0).
         /// </para>
         /// </remarks>
         public Task<OWSignedIn> SignInWithPasswordAsync(
@@ -2952,8 +2950,9 @@ namespace OnlyWorlds.Sdk
             if (auth && _keyless && !(reads && World != null))
             {
                 throw new InvalidOperationException(
-                    $"{method} {path} needs a key, and this client holds none: without one it reads the world World "
-                    + $"names through {WorldReads} only. Nothing was sent.");
+                    $"{method} {path} needs a key, and this client holds none: without one, only HealthAsync, "
+                    + "SignInWithPasswordAsync, SignInWithOnlyWorlds and CompleteSignInAsync work (and OWJoin's PreviewAsync "
+                    + $"and RedeemAsync, which take no client), and {WorldReads} with World set. Nothing was sent.");
             }
 
             if (auth && KeyKind == OWKeyKind.Account && !IsAccountRoute(path))

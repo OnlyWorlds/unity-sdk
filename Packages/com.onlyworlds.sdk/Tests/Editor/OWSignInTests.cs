@@ -80,9 +80,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             @"{""status"":400,""errors"":[{""message"":""The email address and/or password you specified are not correct."","
             + @"""code"":""email_password_mismatch"",""param"":""password""}]}");
 
-        // A person signing in holds no key. A Unity client needs a key or World, so the keyless client here names one.
+        // A person signing in holds no key: the bare client, no key and no World, as the TypeScript SDK's tests sign in on
+        // `new OwV2Client()`.
         private static OWClient Keyless(IOWTransport t, string baseUrl = Base)
-            => new OWClient(new OWClientConfig { World = "w1", Transport = t, BaseUrl = baseUrl });
+            => new OWClient(new OWClientConfig { Transport = t, BaseUrl = baseUrl });
 
         private static Task<OWSignedIn> SignIn(OWClient c) => c.SignInWithPasswordAsync("ana@example.org", null, Password);
 
@@ -144,6 +145,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var clients = new Func<IOWTransport, OWClient>[]
             {
                 t => Keyless(t),
+                t => new OWClient(new OWClientConfig { World = "w1", Transport = t, BaseUrl = Base }),
                 t => new OWClient(new OWClientConfig { ApiKey = "ow_w_test", ApiPin = "1234", Transport = t, BaseUrl = Base, Agent = true }),
                 t => new OWClient(new OWClientConfig { ApiKey = "ow_a_other", World = "w1", Transport = t, BaseUrl = Base }),
                 t => new OWClient(new OWClientConfig { ApiKey = "0123456789", ApiPin = "1234", Transport = t, BaseUrl = Base }),

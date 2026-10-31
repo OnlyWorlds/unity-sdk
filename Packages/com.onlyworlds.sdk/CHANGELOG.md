@@ -65,6 +65,17 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
+- The bare client: `new OWClient(new OWClientConfig { Transport = ... })`, with no key and no `World`, is built,
+  where it threw an `ArgumentException` ("An API key is required, or World ..."); it is the TypeScript SDK's `new
+  OwV2Client()`, the client a person signing in has. On it, `HealthAsync`, `SignInWithPasswordAsync`,
+  `SignInWithOnlyWorlds` and `CompleteSignInAsync` work, with no credential (`OWJoin`'s keyless calls take no
+  client); every other call is refused before sending with an `InvalidOperationException` naming the request and
+  what works without a key, in the TypeScript SDK's words: "GET /location/ needs a key, and this client holds none:
+  without one, only HealthAsync, SignInWithPasswordAsync, SignInWithOnlyWorlds and CompleteSignInAsync work (and
+  OWJoin's PreviewAsync and RedeemAsync, which take no client), and ListAsync, ListAllAsync, GetAsync and
+  GetWorldAsync with World set. Nothing was sent." A keyless client with `World` set refuses with the same words, and
+  a transport is still required. Code that relied on the constructor to catch an empty key (an Editor settings
+  field, say) now gets that refusal from its first call instead.
 - `OWClient.ListAllAsync` stops when a page hands back the cursor it was sent (the caller's starting cursor
   included) with more to come: an `OWTransportError` ("answered the cursor it was sent, with more to come; the walk
   stopped rather than read the same page again"), where it read the same page forever. The elements read before are
