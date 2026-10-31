@@ -33,6 +33,8 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   `EditLinksAsync`. On a real id (the API declares every element id a UUID) and a real type nothing on the wire
   changes. A test reads every request path in the client's source and fails on one that puts a value in unescaped
   or is built in a way it cannot read.
+  A null type or id now throws `ArgumentNullException` before anything is sent, as it already did on the files,
+  proposal and review routes; before, it went out as an empty segment (`/character//`).
 
 ## [0.29.0] - 2026-10-31
 
