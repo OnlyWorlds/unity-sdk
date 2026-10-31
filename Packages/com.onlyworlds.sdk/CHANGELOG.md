@@ -6,6 +6,17 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- `OWLinkListener` has a second constructor, `(port, Action<OWAddressReading, string> onLink, Func<Action, bool>
+  dispatch = null, timeoutMs)`. `onLink` gets the line as received beside its reading, its line ending stripped: what
+  a paste of the link would carry. It is kept for readings that cannot be written back as an address, such as a site
+  address that names its world by slug. The dispatch can decline by returning false, and the sender hears
+  `refused no_receiver`, as it does when a dispatch throws. Before this, throwing was the only way to refuse. The
+  default dispatch is `OWMainThread.TryRun`. The first constructor is unchanged.
+- `OWMainThread.TryRun(action)`: queues as `Run` does and returns true, or returns false with nothing queued when
+  no pump is installed or the action is null. `Run` still throws in that case.
+
 ## [0.28.0] - 2026-10-31
 
 The rest of the TypeScript SDK's client in Unity: sign-in by password and by Sign in with OnlyWorlds (PKCE), the AI

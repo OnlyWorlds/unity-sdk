@@ -115,7 +115,14 @@ listener.Stop();
 
 It listens on 127.0.0.1 only, never another interface, reads one line per connection (the link, at most 4096
 bytes), and can do nothing but hand you an `OWAddressReading`, on the main thread. A line the address profile refuses
-is answered with the refusal and goes no further.
+is answered with the refusal and goes no further. To get the line as it came as well, and to decline a link when
+nothing of yours can take it now, use the second constructor:
+
+```csharp
+var listener = new OWLinkListener(47615,
+    (reading, text) => addressBar.Paste(text),                // text: the link as received
+    work => addressBar != null && OWMainThread.TryRun(work)); // false: the sender hears "refused no_receiver"
+```
 
 For a click in a browser to arrive, the operating system needs a handler for `ow://`. The package ships one for
 Windows in `Tools~/ow-link` (Unity ignores the folder; find it under the package's path). It is opt-in and per user:
