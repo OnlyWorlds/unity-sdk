@@ -54,6 +54,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   string or null included, throws an `ArgumentException` named for the value
   (`id "abc/hidden" is not one path segment. Nothing was sent.`, its `ParamName` `id`). What passes is still escaped;
   a uuid, a word id and a real type go out as before.
+- The shared openers fixture is re-vendored at 65 cases, in parity with the TypeScript SDK: one refused case for each
+  scheme that opens no app (`vbscript:`, `file:`, `blob:`, `about:` beside `javascript:` and `data:`), so a reader that
+  forgot one of the six no longer passes. No reader changed; the six were already refused.
 
 ### Fixed
 
