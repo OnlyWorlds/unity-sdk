@@ -375,12 +375,34 @@ namespace OnlyWorlds.Sdk
     /// </remarks>
     internal class OWJsNumberWriter : JsonTextWriter
     {
-        public OWJsNumberWriter(TextWriter writer) : base(writer) { }
+        private readonly bool keepPoint;
+
+        /// <param name="writer">Where the text goes.</param>
+        /// <param name="keepPoint">
+        /// True (the wire and the models): an integral double keeps a decimal point (<c>1.0</c>, <c>-0.0</c>), as
+        /// Newtonsoft has always written it, so a float read from a world stays a float to a reader that types numbers
+        /// (Python reads <c>1</c> as an int); every other digit is <c>JSON.stringify</c>'s. False (the folder format,
+        /// whose spec rules <c>JSON.stringify</c>'s spelling): <c>1</c>.
+        /// </param>
+        public OWJsNumberWriter(TextWriter writer, bool keepPoint = true) : base(writer)
+        {
+            this.keepPoint = keepPoint;
+        }
 
         public override void WriteValue(double value)
         {
             if (double.IsNaN(value) || double.IsInfinity(value)) WriteNonFinite(value);
-            else WriteRawValue(OWJsNumber.Format(value));
+            else WriteRawValue(Point(OWJsNumber.Format(value), value == 0 && BitConverter.DoubleToInt64Bits(value) < 0));
+        }
+
+        /// <summary>The decimal point an integral spelling keeps when <see cref="keepPoint"/> is set.</summary>
+        private string Point(string s, bool negativeZero)
+        {
+            if (!keepPoint) return s;
+            if (negativeZero) return "-0.0";
+            foreach (var c in s)
+                if (c == '.' || c == 'e' || c == 'E') return s;
+            return s + ".0";
         }
 
         public override void WriteValue(double? value)
@@ -392,7 +414,7 @@ namespace OnlyWorlds.Sdk
         public override void WriteValue(float value)
         {
             if (float.IsNaN(value) || float.IsInfinity(value)) WriteNonFinite(value);
-            else WriteRawValue(OWJsNumber.Format(value));
+            else WriteRawValue(Point(OWJsNumber.Format(value), value == 0f && BitConverter.DoubleToInt64Bits((double)value) < 0));
         }
 
         public override void WriteValue(float? value)

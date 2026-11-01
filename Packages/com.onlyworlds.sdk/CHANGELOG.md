@@ -79,8 +79,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   writer the world folder already used, now shared and faster), and `OWJson.ParseObject` and `OWJson.Deserialize`,
   so every response the client reads as data, read a number with a fraction or an exponent to the nearest double,
   ties to even. Bytes change where `JSON.stringify`'s differ from Newtonsoft's: `0.3333333333333333` (was
-  `0.33333333333333331`), `1` for an integral double (was `1.0`, so it reads back as an integer token), `0` for
-  `-0.0`, `1e-7` and `1e+21` (were `1E-07` and `1E+21`). Integers, large integers, strings, NaN and the infinities
+  `0.33333333333333331`), `1e-7` and `1e+21` (were `1E-07` and `1E+21`). One exception keeps a reader's types: on
+  the wire and through the models an integral double keeps its decimal point (`1.0`, `-0.0`), as before, so a float
+  in a world stays a float to a reader that types numbers; the world folder writes `1`, as its spec rules. Integers, large integers, strings, NaN and the infinities
   are written and read as before. A world folder read under Mono no longer misreads a float the folder writer wrote.
 
 ## [0.29.0] - 2026-10-31

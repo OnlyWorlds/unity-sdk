@@ -625,7 +625,7 @@ namespace OnlyWorlds.Sdk
         /// </remarks>
         private sealed class JsTextWriter : OWJsNumberWriter
         {
-            public JsTextWriter(TextWriter writer) : base(writer) { }
+            public JsTextWriter(TextWriter writer) : base(writer, keepPoint: false) { }
 
             public override void WriteValue(string value)
             {

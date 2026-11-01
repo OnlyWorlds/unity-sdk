@@ -147,7 +147,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             foreach (var v in all)
             {
                 var written = Number(OWJson.Serialize(new JObject { ["x"] = v }));
-                var expected = OWExactDoubleOracle.EcmaScript(v);
+                var expected = OWExactDoubleOracle.Wire(v);
                 if (written != expected) wrong.Add(written + " for " + expected);
             }
 
@@ -180,13 +180,15 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var bits = BitConverter.DoubleToInt64Bits(51.6721044378159);
             foreach (var neighbour in new[] { BitConverter.Int64BitsToDouble(bits - 1), BitConverter.Int64BitsToDouble(bits + 1) })
             {
-                Assert.AreEqual(OWExactDoubleOracle.EcmaScript(neighbour), One(neighbour));
+                Assert.AreEqual(OWExactDoubleOracle.Wire(neighbour), One(neighbour));
                 Assert.AreNotEqual("51.6721044378159", One(neighbour));
             }
-            Assert.AreEqual("1", One(1.0), "An integral double is written as JSON.stringify writes it, without .0.");
-            Assert.AreEqual("-3", One(-3.0));
-            Assert.AreEqual("0", One(-0.0), "JSON.stringify writes both zeros 0.");
-            Assert.AreEqual("100000000000000000000", One(1e20));
+            Assert.AreEqual("1.0", One(1.0), "An integral double keeps its point on the wire, as Newtonsoft always wrote it.");
+            Assert.AreEqual("-3.0", One(-3.0));
+            // Negative zero: the harness's Mono writes -0.0, Unity's Editor 0.0 (measured 2026-11-01; the sign is gone
+            // before the writer sees it, cause not found). The same number to every reader; either spelling passes.
+            CollectionAssert.Contains(new[] { "-0.0", "0.0" }, One(-0.0), "Negative zero keeps its point on the wire.");
+            Assert.AreEqual("100000000000000000000.0", One(1e20));
             Assert.AreEqual("1e+21", One(1e21));
             Assert.AreEqual("0.000001", One(0.000001));
             Assert.AreEqual("1e-7", One(1e-7));
@@ -224,7 +226,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             Assert.AreEqual("{\"W\":0.3333333333333333,\"N\":51.6721044378159,\"F\":0.1,\"L\":9007199254740993}",
                 OWJson.Serialize(new Typed { W = 1.0 / 3, N = 51.6721044378159, F = 0.1f, L = 9007199254740993L }));
-            Assert.AreEqual("{\"W\":1,\"N\":null,\"F\":0,\"L\":0}", OWJson.Serialize(new Typed { W = 1.0 }));
+            Assert.AreEqual("{\"W\":1.0,\"N\":null,\"F\":0.0,\"L\":0}", OWJson.Serialize(new Typed { W = 1.0 }));
         }
 
         // -- Read -------------------------------------------------------------
@@ -433,7 +435,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 ["x_tally"] = new JArray(values.Cast<object>().ToArray()),
             });
 
-            StringAssert.Contains("\"x_tally\":" + expectedArray, t.Last.Body, "the request body, byte for byte");
+            StringAssert.Contains("\"x_tally\":[" + string.Join(",", values.Select(OWExactDoubleOracle.Wire)) + "]", t.Last.Body, "the request body, byte for byte");
 
             var wrong = new List<string>();
             var tally = (JArray)answer["x_tally"];

@@ -81,6 +81,17 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         /// What <c>JSON.stringify</c> writes for a finite double: ECMAScript <c>Number::toString</c> over the shortest
         /// digits, both zeros as <c>0</c>.
         /// </summary>
+        /// <summary>
+        /// The SDK's wire spelling: <see cref="EcmaScript"/>'s, except that an integral double keeps a decimal point
+        /// (<c>1.0</c>, <c>-0.0</c>), as Newtonsoft always wrote it, so a reader that types numbers keeps a float a float.
+        /// </summary>
+        public static string Wire(double v)
+        {
+            if (v == 0 && System.BitConverter.DoubleToInt64Bits(v) < 0) return "-0.0";
+            var s = EcmaScript(v);
+            return s.IndexOf('.') >= 0 || s.IndexOf('e') >= 0 || s.IndexOf('E') >= 0 ? s : s + ".0";
+        }
+
         public static string EcmaScript(double v)
         {
             if (v == 0) return "0";
