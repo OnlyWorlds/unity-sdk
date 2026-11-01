@@ -186,6 +186,19 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public void TheBakedList_HasLittleLens_AndTheMenuOffersItToAnyoneForAWorldAndForAnElement()
+        {
+            var lens = OWTools.All.SingleOrDefault(t => t.Id == "little-lens");
+            Assert.IsNotNull(lens, "Little Lens is a listed row of the baked list");
+            Assert.AreEqual(OWTool.Listed, lens.Rung);
+            Assert.IsNull(lens.Open.Needs, "it needs no account");
+            var world = OWOpeners.For(OWTools.All, OWOpeners.World, World, null, null, new OWOpenerSurface { Audience = OWOpenerSurface.Public });
+            Assert.AreEqual($"https://little-lens.onlyworlds.com/#/open/{World}", world.Single(r => r.Id == "little-lens").Href);
+            var element = OWOpeners.For(OWTools.All, OWOpeners.Element, World, "character", Element, new OWOpenerSurface { Audience = OWOpenerSurface.Public });
+            Assert.AreEqual($"https://little-lens.onlyworlds.com/#/open/{World}/element/{Element}", element.Single(r => r.Id == "little-lens").Href);
+        }
+
+        [Test]
         public void TheBakedList_IsTheListAtThePinnedCommit()
         {
             Assert.AreEqual(40, OWTools.Commit.Length);
