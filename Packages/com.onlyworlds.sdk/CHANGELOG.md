@@ -16,6 +16,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 - The wire fixture is refreshed from keel's live document of 2026-11-01 18:06: invite links carry `lands_on`, and one
   new account route (`GET /account/worlds/holding/{narrative_id}`) that the client does not call yet.
+- `WorldLensesAsync`'s documentation names the `skipped` row: with `readAs`, a lens that reader cannot see carries
+  `skipped: "not_found"` and a null `reading` (the answer is the body as served, so nothing else changes). With
+  `LandsOn` above, parity with the TypeScript SDK 4.125.0.
 
 ## [0.30.0] - 2026-11-01
 

@@ -444,7 +444,8 @@ namespace OnlyWorlds.Sdk
         /// <param name="worldId">The key's own world (another is a 404). Escaped.</param>
         /// <param name="resolve">
         /// <c>true</c> adds each lens's <c>reading</c> for this key: the kept rows, the cut by reason, the mail part. Sent as
-        /// given, <c>false</c> too; null sends nothing.
+        /// given, <c>false</c> too; null sends nothing. With <paramref name="readAs"/>, a lens that reader cannot see (deleted
+        /// or hidden from it) is not read: its row carries <c>skipped: "not_found"</c> and <c>reading</c> is null.
         /// </param>
         /// <param name="readAs">
         /// With <paramref name="resolve"/>, the owner reads as another reader: <c>guest</c>, <c>contributor</c>,
