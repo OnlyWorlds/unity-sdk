@@ -8,6 +8,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Added
 
+- The record profile's reader (schema-dist `v0.33.0-dist.102`, `profiles/record.md`): a game's run kept in the world
+  its Characters live in, an Event marked `x_record`. `OWRecord.MarkOf(element)` reads the mark (null for a broken
+  one: a `played_at` that is no real calendar instant, a number seed, a capitalised outcome, a mark on anything but an
+  Event); `OWRecord.Of(characterId, elements)` lists a Character's records newest first, to the millisecond, each with
+  their seat and their stories as protagonist, narrator or both. A run or story still proposed is not read. The
+  profile's fixture (32 cases) is its test, with the TypeScript SDK 4.124.0's own vectors beside it.
 - Schema pin to `v0.33.0-dist.102`: the record profile, new; the strand page's ruled line dated. No schema field moved;
   the generated models' headers move with the serial.
 - The link forwarder (`Tools~/ow-link`) answers a game's own scheme: `install.ps1 -Scheme mygame` registers
