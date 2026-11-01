@@ -115,7 +115,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(@"{""name"":""Ostvik""}", t.Last.Body);
         }
 
-        // keel's rule for the key's name (accounts/api.py _clean_key_name, Keel #363; the key mint's from PR 385): trimmed
+        // keel's rule for the key's name (accounts/api.py _clean_key_name, the key mint's too): trimmed
         // as Python's str.strip() trims, then 1 to 80 characters counted in code points, a 422 past it; blank is a 422 here
         // too ("omit it for a key without a name"), where the mint reads blank as no name. Kills: the length taken before
         // trimming, trimmed by .NET's whitespace (which keeps U+001C to U+001F), or counted in UTF-16 units (an emoji is

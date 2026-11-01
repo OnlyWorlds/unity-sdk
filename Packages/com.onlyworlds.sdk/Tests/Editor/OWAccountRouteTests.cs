@@ -229,7 +229,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             CollectionAssert.IsEmpty(t.Calls);
         }
 
-        // keel's rule for the name (accounts/api.py _key_name_param, Keel #990): trimmed as Python's str.strip() trims, then
+        // keel's rule for the name (accounts/api.py _key_name_param): trimmed as Python's str.strip() trims, then
         // at most 80 characters, counted as Python counts them (code points), a 422 past it. Kills: the length taken before
         // trimming, trimmed by .NET's whitespace (which keeps U+001C to U+001F, Python's separators), or counted in UTF-16
         // units (an emoji is two), each refusing a name keel takes; or a name past 80 sent.

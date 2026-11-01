@@ -77,7 +77,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual("green", OWPresentation.FamilyOf("location"));
             Assert.AreEqual("pink", OWPresentation.FamilyOf("language"));
             Assert.AreEqual("amber", OWPresentation.FamilyOf("event"));
-            // Serial 86 moved these two (the Captain's pick on the colour groups).
+            // Serial 86 moved these two (Titus's pick on the colour groups).
             Assert.AreEqual("amber", OWPresentation.FamilyOf("ability"));
             Assert.AreEqual("pink", OWPresentation.FamilyOf("construct"));
         }

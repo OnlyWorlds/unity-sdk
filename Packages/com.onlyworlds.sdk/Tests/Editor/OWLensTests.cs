@@ -1107,7 +1107,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                     ""created_by"":""m1"",""world"":""w1""}"),
                 JObject.Parse(@"{""id"":""sp1"",""type"":""species"",""name"":""Elves""}"),
                 JObject.Parse(@"{""id"":""sp2"",""type"":""species"",""name"":""Hidden kin""}"),
-                JObject.Parse(@"{""id"":""loc"",""type"":""location"",""name"":""Forge""}"),
+                JObject.Parse(@"{""id"":""loc"",""type"":""location"",""name"":""Smithy""}"),
             };
             var row = OWLens.Resolve(world, "L", OWLensReader.Guest(new[] { "L", "sp1" }, new[] { "s" })).Rows.Single();
             var want = JObject.Parse(@"{""id"":""s"",""type"":""character"",""name"":""Sable"",""description"":""Quiet."",""supertype"":""Smith"",

@@ -1221,7 +1221,7 @@ namespace OnlyWorlds.Sdk
                 if (Rung != OWLensRung.Owner) Trim(body, TypeOf(i));
                 var served = KnownOf.Contains(i) ? ToKnownOf(body, TypeOf(i)) : body;
                 // A body served of an element under the hidden mark (the world's list or its own key, one mark) carries
-                // hidden: true, and no other body a hidden key, a stored false included (keel #537, serialize.py). Below
+                // hidden: true, and no other body a hidden key, a stored false included (keel's serialize.py). Below
                 // the owner only a guest's own creation carries it, a body it sees whole.
                 if (Hidden.Contains(i)) served[OWPayload.Hidden] = true;
                 else served.Remove(OWPayload.Hidden);

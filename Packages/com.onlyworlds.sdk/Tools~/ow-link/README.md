@@ -1,7 +1,7 @@
 # ow-link: open `ow://` links in a running Editor or player (Windows)
 
 A local-development handler for address links (`ow://<world id>/<type>/<id>`). When something opens such a link, the
-forwarder offers it to each port in its config in turn, over 127.0.0.1, where an `OWLinkListener` in your Editor or
+forwarder offers it to each port in its config in turn, over the loopback interface, where an `OWLinkListener` in your Editor or
 player may be listening. The first that answers `ok` has it. When none does, it starts your player with the link as
 an argument.
 
@@ -68,6 +68,6 @@ delivered, 1 the player started, 2 the link was refused, 3 nowhere to deliver it
 
 ## The protocol
 
-To write a listener or a sender of your own: connect to `127.0.0.1:<port>`, write the link as UTF-8 and `\n` (at
+To write a listener or a sender of your own: connect to `<port>` on the loopback interface, write the link as UTF-8 and `\n` (at
 most 4096 bytes before it), read one line back: `ok`, or `refused <reason>`. The listener closes the connection after
 answering. `OWLinkListener.TrySend` is the C# sender.

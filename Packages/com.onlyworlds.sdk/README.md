@@ -113,7 +113,7 @@ if (!listener.TryStart(out var refusal)) Debug.Log($"No link listener: {refusal}
 listener.Stop();
 ```
 
-It listens on 127.0.0.1 only, never another interface, reads one line per connection (the link, at most 4096
+It listens on the loopback interface only, reads one line per connection (the link, at most 4096
 bytes), and can do nothing but hand you an `OWAddressReading`, on the main thread. A line the address profile refuses
 is answered with the refusal and goes no further. To get the line as it came as well, and to decline a link when
 nothing of yours can take it now, use the second constructor:

@@ -699,7 +699,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         /// <summary>
-        /// A write carrying an empty mark is keel's 422 <c>review_mark_empty</c> (serial 87, Keel #790): the helper is true
+        /// A write carrying an empty mark is keel's 422 <c>review_mark_empty</c> (serial 87): the helper is true
         /// for that status and code only, and the error is none of the proposal codes'.
         /// </summary>
         [Test]

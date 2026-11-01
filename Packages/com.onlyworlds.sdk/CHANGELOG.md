@@ -225,7 +225,7 @@ because it adds public API (below).
   sends (the roster, `GetMembersAsync`, is the account token's alone, as the document's security has it). Mirrors the
   TypeScript SDK's `draught` (4.121.1).
 - `OWClient.CreateAccountWorldAsync` holds `OWAccountWorldCreate.KeyName` to keel's rule for the key's name
-  (`_clean_key_name`, the key mint's since keel PR 385): trimmed as Python's `str.strip()` trims, then 1 to 80
+  (`_clean_key_name`, the key mint's too): trimmed as Python's `str.strip()` trims, then 1 to 80
   characters counted in code points. A name blank or past 80 once trimmed is refused before sending with an
   `ArgumentException` ("KeyName is 1 to 80 characters once trimmed, as keel holds it; null for a key with no name.
   Nothing was sent."), where it was sent and answered 422 `key_name`. Blank is refused here because keel refuses it
@@ -531,7 +531,7 @@ Charter, Guide and Domains as the API serves them). A minor release because it a
   `{"parent_location": id}` lists a place's rooms, and an empty value lists the rows with none. Fields go out in
   ordinal order after the named filters; a key that is not a field name (lowercase letters, digits, `_`) throws
   `ArgumentException` before anything is sent. The wire fixture follows the API document that declares them.
-- `OWLinkListener`: a listener on 127.0.0.1, never another interface, for an address link clicked outside Unity.
+- `OWLinkListener`: a listener on the loopback interface only, for an address link clicked outside Unity.
   One connection carries one line, the link, read whole by `OWAddress.TryParseLink`; it answers `ok` or
   `refused <reason>` (the address profile's own word, or `too_long` past 4096 bytes, `no_line`, `no_receiver`) and
   hands an accepted `OWAddressReading` to your callback through `OWMainThread.Run`, or a dispatch you pass.
