@@ -32,7 +32,7 @@ PIN = ROOT / "codegen" / "tools-pin.json"
 OUT = ROOT / "Packages" / "com.onlyworlds.sdk" / "Runtime" / "Core" / "OWTools.cs"
 REPO = "https://github.com/OnlyWorlds/tools"
 KEYS = ("id", "name", "url", "client", "rung", "open")
-OPEN_KEYS = ("world", "element", "needs")
+OPEN_KEYS = ("world", "element", "needs")  # and element_skips, a list (words())
 
 
 def die(msg: str) -> None:
@@ -49,6 +49,16 @@ def text(value: Any, where: str) -> str:
     return ""
 
 
+def words(value: Any, where: str) -> str:
+    """A JSON list of strings (open.element_skips) as a C# array, in the list's own order; absent or null as null."""
+    if value is None:
+        return "null"
+    if isinstance(value, list) and all(isinstance(v, str) for v in value):
+        return "Array.Empty<string>()" if not value else "new[] { " + ", ".join(json.dumps(v) for v in value) + " }"
+    die(f"{where} is {value!r}; this generator bakes a list of words or null")
+    return ""
+
+
 def row(t: dict[str, Any]) -> str:
     rid = t.get("id")
     missing = [k for k in KEYS if k not in t]
@@ -59,7 +69,8 @@ def row(t: dict[str, Any]) -> str:
     if o is None:
         door = "null"
     elif isinstance(o, dict):
-        door = "new OWToolOpen(" + ", ".join(text(o.get(k), f"row {rid!r} open.{k}") for k in OPEN_KEYS) + ")"
+        door = "new OWToolOpen(" + ", ".join(text(o.get(k), f"row {rid!r} open.{k}") for k in OPEN_KEYS)
+        door += ", " + words(o.get("element_skips"), f"row {rid!r} open.element_skips") + ")"
     else:
         die(f"row {rid!r} open is {o!r}; an object or null")
     return f"            new OWTool({args},\n                {door}),\n"

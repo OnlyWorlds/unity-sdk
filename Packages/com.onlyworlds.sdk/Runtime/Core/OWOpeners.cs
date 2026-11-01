@@ -22,11 +22,20 @@ namespace OnlyWorlds.Sdk
         /// <summary>What a person needs first: the world already in the tool on this device.</summary>
         public const string Device = "device";
 
+        private static readonly IReadOnlyList<string> NoSkips = Array.AsReadOnly(new string[0]);
+
         public OWToolOpen(string world, string element, string needs)
+            : this(world, element, needs, null)
+        {
+        }
+
+        /// <param name="elementSkips">What the element door does not open (<see cref="OWOpeners.ElementMarks"/>' words); null for none.</param>
+        public OWToolOpen(string world, string element, string needs, IReadOnlyList<string> elementSkips)
         {
             World = world;
             Element = element;
             Needs = needs;
+            ElementSkips = elementSkips == null ? NoSkips : Array.AsReadOnly(new List<string>(elementSkips).ToArray());
         }
 
         /// <summary>The link that opens a world, holding <c>{world}</c> (the world's id); null without one.</summary>
@@ -44,6 +53,14 @@ namespace OnlyWorlds.Sdk
         /// other word.
         /// </summary>
         public string Needs { get; }
+
+        /// <summary>
+        /// What the element door does not open, in the lens profile's graph section's words (<see cref="OWOpeners.ElementMarks"/>:
+        /// <c>room</c>, <c>hidden</c>, <c>proposed</c>, <c>map_space</c>, <c>reading_aid</c>); empty when it opens every
+        /// element, and on a list older than the key. Given the element, the menu leaves the row out for an element that
+        /// carries one of them. A word outside the list's, or a skip on a row with no element door, is refused there.
+        /// </summary>
+        public IReadOnlyList<string> ElementSkips { get; }
     }
 
     /// <summary>The keys of one tools list row that <see cref="OWOpeners"/> reads; the list's other keys are not kept.</summary>
@@ -99,7 +116,8 @@ namespace OnlyWorlds.Sdk
             if (o != null && o.Type != JTokenType.Null)
             {
                 if (!(o is JObject door)) throw new ArgumentException($"OWTool.FromJson: tool {rid}: open is an object or null", nameof(row));
-                open = new OWToolOpen(Text(door, "world", rid, "open."), Text(door, "element", rid, "open."), Text(door, "needs", rid, "open."));
+                open = new OWToolOpen(Text(door, "world", rid, "open."), Text(door, "element", rid, "open."), Text(door, "needs", rid, "open."),
+                    Words(door, "element_skips", rid));
             }
 
             return new OWTool(rid, (string)name, Text(row, "url", rid, ""), Text(row, "client", rid, ""), Text(row, "rung", rid, ""), open);
@@ -127,6 +145,27 @@ namespace OnlyWorlds.Sdk
             if (token.Type != JTokenType.String)
                 throw new ArgumentException($"OWTool.FromJson: tool {row}: {path}{key} is a string or null", key);
             return (string)token;
+        }
+
+        /// <summary>A list of words, or null when the key is absent or null. Which words is <see cref="OWOpeners"/>' check.</summary>
+        private static List<string> Words(JObject o, string key, string row)
+        {
+            var token = o[key];
+            if (token == null || token.Type == JTokenType.Null) return null;
+            var words = new List<string>();
+            if (token is JArray list)
+            {
+                foreach (var w in list)
+                {
+                    if (w.Type != JTokenType.String) { words = null; break; }
+                    words.Add((string)w);
+                }
+            }
+            else words = null;
+
+            if (words == null)
+                throw new ArgumentException($"OWTool.FromJson: tool {row}: open.{key} is a list of {string.Join(", ", OWOpeners.ElementMarks)}; got {token.ToString(Newtonsoft.Json.Formatting.None)}", key);
+            return words;
         }
     }
 
@@ -214,6 +253,39 @@ namespace OnlyWorlds.Sdk
         private static void Fail(string what) => throw new ArgumentException("OWOpenerSurface.FromJson: " + what, "surface");
     }
 
+    /// <summary>What <see cref="OWOpeners"/> takes beside the surface.</summary>
+    public sealed class OWOpenersOptions
+    {
+        /// <summary>The keys of the options as JSON, as the shared fixture writes them.</summary>
+        public static readonly IReadOnlyList<string> JsonKeys = Array.AsReadOnly(new[] { "element" });
+
+        /// <summary>
+        /// The element the menu is for, as the surface was served it (the API's body, the mark flat on it): a row whose
+        /// door skips a mark it carries is not there. Null: every row, as before. Only for an element's menu, and only the
+        /// element the address names.
+        /// </summary>
+        public JObject Element { get; set; }
+
+        /// <summary>The options written as JSON, with the shared fixture's keys (<c>element</c>).</summary>
+        /// <exception cref="ArgumentException">An unknown key, or an element that is not an object or null, named.</exception>
+        public static OWOpenersOptions FromJson(JObject options)
+        {
+            if (options == null) throw new ArgumentNullException(nameof(options), "OWOpenersOptions.FromJson: the options are an object ({ element })");
+            var o = new OWOpenersOptions();
+            foreach (var p in options.Properties())
+            {
+                if (p.Name != "element")
+                    throw new ArgumentException($"OWOpenersOptions.FromJson: unknown key '{p.Name}' in the options. The keys are {string.Join(", ", JsonKeys)}.", nameof(options));
+                if (p.Value.Type == JTokenType.Null) continue;
+                if (!(p.Value is JObject element))
+                    throw new ArgumentException("OWOpenersOptions.FromJson: options element is the element as served, an object, or null", nameof(options));
+                o.Element = element;
+            }
+
+            return o;
+        }
+    }
+
     /// <summary>The words a row says when it cannot open now, or says where it lands. Sentence case, exactly.</summary>
     public static class OWOpenerState
     {
@@ -272,7 +344,10 @@ namespace OnlyWorlds.Sdk
     /// </para>
     /// <para>
     /// A row with <c>open</c> null, or with no door for this kind, is not there. On an element, a tool with only a
-    /// world door is a row to its world door that says "Opens the world". For the <c>public</c> audience only rows
+    /// world door is a row to its world door that says "Opens the world". On an element given as
+    /// <see cref="OWOpenersOptions.Element"/>, a row whose <see cref="OWToolOpen.ElementSkips"/> names a mark the element
+    /// carries (<see cref="ElementMarks"/>, each read as <see cref="OWGraph.Read"/> reads it) is not there: its door cannot
+    /// open it. A world door alone opens the world, so it stays. For the <c>public</c> audience only rows
     /// whose <c>needs</c> is null are there: a row that needs anything does not exist for the public.
     /// </para>
     /// <para>
@@ -291,8 +366,10 @@ namespace OnlyWorlds.Sdk
     /// world (<c>no_world</c>) or with a slug or anything else for its id (<c>bad_world</c>), and a type, id or pairing
     /// <see cref="OWAddress.ElementAddress(string, string, string, string, string, int?)"/> refuses. An
     /// <see cref="ArgumentException"/> whose message names it refuses the rest: a kind that is neither, an element's
-    /// openers asked of an address with no element, an unknown key on the address, a missing or unknown audience, a
-    /// tools row that is not one (a <c>needs</c> outside the list's format included, and a link that opens no app: an
+    /// openers asked of an address with no element, an unknown key on the address, a missing or unknown audience, an
+    /// element given for a world's menu or naming another element than the address, a tools row that is not one (a
+    /// <c>needs</c> or an <c>element_skips</c> word outside the list's format, or skips on a row with no element door,
+    /// included, and a link that opens no app: an
     /// <c>open.world</c> or <c>open.element</c> that does not begin with its scheme, or whose scheme is
     /// <c>javascript</c>, <c>data</c>, <c>vbscript</c>, <c>file</c>, <c>blob</c> or <c>about</c>, in any case, on any
     /// row and either kind of menu). <see cref="OWAddressException"/>
@@ -324,10 +401,39 @@ namespace OnlyWorlds.Sdk
         /// <summary>Schemes that open no app: a row whose link used one would run what it carries when pressed.</summary>
         private static readonly string[] NoApp = { "javascript", "data", "vbscript", "file", "blob", "about" };
 
+        /// <summary>
+        /// The marks an element door may skip (<see cref="OWToolOpen.ElementSkips"/>), the lens profile's graph section's
+        /// words for what a lore view leaves an element out by, in its order: <see cref="OWGraphCut.Room"/>,
+        /// <see cref="OWGraphCut.Hidden"/>, <see cref="OWGraphCut.Proposed"/>, <see cref="OWGraphCut.MapSpace"/> (a Map, Pin or
+        /// Marker; a Zone is content) and <see cref="OWGraphCut.ReadingAid"/>.
+        /// </summary>
+        public static readonly IReadOnlyList<string> ElementMarks = Array.AsReadOnly(new[]
+        {
+            OWGraphCut.Room, OWGraphCut.Hidden, OWGraphCut.Proposed, OWGraphCut.MapSpace, OWGraphCut.ReadingAid,
+        });
+
         /// <summary>The rows for an address given as JSON (<c>form</c>, <c>world</c>, <c>type</c>, <c>id</c>, <c>lens</c>, <c>moment</c>).</summary>
         /// <exception cref="OWAddressException">The address is refused; the reason says why.</exception>
         /// <exception cref="ArgumentException">The rest, named; see the class remarks.</exception>
         public static List<OWOpener> For(IReadOnlyList<OWTool> tools, string kind, JObject address, OWOpenerSurface surface)
+            => For(tools, kind, address, surface, null);
+
+        /// <summary>The rows for a reading from <see cref="OWAddress.ParseLink"/>.</summary>
+        /// <exception cref="OWAddressException">The reading names its world by slug (<c>bad_world</c>), or no world (<c>no_world</c>), or the writer refuses its form, lens or moment.</exception>
+        /// <exception cref="ArgumentException">The rest, named; see the class remarks.</exception>
+        public static List<OWOpener> For(IReadOnlyList<OWTool> tools, string kind, OWAddressReading address, OWOpenerSurface surface)
+            => For(tools, kind, address, surface, null);
+
+        /// <summary>The rows for a world's id, and for an element its type word and id (both null for a world).</summary>
+        /// <exception cref="OWAddressException">The parts are refused; the reason says why.</exception>
+        /// <exception cref="ArgumentException">The rest, named; see the class remarks.</exception>
+        public static List<OWOpener> For(IReadOnlyList<OWTool> tools, string kind, string world, string type, string id, OWOpenerSurface surface)
+            => For(tools, kind, world, type, id, surface, null);
+
+        /// <summary>The rows for an address given as JSON, with the options (the element as served); null options for none.</summary>
+        /// <exception cref="OWAddressException">The address is refused; the reason says why.</exception>
+        /// <exception cref="ArgumentException">The rest, named; see the class remarks.</exception>
+        public static List<OWOpener> For(IReadOnlyList<OWTool> tools, string kind, JObject address, OWOpenerSurface surface, OWOpenersOptions options)
         {
             CheckToolsAndKind(tools, kind);
             if (address == null) throw new ArgumentNullException(nameof(address), "OWOpeners.For: the address is an object ({ form, world, type, id }), as OWAddress.ParseLink reads it");
@@ -343,27 +449,56 @@ namespace OnlyWorlds.Sdk
             var whole = (JObject)address.DeepClone();
             if (!whole.TryGetValue("form", out var form) || form.Type == JTokenType.Null) whole["form"] = OWAddress.Human;
             OWAddress.ElementAddress(whole);
-            return Rows(tools, kind, OWAddress.Part(address, "world"), OWAddress.Part(address, "type"), OWAddress.Part(address, "id"), surface);
+            return Rows(tools, kind, OWAddress.Part(address, "world"), OWAddress.Part(address, "type"), OWAddress.Part(address, "id"), surface, options);
         }
 
-        /// <summary>The rows for a reading from <see cref="OWAddress.ParseLink"/>.</summary>
+        /// <summary>The rows for a reading from <see cref="OWAddress.ParseLink"/>, with the options; null options for none.</summary>
         /// <exception cref="OWAddressException">The reading names its world by slug (<c>bad_world</c>), or no world (<c>no_world</c>), or the writer refuses its form, lens or moment.</exception>
         /// <exception cref="ArgumentException">The rest, named; see the class remarks.</exception>
-        public static List<OWOpener> For(IReadOnlyList<OWTool> tools, string kind, OWAddressReading address, OWOpenerSurface surface)
+        public static List<OWOpener> For(IReadOnlyList<OWTool> tools, string kind, OWAddressReading address, OWOpenerSurface surface, OWOpenersOptions options)
         {
             CheckToolsAndKind(tools, kind);
             if (address == null) throw new ArgumentNullException(nameof(address), "OWOpeners.For: the address is a reading, as OWAddress.ParseLink reads it");
             OWAddress.ElementAddress(address.Form ?? OWAddress.Human, address.World, address.Type, address.Id, address.Lens, address.Moment);
-            return Rows(tools, kind, address.World, address.Type, address.Id, surface);
+            return Rows(tools, kind, address.World, address.Type, address.Id, surface, options);
         }
 
-        /// <summary>The rows for a world's id, and for an element its type word and id (both null for a world).</summary>
+        /// <summary>The rows for a world's id, and for an element its type word and id, with the options; null options for none.</summary>
         /// <exception cref="OWAddressException">The parts are refused; the reason says why.</exception>
         /// <exception cref="ArgumentException">The rest, named; see the class remarks.</exception>
-        public static List<OWOpener> For(IReadOnlyList<OWTool> tools, string kind, string world, string type, string id, OWOpenerSurface surface)
+        public static List<OWOpener> For(IReadOnlyList<OWTool> tools, string kind, string world, string type, string id, OWOpenerSurface surface,
+            OWOpenersOptions options)
         {
             CheckToolsAndKind(tools, kind);
-            return Rows(tools, kind, world, type, id, surface);
+            return Rows(tools, kind, world, type, id, surface, options);
+        }
+
+        /// <summary>
+        /// The marks an element carries, in <see cref="ElementMarks"/>' order, each read by the reader
+        /// <see cref="OWGraph.Read"/> uses: <see cref="OWRoom.IsRoomElement"/>, <see cref="OWPayload.IsHidden"/>,
+        /// <see cref="OWPayload.IsProposedOrInDoubt"/>, the type folded among <see cref="OWGraph.MapSpaceTypes"/>, and
+        /// <see cref="OWRoom.IsCharterElement"/>. Empty for one a lore view keeps.
+        /// </summary>
+        internal static List<string> MarksOf(JObject element)
+        {
+            var marks = new List<string>();
+            if (OWRoom.IsRoomElement(element)) marks.Add(OWGraphCut.Room);
+            if (OWPayload.IsHidden(element)) marks.Add(OWGraphCut.Hidden);
+            if (OWPayload.IsProposedOrInDoubt(element)) marks.Add(OWGraphCut.Proposed);
+            if (element["type"] is JValue t && t.Type == JTokenType.String && Contains(OWGraph.MapSpaceTypes, OWProfileText.Fold((string)t)))
+                marks.Add(OWGraphCut.MapSpace);
+            if (OWRoom.IsCharterElement(element)) marks.Add(OWGraphCut.ReadingAid);
+            return marks;
+        }
+
+        private static bool Contains(IReadOnlyList<string> list, string word)
+        {
+            foreach (var w in list)
+            {
+                if (w == word) return true;
+            }
+
+            return false;
         }
 
         private static void CheckToolsAndKind(IReadOnlyList<OWTool> tools, string kind)
@@ -373,7 +508,8 @@ namespace OnlyWorlds.Sdk
                 Fail($"kind is 'world' or 'element'; got {(kind == null ? "null" : "\"" + kind + "\"")}", nameof(kind));
         }
 
-        private static List<OWOpener> Rows(IReadOnlyList<OWTool> tools, string kind, string world, string type, string id, OWOpenerSurface surface)
+        private static List<OWOpener> Rows(IReadOnlyList<OWTool> tools, string kind, string world, string type, string id, OWOpenerSurface surface,
+            OWOpenersOptions options)
         {
             // The address's checks are the writer's, so a slug, a missing world and a bad type or id refuse as there.
             var page = OWAddress.ElementAddress(OWAddress.Human, world, type, id);
@@ -394,6 +530,16 @@ namespace OnlyWorlds.Sdk
             var tool = surface.Tool;
             bool Offline(string href) => !surface.Online && Web.IsMatch(href);
 
+            var element = options?.Element;
+            var marks = new List<string>();
+            if (element != null)
+            {
+                if (kind != Element) Fail("options element is for an element's menu; a world's menu takes none", nameof(options));
+                if (!(element["id"] is JValue eid && eid.Type == JTokenType.String && ((string)eid).ToLowerInvariant() == values["id"]))
+                    Fail("options element is the element the address names: its id differs", nameof(options));
+                marks = MarksOf(element);
+            }
+
             var site = kind == Element ? page : OWAddress.ElementAddress(OWAddress.Human, world);
             var siteState = tool == SiteId ? OWOpenerState.YouAreHere : Offline(site) ? OWOpenerState.NeedsAConnection : null;
             var rows = new List<OWOpener> { new OWOpener(SiteId, SiteName, site, siteState) };
@@ -407,10 +553,21 @@ namespace OnlyWorlds.Sdk
                 var needs = open.Needs;
                 if (needs != null && needs != OWToolOpen.Account && needs != OWToolOpen.Device)
                     Fail($"tool {r.Id}: open.needs is 'account', 'device' or null; got \"{needs}\"", nameof(tools));
+                var skips = open.ElementSkips ?? (IReadOnlyList<string>)Array.Empty<string>();
+                foreach (var s in skips)
+                {
+                    if (s == null || !Contains(ElementMarks, s))
+                        Fail($"tool {r.Id}: open.element_skips is a list of {string.Join(", ", ElementMarks)}; got {(s == null ? "null" : "\"" + s + "\"")}", nameof(tools));
+                }
+
+                if (open.Element == null && skips.Count > 0)
+                    Fail($"tool {r.Id}: open.element_skips names what an element door leaves out, and the row has none", nameof(tools));
                 if (r.Rung != OWTool.Listed) continue;
                 if (audience == OWOpenerSurface.Public && needs != null) continue;
                 var template = kind == Element ? open.Element ?? open.World : open.World;
                 if (template == null) continue;
+                // An element door that cannot open this element is no door (a row with skips has one: refused above).
+                if (kind == Element && marks.Exists(m => Contains(skips, m))) continue;
                 // The first that holds. A word the row needs (it cannot open now) comes before "Opens the world" (it
                 // opens, somewhere else), so a world door alone that needs a sign-in says the sign-in. With no
                 // connection a web link opens nothing, whatever else it needs.

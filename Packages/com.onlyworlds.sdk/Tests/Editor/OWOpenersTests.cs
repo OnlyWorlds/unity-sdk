@@ -19,9 +19,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     public class OWOpenersTests
     {
         /// <summary>The fixture's sha256, as both packages' suites hold it.</summary>
-        private const string FixtureSha256 = "1e84a613a1bca3795ef7ef09bf0c3b8f7e60d2156b185441d60a10933f49a05d";
+        private const string FixtureSha256 = "381b3ab03bbb19187a74e830c7236306f9ba1f6128020c8855515ce7a63bb6cc";
 
-        private const int CaseCount = 65;
+        private const int CaseCount = 90;
 
         private const string World = "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e0f";
         private const string Element = "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e1a";
@@ -117,7 +117,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             {
                 var tools = OWTool.FromJson((JArray)fixture["lists"][(string)c["tools"]]);
                 var surface = OWOpenerSurface.FromJson((JObject)c["surface"]);
-                var rows = OWOpeners.For(tools, (string)c["kind"], (JObject)c["address"], surface);
+                // The fixture's options, when present, are the fifth argument as written ({ element }).
+                var rows = c["options"] is JObject options
+                    ? OWOpeners.For(tools, (string)c["kind"], (JObject)c["address"], surface, OWOpenersOptions.FromJson(options))
+                    : OWOpeners.For(tools, (string)c["kind"], (JObject)c["address"], surface);
                 return new JObject { ["expect"] = new JArray(rows.Select(Row)) };
             }
             catch (OWAddressException e)
@@ -274,6 +277,137 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var e = Assert.Throws<ArgumentException>(() => OWOpeners.For(tools, OWOpeners.World, World, null, null,
                 new OWOpenerSurface { Audience = OWOpenerSurface.Member }));
             StringAssert.Contains("tool bare: open.world begins with its scheme", e.Message);
+        }
+
+        // -- element_skips beside the fixture -----------------------------------------------------------
+
+        [Test]
+        public void TheBakedList_LittleLensSkipsRoomHiddenProposedAndMapSpace_AtlasAndLanternNone()
+        {
+            CollectionAssert.AreEqual(new[] { "room", "hidden", "proposed", "map_space" }, OWTools.All.Single(t => t.Id == "little-lens").Open.ElementSkips);
+            Assert.IsEmpty(OWTools.All.Single(t => t.Id == "atlas").Open.ElementSkips);
+            Assert.IsEmpty(OWTools.All.Single(t => t.Id == "lantern").Open.ElementSkips);
+            var pin = new JObject { ["id"] = Element, ["type"] = "pin", ["name"] = "A pin" };
+            var rows = OWOpeners.For(OWTools.All, OWOpeners.Element, World, "pin", Element, new OWOpenerSurface { Audience = OWOpenerSurface.Member },
+                new OWOpenersOptions { Element = pin });
+            CollectionAssert.AreEqual(new[] { OWOpeners.SiteId, "atlas", "lantern" }, rows.Select(r => r.Id).ToList());
+        }
+
+        [Test]
+        public void ASkipOutsideTheWords_IsRefused_ARowBuiltInCodeToo_EvenWithoutAnElement()
+        {
+            var tools = new[] { new OWTool("thorn", "Thorn", "https://thorn.example", null, OWTool.Listed,
+                new OWToolOpen("https://thorn.example/{world}", "https://thorn.example/{world}/{id}", null, new[] { "private" })) };
+            var e = Assert.Throws<ArgumentException>(() => OWOpeners.For(tools, OWOpeners.World, World, null, null,
+                new OWOpenerSurface { Audience = OWOpenerSurface.Member }));
+            StringAssert.Contains("tool thorn: open.element_skips", e.Message);
+        }
+
+        [TestCase("{\"world\": null, \"element\": null, \"needs\": null, \"element_skips\": \"hidden\"}")]
+        [TestCase("{\"world\": null, \"element\": null, \"needs\": null, \"element_skips\": [7]}")]
+        public void ASkipsListThatIsNotAListOfWords_IsRefusedByName(string open)
+        {
+            var row = JObject.Parse("{\"id\": \"x\", \"name\": \"X\", \"open\": " + open + "}");
+            var e = Assert.Throws<ArgumentException>(() => OWTool.FromJson(row));
+            StringAssert.Contains("open.element_skips", e.Message);
+        }
+
+        /// <summary>
+        /// The menu reads an element's marks as <see cref="OWGraph.Read"/> does: on every element of the lens fixture's
+        /// worlds (<c>Fixtures/lens/lens.fixture.json</c>), a door that skips one word is left out exactly when the graph
+        /// reader, asked about that element alone, says it carries that mark: room, hidden and proposed from a node's marks
+        /// with every flag on, map space from the cut with that one flag off, a reading aid from the one kind no flag brings
+        /// back. An element under the world's hidden list carries <c>hidden: true</c>, as the owner is served it. The
+        /// TypeScript SDK's <c>openers-marks.test.mjs</c>, ported.
+        /// </summary>
+        [Test]
+        public void EverySkipWord_LeavesADoorOut_ExactlyWhenTheGraphReadsThatMark()
+        {
+            var root = TestPackage.Root();
+            var path = root == null ? null : Path.Combine(root, "Tests", "Editor", "Fixtures", "lens", "lens.fixture.json");
+            Assert.IsTrue(path != null && File.Exists(path), "the vendored lens fixture was not found: " + path);
+            var lens = OWJson.ParseObject(File.ReadAllText(path));
+            // A node's family and icon are the presentation sidecar's; outside the Editor Resources loads nothing, so the
+            // package's own sidecar is read from its text and put back after, as OWGraphTests does.
+            string family = null;
+            try
+            {
+                family = OWPresentation.FamilyOf("character");
+            }
+            catch (Exception)
+            {
+                // No engine behind Resources; read the text below.
+            }
+
+            var fromText = family == null;
+            if (fromText)
+            {
+                try
+                {
+                    OWPresentation.LoadText(File.ReadAllText(Path.Combine(root, "Runtime", "Resources", "ow-presentation.json")));
+                }
+                catch (Exception)
+                {
+                    // The colours need the engine's parser; the type table is read before them.
+                }
+            }
+
+            try
+            {
+                MarksAgreeWithTheGraph(lens);
+            }
+            finally
+            {
+                if (fromText) OWPresentation.Reload();
+            }
+        }
+
+        private static void MarksAgreeWithTheGraph(JObject lens)
+        {
+            string DoorId(string word) => "skip-" + word.Replace('_', '-');
+            var tools = OWOpeners.ElementMarks.Select(w => new OWTool(DoorId(w), w, "https://x.example", null, OWTool.Listed,
+                new OWToolOpen("https://x.example/#/w/{world}", "https://x.example/#/w/{world}/e/{id}", null, new[] { w }))).ToList();
+            var all = new OWGraphOptions { Rooms = true, Hidden = true, Proposed = true, MapSpace = true };
+            var noMap = new OWGraphOptions { Rooms = true, Hidden = true, Proposed = true, MapSpace = false };
+
+            var n = 0;
+            var seen = new HashSet<string>();
+            var wrong = new List<string>();
+            foreach (var w in ((JObject)lens["worlds"]).Properties().Select(p => (JObject)p.Value))
+            {
+                var hidden = new HashSet<string>((w["hidden"] as JArray ?? new JArray()).Select(t => (string)t));
+                foreach (var raw in ((JArray)w["elements"]).Cast<JObject>())
+                {
+                    var el = (JObject)raw.DeepClone();
+                    if (hidden.Contains((string)el["id"])) el["hidden"] = true;
+                    var one = new JArray(el);
+                    var full = OWGraph.Read(one, OWLensReader.Owner(), all);
+                    var want = new HashSet<string>(full.Nodes.Count == 1 ? full.Nodes[0].Marks : Array.Empty<string>());
+                    var lessMap = OWGraph.Read(one, OWLensReader.Owner(), noMap);
+                    if (full.Nodes.Count == 1 && lessMap.Nodes.Count == 0 && lessMap.Cut.TryGetValue(OWGraphCut.MapSpace, out var m) && m == 1)
+                        want.Add(OWGraphCut.MapSpace);
+                    if (full.Nodes.Count == 0 && full.Cut.TryGetValue(OWGraphCut.ReadingAid, out var a) && a == 1)
+                        want.Add(OWGraphCut.ReadingAid);
+                    seen.UnionWith(want);
+
+                    var address = new JObject { ["form"] = "human", ["world"] = (string)w["id"], ["type"] = ((string)el["type"]).ToLowerInvariant(), ["id"] = (string)el["id"] };
+                    var rows = OWOpeners.For(tools, OWOpeners.Element, address, new OWOpenerSurface { Audience = OWOpenerSurface.Member },
+                        new OWOpenersOptions { Element = el });
+                    foreach (var word in OWOpeners.ElementMarks)
+                    {
+                        var gone = rows.All(r => r.Id != DoorId(word));
+                        if (gone != want.Contains(word))
+                            wrong.Add($"{w["name"]} {el["type"]} {el["name"] ?? el["id"]}: {word} {(gone ? "skipped" : "kept")}, the graph {(want.Contains(word) ? "marks it" : "does not")}");
+                    }
+
+                    n++;
+                }
+            }
+
+            Assert.IsEmpty(wrong, string.Join("\n", wrong));
+            Assert.GreaterOrEqual(n, 100, $"read {n} elements");
+            // Every word met at least once, so no check passes for want of a case.
+            CollectionAssert.AreEquivalent(OWOpeners.ElementMarks, seen);
         }
     }
 }
