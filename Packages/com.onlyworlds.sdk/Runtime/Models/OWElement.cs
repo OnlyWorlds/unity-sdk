@@ -223,7 +223,7 @@ namespace OnlyWorlds.Sdk
 
                 foreach (var pair in _extensions)
                 {
-                    projected.Add(new OWExtensionField(pair.Key, pair.Value?.ToString(Formatting.None)));
+                    projected.Add(new OWExtensionField(pair.Key, pair.Value == null ? null : OWJson.Write(pair.Value)));
                 }
 
                 return projected;
@@ -250,7 +250,7 @@ namespace OnlyWorlds.Sdk
 
             foreach (var pair in _extensions)
             {
-                _extensionsForUnity.Add(new OWExtensionField(pair.Key, pair.Value?.ToString(Formatting.None)));
+                _extensionsForUnity.Add(new OWExtensionField(pair.Key, pair.Value == null ? null : OWJson.Write(pair.Value)));
             }
         }
 
@@ -262,7 +262,7 @@ namespace OnlyWorlds.Sdk
             foreach (var field in _extensionsForUnity)
             {
                 if (string.IsNullOrEmpty(field.Key)) continue;
-                _extensions[field.Key] = Newtonsoft.Json.Linq.JToken.Parse(field.RawJson ?? "null");
+                _extensions[field.Key] = OWJson.ParseToken(field.RawJson ?? "null");
             }
         }
     }

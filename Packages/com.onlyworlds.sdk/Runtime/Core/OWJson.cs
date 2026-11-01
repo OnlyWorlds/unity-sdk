@@ -1,5 +1,7 @@
 using System;
+using System.Globalization;
 using System.IO;
+using System.Text;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -50,7 +52,50 @@ namespace OnlyWorlds.Sdk
             Converters = { new SerializableNullableConverterFactory() },
         };
 
-        public static string Serialize(object value) => JsonConvert.SerializeObject(value, Settings);
+        /// <summary>
+        /// Serializes with <see cref="Settings"/>, as <c>JsonConvert.SerializeObject</c> does, except that every
+        /// finite double and float is written as <c>JSON.stringify</c> writes it.
+        /// </summary>
+        /// <remarks>
+        /// Newtonsoft's own spelling is the runtime's <c>"R"</c>, and under Unity's Mono that writes seventeen digits
+        /// where sixteen read back (<c>0.33333333333333331</c>) and some strings that an exact reader (keel, npm) reads
+        /// as the neighbouring double (<c>51.672104437815896</c> for <c>51.6721044378159</c>). An integral double is
+        /// written without <c>.0</c> (<c>1</c>) and both zeros as <c>0</c>, as <c>JSON.stringify</c> writes them;
+        /// integers, strings, NaN and the infinities are written as before.
+        /// </remarks>
+        public static string Serialize(object value)
+        {
+            var serializer = JsonSerializer.CreateDefault(Settings);
+            var buffer = new StringWriter(new StringBuilder(256), CultureInfo.InvariantCulture);
+            using (var writer = new OWJsNumberWriter(buffer))
+            {
+                writer.Formatting = serializer.Formatting;
+                serializer.Serialize(writer, value, null);
+            }
+
+            return buffer.ToString();
+        }
+
+        /// <summary>
+        /// A token as compact JSON text, as <c>token.ToString(Formatting.None)</c> writes it, except that every finite
+        /// double and float is written as <c>JSON.stringify</c> writes it. Every request body, and every text the SDK
+        /// keeps and reads back (the cache, an extension's raw JSON), is written through this.
+        /// </summary>
+        /// <remarks>
+        /// Writer and reader go together: once <see cref="ParseObject"/> reads exactly, a text written with the
+        /// runtime's <c>"R"</c> would no longer always read back as the double it came from.
+        /// </remarks>
+        internal static string Write(JToken token)
+        {
+            if (token == null) throw new ArgumentNullException(nameof(token));
+            var buffer = new StringWriter(CultureInfo.InvariantCulture);
+            using (var writer = new OWJsNumberWriter(buffer) { Formatting = Formatting.None })
+            {
+                token.WriteTo(writer);
+            }
+
+            return buffer.ToString();
+        }
 
         /// <summary>
         /// Parses JSON text into a <see cref="JObject"/> <b>without coercing any value</b>. Use this,
@@ -63,11 +108,16 @@ namespace OnlyWorlds.Sdk
         /// Same instant, different bytes, and a whole-repository diff whose content depends on
         /// which machine ran the write. Measured 2026-09-07 across all 4,769 files of a real world.
         /// Large integers stay integers (<c>FloatParseHandling.Double</c>) for the same reason.
+        /// <para>
+        /// A number with a fraction or an exponent is read to the nearest double, ties to even, exactly, on every
+        /// runtime (<see cref="OWExactReader"/>): Newtonsoft reads it with the runtime's <c>double.TryParse</c>, and
+        /// Unity's Mono misreads ordinary numbers that keel and npm write (<c>263.2953629956518</c>, one step off).
+        /// </para>
         /// </remarks>
         public static JObject ParseObject(string text)
         {
             if (text == null) throw new ArgumentNullException(nameof(text));
-            using (var reader = new JsonTextReader(new StringReader(text)))
+            using (var reader = new OWExactReader(text))
             {
                 reader.DateParseHandling = DateParseHandling.None;
                 reader.FloatParseHandling = FloatParseHandling.Double;
@@ -75,7 +125,44 @@ namespace OnlyWorlds.Sdk
             }
         }
 
-        public static T Deserialize<T>(string json) => JsonConvert.DeserializeObject<T>(json, Settings);
+        /// <summary>
+        /// Deserializes with <see cref="Settings"/>, as <c>JsonConvert.DeserializeObject</c> does (content after the
+        /// value is refused), reading every double exactly as <see cref="ParseObject"/> does: an element's
+        /// <c>x_</c> doubles as much as a typed field.
+        /// </summary>
+        public static T Deserialize<T>(string json)
+        {
+            if (json == null) throw new ArgumentNullException(nameof(json));
+            var serializer = JsonSerializer.CreateDefault(Settings);
+            serializer.CheckAdditionalContent = true;
+            using (var reader = new OWExactReader(json))
+            {
+                return serializer.Deserialize<T>(reader);
+            }
+        }
+
+        /// <summary>
+        /// <c>JToken.Parse</c> with its own settings (an ISO-8601 string still becomes a date token, as it did at the
+        /// one caller), reading every double exactly.
+        /// </summary>
+        internal static JToken ParseToken(string text)
+        {
+            if (text == null) throw new ArgumentNullException(nameof(text));
+            using (var reader = new OWExactReader(text))
+            {
+                var token = JToken.ReadFrom(reader);
+
+                // Any content here other than a comment throws in the reader, as in JToken.Parse.
+                while (reader.Read())
+                {
+                }
+
+                return token;
+            }
+        }
+
+        /// <summary>A reader over <paramref name="text"/> that reads every double exactly, for a caller with its own settings.</summary>
+        internal static JsonTextReader Reader(string text) => new OWExactReader(text);
 
         /// <summary>
         /// A live, statically-typed reference to the closed generic forms the schema uses, so the

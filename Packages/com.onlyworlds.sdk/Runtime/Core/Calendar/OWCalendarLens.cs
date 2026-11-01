@@ -111,7 +111,7 @@ namespace OnlyWorlds.Sdk
         static string Text(JToken t)
         {
             if (t == null || t.Type == JTokenType.Null || t.Type == JTokenType.Undefined) return null;
-            return t.Type == JTokenType.String ? (string)t : t.ToString(Formatting.None);
+            return t.Type == JTokenType.String ? (string)t : OWJson.Write(t);
         }
 
         /// <summary>JSON.parse, or null when the text is not JSON. Dates stay strings (Newtonsoft would turn
@@ -123,8 +123,9 @@ namespace OnlyWorlds.Sdk
             if (!StrictJson.IsValid(text)) return null;
             try
             {
-                using (var reader = new JsonTextReader(new StringReader(text)) { DateParseHandling = DateParseHandling.None })
+                using (var reader = OWJson.Reader(text))
                 {
+                    reader.DateParseHandling = DateParseHandling.None;
                     var token = JToken.ReadFrom(reader);
                     while (reader.Read())
                     {

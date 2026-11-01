@@ -162,7 +162,7 @@ namespace OnlyWorlds.Sdk
             foreach (var element in read.Elements)
             {
                 cache.Upsert(element.Id, element.Type,
-                    OWFolderReader.WithSchemaLinkNames(element.Body).ToString(Newtonsoft.Json.Formatting.None));
+                    OWJson.Write(OWFolderReader.WithSchemaLinkNames(element.Body)));
             }
 
             return read;

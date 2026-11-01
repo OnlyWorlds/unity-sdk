@@ -100,7 +100,7 @@ namespace OnlyWorlds.Sdk
         public static OWFrontDoor Of(JObject me)
         {
             if (!(me?["front_door"] is JObject door)) return null;
-            return OWJson.Deserialize<OWFrontDoor>(door.ToString(Formatting.None));
+            return OWJson.Deserialize<OWFrontDoor>(OWJson.Write(door));
         }
     }
 }
