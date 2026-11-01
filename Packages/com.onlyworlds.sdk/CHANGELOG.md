@@ -68,6 +68,20 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   or is built in a way it cannot read.
   A null type or id is now refused before anything is sent (see Changed: 4.123.3); before, it went out as an empty
   segment (`/character//`).
+- Doubles go through the SDK's JSON exactly, both ways, on every runtime. Newtonsoft writes a double with the
+  runtime's `"R"` format and reads one with the runtime's `double.TryParse`, and under Unity's Mono both are inexact:
+  over 19,990 doubles, 15 written strings read back as another double in the API and the TypeScript SDK (one went
+  out as `51.6721044378159`, which they read as its neighbour), and 63 of the shortest strings those send were read
+  one step off (`263.2953629956518`). The SDK's own write-then-read agreed with itself, so no round trip on Mono
+  could see it. What it reached: floats in extension fields (`x_*`) and any double a caller sends or reads. Now
+  `OWJson.Serialize`, every request body, the world cache's text and an extension's raw JSON write a finite double
+  as `JSON.stringify` writes it (the shortest digits that read back, the closest of those, ECMAScript's layout: the
+  writer the world folder already used, now shared and faster), and `OWJson.ParseObject` and `OWJson.Deserialize`,
+  so every response the client reads as data, read a number with a fraction or an exponent to the nearest double,
+  ties to even. Bytes change where `JSON.stringify`'s differ from Newtonsoft's: `0.3333333333333333` (was
+  `0.33333333333333331`), `1` for an integral double (was `1.0`, so it reads back as an integer token), `0` for
+  `-0.0`, `1e-7` and `1e+21` (were `1E-07` and `1E+21`). Integers, large integers, strings, NaN and the infinities
+  are written and read as before. A world folder read under Mono no longer misreads a float the folder writer wrote.
 
 ## [0.29.0] - 2026-10-31
 

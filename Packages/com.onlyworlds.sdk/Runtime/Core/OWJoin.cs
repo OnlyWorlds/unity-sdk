@@ -317,7 +317,7 @@ namespace OnlyWorlds.Sdk
                 Url = (baseUrl ?? DefaultBaseUrl).TrimEnd('/') + path,
                 // No API-Key and no Bearer: keel declares no security on either route.
                 Headers = new Dictionary<string, string> { ["Content-Type"] = "application/json" },
-                Body = body.ToString(Formatting.None),
+                Body = OWJson.Write(body),
             };
 
             OWResponse response;

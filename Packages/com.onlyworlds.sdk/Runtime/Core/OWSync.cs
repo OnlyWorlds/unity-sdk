@@ -87,7 +87,7 @@ namespace OnlyWorlds.Sdk
                     var id = element["id"]?.ToString();
                     if (string.IsNullOrEmpty(id)) continue;
 
-                    cache.Upsert(id, type, element.ToString(Newtonsoft.Json.Formatting.None));
+                    cache.Upsert(id, type, OWJson.Write(element));
                     fetched++;
                 }
 
@@ -222,7 +222,7 @@ namespace OnlyWorlds.Sdk
 
                         if (element == null) continue;
 
-                        cache.Upsert(change.Id, change.Type, element.ToString(Newtonsoft.Json.Formatting.None));
+                        cache.Upsert(change.Id, change.Type, OWJson.Write(element));
                         fetched++;
                     }
 

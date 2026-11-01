@@ -1216,7 +1216,7 @@ namespace OnlyWorlds.Sdk
             var body = new JObject { ["error"] = "too_large", ["max_bytes"] = max, ["got"] = size };
             throw new OWApiError((HttpStatusCode)413,
                 $"{what} is {size} bytes; this ticket accepts at most {max}. Nothing was sent.",
-                code: "too_large", rawBody: body.ToString(Newtonsoft.Json.Formatting.None));
+                code: "too_large", rawBody: OWJson.Write(body));
         }
 
         /// <summary>
@@ -2279,7 +2279,7 @@ namespace OnlyWorlds.Sdk
                 Method = "POST",
                 Url = auth + "/auth/login",
                 Headers = new Dictionary<string, string> { ["Content-Type"] = "application/json" },
-                Body = credentials.ToString(Newtonsoft.Json.Formatting.None),
+                Body = OWJson.Write(credentials),
             }, "OnlyWorlds could not be reached: signing in needs a connection.", ct).ConfigureAwait(false);
 
             var retryAfter = OWApiError.ParseRetryAfter(ReadHeader(res, "Retry-After"), DateTimeOffset.UtcNow);
@@ -2360,7 +2360,7 @@ namespace OnlyWorlds.Sdk
                 if (tokenName != null)
                 {
                     mint.Headers["Content-Type"] = "application/json";
-                    mint.Body = new JObject { ["name"] = tokenName }.ToString(Newtonsoft.Json.Formatting.None);
+                    mint.Body = OWJson.Write(new JObject { ["name"] = tokenName });
                 }
 
                 var minted = await SendSignInAsync(mint, "The connection dropped after signing in: no token was made. Try again.", ct)
@@ -2557,7 +2557,7 @@ namespace OnlyWorlds.Sdk
                 Method = "POST",
                 Url = BaseUrl + "/auth/token",
                 Headers = new Dictionary<string, string> { ["Content-Type"] = "application/json" },
-                Body = body.ToString(Newtonsoft.Json.Formatting.None),
+                Body = OWJson.Write(body),
             }, "OnlyWorlds could not be reached: signing in needs a connection.", ct).ConfigureAwait(false);
 
             var retryAfter = OWApiError.ParseRetryAfter(ReadHeader(res, "Retry-After"), DateTimeOffset.UtcNow);
@@ -3147,7 +3147,7 @@ namespace OnlyWorlds.Sdk
                 Method = method,
                 Url = url,
                 Headers = headers,
-                Body = body?.ToString(Newtonsoft.Json.Formatting.None),
+                Body = body == null ? null : OWJson.Write(body),
             };
 
             OWResponse response;
