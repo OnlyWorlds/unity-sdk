@@ -196,11 +196,12 @@ namespace OnlyWorlds.Sdk
                 var ev = (JObject)token;
                 if (Proposed(ev) || !ListHas(ev["characters"], characterId)) continue;
                 var id = Str(ev["id"]);
+                if (id == null) continue; // what cannot be named is never read (the page is silent; the game SDKs agree)
 
                 var stories = new List<OWRecordStory>();
                 foreach (var t in all)
                 {
-                    if (!(t is JObject n) || Str(n["type"]) != "narrative" || Proposed(n) || !ListHas(n["events"], id))
+                    if (!(t is JObject n) || Str(n["type"]) != "narrative" || Proposed(n) || Str(n["id"]) == null || !ListHas(n["events"], id))
                         continue;
                     var p = Str(n["protagonist"]) == characterId;
                     var r = Str(n["narrator"]) == characterId;

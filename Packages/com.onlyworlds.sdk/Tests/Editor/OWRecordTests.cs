@@ -145,6 +145,22 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             foreach (var who in new[] { "toString", "constructor" }) Assert.IsNull(OWRecord.Of(who, new[] { ev })[0].Seat);
         }
 
+        /// <summary>An Event or a story whose id is not a string is never read (the page is silent; keel and the Python
+        /// package raise, npm emits an entry with no id; the Godot and Unreal SDKs skip it, as here).</summary>
+        [Test]
+        public void WhatCannotBeNamed_IsNeverRead()
+        {
+            var nameless = Run("x", "2026-11-01T00:00Z");
+            nameless.Remove("id");
+            var numbered = Run("x", "2026-11-01T00:00Z");
+            numbered["id"] = 7;
+            var ev = Run("e", "2026-11-01T00:00Z");
+            var story = new JObject { ["type"] = "narrative", ["events"] = new JArray("e"), ["narrator"] = "c", ["name"] = "S" };
+            var got = OWRecord.Of("c", new JToken[] { nameless, numbered, ev, story });
+            CollectionAssert.AreEqual(new[] { "e" }, got.Select(r => r.EventId).ToArray());
+            Assert.AreEqual(0, got[0].Stories.Count, "a story with no id is not one");
+        }
+
         [Test]
         public void PlayedAt_WithSecondsAndAFraction_OrdersAsTheInstantItIs()
         {
