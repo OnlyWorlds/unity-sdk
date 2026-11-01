@@ -8,6 +8,8 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Added
 
+- Schema pin to `v0.33.0-dist.102`: the record profile, new; the strand page's ruled line dated. No schema field moved;
+  the generated models' headers move with the serial.
 - The link forwarder (`Tools~/ow-link`) answers a game's own scheme: `install.ps1 -Scheme mygame` registers
   `mygame:` links for the user, and the config's `scheme` names the same. Such a link reaches the listener and the
   player as the `ow:` address it carries, so nothing on the receiving side changes. `ow:` stays the default: it is
