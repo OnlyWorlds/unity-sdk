@@ -180,6 +180,24 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             CollectionAssert.AreEqual(new[] { "n＀", "n\U0001F600" }, got[1].Stories.Select(s => s.Id).ToArray());
         }
 
+        /// <summary>A Narrative naming an Event twice is one story of it, other values in events name none (npm 4.124.1's
+        /// vector; npm's third clause, that no two records share a mutable story, holds here by a story being immutable).</summary>
+        [Test]
+        public void ANarrativeNamingAnEventTwice_IsOneStory_AndOtherValuesNameNone()
+        {
+            const string c = "019a8000-0000-7000-8000-000000000101";
+            var events = new JArray(7, JValue.CreateNull(), new JObject(), new JArray("e1"), "e1");
+            var got = OWRecord.Of(c, new JToken[]
+            {
+                Run("e1", "2026-11-02T00:00:00Z", c), Run("e2", "2026-11-01T00:00:00Z", c),
+                new JObject { ["id"] = "n1", ["type"] = "narrative", ["name"] = "One", ["protagonist"] = c, ["events"] = new JArray("e1", "e1", "e2") },
+                new JObject { ["id"] = "n2", ["type"] = "narrative", ["name"] = "Two", ["narrator"] = c, ["events"] = events },
+            });
+            CollectionAssert.AreEqual(new[] { "e1", "e2" }, got.Select(r => r.EventId).ToArray());
+            CollectionAssert.AreEqual(new[] { "n1:protagonist", "n2:narrator" }, got[0].Stories.Select(s => s.Id + ":" + s.As).ToArray());
+            CollectionAssert.AreEqual(new[] { "n1:protagonist" }, got[1].Stories.Select(s => s.Id + ":" + s.As).ToArray());
+        }
+
         [Test]
         public void PlayedAt_WithSecondsAndAFraction_OrdersAsTheInstantItIs()
         {

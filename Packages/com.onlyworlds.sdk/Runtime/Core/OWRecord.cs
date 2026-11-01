@@ -188,6 +188,27 @@ namespace OnlyWorlds.Sdk
             if (characterId == null) throw new ArgumentNullException(nameof(characterId));
             if (elements == null) throw new ArgumentNullException(nameof(elements));
             var all = elements.ToList();
+            // This Character's stories, by each Event they name (once per Narrative, however often it names it): one pass
+            // over the world, then a lookup per record, as npm 4.124.1 reads (each record rescanned the world before).
+            // A story is immutable, so one instance may sit in several records.
+            var storiesOf = new Dictionary<string, List<OWRecordStory>>(StringComparer.Ordinal);
+            foreach (var t in all)
+            {
+                if (!(t is JObject n) || Str(n["type"]) != "narrative" || Proposed(n) || Str(n["id"]) == null) continue;
+                var p = Str(n["protagonist"]) == characterId;
+                var r = Str(n["narrator"]) == characterId;
+                if (!p && !r || !(n["events"] is JArray events)) continue;
+                var story = new OWRecordStory(Str(n["id"]), Str(n["name"]) ?? string.Empty,
+                    p && r ? "both" : p ? "protagonist" : "narrator");
+                var named = new HashSet<string>(StringComparer.Ordinal);
+                foreach (var e in events)
+                {
+                    if (e.Type != JTokenType.String || !named.Add((string)e)) continue;
+                    if (!storiesOf.TryGetValue((string)e, out var at)) storiesOf[(string)e] = at = new List<OWRecordStory>();
+                    at.Add(story);
+                }
+            }
+
             var found = new List<(OWRecord record, long ms)>();
             foreach (var token in all)
             {
@@ -198,17 +219,7 @@ namespace OnlyWorlds.Sdk
                 var id = Str(ev["id"]);
                 if (id == null) continue; // what cannot be named is never read (the page is silent; the game SDKs agree)
 
-                var stories = new List<OWRecordStory>();
-                foreach (var t in all)
-                {
-                    if (!(t is JObject n) || Str(n["type"]) != "narrative" || Proposed(n) || Str(n["id"]) == null || !ListHas(n["events"], id))
-                        continue;
-                    var p = Str(n["protagonist"]) == characterId;
-                    var r = Str(n["narrator"]) == characterId;
-                    if (!p && !r) continue;
-                    stories.Add(new OWRecordStory(Str(n["id"]), Str(n["name"]) ?? string.Empty,
-                        p && r ? "both" : p ? "protagonist" : "narrator"));
-                }
+                var stories = storiesOf.TryGetValue(id, out var mine) ? new List<OWRecordStory>(mine) : new List<OWRecordStory>();
                 stories.Sort((a, b) => OWCodePointComparer.Instance.Compare(a.Id, b.Id));
 
                 mark.Seats.TryGetValue(characterId, out var seat);
