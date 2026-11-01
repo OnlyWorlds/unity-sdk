@@ -6,6 +6,17 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- `OWWorldLinkCreate.LandsOn` and `OWWorldLink.LandsOn`: where an invite link opens, `site` (onlyworlds.com's /join,
+  the default) or, on a person link only, `dashboard` (the Dashboard's /join). Keel takes it on the mint and serves it on
+  every link row.
+
+### Changed
+
+- The wire fixture is refreshed from keel's live document of 2026-11-01 18:06: invite links carry `lands_on`, and one
+  new account route (`GET /account/worlds/holding/{narrative_id}`) that the client does not call yet.
+
 ## [0.30.0] - 2026-11-01
 
 Doubles now go through the SDK's JSON exactly on every runtime, Unity's Mono included, where before some were written

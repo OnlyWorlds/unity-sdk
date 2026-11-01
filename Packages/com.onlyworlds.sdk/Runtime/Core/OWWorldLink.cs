@@ -67,6 +67,14 @@ namespace OnlyWorlds.Sdk
         /// </summary>
         [JsonProperty("characters")]
         public List<string> Characters;
+
+        /// <summary>
+        /// Where the link opens: <c>site</c> (onlyworlds.com's /join) or, on a person link only, <c>dashboard</c> (the
+        /// Dashboard's). Null: <c>site</c>. Any other word, or <c>dashboard</c> on an agent or player link, is a 422
+        /// (<see cref="OWApiError.Param"/> <c>lands_on</c>).
+        /// </summary>
+        [JsonProperty("lands_on")]
+        public string LandsOn;
     }
 
     /// <summary>
@@ -144,6 +152,10 @@ namespace OnlyWorlds.Sdk
         /// <summary>A table only: the Characters its players may pick, in the owner's order; null on a link for one.</summary>
         [JsonProperty("characters")]
         public List<OWWorldLinkPick> Characters;
+
+        /// <summary>Where the link opens: <c>site</c> or <c>dashboard</c> (<see cref="OWWorldLinkCreate.LandsOn"/>).</summary>
+        [JsonProperty("lands_on")]
+        public string LandsOn;
 
         /// <summary>A party link: more than one player joins by it.</summary>
         [JsonIgnore]
