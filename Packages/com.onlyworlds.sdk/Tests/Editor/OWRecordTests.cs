@@ -161,6 +161,25 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(0, got[0].Stories.Count, "a story with no id is not one");
         }
 
+        /// <summary>Ties order by code point, never UTF-16: an id above the BMP sorts after U+FF00 (npm 4.124.2's vector;
+        /// string.CompareOrdinal would put the surrogate pair first).</summary>
+        [Test]
+        public void Ties_OrderByCodePoint_NeverUtf16()
+        {
+            const string hi = "e\U0001F600", bmp = "e＀";
+            var story = new Func<string, string, JObject>((id, name) => new JObject
+            {
+                ["id"] = id, ["type"] = "narrative", ["name"] = name, ["protagonist"] = "c", ["events"] = new JArray(hi),
+            });
+            var got = OWRecord.Of("c", new JToken[]
+            {
+                Run(hi, "2026-11-01T00:00:00Z"), Run(bmp, "2026-11-01T00:00:00Z"),
+                story("n\U0001F600", "a"), story("n＀", "b"),
+            });
+            CollectionAssert.AreEqual(new[] { bmp, hi }, got.Select(r => r.EventId).ToArray());
+            CollectionAssert.AreEqual(new[] { "n＀", "n\U0001F600" }, got[1].Stories.Select(s => s.Id).ToArray());
+        }
+
         [Test]
         public void PlayedAt_WithSecondsAndAFraction_OrdersAsTheInstantItIs()
         {

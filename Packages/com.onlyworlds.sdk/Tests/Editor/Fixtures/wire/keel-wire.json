@@ -5,7 +5,7 @@
     "X-Session-Token",
     "Authorization"
   ],
-  "document_sha256": "6f0b315bf57192250ce069b0b6f4a0cf52d1ef1274f7a1fcc518585422980cfa",
+  "document_sha256": "53c5d218a06542e46656cc155d57e346e0d470d966fcfa0b3abcf5a53000c7fb",
   "error_codes": {
     "already_member": 409,
     "already_reported": 409,
@@ -87,7 +87,7 @@
     "write_failed": 502,
     "wrong_audience": 401
   },
-  "fetched": "2026-10-31T07:00+01:00",
+  "fetched": "2026-11-01T06:23+01:00",
   "openapi_version": "2.0",
   "paths": {
     "/api/v2/ability": {
@@ -745,11 +745,37 @@
     "/api/v2/account": {
       "GET": {
         "header": [],
-        "query": []
+        "query": [],
+        "response": [
+          "date_joined",
+          "email",
+          "id",
+          "only_world",
+          "only_world.id",
+          "only_world.name",
+          "only_world.slug",
+          "only_world_chosen",
+          "username"
+        ]
       },
       "PATCH": {
+        "body": [
+          "only_world",
+          "username"
+        ],
         "header": [],
-        "query": []
+        "query": [],
+        "response": [
+          "date_joined",
+          "email",
+          "id",
+          "only_world",
+          "only_world.id",
+          "only_world.name",
+          "only_world.slug",
+          "only_world_chosen",
+          "username"
+        ]
       }
     },
     "/api/v2/account/allowance": {
