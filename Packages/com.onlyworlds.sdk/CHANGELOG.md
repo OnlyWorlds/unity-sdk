@@ -6,6 +6,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-11-01
+
+Doubles now go through the SDK's JSON exactly on every runtime, Unity's Mono included, where before some were written
+or read one step off. The record profile's reader (`OWRecord`) lists a Character's runs from any game; the account's
+own tokens can be listed and revoked; a value that is not one path segment is refused before anything is sent; and
+the link forwarder answers a game's own scheme. A minor release because it adds public API (below).
+
 ### Added
 
 - The record profile's reader (schema-dist `v0.33.0-dist.102`, `profiles/record.md`): a game's run kept in the world
