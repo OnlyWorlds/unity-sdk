@@ -32,6 +32,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 - `WorldLensesAsync`'s documentation names the `skipped` row: with `readAs`, a lens that reader cannot see carries
   `skipped: "not_found"` and a null `reading` (the answer is the body as served, so nothing else changes). With
   `LandsOn` above, parity with the TypeScript SDK 4.125.0.
+- `OWGraph.Read` without a lens is about twice as fast: the lens view builds its reverse link index on the first lens
+  reading that asks for it instead of for every view, and folds each element's type once. Over a world of 20,570
+  elements, 1.6-2.1 s became 0.7-1.2 s (Mono). No answer changes.
 
 ## [0.30.0] - 2026-11-01
 
