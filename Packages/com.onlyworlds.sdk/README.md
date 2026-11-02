@@ -153,8 +153,10 @@ foreach (var row in OWOpeners.For(OWTools.All, OWOpeners.Element, OWAddress.Pars
     AddMenuItem(row.Name, row.Href, row.State); // State: null, or e.g. "Opens in your browser"
 ```
 
-The surface says what your game knows and nothing is guessed: `Audience` (`member` or `public`; the public sees only
-rows that need nothing first), `SignedIn` (null when you cannot know, and then no row says so), `Browser` (false in a
+The surface says what your game knows and nothing is guessed: `Audience` (`member` or `public`, the signed-out
+reader: the public sees the rows that need nothing, and a tool that needs an account as a row that says "Needs an
+account" and opens nothing, so draw it disabled and do not follow its href; a tool that needs the device is not
+there), `SignedIn` (null when you cannot know, and then no row says so), `Browser` (false in a
 game or a desktop app, which cannot see the browser's sign-in), `Phone`, `Online` (false with no connection, as
 `Application.internetReachability` reports it: every row whose link is a web address then says "Needs a connection",
 and keeps its href), and `Tool`, your own client name, whose row says "You are here". On an element's menu, pass the

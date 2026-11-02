@@ -19,9 +19,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     public class OWOpenersTests
     {
         /// <summary>The fixture's sha256, as both packages' suites hold it.</summary>
-        private const string FixtureSha256 = "381b3ab03bbb19187a74e830c7236306f9ba1f6128020c8855515ce7a63bb6cc";
+        private const string FixtureSha256 = "b5c6afb76bf1ab2b95ee50641e2fd36344320d12fe0fd293d4f09fcf8cde7027";
 
-        private const int CaseCount = 90;
+        private const int CaseCount = 92;
 
         private const string World = "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e0f";
         private const string Element = "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e1a";
@@ -184,8 +184,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             foreach (var r in member.Skip(1))
                 Assert.IsTrue(r.Href.StartsWith("https://", StringComparison.Ordinal) && r.Href.Contains(World) && !r.Href.Contains("{"), r.Href);
             var open = OWOpeners.For(OWTools.All, OWOpeners.World, World, null, null, new OWOpenerSurface { Audience = OWOpenerSurface.Public });
-            CollectionAssert.AreEqual(new[] { OWOpeners.SiteId }.Concat(offered.Where(t => t.Open.Needs == null).Select(t => t.Id)).ToList(),
+            // The public: a tool that needs the device is not there; one that needs an account says so.
+            CollectionAssert.AreEqual(new[] { OWOpeners.SiteId }.Concat(offered.Where(t => t.Open.Needs != OWToolOpen.Device).Select(t => t.Id)).ToList(),
                 open.Select(r => r.Id).ToList());
+            foreach (var r in open.Skip(1))
+                Assert.AreEqual(offered.Single(t => t.Id == r.Id).Open.Needs == OWToolOpen.Account ? OWOpenerState.NeedsAnAccount : null, r.State, r.Id);
         }
 
         [Test]
