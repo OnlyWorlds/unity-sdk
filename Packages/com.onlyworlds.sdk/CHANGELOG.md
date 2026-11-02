@@ -8,6 +8,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
+- **`OWOpeners.For` gives a signed-out visitor the tools that need an account.** For the `public` audience, a tool
+  whose `open.needs` is `account` is now a row with the new word `OWOpenerState.NeedsAnAccount` ("Needs an account"),
+  whatever `SignedIn` says; before, the public had no such row. The row keeps its href, and opens nothing: draw it
+  disabled. A tool that needs the device is still not there for the public. The word comes after "You are here" and
+  "Needs a connection", and before "Opens the world". The shared openers fixture has 92 cases (from 90): seven public
+  cases gain their account rows, and two are new. Parity with the TypeScript SDK 4.130.0 (`openersFor`) and the
+  Python package 0.105.0 (`openers_for`).
 - **`OWMapSpace.Of`** reads two rows of one type with one id as the last one served, for Markers and Pins as it
   already did for Maps and Zones (the map-space page's reading I, serial 106: a reader holds one row per id). Before,
   a repeated Marker id drew both points into its outline, and a repeated Pin id answered both Pins. The rest of
@@ -17,6 +24,15 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 - The schema pin moves to `v0.34.0-dist.106` (canonical `00.34.00` unchanged, no schema file moved): the map-space
   page's readings I to K and four rulings, with ten new fixture cases (34 in all). The generated models changed only
   in their serial stamp.
+
+### Fixed
+
+- **`OWMapSpace.Of` reads a double past 2^53 - 1 as not whole.** A number written with a fraction or an exponent
+  (`9007199254740993.0`) is read as a double, and past 2^53 - 1 a double cannot tell a value the parse had to round
+  from an exact one, so a Marker or Pin `x`/`y` there now has no point and a `z` there reads as 0; before, any whole
+  double up to 2^63 was read as whole. A reader's whole numbers are those it holds exactly: a JSON integer is still
+  read as written to 64 bits (past it, not whole), where the TypeScript SDK, whose JSON gives doubles, stops at 2^53 - 1
+  (4.129.2). The fixture's cases stay inside 2^53.
 
 ## [0.32.0] - 2026-11-02
 

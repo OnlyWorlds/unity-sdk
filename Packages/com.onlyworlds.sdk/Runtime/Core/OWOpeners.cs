@@ -48,9 +48,9 @@ namespace OnlyWorlds.Sdk
         public string Element { get; }
 
         /// <summary>
-        /// <see cref="Account"/>, <see cref="Device"/>, or null for nothing, which is the one kind of row a public page
-        /// offers. <see cref="OWOpeners.For(IReadOnlyList{OWTool}, string, JObject, OWOpenerSurface)"/> refuses any
-        /// other word.
+        /// <see cref="Account"/>, <see cref="Device"/>, or null for nothing. A public page offers those rows, and an
+        /// <see cref="Account"/> row only as one that opens nothing ("Needs an account").
+        /// <see cref="OWOpeners.For(IReadOnlyList{OWTool}, string, JObject, OWOpenerSurface)"/> refuses any other word.
         /// </summary>
         public string Needs { get; }
 
@@ -295,6 +295,12 @@ namespace OnlyWorlds.Sdk
         /// <summary>The device has no connection and the row's link is a web address.</summary>
         public const string NeedsAConnection = "Needs a connection";
 
+        /// <summary>
+        /// The reader is the public (signed out) and the tool needs an account: the row opens nothing. The href stays in
+        /// the row; a surface draws it as a row that cannot be followed.
+        /// </summary>
+        public const string NeedsAnAccount = "Needs an account";
+
         /// <summary>The tool needs an account and the surface is not a browser, which could see its sign-in.</summary>
         public const string OpensInYourBrowser = "Opens in your browser";
 
@@ -347,15 +353,18 @@ namespace OnlyWorlds.Sdk
     /// world door is a row to its world door that says "Opens the world". On an element given as
     /// <see cref="OWOpenersOptions.Element"/>, a row whose <see cref="OWToolOpen.ElementSkips"/> names a mark the element
     /// carries (<see cref="ElementMarks"/>, each read as <see cref="OWGraph.Read"/> reads it) is not there: its door cannot
-    /// open it. A world door alone opens the world, so it stays. For the <c>public</c> audience only rows
-    /// whose <c>needs</c> is null are there: a row that needs anything does not exist for the public.
+    /// open it. A world door alone opens the world, so it stays. For the <c>public</c> audience (the signed-out reader)
+    /// a row whose <c>needs</c> is <c>device</c> is not there, since a visitor's device holds no world of this one's, and
+    /// a row whose <c>needs</c> is <c>account</c> is there and says it needs one.
     /// </para>
     /// <para>
     /// Each row's state, the first that holds: "You are here" for the surface's own tool (its <c>client</c> is
     /// <see cref="OWOpenerSurface.Tool"/>); then, when <see cref="OWOpenerSurface.Online"/> is false, "Needs a
     /// connection" for a row whose href is a web address (scheme <c>http:</c> or <c>https:</c>, in any case; a row whose
-    /// link opens an app on the device is unaffected, and the href stays in the row either way); then what
-    /// <c>needs</c> asks of this surface: <c>account</c> outside a browser "Opens in your browser", in a browser signed
+    /// link opens an app on the device is unaffected, and the href stays in the row either way); then, for the
+    /// <c>public</c> audience, "Needs an account" for a row whose <c>needs</c> is <c>account</c>, whatever
+    /// <see cref="OWOpenerSurface.SignedIn"/> says (the href stays in the row; a surface draws it as a row that opens
+    /// nothing); then what <c>needs</c> asks of this surface: <c>account</c> outside a browser "Opens in your browser", in a browser signed
     /// out "Sign in to &lt;name&gt; first" (none when
     /// <see cref="OWOpenerSurface.SignedIn"/> is null: a word shows only when the surface knows it is true),
     /// <c>device</c> on a phone "Needs the world on this phone"; then "Opens the world" (a world door on an element: a
@@ -563,7 +572,7 @@ namespace OnlyWorlds.Sdk
                 if (open.Element == null && skips.Count > 0)
                     Fail($"tool {r.Id}: open.element_skips names what an element door leaves out, and the row has none", nameof(tools));
                 if (r.Rung != OWTool.Listed) continue;
-                if (audience == OWOpenerSurface.Public && needs != null) continue;
+                if (audience == OWOpenerSurface.Public && needs == OWToolOpen.Device) continue;
                 var template = kind == Element ? open.Element ?? open.World : open.World;
                 if (template == null) continue;
                 // An element door that cannot open this element is no door (a row with skips has one: refused above).
@@ -575,6 +584,7 @@ namespace OnlyWorlds.Sdk
                 string state = null;
                 if (tool != null && r.Client == tool) state = OWOpenerState.YouAreHere;
                 else if (Offline(href)) state = OWOpenerState.NeedsAConnection;
+                else if (audience == OWOpenerSurface.Public && needs == OWToolOpen.Account) state = OWOpenerState.NeedsAnAccount;
                 else if (needs == OWToolOpen.Account && !surface.Browser) state = OWOpenerState.OpensInYourBrowser;
                 else if (needs == OWToolOpen.Account && surface.SignedIn == false) state = OWOpenerState.SignInFirst(r.Name);
                 else if (needs == OWToolOpen.Device && surface.Phone) state = OWOpenerState.NeedsTheWorldOnThisPhone;
