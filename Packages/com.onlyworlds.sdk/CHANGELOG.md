@@ -25,6 +25,15 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   page's readings I to K and four rulings, with ten new fixture cases (34 in all). The generated models changed only
   in their serial stamp.
 
+### Fixed
+
+- **`OWMapSpace.Of` reads a double past 2^53 - 1 as not whole.** A number written with a fraction or an exponent
+  (`9007199254740993.0`) is read as a double, and past 2^53 - 1 a double cannot tell a value the parse had to round
+  from an exact one, so a Marker or Pin `x`/`y` there now has no point and a `z` there reads as 0; before, any whole
+  double up to 2^63 was read as whole. A reader's whole numbers are those it holds exactly: a JSON integer is still
+  read as written to 64 bits (past it, not whole), where the TypeScript SDK, whose JSON gives doubles, stops at 2^53 - 1
+  (4.129.2). The fixture's cases stay inside 2^53.
+
 ## [0.32.0] - 2026-11-02
 
 The schema at `00.34.00`: Location gains `vehicle`, the Object a place is the inside of. Three profile readers arrive

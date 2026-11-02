@@ -452,9 +452,15 @@ namespace OnlyWorlds.Sdk
         internal static double ToDouble(JValue v) =>
             v.Value is System.Numerics.BigInteger b ? (double)b : Convert.ToDouble(v.Value, CultureInfo.InvariantCulture);
 
+        /// <summary>The largest whole number a double holds exactly, 2^53 - 1 (the TypeScript SDK's <c>Number.MAX_SAFE_INTEGER</c>).</summary>
+        private const double SafeWhole = 9007199254740991.0;
+
         /// <summary>
         /// A JSON number with no fraction as a long (<c>7</c> and <c>7.0</c> alike, as the TypeScript SDK and the Python
-        /// package read it); a boolean, a string, a fraction, NaN or a number past 64 bits is not a whole number.
+        /// package read it); a boolean, a string, a fraction, NaN or a number past 64 bits is not a whole number. A reader's
+        /// whole numbers are those it holds exactly: an integer token is read as written, to 64 bits; a double token (a
+        /// number written with a fraction or an exponent) only to 2^53 - 1 either way, since past it a double cannot tell
+        /// a value the parse had to round from an exact one.
         /// </summary>
         internal static bool Whole(JToken token, out long value)
         {
@@ -464,7 +470,7 @@ namespace OnlyWorlds.Sdk
             {
                 var d = v.Value is decimal m ? (double)m : Convert.ToDouble(v.Value, CultureInfo.InvariantCulture);
                 if (double.IsNaN(d) || double.IsInfinity(d) || Math.Floor(d) != d) return false;
-                if (d < -9223372036854775808.0 || d >= 9223372036854775808.0) return false;
+                if (d < -SafeWhole || d > SafeWhole) return false;
                 value = (long)d;
                 return true;
             }
