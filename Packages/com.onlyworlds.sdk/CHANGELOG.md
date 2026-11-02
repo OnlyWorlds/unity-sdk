@@ -11,6 +11,17 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 - **`OWLocation.Vehicle`** (schema `00.34.00`): the Object a place is the inside of (a ship, a train, an airship, a
   walking city), a single link; a place inside another place keeps using `ParentLocation`. Generated from the schema
   like every field. onlyworlds.com still serves `00.33.00`, where the field is absent and reads as unset.
+- **`OWLanding.Of(graph, options)`**, the landing profile's reader (schema-dist `profiles/landing.md`): a world's
+  first picture at a door, read from the graph `OWGraph.Read` answers for the visitor, so it holds only what that
+  reader may see. The answer (`Mode`, `Size`, `Clusters`, `Unclustered`, `Gaps`; `ToJson()` in the profile's words,
+  all five keys in order) gives the most-linked Characters as heads, each with the nodes within `Hops` steps of it,
+  the nodes no head reaches, and the gaps: `orphan` and `near_orphan` (no edge, one edge), `no_place` (a Character
+  whose `location` names no Location node) and `nobody_here` (a Location no Character's `location` names). The mode
+  is `gaps` under `Size` nodes, `graph` at it and above. Options `Heads` (5), `Hops` (1) and `Size` (24), each a whole
+  number of 1 or more, null for the default; `OWLandingOptions.FromJson` reads them as JSON and refuses an unknown
+  key or a value that is not a whole number by name (`OWLandingRefusedException.Option`). Degree is
+  `OWGraph.DegreeOf`'s, ids compare by code point, and the same graph gives the same bytes. The profile's 30-case
+  fixture passes case by case; parity with the TypeScript SDK's `landingOf` and the Python package's `landing_of`.
 
 ### Changed
 
