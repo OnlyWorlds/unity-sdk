@@ -6,6 +6,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-11-02
+
+The Open with menu leaves out a tool that cannot open the element it is for (the tools list's `element_skips`),
+invite links say where they open (`LandsOn`), and `OWGraph.Read` without a lens is about twice as fast. A minor
+release because it adds public API (below).
+
 ### Added
 
 - `OWWorldLinkCreate.LandsOn` and `OWWorldLink.LandsOn`: where an invite link opens, `site` (onlyworlds.com's /join,
