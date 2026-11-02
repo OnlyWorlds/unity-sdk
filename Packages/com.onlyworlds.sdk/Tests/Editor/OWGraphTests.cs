@@ -27,8 +27,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </remarks>
     public class OWGraphTests
     {
-        /// <summary>The fixture's graph cases, as dist.96 holds them (the 38th: one element of each of the 22 types; the 39th: an empty review mark, an object and a string).</summary>
-        private const int GraphCount = 49;
+        /// <summary>The fixture's graph cases, as dist.104 holds them (the 38th to the 42nd: the reading_aids flag, serial 104; the 43rd: one element of each of the 22 types; the 44th: an empty review mark, an object and a string).</summary>
+        private const int GraphCount = 54;
 
         private static JObject _fixture;
 
@@ -106,7 +106,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public void TheFixture_HoldsDist88sGraphCases()
         {
             Assert.IsNotNull(Fixture, "the vendored lens fixture was not found");
-            Assert.AreEqual(GraphCount, GraphCases.Count(), "dist.96's fixture holds 49 graph cases");
+            Assert.AreEqual(GraphCount, GraphCases.Count(), "dist.104's fixture holds 54 graph cases");
         }
 
         [TestCaseSource(nameof(Cases))]
@@ -140,7 +140,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsNotNull(Fixture, "the vendored lens fixture was not found");
             var f = Fixture;
             CollectionAssert.AreEqual(Strings(f["graph_links"]), OWGraph.DeclaredLinks, "the declared links");
-            CollectionAssert.AreEqual(new[] { "rooms", "hidden", "proposed", "map_space" }, Strings(f["graph_flags"]));
+            CollectionAssert.AreEqual(new[] { "rooms", "hidden", "proposed", "map_space", "reading_aids" }, Strings(f["graph_flags"]));
             CollectionAssert.AreEquivalent(Strings(f["graph_flags"]), OWGraph.Flags, "the flags");
             CollectionAssert.AreEqual(new[] { "hidden", "proposed" }, Strings(f["owner_only_flags"]));
             CollectionAssert.AreEquivalent(Strings(f["edges_cut_reasons"]), OWGraphCut.All, "the edges cut reasons");
@@ -246,6 +246,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 OWGraph.Read(world, OWLensReader.Public(), new OWGraphOptions { Rooms = true })).Message);
             StringAssert.Contains("it asked map_space", Assert.Throws<OWGraphRefusedException>(() =>
                 OWGraph.Read(world, OWLensReader.Public(), new OWGraphOptions { MapSpace = true })).Message);
+            StringAssert.Contains("it asked reading_aids", Assert.Throws<OWGraphRefusedException>(() =>
+                OWGraph.Read(world, OWLensReader.Public(), new OWGraphOptions { ReadingAids = true })).Message);
             StringAssert.Contains("it asked rooms", Assert.Throws<OWGraphRefusedException>(() =>
                 OWGraph.Read(world, OWLensReader.Public().WithOwnerCounts(), new OWGraphOptions { Rooms = true })).Message);
             // The same world read without a refused flag does read the elements.
@@ -419,6 +421,73 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 "the public reader's view leaves a room element out");
         }
 
+        // -- The reading_aids flag (schema-dist serial 104) -------------------------------
+
+        /// <summary>
+        /// The flag brings back every reading aid, the charter, its guide and its domains, each marked; a Guide without the
+        /// mark is lore and a node either way. Without the flag the three are counted <c>reading_aid</c>, and so is each
+        /// link to one. The fixture's cases hold a charter only. Kills: a flag that brings back the charter alone, a mark
+        /// on the unmarked Guide.
+        /// </summary>
+        [Test]
+        public void TheReadingAidsFlag_BringsBackTheGuideAndTheDomainsToo_EachMarked()
+        {
+            var world = new JArray(
+                JObject.Parse(@"{""id"":""a1"",""type"":""law"",""name"":""House Rules"",""supertype"":""Charter"",""x_charter_of"":""w1""}"),
+                JObject.Parse(@"{""id"":""a2"",""type"":""construct"",""name"":""Start here"",""supertype"":""Guide"",""x_charter_of"":""w1""}"),
+                JObject.Parse(@"{""id"":""a3"",""type"":""construct"",""name"":""The harbour"",""supertype"":""Domain"",""x_charter_of"":""w1""}"),
+                JObject.Parse(@"{""id"":""g1"",""type"":""construct"",""name"":""A guide of the city"",""supertype"":""Guide"",""constructs"":[""a2"",""a3""]}"));
+
+            var off = OWGraph.Read(world, OWLensReader.Owner()).ToJson();
+            Assert.AreEqual(@"[[""g1""],{""reading_aid"":3},{""reading_aid"":2}]",
+                new JArray(new JArray(off["nodes"].Select(n => n["id"])), off["cut"], off["edges_cut"]).ToString(Formatting.None));
+
+            var on = OWGraph.Read(world, OWLensReader.Contributor(), new OWGraphOptions { ReadingAids = true });
+            Assert.AreEqual(@"[""a1:reading_aid"",""a2:reading_aid"",""a3:reading_aid"",""g1:""]",
+                new JArray(on.Nodes.Select(n => n.Id + ":" + string.Join(",", n.Marks))).ToString(Formatting.None));
+            Assert.AreEqual(2, on.Edges.Count, "g1's two links to the aids are edges now");
+            CollectionAssert.IsEmpty(on.Cut);
+        }
+
+        /// <summary>
+        /// A node carries every mark that applies, <c>reading_aid</c> last (<see cref="OWGraphMark.All"/>' order, as the
+        /// TypeScript SDK, the Python package and keel order them): a hidden charter written as proposed, read by the owner
+        /// with all three flags. Kills: the mark put before the others, or carried alone.
+        /// </summary>
+        [Test]
+        public void AReadingAidsMark_IsLastAmongANodesMarks()
+        {
+            var world = new JArray(JObject.Parse(
+                @"{""id"":""a1"",""type"":""law"",""name"":""House Rules"",""supertype"":""Charter"",""x_charter_of"":""w1"",""hidden"":true,""x_review_proposed"":{""by"":""m1""}}"));
+            var g = OWGraph.Read(world, OWLensReader.Owner(), new OWGraphOptions { Hidden = true, Proposed = true, ReadingAids = true });
+            CollectionAssert.AreEqual(new[] { "hidden", "proposed", "reading_aid" }, g.Nodes.Single().Marks);
+            var notAll = OWGraph.Read(world, OWLensReader.Owner(), new OWGraphOptions { Hidden = true, Proposed = true });
+            CollectionAssert.IsEmpty(notAll.Nodes, "without reading_aids the hidden, proposed charter stays out");
+            Assert.AreEqual(1, notAll.Cut[OWGraphCut.ReadingAid]);
+        }
+
+        /// <summary>
+        /// The refusal order is <c>hidden</c>, <c>proposed</c>, <c>rooms</c>, <c>map_space</c>, <c>reading_aids</c>: a
+        /// reader refused several flags at once is refused the first. The fixture's all-flags case is refused as
+        /// <c>hidden</c>, so it cannot tell where <c>reading_aids</c> sits. Kills: <c>reading_aids</c> named before
+        /// <c>map_space</c> or <c>rooms</c>, or refused to a contributor.
+        /// </summary>
+        [Test]
+        public void TheRefusalOrder_NamesReadingAidsLast()
+        {
+            string Refused(OWLensReader reader, OWGraphOptions o) =>
+                Assert.Throws<OWGraphRefusedException>(() => OWGraph.Read(new JArray(), reader, o)).Flag;
+
+            Assert.AreEqual("map_space", Refused(OWLensReader.Public(), new OWGraphOptions { MapSpace = true, ReadingAids = true }));
+            Assert.AreEqual("rooms", Refused(OWLensReader.Public(), new OWGraphOptions { Rooms = true, ReadingAids = true }));
+            Assert.AreEqual("reading_aids", Refused(OWLensReader.Public(), new OWGraphOptions { ReadingAids = true }));
+            Assert.AreEqual("reading_aids", Refused(OWLensReader.Public().WithOwnerCounts(), new OWGraphOptions { ReadingAids = true }),
+                "the owner reading as the public reader is judged by that rung");
+            Assert.AreEqual("proposed", Refused(OWLensReader.Contributor(), new OWGraphOptions { Proposed = true, ReadingAids = true }));
+            Assert.DoesNotThrow(() => OWGraph.Read(new JArray(), OWLensReader.Guest(new string[0]), new OWGraphOptions { ReadingAids = true }),
+                "a guest is a signed reader");
+        }
+
         // -- OutDegreeOf (the TypeScript SDK 4.98.0's outDegreeOf, the Python package 0.80.0's out_degree_of) ------------
 
         /// <summary>
@@ -541,7 +610,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var edgeKeys = g.EdgesCut.Where(p => p.Value > 0).Select(p => p.Key).ToList();
             if (reader.Rung == OWLensRung.Public)
             {
-                Assert.IsFalse(g.Nodes.Any(n => n.Marks.Count > 0), name + ": a public graph holds no room, hidden or proposed node");
+                Assert.IsFalse(g.Nodes.Any(n => n.Marks.Any(m => m != OWGraphMark.ReadingAid)),
+                    name + ": a public graph holds no room, hidden or proposed node");
                 foreach (var k in new[] { "room", "hidden", "proposed" })
                     Assert.IsFalse(cutKeys.Contains(k) || edgeKeys.Contains(k), $"{name}: a public graph has no count of {k}");
             }
@@ -675,6 +745,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 Hidden = On("hidden"),
                 Proposed = On("proposed"),
                 MapSpace = On("map_space"),
+                ReadingAids = On("reading_aids"),
             };
         }
 
@@ -860,6 +931,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         private static OWGraphOptions Flag(string flag) => new OWGraphOptions
         {
             Rooms = flag == "rooms", Hidden = flag == "hidden", Proposed = flag == "proposed", MapSpace = flag == "map_space",
+            ReadingAids = flag == "reading_aids",
         };
 
         private static List<string> Strings(JToken token) =>

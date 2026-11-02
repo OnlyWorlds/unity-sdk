@@ -23,6 +23,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   for an `int` reads as `int.MaxValue`, since a count past the graph's nodes means all of them. Degree is
   `OWGraph.DegreeOf`'s, ids compare by code point, and the same graph gives the same bytes. The profile's 30-case
   fixture passes case by case; parity with the TypeScript SDK's `landingOf` and the Python package's `landing_of`.
+- **`OWGraphOptions.ReadingAids`**, the lens graph's fifth flag (schema-dist serial 104): the reading aids (the
+  Charter, its Guide and its Domains, by the pair and the mark `x_charter_of`) come back into an unlensed graph, each
+  node marked `reading_aid` (`OWGraphMark.ReadingAid`, last among a node's marks). Any signed reader may ask it; a
+  public reader is refused by name (`OWGraphRefusedException.Flag` is `reading_aids`), last in the refusal order
+  `hidden`, `proposed`, `rooms`, `map_space`, `reading_aids` (`OWGraph.Flags`). A flag never widens a lens: a lens
+  still names `law/charter` to keep its Charter, and an aid a lens keeps now carries the `reading_aid` mark, as a
+  room element a lens keeps carries `room`. The lens fixture's five new graph cases pass; parity with the TypeScript
+  SDK's `readingAids` and the Python package's `reading_aids`.
 
 ### Changed
 
@@ -30,6 +38,10 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   also brings the landing profile, the lens page's two degree counts with their fixture cases, and the record profile's
   tightened readings. The example export the envelope tests read moved its `schema_version` and carries `vehicle`; the
   `.owworld` conformance set did not move.
+- The schema pin moves to `v0.34.0-dist.104` (canonical `00.34.00` unchanged, no schema file moved): the lens page's
+  fifth graph flag, `reading_aids`, with five graph cases (201 in all), and the landing page's two rulings, `orphan`
+  and `near_orphan` by the page's own degree and a `heads` past the reader's integer range read as the largest, with
+  three cases (33 in all). The generated models changed only in their serial stamp.
 
 ### Fixed
 

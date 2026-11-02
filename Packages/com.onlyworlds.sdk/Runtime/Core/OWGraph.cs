@@ -1,5 +1,6 @@
 // The lens profile's graph section: a reading of a world as nodes and edges (schema-dist profiles/lens.md, serial 81,
-// ruled 2026-10-27; the reading aids out of an unlensed graph and a stub lens read as nothing at serial 82). The elements a reader sees are the nodes, the links between them the edges. It adds nothing to the
+// ruled 2026-10-27; the reading aids out of an unlensed graph and a stub lens read as nothing at serial 82; the reading_aids
+// flag, which brings them back marked, at serial 104). The elements a reader sees are the nodes, the links between them the edges. It adds nothing to the
 // world and stores nothing.
 //
 // Written from the profile and its conformance fixture's graph kind (profiles/lens.fixture.json), which is this file's
@@ -27,8 +28,15 @@ namespace OnlyWorlds.Sdk
         /// <summary>An element written as proposed, brought back by <see cref="OWGraphOptions.Proposed"/>.</summary>
         public const string Proposed = "proposed";
 
+        /// <summary>
+        /// A reading aid (<see cref="OWRoom.IsCharterElement"/>), brought back by <see cref="OWGraphOptions.ReadingAids"/>
+        /// (schema-dist serial 104), and carried too by an aid a lens keeps, as a room element a lens keeps carries
+        /// <see cref="Room"/>.
+        /// </summary>
+        public const string ReadingAid = "reading_aid";
+
         /// <summary>Every mark, in the order a node carries them.</summary>
-        public static readonly string[] All = { Room, Hidden, Proposed };
+        public static readonly string[] All = { Room, Hidden, Proposed, ReadingAid };
     }
 
     /// <summary>
@@ -51,9 +59,10 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// A reading aid (<see cref="OWRoom.IsCharterElement"/>: the charter, its guide, its domains, by the pair and the mark
-        /// <c>x_charter_of</c>), out of an unlensed graph. No flag brings it back; a lens that names its pair keeps it.
+        /// <c>x_charter_of</c>), out of an unlensed graph. <see cref="OWGraphOptions.ReadingAids"/> brings it back; a lens
+        /// that names its pair keeps it whatever the flag says.
         /// </summary>
-        public const string ReadingAid = "reading_aid";
+        public const string ReadingAid = OWGraphMark.ReadingAid;
 
         /// <summary>
         /// A link from a kept node to an element the reader sees that the lens neither kept nor cut: past its hops,
@@ -73,7 +82,7 @@ namespace OnlyWorlds.Sdk
         public static readonly string[] OwnerOnly = OWLensCut.OwnerOnly.Concat(new[] { Hidden, Proposed }).ToArray();
     }
 
-    /// <summary><see cref="OWGraph.Read"/>'s options: a lens, its reading's moment, and the four flags.</summary>
+    /// <summary><see cref="OWGraph.Read"/>'s options: a lens, its reading's moment, and the five flags.</summary>
     public sealed class OWGraphOptions
     {
         /// <summary>A lens body: the nodes are then exactly what it kept, and no flag adds to them. Null: no lens.</summary>
@@ -113,11 +122,18 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>Bring back map space: Maps, Pins and Markers, with no mark. Refused for the public reader.</summary>
         public bool MapSpace { get; set; }
+
+        /// <summary>
+        /// Bring back the reading aids (the charter, its guide and its domains, by the pair and the mark
+        /// <c>x_charter_of</c>), marked <c>reading_aid</c>. Any signed reader may ask it; refused for the public reader
+        /// (schema-dist serial 104).
+        /// </summary>
+        public bool ReadingAids { get; set; }
     }
 
     /// <summary>
     /// A flag the reader may not ask, refused before anything is read: <see cref="Flag"/> is the profile's word for it
-    /// (<c>hidden</c>, <c>proposed</c>, <c>rooms</c>, <c>map_space</c>).
+    /// (<c>hidden</c>, <c>proposed</c>, <c>rooms</c>, <c>map_space</c>, <c>reading_aids</c>).
     /// </summary>
     public sealed class OWGraphRefusedException : ArgumentException
     {
@@ -318,9 +334,9 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// The flags, as the profile names them, in the order a refusal names the first unmet one: <c>hidden</c>,
-        /// <c>proposed</c>, <c>rooms</c>, <c>map_space</c>.
+        /// <c>proposed</c>, <c>rooms</c>, <c>map_space</c>, <c>reading_aids</c>.
         /// </summary>
-        public static readonly IReadOnlyList<string> Flags = new[] { "hidden", "proposed", "rooms", "map_space" };
+        public static readonly IReadOnlyList<string> Flags = new[] { "hidden", "proposed", "rooms", "map_space", "reading_aids" };
 
         /// <summary>
         /// Reads a world as a graph for one reader: the elements the reader sees as nodes, the links between them as
@@ -332,10 +348,11 @@ namespace OnlyWorlds.Sdk
         /// <remarks>
         /// <para>
         /// Without a lens the nodes are every element the reader sees less what is out by default: room elements, hidden
-        /// ones, proposed ones and map space, each brought back by its flag and then marked (map space carries no mark),
-        /// and the reading aids (<see cref="OWRoom.IsCharterElement"/>), which no flag brings back.
+        /// ones, proposed ones, map space and the reading aids (<see cref="OWRoom.IsCharterElement"/>), each brought back
+        /// by its flag and then marked (map space carries no mark).
         /// With a lens (<see cref="OWGraphOptions.Lens"/> or <see cref="OWGraphOptions.LensId"/>) the nodes are exactly the
-        /// lens's kept, its cut rides along unchanged, and a flag adds nothing: a lens means one thing everywhere. A lens
+        /// lens's kept, its cut rides along unchanged, and a flag adds nothing: a lens means one thing everywhere (a kept
+        /// room element or reading aid still carries its mark). A lens
         /// whose <c>x_lens</c> cannot be read gives an empty graph naming the key; a lens id the reader is not served whole
         /// gives an empty graph that is readable, as does a lens body served only as a known-of stub.
         /// </para>
@@ -371,7 +388,7 @@ namespace OnlyWorlds.Sdk
                 [OWGraphCut.Hidden] = o.Hidden,
                 [OWGraphCut.Proposed] = o.Proposed,
                 [OWGraphCut.MapSpace] = o.MapSpace,
-                [OWGraphCut.ReadingAid] = false,
+                [OWGraphCut.ReadingAid] = o.ReadingAids,
             };
             var seenOwner = view.Rung == OWLensRung.Owner;
             var asGiven = seenOwner || view.Rung == OWLensRung.Served;
@@ -515,6 +532,7 @@ namespace OnlyWorlds.Sdk
             if (rung != OWLensRung.Public) return;
             if (o.Rooms) throw new OWGraphRefusedException("rooms", "OWGraph.Read: a public reader takes no flag; it asked rooms.");
             if (o.MapSpace) throw new OWGraphRefusedException("map_space", "OWGraph.Read: a public reader takes no flag; it asked map_space.");
+            if (o.ReadingAids) throw new OWGraphRefusedException("reading_aids", "OWGraph.Read: a public reader takes no flag; it asked reading_aids.");
         }
 
         /// <summary>
