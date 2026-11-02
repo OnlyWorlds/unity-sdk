@@ -6,11 +6,19 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-11-02
+
+The schema at `00.34.00`: Location gains `vehicle`, the Object a place is the inside of. Three profile readers arrive
+or grow: `OWLanding.Of` reads a world's first picture at a door (the landing profile), `OWGraphOptions.ReadingAids`
+brings the reading aids back into an unlensed graph, and `OWMapSpace.Of` reads a world's Maps, Zones, Markers and
+Pins as geometry (the map-space profile). `OWRecord.Of` reads an empty review mark as settled. A minor release because
+it adds public API (below).
+
 ### Added
 
 - **`OWLocation.Vehicle`** (schema `00.34.00`): the Object a place is the inside of (a ship, a train, an airship, a
   walking city), a single link; a place inside another place keeps using `ParentLocation`. Generated from the schema
-  like every field. onlyworlds.com still serves `00.33.00`, where the field is absent and reads as unset.
+  like every field. onlyworlds.com serves it since 2026-11-02; a world exported before it reads it as unset.
 - **`OWLanding.Of(graph, options)`**, the landing profile's reader (schema-dist `profiles/landing.md`): a world's
   first picture at a door, read from the graph `OWGraph.Read` answers for the visitor, so it holds only what that
   reader may see. The answer (`Mode`, `Size`, `Clusters`, `Unclustered`, `Gaps`; `ToJson()` in the profile's words,
