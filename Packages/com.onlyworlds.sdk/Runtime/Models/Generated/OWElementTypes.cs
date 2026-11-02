@@ -1,9 +1,9 @@
 // GENERATED from the OnlyWorlds schema distribution -- DO NOT EDIT.
 // Regenerate: python codegen/generate_models.py   (drift guard: codegen/check_drift.py)
 //
-// canonical: 00.33.00
-// serial: 102
-// published: 2026-11-01
+// canonical: 00.34.00
+// serial: 103
+// published: 2026-11-02
 
 using System;
 using System.Collections.Generic;
@@ -124,7 +124,7 @@ namespace OnlyWorlds.Sdk
             { "institution", new[] { "doctrine", "founding_date", "parent_institution", "zones", "objects", "creatures", "status", "allies", "adversaries", "constructs" } },
             { "language", new[] { "phonology", "grammar", "lexicon", "writing", "classification", "status", "spread", "dialects" } },
             { "law", new[] { "declaration", "purpose", "date", "parent_law", "penalties", "author", "locations", "zones", "prohibitions", "adjudicators", "enforcers" } },
-            { "location", new[] { "form", "function", "founding_date", "parent_location", "populations", "political_climate", "primary_power", "governing_title", "secondary_powers", "zone", "rival", "partner", "customs", "founders", "cults", "delicacies", "extraction_methods", "extraction_goods", "industry_methods", "industry_goods", "infrastructure", "extraction_markets", "industry_markets", "currencies", "architecture", "buildings", "building_methods", "defensibility", "elevation", "fighters", "defensive_objects" } },
+            { "location", new[] { "form", "function", "founding_date", "parent_location", "vehicle", "populations", "political_climate", "primary_power", "governing_title", "secondary_powers", "zone", "rival", "partner", "customs", "founders", "cults", "delicacies", "extraction_methods", "extraction_goods", "industry_methods", "industry_goods", "infrastructure", "extraction_markets", "industry_markets", "currencies", "architecture", "buildings", "building_methods", "defensibility", "elevation", "fighters", "defensive_objects" } },
             { "map", new[] { "background_color", "hierarchy", "width", "height", "depth", "parent_map", "location" } },
             { "marker", new[] { "map", "zone", "x", "y", "z", "order" } },
             { "narrative", new[] { "story", "consequences", "start_date", "end_date", "order", "parent_narrative", "protagonist", "antagonist", "narrator", "conservator", "events", "characters", "objects", "locations", "species", "creatures", "institutions", "traits", "collectives", "zones", "abilities", "phenomena", "languages", "families", "relations", "titles", "constructs", "laws" } },
@@ -240,7 +240,7 @@ namespace OnlyWorlds.Sdk
             { "institution", new Dictionary<string, string> { { "parent_institution", "institution" }, { "zones", "zone" }, { "objects", "object" }, { "creatures", "creature" }, { "allies", "institution" }, { "adversaries", "institution" }, { "constructs", "construct" } } },
             { "language", new Dictionary<string, string> { { "classification", "construct" }, { "spread", "location" }, { "dialects", "language" } } },
             { "law", new Dictionary<string, string> { { "parent_law", "law" }, { "penalties", "construct" }, { "author", "institution" }, { "locations", "location" }, { "zones", "zone" }, { "prohibitions", "construct" }, { "adjudicators", "title" }, { "enforcers", "title" } } },
-            { "location", new Dictionary<string, string> { { "parent_location", "location" }, { "populations", "collective" }, { "primary_power", "institution" }, { "governing_title", "title" }, { "secondary_powers", "institution" }, { "zone", "zone" }, { "rival", "location" }, { "partner", "location" }, { "founders", "character" }, { "cults", "construct" }, { "delicacies", "species" }, { "extraction_methods", "construct" }, { "extraction_goods", "construct" }, { "industry_methods", "construct" }, { "industry_goods", "construct" }, { "extraction_markets", "location" }, { "industry_markets", "location" }, { "currencies", "construct" }, { "buildings", "object" }, { "building_methods", "construct" }, { "fighters", "construct" }, { "defensive_objects", "object" } } },
+            { "location", new Dictionary<string, string> { { "parent_location", "location" }, { "vehicle", "object" }, { "populations", "collective" }, { "primary_power", "institution" }, { "governing_title", "title" }, { "secondary_powers", "institution" }, { "zone", "zone" }, { "rival", "location" }, { "partner", "location" }, { "founders", "character" }, { "cults", "construct" }, { "delicacies", "species" }, { "extraction_methods", "construct" }, { "extraction_goods", "construct" }, { "industry_methods", "construct" }, { "industry_goods", "construct" }, { "extraction_markets", "location" }, { "industry_markets", "location" }, { "currencies", "construct" }, { "buildings", "object" }, { "building_methods", "construct" }, { "fighters", "construct" }, { "defensive_objects", "object" } } },
             { "map", new Dictionary<string, string> { { "parent_map", "map" }, { "location", "location" } } },
             { "marker", new Dictionary<string, string> { { "map", "map" }, { "zone", "zone" } } },
             { "narrative", new Dictionary<string, string> { { "parent_narrative", "narrative" }, { "protagonist", "character" }, { "antagonist", "character" }, { "narrator", "character" }, { "conservator", "institution" }, { "events", "event" }, { "characters", "character" }, { "objects", "object" }, { "locations", "location" }, { "species", "species" }, { "creatures", "creature" }, { "institutions", "institution" }, { "traits", "trait" }, { "collectives", "collective" }, { "zones", "zone" }, { "abilities", "ability" }, { "phenomena", "phenomenon" }, { "languages", "language" }, { "families", "family" }, { "relations", "relation" }, { "titles", "title" }, { "constructs", "construct" }, { "laws", "law" } } },

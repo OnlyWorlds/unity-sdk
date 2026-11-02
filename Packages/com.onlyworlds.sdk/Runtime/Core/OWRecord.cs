@@ -1,9 +1,10 @@
 // The record profile: a game's run kept in the world its Characters live in (schema-dist profiles/record.md, serial
-// 102, ruled 2026-11-01). The run is an Event carrying the mark x_record ({tool, played_at, version?, seed?, outcome?,
-// seats?}), the game's own tally beside it under its own prefix; who took part is the Event's `characters` alone; a
-// Narrative that lists the Event in `events` and names a Character as protagonist or narrator is that Character's
-// story of it. A run or a story still proposed (the review profile's x_review_proposed, any value but null) is not
-// read until a keeper settles it.
+// 102, ruled 2026-11-01; its readings tightened at serial 103). The run is an Event carrying the mark x_record ({tool,
+// played_at, version?, seed?, outcome?, seats?}), the game's own tally beside it under its own prefix; who took part is
+// the Event's `characters` alone; a Narrative that lists the Event in `events` and names a Character as protagonist or
+// narrator is that Character's story of it. A run or a story the review profile reads as proposed (OWPayload.IsProposed,
+// the reader that shows a world: an x_review_proposed object with a key; an empty mark, {}, "" or [], is settled) is
+// not read until a keeper settles it.
 //
 // Written from the profile and its conformance fixture, profiles/record.fixture.json, which is this file's own test
 // (OWRecordTests); keel's reader (elements/record.py) and the packages' (the TypeScript SDK's recordsOf, the Python
@@ -247,11 +248,12 @@ namespace OnlyWorlds.Sdk
         private static bool ListHas(JToken t, string id) =>
             id != null && t is JArray a && a.Any(x => x.Type == JTokenType.String && (string)x == id);
 
-        private static bool Proposed(JObject el)
-        {
-            var p = el["x_review_proposed"];
-            return p != null && p.Type != JTokenType.Null;
-        }
+        /// <summary>
+        /// Proposed exactly when the review profile's reader that shows a world says so (record reader rule 1, serial
+        /// 103): an <c>x_review_proposed</c> object with a key. An empty mark (<c>{}</c>, <c>""</c>, <c>[]</c>) is
+        /// settled, as absent and null are; so is a value that is not an object.
+        /// </summary>
+        private static bool Proposed(JObject el) => OWPayload.IsProposed(el);
 
         private static bool IsTool(string s)
         {

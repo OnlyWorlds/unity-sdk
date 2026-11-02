@@ -5,7 +5,7 @@
     "X-Session-Token",
     "Authorization"
   ],
-  "document_sha256": "60e23cf25d76f0dd39cd7d1f0661d69dfb1a8ddf8c085d271a6546dd3e2968e0",
+  "document_sha256": "b6dc08eaa934e0961dc5ddd654dc9ab4a09abbdd4893a39ada9a64f49f304389",
   "error_codes": {
     "already_member": 409,
     "already_reported": 409,
@@ -87,7 +87,7 @@
     "write_failed": 502,
     "wrong_audience": 401
   },
-  "fetched": "2026-11-01T18:06+01:00",
+  "fetched": "2026-11-02T10:54+01:00",
   "openapi_version": "2.0",
   "paths": {
     "/api/v2/ability": {
@@ -8017,6 +8017,7 @@
           "rival",
           "subtype",
           "supertype",
+          "vehicle",
           "world",
           "zone"
         ],
@@ -8069,6 +8070,7 @@
           "data[].supertype",
           "data[].type",
           "data[].updated_at",
+          "data[].vehicle",
           "data[].zone",
           "has_more",
           "next_cursor"
@@ -8118,6 +8120,7 @@
           "secondary_powers",
           "subtype",
           "supertype",
+          "vehicle",
           "world",
           "x_served_trimmed",
           "zone"
@@ -8179,6 +8182,7 @@
           "supertype",
           "type",
           "updated_at",
+          "vehicle",
           "zone"
         ]
       }
@@ -8248,6 +8252,7 @@
           "supertype",
           "type",
           "updated_at",
+          "vehicle",
           "zone"
         ]
       },
@@ -8295,6 +8300,7 @@
           "secondary_powers",
           "subtype",
           "supertype",
+          "vehicle",
           "world",
           "x_served_trimmed",
           "zone"
@@ -8356,6 +8362,7 @@
           "supertype",
           "type",
           "updated_at",
+          "vehicle",
           "zone"
         ]
       },
@@ -8403,6 +8410,7 @@
           "secondary_powers",
           "subtype",
           "supertype",
+          "vehicle",
           "world",
           "x_served_trimmed",
           "zone"
@@ -8463,6 +8471,7 @@
           "supertype",
           "type",
           "updated_at",
+          "vehicle",
           "zone"
         ]
       }
@@ -8525,6 +8534,7 @@
           "supertype",
           "type",
           "updated_at",
+          "vehicle",
           "zone"
         ]
       }
@@ -8663,6 +8673,7 @@
           "supertype",
           "type",
           "updated_at",
+          "vehicle",
           "zone"
         ]
       }

@@ -11,15 +11,15 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// The record profile's conformance fixture (schema-dist <c>profiles/record.fixture.json</c>, vendored byte for byte
-    /// in <c>Tests/Editor/Fixtures/record/</c> from dist.102), replayed case by case: <see cref="OWRecord.MarkOf"/> on each
+    /// in <c>Tests/Editor/Fixtures/record/</c> from dist.103), replayed case by case: <see cref="OWRecord.MarkOf"/> on each
     /// mark case, <see cref="OWRecord.Of"/> on each records case. keel's reader, the TypeScript SDK (4.124.0) and the
     /// Python package (0.100.0) answer the same cases; the tests beside the fixture are the TypeScript SDK's own
     /// (<c>test/record.test.mjs</c>). When the dist moves the fixture, re-vendor it and update the hash below.
     /// </summary>
     public class OWRecordTests
     {
-        /// <summary>The fixture's sha256 as dist.102's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "eff88749296799cb27643ba3a189b1cb128b39f37395c723c38e774ded20c571";
+        /// <summary>The fixture's sha256 as dist.103's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "27cac893fff9afd3835ec6e105c4d9c18128319586cde8fb05c626db7cd3071d";
 
         private static JObject _fixture;
 
@@ -67,17 +67,17 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.102's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.103's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
-        public void TheFixture_HoldsDist102sCases_AndItsMarkIsTheReaders()
+        public void TheFixture_HoldsDist103sCases_AndItsMarkIsTheReaders()
         {
             Assert.IsNotNull(Fixture, "the vendored record fixture was not found");
             Assert.AreEqual("record", (string)Fixture["profile"]);
             Assert.AreEqual((string)Fixture["mark"]["field"], OWRecord.MarkField);
             CollectionAssert.AreEqual(Fixture["mark"]["members"].Select(m => (string)m).ToList(), OWRecord.Members.ToList());
-            Assert.AreEqual(32, Fixture["cases"].Count(), "dist.102's fixture holds 32 cases");
+            Assert.AreEqual(40, Fixture["cases"].Count(), "dist.103's fixture holds 40 cases");
         }
 
         [TestCaseSource(nameof(Cases))]

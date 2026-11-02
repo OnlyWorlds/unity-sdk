@@ -6,6 +6,40 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **`OWLocation.Vehicle`** (schema `00.34.00`): the Object a place is the inside of (a ship, a train, an airship, a
+  walking city), a single link; a place inside another place keeps using `ParentLocation`. Generated from the schema
+  like every field. onlyworlds.com still serves `00.33.00`, where the field is absent and reads as unset.
+- **`OWLanding.Of(graph, options)`**, the landing profile's reader (schema-dist `profiles/landing.md`): a world's
+  first picture at a door, read from the graph `OWGraph.Read` answers for the visitor, so it holds only what that
+  reader may see. The answer (`Mode`, `Size`, `Clusters`, `Unclustered`, `Gaps`; `ToJson()` in the profile's words,
+  all five keys in order) gives the most-linked Characters as heads, each with the nodes within `Hops` steps of it,
+  the nodes no head reaches, and the gaps: `orphan` and `near_orphan` (no edge, one edge), `no_place` (a Character
+  whose `location` names no Location node) and `nobody_here` (a Location no Character's `location` names). The mode
+  is `gaps` under `Size` nodes, `graph` at it and above. Options `Heads` (5), `Hops` (1) and `Size` (24), each a whole
+  number of 1 or more, null for the default; `OWLandingOptions.FromJson` reads them as JSON and refuses an unknown
+  key or a value that is not a whole number by name (`OWLandingRefusedException.Option`); a whole number too large
+  for an `int` reads as `int.MaxValue`, since a count past the graph's nodes means all of them. Degree is
+  `OWGraph.DegreeOf`'s, ids compare by code point, and the same graph gives the same bytes. The profile's 30-case
+  fixture passes case by case; parity with the TypeScript SDK's `landingOf` and the Python package's `landing_of`.
+
+### Changed
+
+- The schema pin moves to `v0.34.0-dist.103` (canonical `00.34.00`, a minor step: Location gains `vehicle`). The dist
+  also brings the landing profile, the lens page's two degree counts with their fixture cases, and the record profile's
+  tightened readings. The example export the envelope tests read moved its `schema_version` and carries `vehicle`; the
+  `.owworld` conformance set did not move.
+
+### Fixed
+
+- `OWRecord.Of` reads a run or a story as proposed exactly when the review profile's reader does
+  (`OWPayload.IsProposed`): an empty review mark (`{}`, `""`, `[]`) is settled, so that run and its stories are read.
+  Before, any value but null kept them out. The record fixture's 40 cases pass; the other seven readings the record
+  profile tightened at serial 103 (`played_at`'s upper-case `T` and `Z`, ASCII digits only, seconds optional, a
+  fraction; ties and stories by code point; an id that is not a string never read; a name that is not a string read as
+  empty) were already this reader's.
+
 ## [0.31.0] - 2026-11-02
 
 The Open with menu leaves out a tool that cannot open the element it is for (the tools list's `element_skips`),
