@@ -23,6 +23,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   for an `int` reads as `int.MaxValue`, since a count past the graph's nodes means all of them. Degree is
   `OWGraph.DegreeOf`'s, ids compare by code point, and the same graph gives the same bytes. The profile's 30-case
   fixture passes case by case; parity with the TypeScript SDK's `landingOf` and the Python package's `landing_of`.
+- **`OWGraphOptions.ReadingAids`**, the lens graph's fifth flag (schema-dist serial 104): the reading aids (the
+  Charter, its Guide and its Domains, by the pair and the mark `x_charter_of`) come back into an unlensed graph, each
+  node marked `reading_aid` (`OWGraphMark.ReadingAid`, last among a node's marks). Any signed reader may ask it; a
+  public reader is refused by name (`OWGraphRefusedException.Flag` is `reading_aids`), last in the refusal order
+  `hidden`, `proposed`, `rooms`, `map_space`, `reading_aids` (`OWGraph.Flags`). A flag never widens a lens: a lens
+  still names `law/charter` to keep its Charter, and an aid a lens keeps now carries the `reading_aid` mark, as a
+  room element a lens keeps carries `room`. The lens fixture's five new graph cases pass; parity with the TypeScript
+  SDK's `readingAids` and the Python package's `reading_aids`.
 
 ### Changed
 
