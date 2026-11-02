@@ -19,6 +19,15 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   tightened readings. The example export the envelope tests read moved its `schema_version` and carries `vehicle`; the
   `.owworld` conformance set did not move.
 
+### Fixed
+
+- `OWRecord.Of` reads a run or a story as proposed exactly when the review profile's reader does
+  (`OWPayload.IsProposed`): an empty review mark (`{}`, `""`, `[]`) is settled, so that run and its stories are read.
+  Before, any value but null kept them out. The record fixture's 40 cases pass; the other seven readings the record
+  profile tightened at serial 103 (`played_at`'s upper-case `T` and `Z`, ASCII digits only, seconds optional, a
+  fraction; ties and stories by code point; an id that is not a string never read; a name that is not a string read as
+  empty) were already this reader's.
+
 ## [0.31.0] - 2026-11-02
 
 The Open with menu leaves out a tool that cannot open the element it is for (the tools list's `element_skips`),
