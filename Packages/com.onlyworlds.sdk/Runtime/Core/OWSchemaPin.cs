@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.34.00";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 105;
+        public const int DistSerial = 106;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.34.0-dist.105";
+        public const string Tag = "v0.34.0-dist.106";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -217,9 +217,17 @@ namespace OnlyWorlds.Sdk
         /// only (its fixture did not). <c>presentation.json</c> is byte-identical; the generated models changed only
         /// in their serial stamp.
         /// </para>
+        /// <para>
+        /// <b>105 -> 106 (2026-11-02)</b>: canonical unchanged, no schema file moved. The map-space page's readings I to
+        /// K (two rows of one type with one id read as the last served, for every type; reading A reaches Pins; type and
+        /// shape words read case-exactly), a measured frame from placed points only, a non-whole <c>z</c> as 0,
+        /// <c>no_markers</c> as no placed Marker, and a whole number past the reader's own integer range read as not
+        /// whole. Its fixture grows from 24 cases to 34. <c>presentation.json</c> is byte-identical; the generated
+        /// models changed only in their serial stamp.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "e3072b64ee8a1d7de423782d83c6a5755670049911bf792485a13d9ad4341a20";
+            "4f13eddb81451999e15c591729b897681669b9343ce4f4f47187d6639cd881b3";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.

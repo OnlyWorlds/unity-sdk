@@ -6,6 +6,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The schema pin moves to `v0.34.0-dist.106` (canonical `00.34.00` unchanged, no schema file moved): the map-space
+  page's readings I to K and four rulings, with ten new fixture cases (34 in all). The generated models changed only
+  in their serial stamp.
+
 ## [0.32.0] - 2026-11-02
 
 The schema at `00.34.00`: Location gains `vehicle`, the Object a place is the inside of. Three profile readers arrive

@@ -11,18 +11,18 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// The map-space profile's conformance fixture (schema-dist <c>profiles/map-space.fixture.json</c>, vendored byte for
-    /// byte in <c>Tests/Editor/Fixtures/map-space/</c> from dist.105), replayed whole, case by case by name, through
+    /// byte in <c>Tests/Editor/Fixtures/map-space/</c> from dist.106), replayed whole, case by case by name, through
     /// <see cref="OWMapSpace.Of"/>: each case's elements as one reader is served them, and its <c>want</c>, the whole
     /// answer with its keys in order. The TypeScript SDK's <c>mapSpace</c> and the Python package's <c>map_space</c>
     /// replay the same cases. When the dist moves the fixture, re-vendor it and update the hash and the count below.
     /// </summary>
     public class OWMapSpaceTests
     {
-        /// <summary>The fixture's sha256 as dist.105's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "5baad8af69ed14356ab16a5fbb542db53040b69a8d14e437397dfe4a3a2659ab";
+        /// <summary>The fixture's sha256 as dist.106's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "7622c9cc44f7254481b29add8846e2077e431353f993e8fc95702d7a530279af";
 
-        /// <summary>The fixture's cases, as dist.105 holds them.</summary>
-        private const int CaseCount = 24;
+        /// <summary>The fixture's cases, as dist.106 holds them.</summary>
+        private const int CaseCount = 34;
 
         private static JObject _fixture;
 
@@ -68,16 +68,16 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.105's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.106's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
-        public void TheFixture_HoldsDist105sCases_EachNamedOnce()
+        public void TheFixture_HoldsDist106sCases_EachNamedOnce()
         {
             Assert.IsNotNull(Fixture, "the vendored map-space fixture was not found");
             Assert.AreEqual("map-space", (string)Fixture["profile"]);
             var names = Fixture["cases"].Select(c => (string)c["name"]).ToList();
-            Assert.AreEqual(CaseCount, names.Count, "dist.105's fixture holds 24 cases");
+            Assert.AreEqual(CaseCount, names.Count, "dist.106's fixture holds 34 cases");
             Assert.AreEqual(names.Count, names.Distinct().Count(), "a case is found by its name, so each name is once");
         }
 
