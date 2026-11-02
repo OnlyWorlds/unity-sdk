@@ -31,6 +31,18 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   still names `law/charter` to keep its Charter, and an aid a lens keeps now carries the `reading_aid` mark, as a
   room element a lens keeps carries `room`. The lens fixture's five new graph cases pass; parity with the TypeScript
   SDK's `readingAids` and the Python package's `reading_aids`.
+- **`OWMapSpace.Of(elements)`**, the map-space profile's reader (schema-dist serial 105, `profiles/map-space.md`): a
+  world's Maps, Zones, Markers and Pins, as the reader is served them, read as geometry in each Map's pixels from the
+  bottom left, with `z` an elevation (never a height). The answer (`Maps`, `Zones`, `Pins`, `Out`; `ToJson()` in the
+  profile's words, `{maps, zones, pins, out}` in order) gives each Map's frame (`Width` and `Height` as written, or
+  measured from the Map's own outline and Pin points with `Measured`, the profile's `extent: "points"`; `Depth`;
+  `ZMax`, the largest z, kept as written even past `Depth`; `Scale` from `x_metres_per_pixel` when it is a positive
+  number), each Zone's outline per Map from its Markers by `order` (a Marker without a whole `order` after every
+  ordered one, ties by id in code point order; `Shape` `line` or else `polygon`), each Pin's point with its element as
+  `ElementType` and `ElementId` (one key alone reads both null), and what was left aside, counted by reason
+  (`no_point`, `no_markers`, `dangling`, `no_map`; `OWMapSpaceReason`). A whole number is read by value (`2.0` is 2).
+  The profile's 24-case fixture passes case by case; parity with the TypeScript SDK's `mapSpace` and the Python
+  package's `map_space`.
 
 ### Changed
 
