@@ -30,6 +30,10 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   also brings the landing profile, the lens page's two degree counts with their fixture cases, and the record profile's
   tightened readings. The example export the envelope tests read moved its `schema_version` and carries `vehicle`; the
   `.owworld` conformance set did not move.
+- The schema pin moves to `v0.34.0-dist.104` (canonical `00.34.00` unchanged, no schema file moved): the lens page's
+  fifth graph flag, `reading_aids`, with five graph cases (201 in all), and the landing page's two rulings, `orphan`
+  and `near_orphan` by the page's own degree and a `heads` past the reader's integer range read as the largest, with
+  three cases (33 in all). The generated models changed only in their serial stamp.
 
 ### Fixed
 

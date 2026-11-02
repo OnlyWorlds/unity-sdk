@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.34.00";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 103;
+        public const int DistSerial = 104;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.34.0-dist.103";
+        public const string Tag = "v0.34.0-dist.104";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -202,9 +202,17 @@ namespace OnlyWorlds.Sdk
         /// carries <c>vehicle</c> on its two Locations; the conformance set did not move. <c>presentation.json</c> is
         /// byte-identical.
         /// </para>
+        /// <para>
+        /// <b>103 -> 104 (2026-11-02)</b>: canonical unchanged, no schema file moved. Two profile pages and their fixtures:
+        /// the lens page's fifth graph flag, <c>reading_aids</c> (the charter, its guide and its domains back into an
+        /// unlensed graph, each marked <c>reading_aid</c>, and an aid a lens keeps marked too; five graph cases, 201 in
+        /// all), and the landing page's two rulings (<c>orphan</c> and <c>near_orphan</c> by the page's own degree, a
+        /// <c>heads</c> past the reader's integer range read as the largest; three cases, 33 in all).
+        /// <c>presentation.json</c> is byte-identical; the generated models changed only in their serial stamp.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "0c83279627eef802c1b1bea19f89ed29b09f4585c365d228d9c581f42b6ecfca";
+            "7bd7e6ff835e04876fac4343e30d99a51d03f3524d57aa22d4cba1cd89b09166";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.

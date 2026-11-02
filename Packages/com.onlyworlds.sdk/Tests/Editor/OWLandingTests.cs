@@ -20,11 +20,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </summary>
     public class OWLandingTests
     {
-        /// <summary>The fixture's sha256 as dist.103's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "bf6512dea464946e6fa3855d3a942446ecc97aabc564258d5ba801a6f7e01475";
+        /// <summary>The fixture's sha256 as dist.104's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "0a5377fb5f5032951eb513d6ce71d236ff6f8290615eba3ed64c1753474d9696";
 
-        /// <summary>The fixture's cases, as dist.103 holds them.</summary>
-        private const int CaseCount = 30;
+        /// <summary>The fixture's cases, as dist.104 holds them (serial 104 added three: a self link, a doubled target, a heads past the integer range).</summary>
+        private const int CaseCount = 33;
 
         private static JObject _fixture;
 
@@ -70,7 +70,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.103's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.104's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
@@ -79,7 +79,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsNotNull(Fixture, "the vendored landing fixture was not found");
             Assert.AreEqual("landing", (string)Fixture["profile"]);
             var names = Fixture["cases"].Select(c => (string)c["name"]).ToList();
-            Assert.AreEqual(CaseCount, names.Count, "dist.103's fixture holds 30 cases");
+            Assert.AreEqual(CaseCount, names.Count, "dist.104's fixture holds 33 cases");
             Assert.AreEqual(names.Count, names.Distinct().Count(), "a case is found by its name, so each name is once");
         }
 
