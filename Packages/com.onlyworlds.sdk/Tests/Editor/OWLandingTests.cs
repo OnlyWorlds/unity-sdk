@@ -153,8 +153,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(3, OWLanding.Of(empty, OWLandingOptions.FromJson(JObject.Parse(@"{""size"":3.0}"))).Size);
             Assert.AreEqual("size", Assert.Throws<OWLandingRefusedException>(() =>
                 OWLandingOptions.FromJson(JObject.Parse(@"{""size"":true}"))).Option);
-            Assert.AreEqual("size", Assert.Throws<OWLandingRefusedException>(() =>
-                OWLandingOptions.FromJson(JObject.Parse(@"{""size"":3000000000}"))).Option, "past Int32 is refused here, by name");
+            // A whole number too large to hold reads as the largest (ruled for serial 104): a long, a double, a BigInteger.
+            Assert.AreEqual(int.MaxValue, OWLandingOptions.FromJson(JObject.Parse(@"{""size"":3000000000}")).Size);
+            Assert.AreEqual(int.MaxValue, OWLandingOptions.FromJson(JObject.Parse(@"{""heads"":1e30}")).Heads);
+            Assert.AreEqual(int.MaxValue, OWLandingOptions.FromJson(JObject.Parse(@"{""hops"":123456789012345678901234567890}")).Hops);
+            Assert.AreEqual("heads", Assert.Throws<OWLandingRefusedException>(() =>
+                OWLandingOptions.FromJson(JObject.Parse(@"{""heads"":-123456789012345678901234567890}"))).Option);
             // An unknown key is refused before a bad value beside it is read.
             Assert.AreEqual("lens", Assert.Throws<OWLandingRefusedException>(() =>
                 OWLandingOptions.FromJson(JObject.Parse(@"{""heads"":0,""lens"":""x""}"))).Option);

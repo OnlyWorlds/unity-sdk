@@ -19,7 +19,8 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   whose `location` names no Location node) and `nobody_here` (a Location no Character's `location` names). The mode
   is `gaps` under `Size` nodes, `graph` at it and above. Options `Heads` (5), `Hops` (1) and `Size` (24), each a whole
   number of 1 or more, null for the default; `OWLandingOptions.FromJson` reads them as JSON and refuses an unknown
-  key or a value that is not a whole number by name (`OWLandingRefusedException.Option`). Degree is
+  key or a value that is not a whole number by name (`OWLandingRefusedException.Option`); a whole number too large
+  for an `int` reads as `int.MaxValue`, since a count past the graph's nodes means all of them. Degree is
   `OWGraph.DegreeOf`'s, ids compare by code point, and the same graph gives the same bytes. The profile's 30-case
   fixture passes case by case; parity with the TypeScript SDK's `landingOf` and the Python package's `landing_of`.
 

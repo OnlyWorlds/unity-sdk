@@ -77,8 +77,9 @@ namespace OnlyWorlds.Sdk
         /// </summary>
         /// <exception cref="ArgumentNullException">No options.</exception>
         /// <exception cref="OWLandingRefusedException">
-        /// An unknown key, refused by name before any value is read; then a value that is not a whole number from 1 to
-        /// 2,147,483,647 (a fraction, a string, a boolean, 0 or less), named.
+        /// An unknown key, refused by name before any value is read; then a value that is not a whole number of 1 or
+        /// more (a fraction, a string, a boolean, 0 or less, an infinity), named. A whole number past 2,147,483,647 reads
+        /// as 2,147,483,647.
         /// </exception>
         public static OWLandingOptions FromJson(JObject options)
         {
@@ -103,15 +104,18 @@ namespace OnlyWorlds.Sdk
         {
             var t = options[key];
             if (t == null || t.Type == JTokenType.Null) return null;
+            // A whole number too large for an int reads as int.MaxValue: any count past the graph's nodes means all of
+            // them (the landing profile, ruled for serial 104).
             if (t.Type == JTokenType.Integer)
             {
-                // A long, or a BigInteger past it, which is past int too.
-                if (((JValue)t).Value is long v && v >= 1 && v <= int.MaxValue) return (int)v;
+                var raw = ((JValue)t).Value;
+                if (raw is long v && v >= 1) return v > int.MaxValue ? int.MaxValue : (int)v;
+                if (raw is System.Numerics.BigInteger b && b.Sign > 0) return int.MaxValue;
             }
             else if (t.Type == JTokenType.Float)
             {
                 var v = (double)t;
-                if (v >= 1 && v <= int.MaxValue && Math.Floor(v) == v) return (int)v;
+                if (!double.IsInfinity(v) && v >= 1 && Math.Floor(v) == v) return v > int.MaxValue ? int.MaxValue : (int)v;
             }
 
             throw OWLanding.NotWhole(key, t.ToString(Newtonsoft.Json.Formatting.None));
