@@ -342,6 +342,60 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.Greater(checkedCases, 1);
         }
 
+        // -- The degree kind (schema-dist serial 103: the lens page's two counts, defined and cased) -------------------
+
+        private static IEnumerable<JObject> DegreeCases =>
+            Fixture == null ? Enumerable.Empty<JObject>() : Fixture["cases"].Cast<JObject>().Where(c => (string)c["kind"] == "degree");
+
+        /// <summary>One case per fixture degree case, numbered in the fixture's order; the case is found by its name.</summary>
+        public static IEnumerable<TestCaseData> DegreeKindCases()
+        {
+            if (Fixture == null)
+            {
+                yield return new TestCaseData(string.Empty).SetName("Degree_FixtureNotFound");
+                yield break;
+            }
+
+            var i = 0;
+            foreach (var c in DegreeCases)
+                yield return new TestCaseData((string)c["name"]).SetName($"Degree_{++i:D2}");
+        }
+
+        [Test]
+        public void TheFixture_HoldsDist103sDegreeCases()
+        {
+            Assert.IsNotNull(Fixture, "the vendored lens fixture was not found");
+            Assert.AreEqual(5, DegreeCases.Count(), "dist.103's fixture holds 5 degree cases");
+        }
+
+        /// <summary>
+        /// Each degree case's graph (nodes and edges as <see cref="OWGraph.Read"/> gives them) built as the graph it
+        /// states, and both counts held to its <c>want</c>: every node a key in the graph's node order, the values exact.
+        /// </summary>
+        [TestCaseSource(nameof(DegreeKindCases))]
+        public void EveryDegreeCase_IsCountedAsThePageSays(string name)
+        {
+            Assert.IsNotNull(Fixture, "the vendored lens fixture was not found");
+            var c = DegreeCases.Single(x => (string)x["name"] == name);
+            var g = (JObject)c["graph"];
+            var graph = new OWWorldGraph(
+                ((JArray)g["nodes"]).Cast<JObject>().Select(n => new OWGraphNode((string)n["id"], (string)n["type"], n["name"],
+                    null, null, new string[0], n["known_of"]?.Type == JTokenType.Boolean && (bool)n["known_of"])).ToList(),
+                ((JArray)g["edges"]).Cast<JObject>().Select(e => new OWGraphEdge((string)e["source"], (string)e["field"],
+                    (string)e["target"], (int)e["index"])).ToList(),
+                new Dictionary<string, int>(), new Dictionary<string, int>(), null);
+
+            foreach (var (key, got) in new[] { ("degree", OWGraph.DegreeOf(graph)), ("out_degree", OWGraph.OutDegreeOf(graph)) })
+            {
+                var want = (JObject)c["want"][key];
+                var gotJson = new JObject();
+                foreach (var kv in got) gotJson[kv.Key] = kv.Value;
+                CollectionAssert.AreEqual(want.Properties().Select(p => p.Name).ToList(), got.Keys.ToList(),
+                    $"{name}: {key}'s keys, in the graph's node order");
+                Assert.AreEqual(want.ToString(Formatting.None), gotJson.ToString(Formatting.None), $"{name}: {key}");
+            }
+        }
+
         /// <summary>
         /// The room mark's five shapes (<see cref="OWRoomTests.MarkShapes"/>) through the unlensed graph: the owner's
         /// graph leaves a room element out and its <c>rooms</c> flag brings it back marked, and the public reader's view
