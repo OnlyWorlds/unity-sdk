@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.34.00";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 104;
+        public const int DistSerial = 105;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.34.0-dist.104";
+        public const string Tag = "v0.34.0-dist.105";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -210,9 +210,16 @@ namespace OnlyWorlds.Sdk
         /// <c>heads</c> past the reader's integer range read as the largest; three cases, 33 in all).
         /// <c>presentation.json</c> is byte-identical; the generated models changed only in their serial stamp.
         /// </para>
+        /// <para>
+        /// <b>104 -> 105 (2026-11-02)</b>: canonical unchanged, no schema file moved. A new profile, map space
+        /// (<c>profiles/map-space.md</c>, <c>map-space.fixture.json</c>, 24 cases): how a world's Maps, Zones (outlines
+        /// from their Markers), Pins and what is left out are read. The landing page's door sentence moved in words
+        /// only (its fixture did not). <c>presentation.json</c> is byte-identical; the generated models changed only
+        /// in their serial stamp.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "7bd7e6ff835e04876fac4343e30d99a51d03f3524d57aa22d4cba1cd89b09166";
+            "e3072b64ee8a1d7de423782d83c6a5755670049911bf792485a13d9ad4341a20";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.

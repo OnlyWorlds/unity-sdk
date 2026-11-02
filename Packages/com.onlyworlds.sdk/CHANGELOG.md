@@ -42,6 +42,10 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   fifth graph flag, `reading_aids`, with five graph cases (201 in all), and the landing page's two rulings, `orphan`
   and `near_orphan` by the page's own degree and a `heads` past the reader's integer range read as the largest, with
   three cases (33 in all). The generated models changed only in their serial stamp.
+- The schema pin moves to `v0.34.0-dist.105` (canonical `00.34.00` unchanged, no schema file moved): a new profile,
+  map space (`profiles/map-space.md`, with a 24-case fixture), and the landing page's door sentence, in words only
+  (its fixture did not move, and its 33 cases pass with no reader change). The generated models changed only in their
+  serial stamp.
 
 ### Fixed
 
