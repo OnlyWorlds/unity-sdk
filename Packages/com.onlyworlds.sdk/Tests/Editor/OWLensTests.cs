@@ -28,13 +28,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </remarks>
     public class OWLensTests
     {
-        /// <summary>The fixture's sha256 as dist.96's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "73485a1610c981bcde7a7738a6c1c7498d229dd84c81f1fb7a60156aee57829e";
+        /// <summary>The fixture's sha256 as dist.103's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "2950d16b7a660428a78fd0c383a7608135c94f86c5c4b46402a4b9744cf3d07c";
 
-        /// <summary>The fixture's cases by kind, as dist.96 holds them (191 in all; the graph kind is the graph reader's).</summary>
+        /// <summary>The fixture's cases by kind, as dist.103 holds them (196 in all; the graph and degree kinds are the graph reader's).</summary>
         private static readonly Dictionary<string, int> Counts = new Dictionary<string, int>
         {
-            ["shape"] = 6, ["keys"] = 25, ["resolve"] = 102, ["invariant"] = 4, ["uses"] = 5, ["graph"] = 49,
+            ["shape"] = 6, ["keys"] = 25, ["resolve"] = 102, ["invariant"] = 4, ["uses"] = 5, ["graph"] = 49, ["degree"] = 5,
         };
 
         private static JObject _fixture;
@@ -70,7 +70,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             foreach (var c in fixture["cases"].Cast<JObject>())
             {
-                if ((string)c["kind"] == "graph") continue; // the graph section's cases: the graph reader's to replay
+                var kind = (string)c["kind"];
+                if (kind == "graph" || kind == "degree") continue; // the graph section's cases: the graph reader's to replay
                 var name = (string)c["name"];
                 yield return new TestCaseData(name).SetName("Lens_" + name.Replace('-', '_'));
             }
@@ -84,7 +85,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.96's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.103's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
@@ -92,7 +93,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             Assert.IsNotNull(Fixture, "the vendored lens fixture was not found");
             var cases = Fixture["cases"].Cast<JObject>().ToList();
-            Assert.AreEqual(191, cases.Count, "dist.96's fixture holds 191 cases");
+            Assert.AreEqual(196, cases.Count, "dist.103's fixture holds 196 cases");
             var counts = cases.GroupBy(c => (string)c["kind"]).ToDictionary(g => g.Key, g => g.Count());
             CollectionAssert.AreEquivalent(Counts, counts);
         }

@@ -1,9 +1,9 @@
 // GENERATED from the OnlyWorlds schema distribution -- DO NOT EDIT.
 // Regenerate: python codegen/generate_models.py   (drift guard: codegen/check_drift.py)
 //
-// canonical: 00.33.00
-// serial: 102
-// published: 2026-11-01
+// canonical: 00.34.00
+// serial: 103
+// published: 2026-11-02
 
 using System;
 using System.Collections.Generic;

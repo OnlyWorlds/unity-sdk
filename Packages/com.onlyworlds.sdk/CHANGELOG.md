@@ -6,6 +6,19 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **`OWLocation.Vehicle`** (schema `00.34.00`): the Object a place is the inside of (a ship, a train, an airship, a
+  walking city), a single link; a place inside another place keeps using `ParentLocation`. Generated from the schema
+  like every field. onlyworlds.com still serves `00.33.00`, where the field is absent and reads as unset.
+
+### Changed
+
+- The schema pin moves to `v0.34.0-dist.103` (canonical `00.34.00`, a minor step: Location gains `vehicle`). The dist
+  also brings the landing profile, the lens page's two degree counts with their fixture cases, and the record profile's
+  tightened readings. The example export the envelope tests read moved its `schema_version` and carries `vehicle`; the
+  `.owworld` conformance set did not move.
+
 ## [0.31.0] - 2026-11-02
 
 The Open with menu leaves out a tool that cannot open the element it is for (the tools list's `element_skips`),

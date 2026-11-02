@@ -1,9 +1,9 @@
 // GENERATED from the OnlyWorlds schema distribution -- DO NOT EDIT.
 // Regenerate: python codegen/generate_models.py   (drift guard: codegen/check_drift.py)
 //
-// canonical: 00.33.00
-// serial: 102
-// published: 2026-11-01
+// canonical: 00.34.00
+// serial: 103
+// published: 2026-11-02
 
 using System;
 using System.Collections.Generic;
@@ -51,6 +51,11 @@ namespace OnlyWorlds.Sdk
         /// <remarks>Link: UUID of location. Bare id -- resolve through the cache.</remarks>
         [JsonProperty("parent_location")]
         [SerializeField] private string _parentLocation;
+
+        /// <summary>The Object this place is the inside of: a ship, a train, an airship, a walking city, a station that moves. Set it when the place moves with the thing; a place inside another place uses parent_location instead</summary>
+        /// <remarks>Link: UUID of object. Bare id -- resolve through the cache.</remarks>
+        [JsonProperty("vehicle")]
+        [SerializeField] private string _vehicle;
 
         /// <summary>Distinct collective groups or communities residing within the location</summary>
         /// <remarks>Link: UUIDs of collective. Bare ids -- resolve through the cache.</remarks>
@@ -199,6 +204,7 @@ namespace OnlyWorlds.Sdk
         public string Function { get => _function; set => _function = value; }
         public SerializableNullable<int> FoundingDate { get => _foundingDate; set => _foundingDate = value; }
         public string ParentLocation { get => _parentLocation; set => _parentLocation = value; }
+        public string Vehicle { get => _vehicle; set => _vehicle = value; }
         public List<string> Populations => _populations;
 
         public string PoliticalClimate { get => _politicalClimate; set => _politicalClimate = value; }
