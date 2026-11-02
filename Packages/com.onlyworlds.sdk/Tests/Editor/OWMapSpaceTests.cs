@@ -155,8 +155,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         /// <summary>
-        /// The page's reading A, which no fixture case carries: a row both unplaced and without a point counts once, by
-        /// what is served before its shape (a Marker <c>dangling</c>, a Pin <c>no_map</c>), never <c>no_point</c>.
+        /// The page's readings A and J (since dist.106 also the fixture's <c>marker-dangling-before-no-point</c> and
+        /// <c>pin-no-map-before-no-point</c>): a row both unplaced and without a point counts once, by what is served
+        /// before its shape (a Marker <c>dangling</c>, a Pin <c>no_map</c>), never <c>no_point</c>.
         /// </summary>
         [Test]
         public void ReadingA_ARowNotPlacedAndWithoutAPoint_CountsOnce_ByWhatIsServed()

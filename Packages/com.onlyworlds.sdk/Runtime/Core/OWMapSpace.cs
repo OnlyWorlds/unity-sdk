@@ -1,7 +1,7 @@
 // The map-space profile: how a reader turns a world's Map, Zone, Marker and Pin elements into geometry (schema-dist
-// profiles/map-space.md, serial 105, ruled 2026-11-02): a Map's frame, a Zone's outline from its Markers, a Pin's point,
-// and what the reading left aside, counted by reason. Structure and coordinates in the Map's own pixels; looks, cameras,
-// units, rooms and doors are a drawing tool's and are not read here.
+// profiles/map-space.md, serials 105 and 106, ruled 2026-11-02): a Map's frame, a Zone's outline from its Markers, a
+// Pin's point, and what the reading left aside, counted by reason. Structure and coordinates in the Map's own pixels;
+// looks, cameras, units, rooms and doors are a drawing tool's and are not read here.
 //
 // Written from the profile and its conformance fixture, profiles/map-space.fixture.json, which is this file's own test
 // (OWMapSpaceTests); the TypeScript SDK's mapSpace and the Python package's map_space answer the same cases.
@@ -268,8 +268,9 @@ namespace OnlyWorlds.Sdk
         /// <summary>
         /// Reads a world's map space from <paramref name="elements"/>, the elements as the reader is served them (a
         /// folder's rows or the API's, each with its <c>type</c>), so a Zone the reader may not see is not in the input
-        /// and is never brought back. Rows of other types are passed over; a row without a non-empty string <c>id</c> is
-        /// no element and is ignored, never counted.
+        /// and is never brought back. Rows of other types are passed over (a type is read case-exactly: <c>Map</c> is no
+        /// Map); a row without a non-empty string <c>id</c> is no element and is ignored, never counted; two rows of one
+        /// type with one id read as the last one served, for every type.
         /// </summary>
         /// <remarks>
         /// A Zone's outline is the Markers that name it and one served Map, by <c>order</c>; a Marker whose Zone or Map
@@ -286,24 +287,25 @@ namespace OnlyWorlds.Sdk
             if (elements == null) throw new ArgumentNullException(nameof(elements), "OWMapSpace.Of: elements is a list of elements");
             var byCodePoint = OWCodePointComparer.Instance;
 
-            var byType = new Dictionary<string, List<JObject>>(StringComparer.Ordinal);
+            // One row per id within a type, the last served (reading I): an element is its id. The type is read as
+            // written (reading K: "Map" is no Map).
+            var byType = new Dictionary<string, Dictionary<string, JObject>>(StringComparer.Ordinal);
             foreach (var t in elements)
             {
                 // A row without a non-empty string id is no element: ignored, never counted.
-                if (!(t is JObject e) || e["type"]?.Type != JTokenType.String || Id(e["id"]) == null) continue;
+                if (!(t is JObject e) || e["type"]?.Type != JTokenType.String) continue;
+                var id = Id(e["id"]);
+                if (id == null) continue;
                 var type = (string)e["type"];
-                if (!byType.TryGetValue(type, out var list)) byType[type] = list = new List<JObject>();
-                list.Add(e);
+                if (!byType.TryGetValue(type, out var rows))
+                    byType[type] = rows = new Dictionary<string, JObject>(StringComparer.Ordinal);
+                rows[id] = e;
             }
 
-            List<JObject> RowsOf(string type) => byType.TryGetValue(type, out var l) ? l : new List<JObject>();
+            Dictionary<string, JObject> Indexed(string type) =>
+                byType.TryGetValue(type, out var r) ? r : new Dictionary<string, JObject>(StringComparer.Ordinal);
 
-            Dictionary<string, JObject> Indexed(string type)
-            {
-                var m = new Dictionary<string, JObject>(StringComparer.Ordinal);
-                foreach (var r in RowsOf(type)) m[Id(r["id"])] = r;
-                return m;
-            }
+            IEnumerable<JObject> RowsOf(string type) => Indexed(type).Values;
 
             var maps = Indexed("map");
             var zones = Indexed("zone");
@@ -346,7 +348,7 @@ namespace OnlyWorlds.Sdk
                     : OWMapSpaceShape.Polygon;
                 foreach (var mid in groups)
                 {
-                    // A stable sort: two Markers alike in order and id keep their served order, as npm's sort does.
+                    // A total order: one Marker per id (reading I), so no two tie on order and id.
                     var points = placed[(zid, mid)].OrderBy(mk => mk, MarkerOrder.Instance).Select(PointOf).ToList();
                     outlines.Add(new OWMapSpaceOutline(zid, mid, shape, points));
                 }

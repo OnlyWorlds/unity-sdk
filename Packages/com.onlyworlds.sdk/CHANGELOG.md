@@ -8,6 +8,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
+- **`OWMapSpace.Of`** reads two rows of one type with one id as the last one served, for Markers and Pins as it
+  already did for Maps and Zones (the map-space page's reading I, serial 106: a reader holds one row per id). Before,
+  a repeated Marker id drew both points into its outline, and a repeated Pin id answered both Pins. The rest of
+  serial 106's readings (J, K, a measured frame from placed points only, a `z` that is not whole read as 0,
+  `no_markers` as no placed Marker) this reader already held; the fixture's 34 cases pass.
 - The schema pin moves to `v0.34.0-dist.106` (canonical `00.34.00` unchanged, no schema file moved): the map-space
   page's readings I to K and four rulings, with ten new fixture cases (34 in all). The generated models changed only
   in their serial stamp.
