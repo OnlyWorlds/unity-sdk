@@ -9,8 +9,9 @@ namespace OnlyWorlds.Sdk
     /// <remarks>
     /// <para>
     /// A read body carries the first five. Round-tripping one straight back into a PUT or PATCH is
-    /// the natural thing to write and it is wrong: <c>world</c> alone returns 422, because world
-    /// identity comes from the API key, not the payload. The sixth, <c>known_of</c>,
+    /// the natural thing to write and it is wrong: world identity comes from the API key, not the
+    /// payload, and keel refuses the three stamps with a 422 (it ignores <c>world</c> today, but a
+    /// client still never sends it). The sixth, <c>known_of</c>,
     /// marks a stub (<see cref="IsKnownOf"/>); keel's write path refuses it at any value, <c>false</c>
     /// included (422 <c>known_of_not_writable</c>), so a stray one is stripped like the rest, and a
     /// body where it is <c>true</c> is refused before anything is sent.
