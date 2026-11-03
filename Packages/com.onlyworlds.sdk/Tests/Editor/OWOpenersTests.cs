@@ -20,9 +20,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     public class OWOpenersTests
     {
         /// <summary>The fixture's sha256, as both packages' suites hold it.</summary>
-        private const string FixtureSha256 = "6b1911bd207220c6679ee9ac2e927e6b93f8cf54178aff115c60923ca5707eae";
+        private const string FixtureSha256 = "7c84e4f624fb7ecc7eca1e56b1d9807196a5055e359e0a1c26f2065c9808e0d5";
 
-        private const int CaseCount = 92;
+        private const int CaseCount = 100;
 
         private const string World = "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e0f";
         private const string Element = "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e1a";
@@ -321,6 +321,50 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var row = JObject.Parse("{\"id\": \"x\", \"name\": \"X\", \"open\": " + open + "}");
             var e = Assert.Throws<ArgumentException>(() => OWTool.FromJson(row));
             StringAssert.Contains("open.element_skips", e.Message);
+        }
+
+        // -- element_types beside the fixture -----------------------------------------------------------
+
+        [Test]
+        public void ARowWithoutTheTypesKey_OpensEveryType_AsARowBuiltWithoutThem()
+        {
+            // A list older than the key has none: null, every type, both from JSON and from the four-argument constructor.
+            var row = OWTool.FromJson(JObject.Parse("{\"id\": \"wren\", \"name\": \"Wren\", \"rung\": \"listed\", \"open\": {\"world\": null, \"element\": \"https://wren.example/{world}/{id}\", \"needs\": null}}"));
+            Assert.IsNull(row.Open.ElementTypes);
+            Assert.IsNull(new OWToolOpen(null, "https://wren.example/{world}/{id}", null, null).ElementTypes);
+            var rows = OWOpeners.For(new[] { row }, OWOpeners.Element, World, "location", Element, new OWOpenerSurface { Audience = OWOpenerSurface.Member });
+            CollectionAssert.AreEqual(new[] { OWOpeners.SiteId, "wren" }, rows.Select(r => r.Id).ToList());
+        }
+
+        [TestCase("[\"character\", \"character\"]")]
+        [TestCase("[\"Character\"]")]
+        public void ARepeatOrAWordInAnotherCase_IsRefusedByName_EvenOnAWorldsMenu(string types)
+        {
+            var row = OWTool.FromJson(JObject.Parse("{\"id\": \"lark\", \"name\": \"Lark\", \"rung\": \"listed\", \"open\": {\"world\": null, \"element\": \"https://lark.example/{world}/{id}\", \"needs\": null, \"element_types\": " + types + "}}"));
+            var e = Assert.Throws<ArgumentException>(() => OWOpeners.For(new[] { row }, OWOpeners.World, World, null, null,
+                new OWOpenerSurface { Audience = OWOpenerSurface.Member }));
+            StringAssert.Contains("tool lark: open.element_types", e.Message);
+        }
+
+        [Test]
+        public void ATypesListBuiltInCodeWithANull_IsRefused()
+        {
+            var tools = new[] { new OWTool("lark", "Lark", "https://lark.example", null, OWTool.Listed,
+                new OWToolOpen(null, "https://lark.example/{world}/{id}", null, null, new string[] { null })) };
+            var e = Assert.Throws<ArgumentException>(() => OWOpeners.For(tools, OWOpeners.Element, World, "character", Element,
+                new OWOpenerSurface { Audience = OWOpenerSurface.Member }));
+            StringAssert.Contains("tool lark: open.element_types", e.Message);
+        }
+
+        [TestCase("\"character\"")]
+        [TestCase("[7]")]
+        [TestCase("{}")]
+        public void ATypesValueThatIsNotAListOfWords_IsRefusedByName(string types)
+        {
+            var row = JObject.Parse("{\"id\": \"x\", \"name\": \"X\", \"open\": {\"world\": null, \"element\": \"https://x.example/{id}\", \"needs\": null, \"element_types\": " + types + "}}");
+            var e = Assert.Throws<ArgumentException>(() => OWTool.FromJson(row));
+            StringAssert.Contains("open.element_types", e.Message);
+            StringAssert.DoesNotContain("unknown key", e.Message);
         }
 
         /// <summary>
