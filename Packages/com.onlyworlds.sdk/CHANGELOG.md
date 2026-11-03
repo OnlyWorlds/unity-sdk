@@ -18,6 +18,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   `element_types` on a row with no element door. Parity with the TypeScript SDK 4.132.0 and the Python package
   0.106.0; the shared openers fixture has 100 cases (from 92), the same bytes as theirs.
 
+### Changed
+
+- **`OWTools` repinned at the tools list's `60a590e`: Tactical Tangle opens a world or a Character.** Its row gains a
+  world door and an element door (`needs: "account"`, `element_types: ["character"]`, skipping rooms, hidden and
+  proposed elements), so `OWOpeners.For` now offers it on a world's menu and on a Character's, and on no other type.
+  Atlas, Lantern and Little Lens gain `element_types: null` (every type): their menus do not change. The list the
+  TypeScript SDK 4.132.1 and the Python package 0.106.1 bake; `codegen/generate_tools.py` now bakes `element_types`.
+
 ## [0.33.0] - 2026-11-03
 
 Your own AI key: `AskAsync` and `SortAsync` say who paid (`PaidBy`), the allowance names a saved key's provider

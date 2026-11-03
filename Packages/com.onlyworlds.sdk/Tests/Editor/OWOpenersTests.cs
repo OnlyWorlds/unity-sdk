@@ -336,6 +336,32 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             CollectionAssert.AreEqual(new[] { OWOpeners.SiteId, "wren" }, rows.Select(r => r.Id).ToList());
         }
 
+        [Test]
+        public void TheBakedList_OffersTacticalTangle_OnAWorldAndACharacter_AndOnNoOtherKind()
+        {
+            var tangle = OWTools.All.Single(t => t.Id == "tangle");
+            CollectionAssert.AreEqual(new[] { "character" }, tangle.Open.ElementTypes);
+            CollectionAssert.AreEqual(new[] { "room", "hidden", "proposed" }, tangle.Open.ElementSkips);
+            Assert.AreEqual(OWToolOpen.Account, tangle.Open.Needs);
+            foreach (var t in OWTools.All.Where(t => t.Id != "tangle")) Assert.IsNull(t.Open?.ElementTypes, t.Id);
+
+            var member = new OWOpenerSurface { Audience = OWOpenerSurface.Member, SignedIn = true };
+            var world = OWOpeners.For(OWTools.All, OWOpeners.World, World, null, null, member);
+            Assert.AreEqual($"https://tangle.onlyworlds.com/#/open/{World}", world.Single(r => r.Id == "tangle").Href);
+            var character = OWOpeners.For(OWTools.All, OWOpeners.Element, World, "character", Element, member);
+            Assert.AreEqual($"https://tangle.onlyworlds.com/#/open/{World}/element/{Element}", character.Single(r => r.Id == "tangle").Href);
+            Assert.IsNull(character.Single(r => r.Id == "tangle").State);
+            // Another kind: no row, and no world fallback.
+            foreach (var type in OWElementTypes.Slugs.Where(s => s != "character"))
+                Assert.IsFalse(OWOpeners.For(OWTools.All, OWOpeners.Element, World, type, Element, member).Any(r => r.Id == "tangle"), type);
+            var hidden = new JObject { ["id"] = Element, ["type"] = "character", ["name"] = "A hidden one", ["hidden"] = true };
+            Assert.IsFalse(OWOpeners.For(OWTools.All, OWOpeners.Element, World, "character", Element, member,
+                new OWOpenersOptions { Element = hidden }).Any(r => r.Id == "tangle"));
+            // The public sees it on a Character as a row that needs an account.
+            var visitor = OWOpeners.For(OWTools.All, OWOpeners.Element, World, "character", Element, new OWOpenerSurface { Audience = OWOpenerSurface.Public });
+            Assert.AreEqual(OWOpenerState.NeedsAnAccount, visitor.Single(r => r.Id == "tangle").State);
+        }
+
         [TestCase("[\"character\", \"character\"]")]
         [TestCase("[\"Character\"]")]
         public void ARepeatOrAWordInAnotherCase_IsRefusedByName_EvenOnAWorldsMenu(string types)
