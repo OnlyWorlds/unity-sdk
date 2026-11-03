@@ -6,6 +6,15 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **A web player's calls return.** In a Unity web build every client call after the first answer hung: the request
+  went out, the server answered, and the awaiting call never resumed. The SDK's awaits left Unity's context
+  (`ConfigureAwait(false)`), and on the web the continuation is queued to a thread pool that never runs. In a web
+  player (`UNITY_WEBGL && !UNITY_EDITOR`) they now keep Unity's context and resume on the main thread, where the
+  transport already runs; every other platform resumes exactly as before. Found and walked in a web build that saves
+  a crossing into a world from the browser.
+
 ## [0.34.0] - 2026-11-03
 
 A tool that opens one kind of element is offered only on that kind: the tools list's `element_types`, read by

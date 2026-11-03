@@ -396,7 +396,7 @@ namespace OnlyWorlds.Sdk
         public async Task<JArray> GetMembersAsync(CancellationToken ct = default)
         {
             var page = await RequestAsync<JObject>("GET", "/members/", ct: ct, accountToken: OWAccountTokenRoute.World)
-                .ConfigureAwait(false);
+                .ConfigureAwait(OWAwait.OnCaller);
             return page?["data"] as JArray ?? new JArray();
         }
 
@@ -589,7 +589,7 @@ namespace OnlyWorlds.Sdk
                 // every page; rebuilding the struct field by field drops whatever it forgets.
                 var pageParams = p;
                 pageParams.Cursor = cursor;
-                var page = await ListAsync<T>(type, pageParams, ct).ConfigureAwait(false);
+                var page = await ListAsync<T>(type, pageParams, ct).ConfigureAwait(OWAwait.OnCaller);
 
                 if (page?.Data != null) all.AddRange(page.Data);
 
@@ -851,7 +851,7 @@ namespace OnlyWorlds.Sdk
 
             var (result, response) = await RequestWithResponseAsync<OWBulkResult>(
                 "POST", "/bulk/", body: body, idempotencyKey: idempotencyKey, write: true, ct: ct)
-                .ConfigureAwait(false);
+                .ConfigureAwait(OWAwait.OnCaller);
 
             if (result == null) return null;
 
@@ -960,7 +960,7 @@ namespace OnlyWorlds.Sdk
         /// </remarks>
         public async Task<List<OWHiddenRow>> ListHiddenAsync(CancellationToken ct = default)
         {
-            var page = await RequestAsync<JObject>("GET", "/world/hidden", ct: ct).ConfigureAwait(false);
+            var page = await RequestAsync<JObject>("GET", "/world/hidden", ct: ct).ConfigureAwait(OWAwait.OnCaller);
             return (page?["data"] as JArray)?.ToObject<List<OWHiddenRow>>(Newtonsoft.Json.JsonSerializer.Create(OWJson.Settings))
                 ?? new List<OWHiddenRow>();
         }
@@ -1107,7 +1107,7 @@ namespace OnlyWorlds.Sdk
         {
             if (image == null) throw new ArgumentNullException(nameof(image), "UploadImageAsync: the image's bytes. Nothing was sent.");
 
-            ticket = ticket ?? await CreateMediaTicketAsync(ct).ConfigureAwait(false);
+            ticket = ticket ?? await CreateMediaTicketAsync(ct).ConfigureAwait(OWAwait.OnCaller);
             RequireHost(nameof(UploadImageAsync), ticket?.Ticket, ticket?.UploadUrl, "upload_url");
             RefuseOverMax("Image", image.Length, ticket.MaxBytes);
 
@@ -1115,7 +1115,7 @@ namespace OnlyWorlds.Sdk
             if (!string.IsNullOrEmpty(key)) headers["X-Key"] = key;
 
             return await SendToHostAsync<OWUploadedImage>("image upload", ticket.UploadUrl, ticket.Ticket, image, headers, ct)
-                .ConfigureAwait(false);
+                .ConfigureAwait(OWAwait.OnCaller);
         }
 
         /// <summary>
@@ -1173,11 +1173,11 @@ namespace OnlyWorlds.Sdk
         /// </remarks>
         public async Task<OWRemovedImage> RemoveImageAsync(string keyOrUrl, OWRemovalTicket ticket = null, CancellationToken ct = default)
         {
-            ticket = ticket ?? await CreateRemovalTicketAsync(keyOrUrl, ct).ConfigureAwait(false);
+            ticket = ticket ?? await CreateRemovalTicketAsync(keyOrUrl, ct).ConfigureAwait(OWAwait.OnCaller);
             RequireHost(nameof(RemoveImageAsync), ticket?.Ticket, ticket?.RemoveUrl, "remove_url");
 
             return await SendToHostAsync<OWRemovedImage>("image removal", ticket.RemoveUrl, ticket.Ticket, null, null, ct)
-                .ConfigureAwait(false);
+                .ConfigureAwait(OWAwait.OnCaller);
         }
 
         /// <summary>An image's object key: as given, or the path of a whole image_url without its leading slashes, unescaped.</summary>
@@ -1238,7 +1238,7 @@ namespace OnlyWorlds.Sdk
             OWResponse response;
             try
             {
-                response = await _transport.SendAsync(request, ct).ConfigureAwait(false);
+                response = await _transport.SendAsync(request, ct).ConfigureAwait(OWAwait.OnCaller);
             }
             catch (OperationCanceledException)
             {
@@ -1273,7 +1273,7 @@ namespace OnlyWorlds.Sdk
         /// <remarks>Any key that may read the element; a read, with no PIN. Mirrors the TypeScript SDK's <c>listFiles</c> (4.32.0).</remarks>
         public async Task<List<OWFileRow>> ListFilesAsync(string type, string id, CancellationToken ct = default)
         {
-            var page = await RequestAsync<JObject>("GET", FilesPath(type, id), ct: ct).ConfigureAwait(false);
+            var page = await RequestAsync<JObject>("GET", FilesPath(type, id), ct: ct).ConfigureAwait(OWAwait.OnCaller);
             return RowsOf<OWFileRow>(page);
         }
 
@@ -1398,14 +1398,14 @@ namespace OnlyWorlds.Sdk
                         + "Nothing was sent.", nameof(name));
                 }
 
-                ticket = await CreateFileTicketAsync(type, id, name, file.Length, kind, label, ct).ConfigureAwait(false);
+                ticket = await CreateFileTicketAsync(type, id, name, file.Length, kind, label, ct).ConfigureAwait(OWAwait.OnCaller);
             }
 
             RequireHost(nameof(UploadFileAsync), ticket?.Ticket, ticket?.UploadUrl, "upload_url");
             RefuseOverMax("File", file.Length, ticket.MaxBytes);
 
             var stored = await SendToHostAsync<OWUploadedFile>("file upload", ticket.UploadUrl, ticket.Ticket, file, null, ct)
-                .ConfigureAwait(false);
+                .ConfigureAwait(OWAwait.OnCaller);
             onProgress?.Invoke(file.Length, file.Length);
             return stored;
         }
@@ -1498,7 +1498,7 @@ namespace OnlyWorlds.Sdk
             if (expires.HasValue) body["expires"] = Utc(expires.Value);
 
             var answer = await RequestAsync<JObject>("POST", ProposalsPath(type, id), body: body,
-                idempotencyKey: idempotencyKey, named: true, ct: ct).ConfigureAwait(false);
+                idempotencyKey: idempotencyKey, named: true, ct: ct).ConfigureAwait(OWAwait.OnCaller);
             return ProposalOf(answer);
         }
 
@@ -1562,7 +1562,7 @@ namespace OnlyWorlds.Sdk
         {
             var body = reason != null ? new JObject { ["reason"] = reason } : null;
             var answer = await RequestAsync<JObject>("POST", $"{ProposalsPath(type, id)}/{Seg("pid", pid)}/decline",
-                body: body, ct: ct).ConfigureAwait(false);
+                body: body, ct: ct).ConfigureAwait(OWAwait.OnCaller);
             return ProposalOf(answer);
         }
 
@@ -1615,7 +1615,7 @@ namespace OnlyWorlds.Sdk
             if (reason != null) body["reason"] = reason;
 
             var path = $"/{Seg("type", type)}/{Seg("id", id)}/review";
-            var answer = await RequestAsync<OWReviewed>("POST", path, body: body, named: true, ct: ct).ConfigureAwait(false);
+            var answer = await RequestAsync<OWReviewed>("POST", path, body: body, named: true, ct: ct).ConfigureAwait(OWAwait.OnCaller);
 
             // keel answers exactly one of the two; a 200 without the one this decision settles is never read as settled.
             var settled = decision == OWReviewed.Accept ? answer?.Element != null : answer?.Deleted != null;
@@ -1738,7 +1738,7 @@ namespace OnlyWorlds.Sdk
             // Only the members given: keel reads a null and a missing key alike here, so none is sent.
             var body = OnlyGiven(world);
 
-            return await RequestAsync<OWAccountWorldCreated>("POST", "/account/worlds", body: body, ct: ct).ConfigureAwait(false);
+            return await RequestAsync<OWAccountWorldCreated>("POST", "/account/worlds", body: body, ct: ct).ConfigureAwait(OWAwait.OnCaller);
         }
 
         /// <summary>
@@ -1755,7 +1755,7 @@ namespace OnlyWorlds.Sdk
         public async Task<List<OWAccountWorld>> ListAccountWorldsAsync(CancellationToken ct = default)
         {
             RequireAccountToken(nameof(ListAccountWorldsAsync));
-            var page = await RequestAsync<JObject>("GET", "/account/worlds", ct: ct).ConfigureAwait(false);
+            var page = await RequestAsync<JObject>("GET", "/account/worlds", ct: ct).ConfigureAwait(OWAwait.OnCaller);
             return RowsOf<OWAccountWorld>(page);
         }
 
@@ -1970,7 +1970,7 @@ namespace OnlyWorlds.Sdk
         {
             RequireAccountToken(nameof(ListWorldLinksAsync), "Only the world's owner sees its links.");
             var page = await RequestAsync<JObject>("GET", $"/account/worlds/{Seg("worldId", worldId)}/links", ct: ct)
-                .ConfigureAwait(false);
+                .ConfigureAwait(OWAwait.OnCaller);
             return RowsOf<OWWorldLink>(page);
         }
 
@@ -2007,7 +2007,7 @@ namespace OnlyWorlds.Sdk
         public async Task<List<OWAccountToken>> ListAccountTokensAsync(CancellationToken ct = default)
         {
             RequireAccountToken(nameof(ListAccountTokensAsync));
-            var page = await RequestAsync<JObject>("GET", "/account/tokens", ct: ct).ConfigureAwait(false);
+            var page = await RequestAsync<JObject>("GET", "/account/tokens", ct: ct).ConfigureAwait(OWAwait.OnCaller);
             return RowsOf<OWAccountToken>(page);
         }
 
@@ -2140,7 +2140,7 @@ namespace OnlyWorlds.Sdk
         {
             RequireAccountToken(nameof(ListSeatsAsync));
             var page = await RequestAsync<JObject>("GET", $"/account/worlds/{Seg("worldId", worldId)}/seats", ct: ct)
-                .ConfigureAwait(false);
+                .ConfigureAwait(OWAwait.OnCaller);
             return RowsOf<OWSeat>(page);
         }
 
@@ -2281,7 +2281,7 @@ namespace OnlyWorlds.Sdk
                 Url = auth + "/auth/login",
                 Headers = new Dictionary<string, string> { ["Content-Type"] = "application/json" },
                 Body = OWJson.Write(credentials),
-            }, "OnlyWorlds could not be reached: signing in needs a connection.", ct).ConfigureAwait(false);
+            }, "OnlyWorlds could not be reached: signing in needs a connection.", ct).ConfigureAwait(OWAwait.OnCaller);
 
             var retryAfter = OWApiError.ParseRetryAfter(ReadHeader(res, "Retry-After"), DateTimeOffset.UtcNow);
             if (res.Status == 429)
@@ -2303,7 +2303,7 @@ namespace OnlyWorlds.Sdk
             if (!res.IsSuccess || session == null)
             {
                 // A pending flow can still hand out a session: it is ended too.
-                if (session != null) await EndAuthSessionAsync(auth, session).ConfigureAwait(false);
+                if (session != null) await EndAuthSessionAsync(auth, session).ConfigureAwait(OWAwait.OnCaller);
 
                 var errors = answer?["errors"] as JArray ?? new JArray();
                 var codes = new List<string>();
@@ -2365,7 +2365,7 @@ namespace OnlyWorlds.Sdk
                 }
 
                 var minted = await SendSignInAsync(mint, "The connection dropped after signing in: no token was made. Try again.", ct)
-                    .ConfigureAwait(false);
+                    .ConfigureAwait(OWAwait.OnCaller);
 
                 var row = JsonObjectOrNull(minted.Body);
                 var token = row?["token"] is JValue t && t.Type == JTokenType.String && (string)t != "" ? (string)t : null;
@@ -2393,7 +2393,7 @@ namespace OnlyWorlds.Sdk
             }
             finally
             {
-                await EndAuthSessionAsync(auth, session).ConfigureAwait(false);
+                await EndAuthSessionAsync(auth, session).ConfigureAwait(OWAwait.OnCaller);
             }
         }
 
@@ -2416,7 +2416,7 @@ namespace OnlyWorlds.Sdk
 
                 // Its failure, whenever it comes, is observed here and dropped.
                 _ = send.ContinueWith(x => x.Exception, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously);
-                await Task.WhenAny(send, Task.Delay(SessionEndLimit, cut.Token)).ConfigureAwait(false);
+                await Task.WhenAny(send, Task.Delay(SessionEndLimit, cut.Token)).ConfigureAwait(OWAwait.OnCaller);
             }
             catch (Exception)
             {
@@ -2559,7 +2559,7 @@ namespace OnlyWorlds.Sdk
                 Url = BaseUrl + "/auth/token",
                 Headers = new Dictionary<string, string> { ["Content-Type"] = "application/json" },
                 Body = OWJson.Write(body),
-            }, "OnlyWorlds could not be reached: signing in needs a connection.", ct).ConfigureAwait(false);
+            }, "OnlyWorlds could not be reached: signing in needs a connection.", ct).ConfigureAwait(OWAwait.OnCaller);
 
             var retryAfter = OWApiError.ParseRetryAfter(ReadHeader(res, "Retry-After"), DateTimeOffset.UtcNow);
             var answer = JsonObjectOrNull(res.Body);
@@ -2620,7 +2620,7 @@ namespace OnlyWorlds.Sdk
         {
             try
             {
-                return await _transport.SendAsync(request, ct).ConfigureAwait(false);
+                return await _transport.SendAsync(request, ct).ConfigureAwait(OWAwait.OnCaller);
             }
             catch (OperationCanceledException)
             {
@@ -2886,7 +2886,7 @@ namespace OnlyWorlds.Sdk
             {
                 (page, response) = await RequestWithResponseAsync<OWChangesPage>(
                     "GET", "/changes/", query: string.Join("&", query), ct: ct,
-                    ifNoneMatch: held?.Tag, notModified: headOnly).ConfigureAwait(false);
+                    ifNoneMatch: held?.Tag, notModified: headOnly).ConfigureAwait(OWAwait.OnCaller);
             }
             catch (OWApiError e) when (e.IsResyncRequired)
             {
@@ -3012,7 +3012,7 @@ namespace OnlyWorlds.Sdk
             var result = await RequestWithResponseAsync<T>(
                 method, path, query, body, idempotencyKey, allowEmpty, write, ct,
                 ifMatch: ifMatch, named: named, proposable: proposable, worldRead: worldRead,
-                accountToken: accountToken, auth: auth, agentOnly: agentOnly).ConfigureAwait(false);
+                accountToken: accountToken, auth: auth, agentOnly: agentOnly).ConfigureAwait(OWAwait.OnCaller);
 
             return result.Value;
         }
@@ -3160,7 +3160,7 @@ namespace OnlyWorlds.Sdk
             OWResponse response;
             try
             {
-                response = await _transport.SendAsync(request, ct).ConfigureAwait(false);
+                response = await _transport.SendAsync(request, ct).ConfigureAwait(OWAwait.OnCaller);
             }
             catch (OperationCanceledException)
             {

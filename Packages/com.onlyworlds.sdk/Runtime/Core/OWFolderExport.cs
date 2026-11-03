@@ -327,9 +327,9 @@ namespace OnlyWorlds.Sdk
 
             var at = (options?.Clock ?? (() => DateTimeOffset.UtcNow))();
             progress?.Report(new OWFolderExportProgress { Stage = "world", Done = 0, Total = 1 });
-            var wireWorld = await client.GetWorldAsync(ct).ConfigureAwait(false);
+            var wireWorld = await client.GetWorldAsync(ct).ConfigureAwait(OWAwait.OnCaller);
             if (wireWorld == null) throw new OWFolderFormatException("GET /world/ returned no world object.");
-            var slice = await ExportedAsAsync(client, ct).ConfigureAwait(false);
+            var slice = await ExportedAsAsync(client, ct).ConfigureAwait(OWAwait.OnCaller);
             progress?.Report(new OWFolderExportProgress { Stage = "world", Done = 1, Total = 1 });
 
             // The provenance lines (§4.2, v0.3.9 and v0.3.14) after the wire's keys, as the package's export_world adds
@@ -353,13 +353,13 @@ namespace OnlyWorlds.Sdk
             {
                 ct.ThrowIfCancellationRequested();
                 progress?.Report(new OWFolderExportProgress { Stage = "elements", Type = types[i], Done = i, Total = types.Length });
-                var rows = await client.ListAllAsync<JObject>(types[i], ct: ct).ConfigureAwait(false);
+                var rows = await client.ListAllAsync<JObject>(types[i], ct: ct).ConfigureAwait(OWAwait.OnCaller);
                 if (rows.Count > 0) byType[types[i]] = rows;
             }
 
             progress?.Report(new OWFolderExportProgress { Stage = "elements", Done = types.Length, Total = types.Length });
 
-            return await WriteAsync(wireWorld, byType, root, parent, options, progress, ct).ConfigureAwait(false);
+            return await WriteAsync(wireWorld, byType, root, parent, options, progress, ct).ConfigureAwait(OWAwait.OnCaller);
         }
 
         /// <summary>
@@ -428,7 +428,7 @@ namespace OnlyWorlds.Sdk
 
             progress?.Report(new OWFolderExportProgress { Stage = "elements", Done = types.Length, Total = types.Length });
 
-            return await WriteAsync(read.World, byType, root, parent, options, progress, ct).ConfigureAwait(false);
+            return await WriteAsync(read.World, byType, root, parent, options, progress, ct).ConfigureAwait(OWAwait.OnCaller);
         }
 
         /// <summary>The member roles whose slice is the role's, with no Character (<c>co_builder</c> as keel serves it).</summary>
@@ -480,7 +480,7 @@ namespace OnlyWorlds.Sdk
             if (client.World != null) return null;
 
             JObject me;
-            try { me = await client.GetMeAsync(ct).ConfigureAwait(false); }
+            try { me = await client.GetMeAsync(ct).ConfigureAwait(OWAwait.OnCaller); }
             catch (Exception e) when (Unavailable(e)) { return null; }
 
             string name = null;
@@ -489,7 +489,7 @@ namespace OnlyWorlds.Sdk
             {
                 try
                 {
-                    var character = await client.GetAsync<JObject>("character", id, ct).ConfigureAwait(false);
+                    var character = await client.GetAsync<JObject>("character", id, ct).ConfigureAwait(OWAwait.OnCaller);
                     name = character?["name"]?.Type == JTokenType.String ? (string)character["name"] : null;
                 }
                 catch (Exception e) when (Unavailable(e)) { name = null; }
@@ -568,7 +568,7 @@ namespace OnlyWorlds.Sdk
                     WriteFile(Path.Combine(temp, "world.json"), OWFolderWriter.Serialize(world));
                     report.WorldId = (string)world["id"];
                     report.WorldName = (string)world["name"];
-                }, ct).ConfigureAwait(false);
+                }, ct).ConfigureAwait(OWAwait.OnCaller);
 
                 var media = new List<string>();
                 if (withImage.Count > 0)
@@ -578,7 +578,7 @@ namespace OnlyWorlds.Sdk
                     {
                         ct.ThrowIfCancellationRequested();
                         progress?.Report(new OWFolderExportProgress { Stage = "media", Done = i, Total = withImage.Count });
-                        await KeepBaseImage(temp, withImage[i], fetch, media, report.MediaProblems, ct).ConfigureAwait(false);
+                        await KeepBaseImage(temp, withImage[i], fetch, media, report.MediaProblems, ct).ConfigureAwait(OWAwait.OnCaller);
                     }
 
                     progress?.Report(new OWFolderExportProgress { Stage = "media", Done = withImage.Count, Total = withImage.Count });
@@ -805,7 +805,7 @@ namespace OnlyWorlds.Sdk
             var directory = Path.Combine(temp, relativeFolder);
             try
             {
-                var bytes = await fetch(url, ct).ConfigureAwait(false);
+                var bytes = await fetch(url, ct).ConfigureAwait(OWAwait.OnCaller);
                 if (bytes == null) throw new IOException("the fetch returned nothing");
 
                 var filename = FilenameOf(url, id);

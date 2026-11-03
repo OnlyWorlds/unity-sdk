@@ -129,7 +129,7 @@ namespace OnlyWorlds.Sdk
             var patch = BuildPatch();
             if (patch.Count == 0) return _element;
 
-            var updated = await client.PatchAsync<T>(type, id, patch, ct).ConfigureAwait(false);
+            var updated = await client.PatchAsync<T>(type, id, patch, ct).ConfigureAwait(OWAwait.OnCaller);
 
             Rebase();
             return updated;

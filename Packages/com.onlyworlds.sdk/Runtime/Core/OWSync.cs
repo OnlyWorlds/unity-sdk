@@ -72,7 +72,7 @@ namespace OnlyWorlds.Sdk
 
             // Read the tip BEFORE fetching. Taking it afterwards would mean any change landing
             // during the walk is silently below the recorded cursor and never syncs again.
-            var tip = await client.ChangesAsync(headOnly: true, ct: ct).ConfigureAwait(false);
+            var tip = await client.ChangesAsync(headOnly: true, ct: ct).ConfigureAwait(OWAwait.OnCaller);
 
             cache.Clear();
             var fetched = 0;
@@ -81,7 +81,7 @@ namespace OnlyWorlds.Sdk
             {
                 ct.ThrowIfCancellationRequested();
 
-                var elements = await client.ListAllAsync<JObject>(type, ct: ct).ConfigureAwait(false);
+                var elements = await client.ListAllAsync<JObject>(type, ct: ct).ConfigureAwait(OWAwait.OnCaller);
                 foreach (var element in elements)
                 {
                     var id = element["id"]?.ToString();
@@ -148,10 +148,10 @@ namespace OnlyWorlds.Sdk
 
             if (cache.Cursor <= 0 && string.IsNullOrEmpty(cache.CursorToken))
             {
-                return await BaselineAsync(client, cache, ct: ct).ConfigureAwait(false);
+                return await BaselineAsync(client, cache, ct: ct).ConfigureAwait(OWAwait.OnCaller);
             }
 
-            var tip = await client.ChangesAsync(headOnly: true, ct: ct).ConfigureAwait(false);
+            var tip = await client.ChangesAsync(headOnly: true, ct: ct).ConfigureAwait(OWAwait.OnCaller);
 
             if (cache.Cursor > tip.Head)
             {
@@ -164,7 +164,7 @@ namespace OnlyWorlds.Sdk
 
                 // Walked again and KEPT: a restore rewinds the server, not what this copy read (a reset
                 // never empties a copy, Titus's ruling).
-                var result = await RewalkAsync(client, cache, keep: true, ct).ConfigureAwait(false);
+                var result = await RewalkAsync(client, cache, keep: true, ct).ConfigureAwait(OWAwait.OnCaller);
                 result.RebaselineReason =
                     $"Cursor {staleCursor} was ahead of server head {tip.Head} -- the server was "
                     + "likely restored from a backup. Walked again rather than trusting the cursor, and kept "
@@ -193,7 +193,7 @@ namespace OnlyWorlds.Sdk
                 {
                     ct.ThrowIfCancellationRequested();
 
-                    var page = await client.ChangesAsync(since, ct: ct).ConfigureAwait(false);
+                    var page = await client.ChangesAsync(since, ct: ct).ConfigureAwait(OWAwait.OnCaller);
                     if (page?.Changes == null) break;
 
                     // A page that says "no more" is the only honest end of the feed.
@@ -218,7 +218,7 @@ namespace OnlyWorlds.Sdk
                         // An upsert carries the element whole. The GET is only for an op that doesn't.
                         var element = change.Element ?? await client
                             .GetAsync<JObject>(change.Type, change.Id, ct)
-                            .ConfigureAwait(false);
+                            .ConfigureAwait(OWAwait.OnCaller);
 
                         if (element == null) continue;
 
@@ -233,7 +233,7 @@ namespace OnlyWorlds.Sdk
             }
             catch (OWApiError e) when (e.IsResyncRequired)
             {
-                return await ResetAsync(client, cache, e.ResyncReason, ct).ConfigureAwait(false);
+                return await ResetAsync(client, cache, e.ResyncReason, ct).ConfigureAwait(OWAwait.OnCaller);
             }
 
             // Only claim the tip if we actually reached the end of the feed. If the loop broke on
@@ -266,7 +266,7 @@ namespace OnlyWorlds.Sdk
             OWClient client, OWWorldCache cache, string reason, CancellationToken ct)
         {
             var keep = reason != "view";
-            var result = await RewalkAsync(client, cache, keep, ct).ConfigureAwait(false);
+            var result = await RewalkAsync(client, cache, keep, ct).ConfigureAwait(OWAwait.OnCaller);
 
             result.ResyncReason = reason;
             result.RebaselineReason = keep
@@ -296,7 +296,7 @@ namespace OnlyWorlds.Sdk
             OWSyncResult result;
             try
             {
-                result = await BaselineAsync(client, cache, ct: ct).ConfigureAwait(false);
+                result = await BaselineAsync(client, cache, ct: ct).ConfigureAwait(OWAwait.OnCaller);
             }
             catch (Exception)
             {
@@ -334,7 +334,7 @@ namespace OnlyWorlds.Sdk
         public static async Task<bool> HasChangesAsync(
             OWClient client, OWWorldCache cache, CancellationToken ct = default)
         {
-            var tip = await client.ChangesAsync(headOnly: true, ct: ct).ConfigureAwait(false);
+            var tip = await client.ChangesAsync(headOnly: true, ct: ct).ConfigureAwait(OWAwait.OnCaller);
             return tip.Head != cache.Cursor || tip.Epoch != cache.Epoch;
         }
 

@@ -323,7 +323,7 @@ namespace OnlyWorlds.Sdk
             OWResponse response;
             try
             {
-                response = await transport.SendAsync(request, ct).ConfigureAwait(false);
+                response = await transport.SendAsync(request, ct).ConfigureAwait(OWAwait.OnCaller);
             }
             catch (OperationCanceledException)
             {
