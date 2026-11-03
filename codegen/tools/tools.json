@@ -18,7 +18,8 @@
         "world": "https://atlas.onlyworlds.com/#/open/{world}",
         "element": "https://atlas.onlyworlds.com/#/open/{world}/element/{id}",
         "needs": "account",
-        "element_skips": []
+        "element_skips": [],
+        "element_types": null
       },
       "client": "atlas",
       "prefix": "atlas_",
@@ -87,7 +88,8 @@
         "world": "https://lantern.onlyworlds.com/#/open/{world}",
         "element": "https://lantern.onlyworlds.com/#/open/{world}/element/{id}",
         "needs": "account",
-        "element_skips": []
+        "element_skips": [],
+        "element_types": null
       },
       "client": "lantern",
       "prefix": null,
@@ -156,7 +158,8 @@
         "world": "https://little-lens.onlyworlds.com/#/open/{world}",
         "element": "https://little-lens.onlyworlds.com/#/open/{world}/element/{id}",
         "needs": null,
-        "element_skips": ["room", "hidden", "proposed", "map_space"]
+        "element_skips": ["room", "hidden", "proposed", "map_space"],
+        "element_types": null
       },
       "client": "little-lens",
       "prefix": null,
@@ -219,7 +222,19 @@
       "doors": [
         "api"
       ],
-      "open": null,
+      "open": {
+        "world": "https://tangle.onlyworlds.com/#/open/{world}",
+        "element": "https://tangle.onlyworlds.com/#/open/{world}/element/{id}",
+        "needs": "account",
+        "element_skips": [
+          "room",
+          "hidden",
+          "proposed"
+        ],
+        "element_types": [
+          "character"
+        ]
+      },
       "client": "tangle",
       "prefix": "x_tangle_",
       "free_core": "Play battles with no account, and muster an army from the demo world; bringing a world's Characters in and recording battles into it needs a free onlyworlds.com account.",

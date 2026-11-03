@@ -162,7 +162,8 @@ game or a desktop app, which cannot see the browser's sign-in), `Phone`, `Online
 and keeps its href), and `Tool`, your own client name, whose row says "You are here". On an element's menu, pass the
 element as you were served it (`new OWOpenersOptions { Element = body }`, a last argument): a tool whose element link
 cannot open it (a room element, a hidden or proposed one, a Map, Pin or Marker, a reading aid: the tools list's
-`element_skips`) is left out, each mark read as `OWGraph` reads it. A refused address throws `OWAddressException` with its reason; the rest throws
+`element_skips`) is left out, each mark read as `OWGraph` reads it. A tool that opens only some kinds of element (the
+list's `element_types`, read from the address alone) is left out of another kind's menu, its world link included. A refused address throws `OWAddressException` with its reason; the rest throws
 `ArgumentException` naming what is wrong. The TypeScript SDK's `openersFor` and the Python package's `openers_for` give
 the same rows.
 

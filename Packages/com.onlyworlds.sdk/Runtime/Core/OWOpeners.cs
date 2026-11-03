@@ -31,11 +31,19 @@ namespace OnlyWorlds.Sdk
 
         /// <param name="elementSkips">What the element door does not open (<see cref="OWOpeners.ElementMarks"/>' words); null for none.</param>
         public OWToolOpen(string world, string element, string needs, IReadOnlyList<string> elementSkips)
+            : this(world, element, needs, elementSkips, null)
+        {
+        }
+
+        /// <param name="elementSkips">What the element door does not open (<see cref="OWOpeners.ElementMarks"/>' words); null for none.</param>
+        /// <param name="elementTypes">The element types the element door opens (<see cref="OWElementTypes.Slugs"/>' words); null for every type.</param>
+        public OWToolOpen(string world, string element, string needs, IReadOnlyList<string> elementSkips, IReadOnlyList<string> elementTypes)
         {
             World = world;
             Element = element;
             Needs = needs;
             ElementSkips = elementSkips == null ? NoSkips : Array.AsReadOnly(new List<string>(elementSkips).ToArray());
+            ElementTypes = elementTypes == null ? null : Array.AsReadOnly(new List<string>(elementTypes).ToArray());
         }
 
         /// <summary>The link that opens a world, holding <c>{world}</c> (the world's id); null without one.</summary>
@@ -61,6 +69,16 @@ namespace OnlyWorlds.Sdk
         /// carries one of them. A word outside the list's, or a skip on a row with no element door, is refused there.
         /// </summary>
         public IReadOnlyList<string> ElementSkips { get; }
+
+        /// <summary>
+        /// The element types the element door opens, as type words (<see cref="OWElementTypes.Slugs"/>: <c>character</c>);
+        /// null when it opens every type, and on a list older than the key. On an element's menu the row is left out for
+        /// an element of another type, world door or not: the tool opens other kinds of element, so its world is not offered
+        /// from this one either. The type is read from the address, so no element body is needed; a world's menu reads no
+        /// element types. A word outside the 22, an empty list, a repeat, or types on a row with no element door, is refused
+        /// there.
+        /// </summary>
+        public IReadOnlyList<string> ElementTypes { get; }
     }
 
     /// <summary>The keys of one tools list row that <see cref="OWOpeners"/> reads; the list's other keys are not kept.</summary>
@@ -117,7 +135,8 @@ namespace OnlyWorlds.Sdk
             {
                 if (!(o is JObject door)) throw new ArgumentException($"OWTool.FromJson: tool {rid}: open is an object or null", nameof(row));
                 open = new OWToolOpen(Text(door, "world", rid, "open."), Text(door, "element", rid, "open."), Text(door, "needs", rid, "open."),
-                    Words(door, "element_skips", rid));
+                    Words(door, "element_skips", rid, string.Join(", ", OWOpeners.ElementMarks)),
+                    Words(door, "element_types", rid, string.Join(", ", OWElementTypes.Slugs)));
             }
 
             return new OWTool(rid, (string)name, Text(row, "url", rid, ""), Text(row, "client", rid, ""), Text(row, "rung", rid, ""), open);
@@ -147,8 +166,11 @@ namespace OnlyWorlds.Sdk
             return (string)token;
         }
 
-        /// <summary>A list of words, or null when the key is absent or null. Which words is <see cref="OWOpeners"/>' check.</summary>
-        private static List<string> Words(JObject o, string key, string row)
+        /// <summary>
+        /// A list of words, or null when the key is absent or null (an empty list stays empty). Which words, and whether
+        /// an empty list is one, is <see cref="OWOpeners"/>' check.
+        /// </summary>
+        private static List<string> Words(JObject o, string key, string row, string which)
         {
             var token = o[key];
             if (token == null || token.Type == JTokenType.Null) return null;
@@ -164,7 +186,7 @@ namespace OnlyWorlds.Sdk
             else words = null;
 
             if (words == null)
-                throw new ArgumentException($"OWTool.FromJson: tool {row}: open.{key} is a list of {string.Join(", ", OWOpeners.ElementMarks)}; got {token.ToString(Newtonsoft.Json.Formatting.None)}", key);
+                throw new ArgumentException($"OWTool.FromJson: tool {row}: open.{key} is null or a list of {which}; got {token.ToString(Newtonsoft.Json.Formatting.None)}", key);
             return words;
         }
     }
@@ -353,7 +375,10 @@ namespace OnlyWorlds.Sdk
     /// world door is a row to its world door that says "Opens the world". On an element given as
     /// <see cref="OWOpenersOptions.Element"/>, a row whose <see cref="OWToolOpen.ElementSkips"/> names a mark the element
     /// carries (<see cref="ElementMarks"/>, each read as <see cref="OWGraph.Read"/> reads it) is not there: its door cannot
-    /// open it. A world door alone opens the world, so it stays. For the <c>public</c> audience (the signed-out reader)
+    /// open it. A world door alone opens the world, so it stays. On an element's menu, a row whose
+    /// <see cref="OWToolOpen.ElementTypes"/> is a list that does not hold the address's type word is not there either,
+    /// world door or not: the tool opens other kinds of element (read from the address, so no element body is needed; a
+    /// world's menu reads no element types). For the <c>public</c> audience (the signed-out reader)
     /// a row whose <c>needs</c> is <c>device</c> is not there, since a visitor's device holds no world of this one's, and
     /// a row whose <c>needs</c> is <c>account</c> is there and says it needs one.
     /// </para>
@@ -377,8 +402,8 @@ namespace OnlyWorlds.Sdk
     /// <see cref="ArgumentException"/> whose message names it refuses the rest: a kind that is neither, an element's
     /// openers asked of an address with no element, an unknown key on the address, a missing or unknown audience, an
     /// element given for a world's menu or naming another element than the address, a tools row that is not one (a
-    /// <c>needs</c> or an <c>element_skips</c> word outside the list's format, or skips on a row with no element door,
-    /// included, and a link that opens no app: an
+    /// <c>needs</c>, an <c>element_skips</c> or an <c>element_types</c> word outside the list's format, an empty or repeating
+    /// <c>element_types</c>, or skips or types on a row with no element door, included, and a link that opens no app: an
     /// <c>open.world</c> or <c>open.element</c> that does not begin with its scheme, or whose scheme is
     /// <c>javascript</c>, <c>data</c>, <c>vbscript</c>, <c>file</c>, <c>blob</c> or <c>about</c>, in any case, on any
     /// row and either kind of menu). <see cref="OWAddressException"/>
@@ -510,6 +535,24 @@ namespace OnlyWorlds.Sdk
             return false;
         }
 
+        /// <summary>A non-empty list of distinct type words, each one of <see cref="OWElementTypes.Slugs"/> as written (Ordinal).</summary>
+        private static bool AreTypeWords(IReadOnlyList<string> types)
+        {
+            if (types.Count == 0) return false;
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var t in types)
+            {
+                if (t == null || Array.IndexOf(OWElementTypes.Slugs, t) < 0 || !seen.Add(t)) return false;
+            }
+
+            return true;
+        }
+
+        private static IEnumerable<string> WordsAsWritten(IReadOnlyList<string> words)
+        {
+            foreach (var w in words) yield return w == null ? "null" : "\"" + w + "\"";
+        }
+
         private static void CheckToolsAndKind(IReadOnlyList<OWTool> tools, string kind)
         {
             if (tools == null) throw new ArgumentNullException(nameof(tools), "OWOpeners.For: tools is the tools list's rows, a list");
@@ -571,12 +614,19 @@ namespace OnlyWorlds.Sdk
 
                 if (open.Element == null && skips.Count > 0)
                     Fail($"tool {r.Id}: open.element_skips names what an element door leaves out, and the row has none", nameof(tools));
+                var types = open.ElementTypes;
+                if (types != null && !AreTypeWords(types))
+                    Fail($"tool {r.Id}: open.element_types is null or a non-empty list of distinct type words ({string.Join(", ", OWElementTypes.Slugs)}); got [{string.Join(", ", WordsAsWritten(types))}]", nameof(tools));
+                if (open.Element == null && types != null)
+                    Fail($"tool {r.Id}: open.element_types names what an element door opens, and the row has none", nameof(tools));
                 if (r.Rung != OWTool.Listed) continue;
                 if (audience == OWOpenerSurface.Public && needs == OWToolOpen.Device) continue;
                 var template = kind == Element ? open.Element ?? open.World : open.World;
                 if (template == null) continue;
                 // An element door that cannot open this element is no door (a row with skips has one: refused above).
                 if (kind == Element && marks.Exists(m => Contains(skips, m))) continue;
+                // A tool that opens other kinds of element is no door for this one, and offers no world fallback either.
+                if (kind == Element && types != null && !Contains(types, values["type"])) continue;
                 // The first that holds. A word the row needs (it cannot open now) comes before "Opens the world" (it
                 // opens, somewhere else), so a world door alone that needs a sign-in says the sign-in. With no
                 // connection a web link opens nothing, whatever else it needs.

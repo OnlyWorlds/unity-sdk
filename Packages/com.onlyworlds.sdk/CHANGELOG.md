@@ -6,6 +6,31 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **A tool that opens one kind of element is offered only on that kind.** The tools list's `open` gains
+  `element_types`, the element types its element door opens (type words such as `character`), or null for every type;
+  `OWToolOpen.ElementTypes` holds it (null on a list older than the key), and a five-argument `OWToolOpen` constructor
+  takes it. On an element's menu, `OWOpeners.For` leaves out a row whose `ElementTypes` does not hold the address's
+  type word, whether or not the row has a world door: the tool opens other kinds, so its world is not offered from this
+  element either. The type is read from the address, so no element body is needed; a world's menu reads no element
+  types. Refused by name, as a row that is not one: a word outside the 22, an empty list, a repeat, and
+  `element_types` on a row with no element door. Parity with the TypeScript SDK 4.132.0 and the Python package
+  0.106.0; the shared openers fixture has 100 cases (from 92), the same bytes as theirs.
+
+### Changed
+
+- **`OWTools` repinned at the tools list's `60a590e`: Tactical Tangle opens a world or a Character.** Its row gains a
+  world door and an element door (`needs: "account"`, `element_types: ["character"]`, skipping rooms, hidden and
+  proposed elements), so `OWOpeners.For` now offers it on a world's menu and on a Character's, and on no other type.
+  Atlas, Lantern and Little Lens gain `element_types: null` (every type): their menus do not change. The list the
+  TypeScript SDK 4.132.1 and the Python package 0.106.1 bake; `codegen/generate_tools.py` now bakes `element_types`.
+- The schema pin moves to `v0.34.0-dist.107` (canonical `00.34.00` unchanged; no schema file, fixture or walk moved):
+  two profile pages' prose. The charter page names its `open` as the World's `public_read`, and `OWCharter.CharterOf`
+  and `DomainsOf` now say so in their `open` parameter's doc comment (no code change); the map-space page says a
+  reader's integer range is what it holds exactly. The generated models changed only in their serial and published
+  stamps. Parity with the TypeScript SDK 4.132.2 and the Python package 0.106.2.
+
 ## [0.33.0] - 2026-11-03
 
 Your own AI key: `AskAsync` and `SortAsync` say who paid (`PaidBy`), the allowance names a saved key's provider
