@@ -24,6 +24,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 - The schema pin moves to `v0.34.0-dist.106` (canonical `00.34.00` unchanged, no schema file moved): the map-space
   page's readings I to K and four rulings, with ten new fixture cases (34 in all). The generated models changed only
   in their serial stamp.
+- Tests only: the shared openers fixture's 24 type refusals each name their kind beside the key: `unknown_key` (a key
+  the object does not take, refused by name) or `bad_value` (a key it takes whose value it refuses, a missing one
+  included). `OWOpenersTests` tells the two apart by this package's own words ("unknown key 'k'"), so a reader that
+  refuses a known key as unknown, or the other way round, now fails the case where before the name alone passed it.
+  Still 92 cases, the same bytes as the TypeScript SDK's (`85ef7dd`) and the Python package's (`b1a4a45`); nothing
+  shipped changes.
 
 ### Fixed
 

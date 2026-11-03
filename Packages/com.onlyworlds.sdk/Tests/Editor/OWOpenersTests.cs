@@ -13,13 +13,14 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// every case of the shared fixture (<c>Tests/Editor/Fixtures/openers/openers.fixture.json</c>, the same bytes as the
     /// TypeScript SDK's <c>test/fixtures/openers.fixture.json</c> and the Python package's
     /// <c>tests/fixtures/openers.fixture.json</c>), every expected row compared whole, each refusal by the address
-    /// refusal's reason or by the key its message names. Then <see cref="OWTools.All"/>, the baked tools list, through
+    /// refusal's reason or by the key its message names and its kind (an unknown key, worded "unknown key 'k'", or a
+    /// refused value). Then <see cref="OWTools.All"/>, the baked tools list, through
     /// the same function. When the fixture moves upstream, re-vendor it byte for byte and update the hash and the count.
     /// </summary>
     public class OWOpenersTests
     {
         /// <summary>The fixture's sha256, as both packages' suites hold it.</summary>
-        private const string FixtureSha256 = "b5c6afb76bf1ab2b95ee50641e2fd36344320d12fe0fd293d4f09fcf8cde7027";
+        private const string FixtureSha256 = "6b1911bd207220c6679ee9ac2e927e6b93f8cf54178aff115c60923ca5707eae";
 
         private const int CaseCount = 92;
 
@@ -129,9 +130,16 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             }
             catch (ArgumentException e) when (refuse != null && (string)refuse["error"] == "type")
             {
-                // The fixture's TypeError: an ArgumentException whose message names the key.
+                // The fixture's TypeError: an ArgumentException whose message names the key, and its kind. This
+                // package's own words for a key the object does not take; any other refusal is of a value.
                 var names = (string)refuse["names"];
-                return new JObject { ["refuse"] = e.Message.Contains(names) ? refuse.DeepClone() : new JObject { ["error"] = "type", ["message"] = e.Message } };
+                var kind = e.Message.Contains($"unknown key '{names}'") ? "unknown_key" : "bad_value";
+                return new JObject
+                {
+                    ["refuse"] = e.Message.Contains(names)
+                        ? new JObject { ["error"] = "type", ["names"] = names, ["kind"] = kind }
+                        : new JObject { ["error"] = "type", ["message"] = e.Message }
+                };
             }
             catch (Exception e)
             {
