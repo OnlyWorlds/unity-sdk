@@ -2667,13 +2667,17 @@ namespace OnlyWorlds.Sdk
         /// <exception cref="ArgumentException">No world, question or context; nothing was sent.</exception>
         /// <exception cref="OWApiError">
         /// keel refused, and nothing was counted: 429 <c>quota_exceeded</c> (<see cref="OWApiError.IsQuotaExceeded"/>, the
-        /// day's tokens used up, <see cref="OWApiError.RetryAfter"/> running to midnight UTC), 503 <c>ask_unavailable</c>
+        /// day's tokens used up and no own AI key saved, <see cref="OWApiError.RetryAfter"/> running to midnight UTC), 422
+        /// <c>own_key_refused</c> (<see cref="OWApiError.IsOwnKeyRefused"/>: the own key's provider refused it; not worth
+        /// retrying, send the person to their account page), 503 <c>ask_unavailable</c>
         /// (<see cref="OWApiError.IsAskUnavailable"/>: switched off, or paused for the day), 502 <c>ask_failed</c>
         /// (<see cref="OWApiError.IsAskFailed"/>), 422 for a question over 500 characters or a context past its limits.
         /// </exception>
         /// <remarks>
-        /// An account token only, sent as its Bearer, never with <c>API-Pin</c>, and with no write header. Mirrors the
-        /// TypeScript SDK's <c>ask</c> (4.13.0).
+        /// An account token only, sent as its Bearer, never with <c>API-Pin</c>, and with no write header. Once the day's
+        /// token rating is spent, an account that saved its own AI key on its account page is answered on that key, billed
+        /// by its provider: <see cref="OWAskAnswer.PaidBy"/> says <c>own_key</c> (else <c>rating</c>). Mirrors the
+        /// TypeScript SDK's <c>ask</c> (4.13.0; the own key 4.131.0).
         /// </remarks>
         public Task<OWAskAnswer> AskAsync(
             string worldId, string question, IEnumerable<string> context, CancellationToken ct = default)
@@ -2717,7 +2721,8 @@ namespace OnlyWorlds.Sdk
         /// <see cref="AskAsync"/>'s refusals, and a 422 naming the param past its limits.
         /// </exception>
         /// <remarks>
-        /// The same account token and token rating as <see cref="AskAsync"/> (it spends the tokens it uses). Mirrors the
+        /// The same account token, token rating (it spends the tokens it uses), own AI key and
+        /// <see cref="OWSortAnswer.PaidBy"/> as <see cref="AskAsync"/>. Mirrors the
         /// TypeScript SDK's <c>sort</c> (4.18.0).
         /// </remarks>
         public Task<OWSortAnswer> SortAsync(
@@ -2755,11 +2760,12 @@ namespace OnlyWorlds.Sdk
         /// <summary>
         /// GET /account/allowance -- the account's token rating, the one daily meter <see cref="AskAsync"/>,
         /// <see cref="SortAsync"/> and the Council spend from: the rating, what is used and left today, and when it resets
-        /// (the next midnight UTC). Spends nothing.
+        /// (the next midnight UTC), and <see cref="OWAllowance.OwnKey"/> (the account's own AI key by its provider, which
+        /// ask and sort use once the rating is spent; else null). Spends nothing.
         /// </summary>
         /// <param name="ct">Cancels the request.</param>
         /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
-        /// <remarks>An account token only, sent as its Bearer. Mirrors the TypeScript SDK's <c>allowance</c> (4.21.0).</remarks>
+        /// <remarks>An account token only, sent as its Bearer. Mirrors the TypeScript SDK's <c>allowance</c> (4.21.0; the own key 4.131.0).</remarks>
         public Task<OWAllowance> AllowanceAsync(CancellationToken ct = default)
         {
             RequireAccountToken(nameof(AllowanceAsync), "The allowance is per account.");

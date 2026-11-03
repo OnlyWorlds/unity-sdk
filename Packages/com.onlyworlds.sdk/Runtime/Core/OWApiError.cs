@@ -150,6 +150,14 @@ namespace OnlyWorlds.Sdk
         public bool IsAskUnavailable => StatusCode == 503 && Code == "ask_unavailable";
 
         /// <summary>
+        /// <see cref="OWClient.AskAsync"/> or <see cref="OWClient.SortAsync"/>: today's token rating is spent and the call
+        /// ran on the account's own AI key, which its provider refused (422 <c>own_key_refused</c>: a key revoked, wrong or
+        /// out of credit). Nothing was counted and nothing ran on the platform's key: send the person to their account page
+        /// to check or replace the key, and do not retry. Mirrors the TypeScript SDK's <c>isOwnKeyRefused</c>.
+        /// </summary>
+        public bool IsOwnKeyRefused => StatusCode == 422 && Code == "own_key_refused";
+
+        /// <summary>
         /// <see cref="OWClient.AskAsync"/> or <see cref="OWClient.SortAsync"/>: the model gave no answer (502
         /// <c>ask_failed</c>). Not counted; try again in a moment. Mirrors the TypeScript SDK's <c>isAskFailed</c>.
         /// </summary>

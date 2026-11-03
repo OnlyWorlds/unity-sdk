@@ -41,6 +41,27 @@ namespace OnlyWorlds.Sdk
         /// <summary>The account's token rating: its daily budget in tokens, one meter with sort and the Council.</summary>
         [JsonProperty("token_rating")]
         public long TokenRating;
+
+        /// <summary>
+        /// Who paid for this call (<see cref="OWPaidBy"/>): <c>rating</c>, the account's daily token rating, or
+        /// <c>own_key</c>, the account's own AI key once today's rating was spent (the rating's fields above are then as
+        /// they were). Null from a keel before the own key.
+        /// </summary>
+        [JsonProperty("paid_by")]
+        public string PaidBy;
+    }
+
+    /// <summary>
+    /// The words of <see cref="OWAskAnswer.PaidBy"/> and <see cref="OWSortAnswer.PaidBy"/> (npm's <c>OwPaidBy</c>): who
+    /// paid for an ask or a sort.
+    /// </summary>
+    public static class OWPaidBy
+    {
+        /// <summary>The account's daily token rating.</summary>
+        public const string Rating = "rating";
+
+        /// <summary>The account's own AI key, saved on its account page, once today's rating was spent; billed by its provider.</summary>
+        public const string OwnKey = "own_key";
     }
 
     /// <summary>The tokens one call of the AI proxy spent, as the model counted them.</summary>
@@ -250,6 +271,10 @@ namespace OnlyWorlds.Sdk
 
         [JsonProperty("token_rating")]
         public long TokenRating;
+
+        /// <summary>Who paid for this call, as on <see cref="OWAskAnswer.PaidBy"/>.</summary>
+        [JsonProperty("paid_by")]
+        public string PaidBy;
     }
 
     /// <summary>
@@ -274,5 +299,21 @@ namespace OnlyWorlds.Sdk
         /// <summary>When the day's tokens reset, the next midnight UTC: ISO 8601, as served.</summary>
         [JsonProperty("resets_at")]
         public string ResetsAt;
+
+        /// <summary>
+        /// The account's own AI key, saved on its account page, or null: once today's rating is spent, ask and sort run on
+        /// it, billed by its provider. Only the provider is shown; the counts above keep the rating's meaning.
+        /// </summary>
+        [JsonProperty("own_key")]
+        public OWOwnKey OwnKey;
+    }
+
+    /// <summary><see cref="OWAllowance.OwnKey"/>: the account's own AI key, by its provider alone.</summary>
+    [Serializable]
+    public class OWOwnKey
+    {
+        /// <summary>The key's provider: <c>anthropic</c> or <c>openai</c>, as served.</summary>
+        [JsonProperty("provider")]
+        public string Provider;
     }
 }

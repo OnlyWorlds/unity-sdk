@@ -6,6 +6,17 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Your own AI key.** keel now runs `AskAsync` and `SortAsync` on an account's own Anthropic or OpenAI key, saved on
+  its account page, once the day's token rating is spent. `OWAskAnswer.PaidBy` and `OWSortAnswer.PaidBy` say who paid
+  (`OWPaidBy.Rating`, `"rating"`, or `OWPaidBy.OwnKey`, `"own_key"`); `OWAllowance.OwnKey` is the saved key by its
+  provider alone (`OWOwnKey.Provider`, `anthropic` or `openai`), or null. `OWApiError.IsOwnKeyRefused` reads the new
+  422 `own_key_refused` (the provider refused the key: revoked, wrong or out of credit), which is not retryable: send
+  the person to their account page. Parity with the TypeScript SDK 4.131.0, its test vector ported (the four
+  refusals on both calls, each sent once; `paid_by` and `own_key` as served). The wire fixture is refreshed from
+  production for it (the one new error code, three new response fields).
+
 ### Changed
 
 - **`OWOpeners.For` gives a signed-out visitor the tools that need an account.** For the `public` audience, a tool

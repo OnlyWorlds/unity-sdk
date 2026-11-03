@@ -161,6 +161,87 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsFalse(e.IsAskFailed, "ask_failed is a 502");
         }
 
+        // The TypeScript SDK 4.131.0's vector (09f4e50, "the four refusals, by code"): on ask and on sort, each refusal is
+        // read by its own helper and by none of the other three, sent once; the own key's refusal (422 own_key_refused,
+        // the account's own AI key refused by its provider once the rating was spent) is not worth retrying. Kills: a
+        // helper on the wrong status or code, two helpers true at once, own_key_refused read as retryable, or another 422
+        // read as the own key's.
+        [Test]
+        public void AskAndSort_TheFourRefusals_EachByItsOwnHelper_SentOnce()
+        {
+            var helpers = new (string Name, Func<OWApiError, bool> Read)[]
+            {
+                ("IsQuotaExceeded", x => x.IsQuotaExceeded),
+                ("IsOwnKeyRefused", x => x.IsOwnKeyRefused),
+                ("IsAskUnavailable", x => x.IsAskUnavailable),
+                ("IsAskFailed", x => x.IsAskFailed),
+            };
+            var refusals = new (int Status, string Code, string Helper)[]
+            {
+                (429, "quota_exceeded", "IsQuotaExceeded"),
+                (422, "own_key_refused", "IsOwnKeyRefused"),
+                (503, "ask_unavailable", "IsAskUnavailable"),
+                (502, "ask_failed", "IsAskFailed"),
+            };
+            var calls = new (string Name, Func<OWClient, Task> Run)[] { Calls[0], Calls[1] };
+
+            foreach (var (status, code, helper) in refusals)
+            {
+                foreach (var (name, run) in calls)
+                {
+                    var t = new FakeTransport
+                    {
+                        Status = status,
+                        ResponseBody = @"{""error"":{""type"":""x"",""code"":""" + code + @""",""message"":""m""}}",
+                        ResponseHeaders = status == 429
+                            ? new Dictionary<string, string> { ["retry-after"] = "3600" }
+                            : new Dictionary<string, string>(),
+                    };
+                    var e = Assert.ThrowsAsync<OWApiError>(() => run(Make(t)), $"{name} {code}");
+                    foreach (var (hName, read) in helpers)
+                    {
+                        Assert.AreEqual(hName == helper, read(e), $"{name} {code}: {hName}");
+                    }
+                    if (status == 429) Assert.AreEqual(3600, e.RetryAfter, $"{name} {code}: Retry-After");
+                    Assert.AreEqual(1, t.Calls.Count, $"{name} {code}: sent once, never retried");
+                }
+            }
+
+            var own = new FakeTransport { Status = 422, ResponseBody = @"{""error"":{""code"":""own_key_refused"",""message"":""m""}}" };
+            Assert.IsFalse(Assert.ThrowsAsync<OWApiError>(() => Make(own).AskAsync("w1", "q", new[] { "x" })).IsRetryable,
+                "the own key's refusal fails again until the person fixes the key");
+
+            var other = new FakeTransport
+            {
+                Status = 422,
+                ResponseBody = @"{""error"":{""type"":""invalid_request"",""code"":""invalid_request"",""param"":""question"",""message"":""m""}}",
+            };
+            Assert.IsFalse(Assert.ThrowsAsync<OWApiError>(() => Make(other).AskAsync("w1", "q", new[] { "x" })).IsOwnKeyRefused,
+                "another 422 is not the own key's refusal");
+        }
+
+        // The TypeScript SDK 4.131.0's vector (09f4e50, "who paid, and the own key, as keel sends them"): ask's and sort's
+        // paid_by as served, `rating` or `own_key`, on a meter at 0 (the rating's fields stay as they were). Kills:
+        // paid_by not read, or read from the wrong key.
+        [Test]
+        public async Task AskAndSort_ReadWhoPaid_AsServed()
+        {
+            const string meter =
+                @"""model"":""claude-haiku-5-5"",""stop_reason"":""end_turn"",""usage"":{""input_tokens"":300,""output_tokens"":12},"
+                + @"""remaining"":0,""tokens_remaining"":0,""token_rating"":50000";
+            foreach (var paidBy in new[] { "rating", "own_key" })
+            {
+                var a = new FakeTransport { ResponseBody = @"{""answer"":""Mira Thel holds it.""," + meter + @",""paid_by"":""" + paidBy + @"""}" };
+                var answer = await Make(a).AskAsync("w", "q", new[] { "x" });
+                Assert.AreEqual(paidBy, answer.PaidBy, "ask");
+                Assert.AreEqual((0, 0L, 50000L), (answer.Remaining, answer.TokensRemaining, answer.TokenRating));
+
+                var s = new FakeTransport { ResponseBody = @"{""rows"":[],""not_proposed"":[]," + meter + @",""paid_by"":""" + paidBy + @"""}" };
+                var sorted = await Make(s).SortAsync("w", new OWSortNote[] { "n" }, new OWSortRef[0]);
+                Assert.AreEqual(paidBy, sorted.PaidBy, "sort");
+            }
+        }
+
         // -- SortAsync ----------------------------------------------------------------------------------------
 
         private const string SortAnswer =
@@ -277,6 +358,27 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(6123, meter.TokensUsedToday, "may pass the rating by the last call's size");
             Assert.AreEqual(0, meter.TokensRemaining);
             Assert.AreEqual("2026-11-01T00:00:00+00:00", meter.ResetsAt, "as served");
+            Assert.IsNull(meter.OwnKey, "an allowance from before the own key reads as none saved");
+        }
+
+        // The TypeScript SDK 4.131.0's vector (09f4e50): the allowance's own_key as served, null or {provider}. Kills:
+        // own_key not read, a null read as a key, or the provider misread.
+        [Test]
+        public async Task Allowance_ReadsTheOwnKey_NullOrItsProvider()
+        {
+            foreach (var (served, provider) in new[] { ("null", null), (@"{""provider"":""anthropic""}", "anthropic"), (@"{""provider"":""openai""}", "openai") })
+            {
+                var t = new FakeTransport
+                {
+                    ResponseBody = @"{""token_rating"":50000,""tokens_used_today"":50000,""tokens_remaining"":0,"
+                        + @"""resets_at"":""2026-11-04T00:00:00+00:00"",""own_key"":" + served + "}",
+                };
+                var meter = await Make(t).AllowanceAsync();
+                Assert.AreEqual((50000L, 50000L, 0L), (meter.TokenRating, meter.TokensUsedToday, meter.TokensRemaining));
+                Assert.AreEqual("2026-11-04T00:00:00+00:00", meter.ResetsAt);
+                if (provider == null) Assert.IsNull(meter.OwnKey, served);
+                else Assert.AreEqual(provider, meter.OwnKey?.Provider, served);
+            }
         }
     }
 }
