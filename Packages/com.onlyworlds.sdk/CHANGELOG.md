@@ -6,6 +6,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-11-03
+
+Your own AI key: `AskAsync` and `SortAsync` say who paid (`PaidBy`), the allowance names a saved key's provider
+(`OwnKey`), and `OWApiError.IsOwnKeyRefused` reads the new refusal. `OWOpeners.For` gives a signed-out visitor the
+tools that need an account, each a row that says "Needs an account" and opens nothing. `OWMapSpace.Of` reads serial
+106 (the schema pin moves to `v0.34.0-dist.106`, no schema change), and `OWTools` lists Tactical Tangle. A minor
+release because it adds public API (below).
+
 ### Added
 
 - **Your own AI key.** keel now runs `AskAsync` and `SortAsync` on an account's own Anthropic or OpenAI key, saved on
