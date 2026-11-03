@@ -6,6 +6,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-11-03
+
+A tool that opens one kind of element is offered only on that kind: the tools list's `element_types`, read by
+`OWOpeners.For` and held on `OWToolOpen.ElementTypes`. `OWTools` is repinned at the tools list's `60a590e`, where
+Tactical Tangle opens a world or a Character, and the schema pin moves to `v0.34.0-dist.107`. A minor release because
+it adds public API (below).
+
 ### Added
 
 - **A tool that opens one kind of element is offered only on that kind.** The tools list's `open` gains
