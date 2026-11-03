@@ -25,6 +25,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   proposed elements), so `OWOpeners.For` now offers it on a world's menu and on a Character's, and on no other type.
   Atlas, Lantern and Little Lens gain `element_types: null` (every type): their menus do not change. The list the
   TypeScript SDK 4.132.1 and the Python package 0.106.1 bake; `codegen/generate_tools.py` now bakes `element_types`.
+- The schema pin moves to `v0.34.0-dist.107` (canonical `00.34.00` unchanged; no schema file, fixture or walk moved):
+  two profile pages' prose. The charter page names its `open` as the World's `public_read`, and `OWCharter.CharterOf`
+  and `DomainsOf` now say so in their `open` parameter's doc comment (no code change); the map-space page says a
+  reader's integer range is what it holds exactly. The generated models changed only in their serial and published
+  stamps. Parity with the TypeScript SDK 4.132.2 and the Python package 0.106.2.
 
 ## [0.33.0] - 2026-11-03
 

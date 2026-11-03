@@ -257,7 +257,13 @@ namespace OnlyWorlds.Sdk
         /// <c>hidden</c> or by <paramref name="hiddenIds"/>.
         /// </param>
         /// <param name="reader">Who reads (<see cref="OWLensReader"/>); the owner reading as another is judged by that reader's rung.</param>
-        /// <param name="open">True for a world open to anyone: only then does the public reader read anything of it.</param>
+        /// <param name="open">
+        /// The World's <c>public_read</c>, the standard's field on <c>world.yaml</c> (whether anyone may read the world
+        /// without a credential): as a folder's <c>world.json</c> holds it, or the world GET serves it
+        /// (<see cref="OWAccountWorld.PublicRead"/>). The charter profile names this <c>open</c> so (serial 107); the fixture's
+        /// <c>open</c> is the same value. True for a world open to anyone: only then does the public reader read anything of
+        /// it.
+        /// </param>
         /// <param name="hiddenIds">The world's own hidden list, beside each element's own mark; null for none.</param>
         /// <remarks>
         /// <para>
@@ -341,6 +347,13 @@ namespace OnlyWorlds.Sdk
         /// The marked Domains alone, as <see cref="CharterOf"/> lists them for the same reader: the profile's
         /// <c>domainsOf(world, reader)</c>.
         /// </summary>
+        /// <param name="world">The world's elements as its holder has them, as for <see cref="CharterOf"/>.</param>
+        /// <param name="reader">Who reads (<see cref="OWLensReader"/>).</param>
+        /// <param name="open">
+        /// The World's <c>public_read</c>, the standard's field on <c>world.yaml</c>, as for <see cref="CharterOf"/>: true for
+        /// a world open to anyone.
+        /// </param>
+        /// <param name="hiddenIds">The world's own hidden list, beside each element's own mark; null for none.</param>
         public static IReadOnlyList<OWReadingAidsDomain> DomainsOf(IEnumerable<JToken> world, OWLensReader reader,
             bool open = false, IEnumerable<string> hiddenIds = null) =>
             CharterOf(world, reader, open, hiddenIds).Domains;
