@@ -15,6 +15,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   transport already runs; every other platform resumes exactly as before. Found and walked in a web build that saves
   a crossing into a world from the browser.
 
+### Tests
+
+- The openers fixture is the shared one at 103 cases (the TypeScript SDK 4.132.3 and the Python package hold the same
+  bytes): `element_types` is refused when a word repeats, when one comes in another case, and when one isn't a string.
+  `OWOpeners.For` already refused all three; no code changed.
+
 ## [0.34.0] - 2026-11-03
 
 A tool that opens one kind of element is offered only on that kind: the tools list's `element_types`, read by
