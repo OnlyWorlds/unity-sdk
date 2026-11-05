@@ -2,8 +2,8 @@
 // Regenerate: python codegen/generate_models.py   (drift guard: codegen/check_drift.py)
 //
 // canonical: 00.34.00
-// serial: 107
-// published: 2026-11-03
+// serial: 108
+// published: 2026-11-04
 
 using System;
 using System.Collections.Generic;
@@ -137,7 +137,7 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("titles")]
         [SerializeField] private List<string> _titles = new List<string>();
 
-        /// <summary>Concepts, laws, or built entities relevant to the event</summary>
+        /// <summary>Concepts, systems or built entities relevant to the event</summary>
         /// <remarks>Link: UUIDs of construct. Bare ids -- resolve through the cache.</remarks>
         [JsonProperty("constructs")]
         [SerializeField] private List<string> _constructs = new List<string>();

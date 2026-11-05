@@ -2,8 +2,8 @@
 // Regenerate: python codegen/generate_models.py   (drift guard: codegen/check_drift.py)
 //
 // canonical: 00.34.00
-// serial: 107
-// published: 2026-11-03
+// serial: 108
+// published: 2026-11-04
 
 using System;
 using System.Collections.Generic;
@@ -39,7 +39,7 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("activation")]
         [SerializeField] private string _activation = "";
 
-        /// <summary>Length of time the ability remains active or its effects persist, measured in TIME units</summary>
+        /// <summary>Length of time the ability remains active or its effects persist, in the world's time unit (World time_basic_unit)</summary>
         [JsonProperty("duration")]
         [SerializeField] private SerializableNullable<int> _duration;
 

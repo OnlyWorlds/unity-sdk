@@ -2,8 +2,8 @@
 // Regenerate: python codegen/generate_models.py   (drift guard: codegen/check_drift.py)
 //
 // canonical: 00.34.00
-// serial: 107
-// published: 2026-11-03
+// serial: 108
+// published: 2026-11-04
 
 using System;
 using System.Collections.Generic;
@@ -43,11 +43,11 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("eligibility")]
         [SerializeField] private string _eligibility = "";
 
-        /// <summary>Date on which the title was created or first granted, defined in world TIME units; a holder's own span is a Relation, not this field</summary>
+        /// <summary>Date on which the title was created or first granted, in the world's time unit (World time_basic_unit); a holder's own span is a Relation, not this field</summary>
         [JsonProperty("grant_date")]
         [SerializeField] private SerializableNullable<int> _grantDate;
 
-        /// <summary>Date on which the title ended or was abolished, defined in world TIME units; a holder's own span is a Relation, not this field</summary>
+        /// <summary>Date on which the title ended or was abolished, in the world's time unit (World time_basic_unit); a holder's own span is a Relation, not this field</summary>
         [JsonProperty("revoke_date")]
         [SerializeField] private SerializableNullable<int> _revokeDate;
 

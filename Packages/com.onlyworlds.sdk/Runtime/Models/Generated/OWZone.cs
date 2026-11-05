@@ -2,8 +2,8 @@
 // Regenerate: python codegen/generate_models.py   (drift guard: codegen/check_drift.py)
 //
 // canonical: 00.34.00
-// serial: 107
-// published: 2026-11-03
+// serial: 108
+// published: 2026-11-04
 
 using System;
 using System.Collections.Generic;
@@ -43,11 +43,11 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("shape")]
         [SerializeField] private string _shape = "";
 
-        /// <summary>Date when the zone becomes extant or relevant, defined in world TIME units</summary>
+        /// <summary>Date when the zone becomes extant or relevant, in the world's time unit (World time_basic_unit)</summary>
         [JsonProperty("start_date")]
         [SerializeField] private SerializableNullable<int> _startDate;
 
-        /// <summary>Date when the zone ceases to be meaningful or enforced, defined in world TIME units</summary>
+        /// <summary>Date when the zone ceases to be meaningful or enforced, in the world's time unit (World time_basic_unit)</summary>
         [JsonProperty("end_date")]
         [SerializeField] private SerializableNullable<int> _endDate;
 

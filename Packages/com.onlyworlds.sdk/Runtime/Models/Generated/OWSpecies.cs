@@ -2,8 +2,8 @@
 // Regenerate: python codegen/generate_models.py   (drift guard: codegen/check_drift.py)
 //
 // canonical: 00.34.00
-// serial: 107
-// published: 2026-11-03
+// serial: 108
+// published: 2026-11-04
 
 using System;
 using System.Collections.Generic;
@@ -39,7 +39,7 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("appearance")]
         [SerializeField] private string _appearance = "";
 
-        /// <summary>Average or typical life expectancy of an individual, defined in world TIME units</summary>
+        /// <summary>Average or typical life expectancy of an individual, in the world's time unit (World time_basic_unit)</summary>
         [JsonProperty("life_span")]
         [SerializeField] private SerializableNullable<int> _lifeSpan;
 

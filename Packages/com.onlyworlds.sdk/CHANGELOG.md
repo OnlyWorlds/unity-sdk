@@ -6,6 +6,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The schema pin moves to `v0.34.0-dist.108` (canonical `00.34.00` unchanged; descriptions only, no field, type or
+  link moved, canonical PR 20): seventeen time-field descriptions on thirteen types now say one thing, "in the world's
+  time unit (World `time_basic_unit`)"; `Event.constructs` reads "concepts, systems or built entities"; `Map.hierarchy`
+  reads "an integer to order or group the maps that share a parent; how a tool reads it is the tool's own". The
+  generated models changed in their serial and published stamps and in those nineteen summary lines. No code change.
+
 ### Fixed
 
 - **A web player's calls return.** In a Unity web build every client call after the first answer hung: the request

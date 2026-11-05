@@ -2,8 +2,8 @@
 // Regenerate: python codegen/generate_models.py   (drift guard: codegen/check_drift.py)
 //
 // canonical: 00.34.00
-// serial: 107
-// published: 2026-11-03
+// serial: 108
+// published: 2026-11-04
 
 using System;
 using System.Collections.Generic;
@@ -39,7 +39,7 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("background_color")]
         [SerializeField] private string _backgroundColor = "";
 
-        /// <summary>To associate or differentiate between maps with a common parent</summary>
+        /// <summary>An integer to order or group the maps that share a parent; how a tool reads it is the tool's own</summary>
         [JsonProperty("hierarchy")]
         [SerializeField] private SerializableNullable<int> _hierarchy;
 
