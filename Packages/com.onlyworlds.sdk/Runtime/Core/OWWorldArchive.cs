@@ -31,6 +31,56 @@ namespace OnlyWorlds.Sdk
     }
 
     /// <summary>
+    /// How <see cref="OWWorldArchive.Pack(string, string, OWWorldArchivePackOptions)"/> writes an archive: what goes in, and
+    /// whether its entries are compressed. The defaults pack as every other overload does.
+    /// </summary>
+    public sealed class OWWorldArchivePackOptions
+    {
+        /// <summary>
+        /// Keep <c>world.json</c>'s <c>api</c> block: a private copy, not a portable <c>.owworld</c>. Off by default
+        /// (see <see cref="OWWorldArchive.Pack(string, string, bool)"/>).
+        /// </summary>
+        public bool KeepApiBlock;
+
+        /// <summary>
+        /// Carry the producers <c>records/RECORDS.json</c> marks private (folder spec §4.5 rule 11). Off by default (see
+        /// <see cref="OWWorldArchive.Pack(string, string, bool, bool)"/>).
+        /// </summary>
+        public bool IncludePrivateRecords;
+
+        /// <summary>
+        /// Carry element files marked hidden (folder spec §4.8). On by default: a world file is a copy; a share passes
+        /// <c>false</c> (see <see cref="OWWorldArchive.Pack(string, string, bool, bool, bool, ICollection{string})"/>).
+        /// </summary>
+        public bool IncludeHidden = true;
+
+        /// <summary>When given, receives the paths inside the world of the element files left out for the hidden mark.</summary>
+        public ICollection<string> HiddenLeftOut;
+
+        /// <summary>
+        /// Write every entry stored (zip method 0), none deflated, so the archive can be read by a player that cannot
+        /// inflate. Off by default.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// For a web game. In a WebGL player built with the DiskSizeLTO code optimization (Unity 6000.4.0f1), the native
+        /// zlib behind <see cref="System.IO.Compression.DeflateStream"/> traps the moment one is created: the player halts
+        /// with a wasm <c>unreachable</c>, which no <c>catch</c> stops. A stored entry is read as the bytes it holds, so
+        /// <see cref="OWWorldArchive.Read"/> and <see cref="System.IO.Compression.ZipArchiveEntry.Open"/> never create a
+        /// <see cref="System.IO.Compression.DeflateStream"/> for one, and the same checks run (its size, its CRC-32, every
+        /// rule on names).
+        /// </para>
+        /// <para>
+        /// The file is larger, by about what deflate would have saved. A web server's own compression (gzip or Brotli on
+        /// the response) wins most of it back on the wire. The archive is a valid <c>.owworld</c> either way: a reader
+        /// accepts stored and deflated entries alike (folder spec §4.7), and the packing is as deterministic as the
+        /// default's, the same folder giving the same bytes.
+        /// </para>
+        /// </remarks>
+        public bool StoreForWebPlayers;
+    }
+
+    /// <summary>
     /// Why <see cref="OWWorldArchive.Read"/> refused an archive: the values of
     /// <see cref="OWFolderFormatException.Reason"/>, one cause from folder spec §4.7's shared list.
     /// </summary>
@@ -212,7 +262,8 @@ namespace OnlyWorlds.Sdk
         /// </para>
         /// <para>
         /// The first entry is the <c>mimetype</c> marker (folder spec §4.7, OW-6): <see cref="MediaType"/>'s bytes,
-        /// stored (method 0), with no extra field, the EPUB shape. Every other entry is deflated, an empty one stored. The zip is written
+        /// stored (method 0), with no extra field, the EPUB shape. Every other entry is deflated, an empty one stored
+        /// (or every entry stored, for a player that cannot inflate: <see cref="OWWorldArchivePackOptions.StoreForWebPlayers"/>). The zip is written
         /// here rather than by <see cref="ZipArchive"/>, because Mono's writes
         /// <see cref="CompressionLevel.NoCompression"/> as deflate (method 8) and so cannot store the marker. A
         /// classic zip, and zip64 from 65,535 entries or past 4 GiB, as §4.7 asks of a writer; a non-ASCII name
@@ -283,7 +334,39 @@ namespace OnlyWorlds.Sdk
         /// <exception cref="ArgumentException"><paramref name="archivePath"/> is inside the folder.</exception>
         public static List<string> Pack(string worldFolder, string archivePath, bool keepApiBlock,
             bool includePrivateRecords, bool includeHidden, ICollection<string> hiddenLeftOut = null)
+            => Pack(worldFolder, archivePath, new OWWorldArchivePackOptions
+            {
+                KeepApiBlock = keepApiBlock,
+                IncludePrivateRecords = includePrivateRecords,
+                IncludeHidden = includeHidden,
+                HiddenLeftOut = hiddenLeftOut,
+            });
+
+        /// <summary>
+        /// Packs a world folder into an <c>.owworld</c>, every choice in one options object: the other overloads' choices,
+        /// and whether the entries are stored for a player that cannot inflate
+        /// (<see cref="OWWorldArchivePackOptions.StoreForWebPlayers"/>).
+        /// </summary>
+        /// <param name="worldFolder">Directory containing <c>world.json</c>.</param>
+        /// <param name="archivePath">The archive to write. Replaced if it exists. Must not be inside the folder.</param>
+        /// <param name="options">The choices. Null packs as <see cref="Pack(string, string, bool)"/> does by default.</param>
+        /// <returns>The entry names written, in order.</returns>
+        /// <remarks>
+        /// With the defaults the bytes are the other overloads' own: every one of them packs through this one. Stored or
+        /// not, the entries, their order, the marker first and every stamp are the same; only each entry's method, and so
+        /// its data and sizes, differ.
+        /// </remarks>
+        /// <exception cref="DirectoryNotFoundException">The folder does not exist.</exception>
+        /// <exception cref="OWFolderFormatException">As <see cref="Pack(string, string, bool, bool)"/>.</exception>
+        /// <exception cref="ArgumentException"><paramref name="archivePath"/> is inside the folder.</exception>
+        public static List<string> Pack(string worldFolder, string archivePath, OWWorldArchivePackOptions options)
         {
+            options = options ?? new OWWorldArchivePackOptions();
+            var keepApiBlock = options.KeepApiBlock;
+            var includeHidden = options.IncludeHidden;
+            var hiddenLeftOut = options.HiddenLeftOut;
+            var deflate = !options.StoreForWebPlayers;
+
             if (string.IsNullOrEmpty(worldFolder)) throw new ArgumentNullException(nameof(worldFolder));
             if (string.IsNullOrEmpty(archivePath)) throw new ArgumentNullException(nameof(archivePath));
 
@@ -299,7 +382,7 @@ namespace OnlyWorlds.Sdk
             }
 
             var worldBytes = WorldJsonBytes(root, keepApiBlock);
-            var plan = PackPlan(root, includePrivateRecords);
+            var plan = PackPlan(root, options.IncludePrivateRecords);
             if (!includeHidden)
             {
                 plan.RemoveAll(entry =>
@@ -326,7 +409,7 @@ namespace OnlyWorlds.Sdk
                 foreach (var (relative, source) in plan)
                 {
                     var name = top + "/" + relative;
-                    zip.Add(name, relative == WorldFile ? worldBytes : File.ReadAllBytes(source), deflate: true);
+                    zip.Add(name, relative == WorldFile ? worldBytes : File.ReadAllBytes(source), deflate);
                     written.Add(name);
                 }
 

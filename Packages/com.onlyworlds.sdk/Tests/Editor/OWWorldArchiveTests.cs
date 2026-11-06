@@ -462,6 +462,187 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(1, OWWorldArchive.Read(archive).Elements.Count, "The reader checks every CRC-32 and size, and opens it.");
         }
 
+        // -- Stored, for a player that cannot inflate ----------------------------------
+
+        private static readonly OWWorldArchivePackOptions Stored = new OWWorldArchivePackOptions { StoreForWebPlayers = true };
+
+        private string PackStoredTo(string root, string fileName)
+        {
+            var path = Path.Combine(_temp, fileName);
+            OWWorldArchive.Pack(root, path, Stored);
+            return path;
+        }
+
+        [Test]
+        public void Pack_StoredForWebPlayers_WritesEveryEntryMethod0_InTheDefaultsOrder()
+        {
+            var root = Path.Combine(_temp, "w");
+            Write(root, "world.json", WorldJson("0695db52-0000-7000-8000-0000000000aa", "W"));
+            Write(root, "elements/character/one--000000e1.json", ElementBody);
+            Write(root, "media/é.png", "png");
+            Write(root, "records/empty", "");
+
+            var deflated = PackTo(root, "deflated.owworld");
+            var storedEntries = OWWorldArchive.Pack(root, Path.Combine(_temp, "stored.owworld"), Stored);
+            var stored = Path.Combine(_temp, "stored.owworld");
+            var raw = File.ReadAllBytes(stored);
+
+            var records = CentralRecords(raw);
+            Assert.AreEqual(5, records.Count);
+            foreach (var r in records) Assert.AreEqual(0, r.method, r.name + " is stored in the central directory.");
+            Assert.AreEqual(("mimetype", 0, 0, 0L), (records[0].name, records[0].method, records[0].extra, records[0].offset),
+                "The marker is still first, stored, bare, at offset 0.");
+            CollectionAssert.AreEqual(EntryNames(deflated), records.Select(r => r.name).ToList(),
+                "The same entries in the same order as the default pack; only the method differs.");
+            CollectionAssert.AreEqual(storedEntries, records.Select(r => r.name).ToList(), "Pack says what it wrote.");
+            Assert.AreEqual(1 << 11, records.Single(r => r.name == "w/media/é.png").flags, "The UTF-8 flag is kept.");
+            Assert.IsTrue(records.All(r => r.extra == 0), "No extra field below zip64's limits.");
+
+            // Each local header agrees: method 0, and the bytes held are the bytes declared.
+            using (var zip = ZipFile.OpenRead(stored))
+            {
+                foreach (var entry in zip.Entries)
+                    Assert.AreEqual(entry.Length, entry.CompressedLength, entry.FullName + " holds its bytes as they are.");
+            }
+
+            foreach (var r in records)
+                Assert.AreEqual(0, BitConverter.ToUInt16(raw, (int)r.offset + 8), r.name + " is stored in its local header.");
+
+            Assert.AreEqual(ElementBody, Encoding.UTF8.GetString(EntryBytes(stored, "w/elements/character/one--000000e1.json")));
+            Assert.Greater(new FileInfo(stored).Length, 0);
+        }
+
+        [Test]
+        public void Pack_StoredForWebPlayers_ReadsBackEqualToTheFolder_AndToTheDeflatedPack_TheFixture()
+        {
+            var root = RequireFixture();
+            var folder = OWFolderReader.Read(root, includeLegacySpatial: true);
+            var deflated = OWWorldArchive.Read(PackTo(root, "deflated.owworld"), includeLegacySpatial: true);
+            var stored = OWWorldArchive.Read(PackStoredTo(root, "stored.owworld"), includeLegacySpatial: true);
+
+            Assert.That(folder.Elements.Count, Is.GreaterThan(0), "The fixture has elements to compare.");
+            CollectionAssert.AreEqual(Digest(folder, root), Digest(stored, null), "The stored pack reads as the folder.");
+            CollectionAssert.AreEqual(Digest(deflated, null), Digest(stored, null), "... and as the deflated pack.");
+            CollectionAssert.AreEqual(OrderedDigest(deflated, null), OrderedDigest(stored, null), "In the same order.");
+
+            TestContext.WriteLine($"fixture: deflated {new FileInfo(Path.Combine(_temp, "deflated.owworld")).Length} bytes, " +
+                                  $"stored {new FileInfo(Path.Combine(_temp, "stored.owworld")).Length} bytes");
+        }
+
+        [Test]
+        public void Pack_StoredForWebPlayers_ReadsBackEqualToTheFolder_AndToTheDeflatedPack_AnAbbey()
+        {
+            var root = MakeAbbey();
+            foreach (var legacy in new[] { true, false })
+            {
+                var folder = OWFolderReader.Read(root, includeLegacySpatial: legacy);
+                var deflated = OWWorldArchive.Read(PackTo(root, "deflated.owworld"), includeLegacySpatial: legacy);
+                var stored = OWWorldArchive.Read(PackStoredTo(root, "stored.owworld"), includeLegacySpatial: legacy);
+                CollectionAssert.AreEqual(Digest(folder, root), Digest(stored, null), "legacy " + legacy);
+                CollectionAssert.AreEqual(Digest(deflated, null), Digest(stored, null), "legacy " + legacy);
+            }
+
+            Assert.AreEqual(3, OWWorldArchive.Read(Path.Combine(_temp, "stored.owworld")).Skipped.Count,
+                "The stored pack skips what the folder skips: duplicate, no id, truncated.");
+        }
+
+        [Test]
+        public void Pack_StoredForWebPlayers_EveryEntryOpensWithoutADeflateStream()
+        {
+            // The reason the option exists: a WebGL player built with DiskSizeLTO halts when a DeflateStream is made. The
+            // reader's every byte comes through ZipArchiveEntry.Open(), which hands a stored entry's own bytes back and
+            // makes a DeflateStream only for a deflated one. Checked on both packs, so the test tells them apart.
+            var root = RequireFixture();
+            var stored = PackStoredTo(root, "stored.owworld");
+            var deflated = PackTo(root, "deflated.owworld");
+
+            using (var zip = ZipFile.OpenRead(stored))
+            {
+                foreach (var entry in zip.Entries)
+                    using (var s = entry.Open())
+                        Assert.IsNotInstanceOf<DeflateStream>(s, entry.FullName + " opened through an inflater.");
+            }
+
+            using (var zip = ZipFile.OpenRead(deflated))
+            {
+                Assert.IsTrue(zip.Entries.Where(e => e.Length > 0 && e.FullName != "mimetype").All(e =>
+                {
+                    using (var s = e.Open()) return s is DeflateStream;
+                }), "The default pack's non-empty entries open through an inflater: the check above can fail.");
+            }
+
+            Assert.That(OWWorldArchive.Read(stored).Elements.Count, Is.GreaterThan(0), "The SDK's reader opens it.");
+        }
+
+        [Test]
+        public void Pack_StoredForWebPlayers_IsDeterministic_AndHeldToEveryReadRule()
+        {
+            var root = RequireFixture();
+            var copy = Path.Combine(_temp, "copy");
+            CopyDirectory(root, copy);
+            var a = Path.Combine(_temp, "a.owworld");
+            var b = Path.Combine(_temp, "b.owworld");
+
+            foreach (var f in Directory.GetFiles(copy, "*", SearchOption.AllDirectories))
+                File.SetLastWriteTimeUtc(f, new DateTime(2001, 2, 3, 4, 5, 6, DateTimeKind.Utc));
+            OWWorldArchive.Pack(copy, a, Stored);
+            foreach (var f in Directory.GetFiles(copy, "*", SearchOption.AllDirectories))
+                File.SetLastWriteTimeUtc(f, new DateTime(2024, 6, 7, 8, 9, 10, DateTimeKind.Utc));
+            OWWorldArchive.Pack(copy, b, Stored);
+            CollectionAssert.AreEqual(File.ReadAllBytes(a), File.ReadAllBytes(b), "The same folder packed stored to different bytes.");
+
+            // The CRC-32 is checked on a stored entry as on a deflated one: a flipped CRC refuses it.
+            var element = EntryNames(a).First(n => n.Contains("/elements/"));
+            FlipCrc(a, element);
+            var e = Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Read(a));
+            Assert.AreEqual(OWWorldArchiveReason.NotOpenable, e.Reason, e.Message);
+            StringAssert.Contains("CRC-32", e.Message);
+        }
+
+        [Test]
+        public void Pack_TheOptionsDefaults_GiveTheOtherOverloadsBytes()
+        {
+            // Every overload packs through the options one; with its defaults it is the plain pack, byte for byte.
+            var root = Path.Combine(_temp, "linked");
+            Write(root, "world.json",
+                "{\n  \"id\": \"" + WId + "\",\n  \"name\": \"Linked\",\n"
+                + "  \"api\": {\n    \"world_id\": \"" + WId + "\",\n    \"api_key\": \"ow_k_secret\"\n  }\n}\n");
+            Write(root, "elements/character/one--000000e1.json", ElementBody);
+            Write(root, "elements/character/two--000000e2.json",
+                "{\n  \"id\": \"0695db83-0000-7000-8000-0000000000e2\",\n  \"name\": \"Two\",\n  \"hidden\": true\n}\n");
+
+            byte[] Packed(string name, Action<string> pack)
+            {
+                var path = Path.Combine(_temp, name);
+                pack(path);
+                return File.ReadAllBytes(path);
+            }
+
+            var plain = Packed("plain.owworld", p => OWWorldArchive.Pack(root, p));
+            CollectionAssert.AreEqual(plain, Packed("opts.owworld", p => OWWorldArchive.Pack(root, p, new OWWorldArchivePackOptions())));
+            CollectionAssert.AreEqual(plain, Packed("null.owworld", p => OWWorldArchive.Pack(root, p, (OWWorldArchivePackOptions)null)));
+
+            CollectionAssert.AreEqual(
+                Packed("kept.owworld", p => OWWorldArchive.Pack(root, p, keepApiBlock: true)),
+                Packed("kept-opts.owworld", p => OWWorldArchive.Pack(root, p, new OWWorldArchivePackOptions { KeepApiBlock = true })));
+
+            var left = new List<string>();
+            var leftOpts = new List<string>();
+            CollectionAssert.AreEqual(
+                Packed("share.owworld", p => OWWorldArchive.Pack(root, p, false, false, includeHidden: false, hiddenLeftOut: left)),
+                Packed("share-opts.owworld", p => OWWorldArchive.Pack(root, p,
+                    new OWWorldArchivePackOptions { IncludeHidden = false, HiddenLeftOut = leftOpts })));
+            CollectionAssert.AreEqual(new[] { "elements/character/two--000000e2.json" }, left);
+            CollectionAssert.AreEqual(left, leftOpts);
+
+            // Stored with the share's choices: the same entries left out, every one stored.
+            var storedShare = Path.Combine(_temp, "share-stored.owworld");
+            OWWorldArchive.Pack(root, storedShare, new OWWorldArchivePackOptions { IncludeHidden = false, StoreForWebPlayers = true });
+            CollectionAssert.AreEqual(EntryNames(Path.Combine(_temp, "share.owworld")), EntryNames(storedShare));
+            Assert.IsTrue(CentralRecords(File.ReadAllBytes(storedShare)).All(r => r.method == 0));
+            Assert.IsFalse(ArchiveText(storedShare).Contains("ow_k_secret"), "No key travels, stored or not.");
+        }
+
         [Test]
         public void PacksWriter_WritesZip64_From65535Entries()
         {

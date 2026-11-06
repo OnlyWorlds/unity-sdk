@@ -6,6 +6,17 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **`.owworld` files a web player can read: `OWWorldArchive.Pack(folder, path, OWWorldArchivePackOptions)`.** The
+  options hold every choice the other overloads take (`KeepApiBlock`, `IncludePrivateRecords`, `IncludeHidden`,
+  `HiddenLeftOut`) and one new one, `StoreForWebPlayers`: every entry is written stored (zip method 0) instead of
+  deflated, so reading the file never needs an inflater. `OWWorldArchive.Read` and `ZipArchiveEntry.Open` hand a stored
+  entry's bytes back as they are, without creating a `DeflateStream`, and every read rule still holds (sizes, CRC-32,
+  names). The file is larger by about what deflate saves; a web server's own response compression wins most of it back.
+  The packing is deterministic as before, and the defaults write the very bytes the other overloads write: every
+  overload now packs through this one. Made for web games (see Known issues).
+
 ### Changed
 
 - The schema pin moves to `v0.34.0-dist.108` (canonical `00.34.00` unchanged; descriptions only, no field, type or
@@ -23,8 +34,21 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   transport already runs; every other platform resumes exactly as before. Found and walked in a web build that saves
   a crossing into a world from the browser.
 
+### Known issues
+
+- **In a web player built with DiskSizeLTO, reading a deflated `.owworld` halts the player.** In a Unity WebGL build
+  whose code optimization is DiskSizeLTO (measured on Unity 6000.4.0f1, 2026-11-06), the native zlib behind
+  `System.IO.Compression.DeflateStream` traps the moment one is created: the player stops with a WebAssembly
+  `unreachable`, which no `catch` can stop. `OWWorldArchive.Read` creates one for each deflated entry. A file packed
+  with `StoreForWebPlayers` has none and reads in such a player. A build with another code optimization (BuildTimes)
+  reads a deflated file.
+
 ### Tests
 
+- A stored pack: every entry method 0 in the central directory and in its local header, in the default pack's order
+  with the marker first; read back equal to the folder and to the deflated pack's read; every entry opens without a
+  `DeflateStream` (the default pack's open through one, so the check can fail); deterministic; a flipped CRC-32 still refused.
+  The options' defaults give the other overloads' bytes, the share's hidden list included.
 - The openers fixture is the shared one at 103 cases (the TypeScript SDK 4.132.3 and the Python package hold the same
   bytes): `element_types` is refused when a word repeats, when one comes in another case, and when one isn't a string.
   `OWOpeners.For` already refused all three; no code changed.
