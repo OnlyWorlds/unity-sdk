@@ -192,11 +192,18 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             foreach (var r in member.Skip(1))
                 Assert.IsTrue(r.Href.StartsWith("https://", StringComparison.Ordinal) && r.Href.Contains(World) && !r.Href.Contains("{"), r.Href);
             var open = OWOpeners.For(OWTools.All, OWOpeners.World, World, null, null, new OWOpenerSurface { Audience = OWOpenerSurface.Public });
-            // The public: a tool that needs the device is not there; one that needs an account says so.
+            // The public: a tool that needs the device is not there; one that needs an account says so, unless it opens a
+            // public world with none (Atlas at 9452529).
             CollectionAssert.AreEqual(new[] { OWOpeners.SiteId }.Concat(offered.Where(t => t.Open.Needs != OWToolOpen.Device).Select(t => t.Id)).ToList(),
                 open.Select(r => r.Id).ToList());
             foreach (var r in open.Skip(1))
-                Assert.AreEqual(offered.Single(t => t.Id == r.Id).Open.Needs == OWToolOpen.Account ? OWOpenerState.NeedsAnAccount : null, r.State, r.Id);
+            {
+                var o = offered.Single(t => t.Id == r.Id).Open;
+                Assert.AreEqual(o.Needs == OWToolOpen.Account && !o.OpensPublic ? OWOpenerState.NeedsAnAccount : null, r.State, r.Id);
+            }
+
+            Assert.IsTrue(OWTools.All.Single(t => t.Id == "atlas").Open.OpensPublic, "Atlas opens a public world with no account");
+            Assert.IsNull(open.Single(r => r.Id == "atlas").State, "so the public page offers it live");
         }
 
         [Test]

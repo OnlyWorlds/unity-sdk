@@ -72,7 +72,13 @@ def row(t: dict[str, Any]) -> str:
     elif isinstance(o, dict):
         door = "new OWToolOpen(" + ", ".join(text(o.get(k), f"row {rid!r} open.{k}") for k in OPEN_KEYS)
         door += ", " + words(o.get("element_skips"), f"row {rid!r} open.element_skips")
-        door += ", " + words(o.get("element_types"), f"row {rid!r} open.element_types") + ")"
+        door += ", " + words(o.get("element_types"), f"row {rid!r} open.element_types")
+        # open.opens_public: written only when the row carries it, so the rows without it bake as before.
+        if "opens_public" in o:
+            if not isinstance(o["opens_public"], bool):
+                die(f"row {rid!r} open.opens_public is {o['opens_public']!r}; true or false")
+            door += ", " + ("true" if o["opens_public"] else "false")
+        door += ")"
     else:
         die(f"row {rid!r} open is {o!r}; an object or null")
     return f"            new OWTool({args},\n                {door}),\n"

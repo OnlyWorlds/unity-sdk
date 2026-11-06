@@ -25,6 +25,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
+- **`OWTools` repinned at the tools list's `9452529`: Atlas opens a public world with no account.** Its row carries
+  `opens_public: true` (its `needs` stays `account`, for a private world), so on a world's public page the baked
+  list offers Atlas live. The same list and bytes as the TypeScript SDK 4.133.1 (tools.json sha256 `8905defb…`).
 - The schema pin moves to `v0.34.0-dist.108` (canonical `00.34.00` unchanged; descriptions only, no field, type or
   link moved, canonical PR 20): seventeen time-field descriptions on thirteen types now say one thing, "in the world's
   time unit (World `time_basic_unit`)"; `Event.constructs` reads "concepts, systems or built entities"; `Map.hierarchy`
