@@ -6,6 +6,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-11-07
+
+`.owworld` files a web player can read: `OWWorldArchivePackOptions.StoreForWebPlayers` writes every entry stored, so a
+WebGL player built with DiskSizeLTO, whose zlib halts on a `DeflateStream`, reads the world without one. A tools-list
+row can say it opens a public world with no account (`OWToolOpen.OpensPublic`), and `OWTools` is repinned at the tools
+list's `9452529`, where Atlas does. A minor release because it adds public API (below).
+
 ### Added
 
 - **`.owworld` files a web player can read: `OWWorldArchive.Pack(folder, path, OWWorldArchivePackOptions)`.** The
