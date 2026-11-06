@@ -38,12 +38,22 @@ namespace OnlyWorlds.Sdk
         /// <param name="elementSkips">What the element door does not open (<see cref="OWOpeners.ElementMarks"/>' words); null for none.</param>
         /// <param name="elementTypes">The element types the element door opens (<see cref="OWElementTypes.Slugs"/>' words); null for every type.</param>
         public OWToolOpen(string world, string element, string needs, IReadOnlyList<string> elementSkips, IReadOnlyList<string> elementTypes)
+            : this(world, element, needs, elementSkips, elementTypes, false)
+        {
+        }
+
+        /// <param name="elementSkips">What the element door does not open (<see cref="OWOpeners.ElementMarks"/>' words); null for none.</param>
+        /// <param name="elementTypes">The element types the element door opens (<see cref="OWElementTypes.Slugs"/>' words); null for every type.</param>
+        /// <param name="opensPublic">The links open a public world with nothing signed in (<see cref="OpensPublic"/>); only beside <see cref="Account"/>.</param>
+        public OWToolOpen(string world, string element, string needs, IReadOnlyList<string> elementSkips, IReadOnlyList<string> elementTypes,
+            bool opensPublic)
         {
             World = world;
             Element = element;
             Needs = needs;
             ElementSkips = elementSkips == null ? NoSkips : Array.AsReadOnly(new List<string>(elementSkips).ToArray());
             ElementTypes = elementTypes == null ? null : Array.AsReadOnly(new List<string>(elementTypes).ToArray());
+            OpensPublic = opensPublic;
         }
 
         /// <summary>The link that opens a world, holding <c>{world}</c> (the world's id); null without one.</summary>
@@ -79,6 +89,14 @@ namespace OnlyWorlds.Sdk
         /// there.
         /// </summary>
         public IReadOnlyList<string> ElementTypes { get; }
+
+        /// <summary>
+        /// True when the links open a public world for someone not signed in, though <see cref="Needs"/> is
+        /// <see cref="Account"/> for a private one: a public page offers the row live instead of "Needs an account".
+        /// Anywhere else the row reads as <see cref="Needs"/> says, since only the public page knows the world is public.
+        /// False when absent, and on a list older than the key. True beside any other <see cref="Needs"/> is refused there.
+        /// </summary>
+        public bool OpensPublic { get; }
     }
 
     /// <summary>The keys of one tools list row that <see cref="OWOpeners"/> reads; the list's other keys are not kept.</summary>
@@ -120,7 +138,7 @@ namespace OnlyWorlds.Sdk
         /// ignored; a kept key of the wrong JSON type is refused.
         /// </summary>
         /// <exception cref="ArgumentException">Not a tools row: an id or name that is not a string, an open that is not an
-        /// object or null, a template or needs that is not a string or null.</exception>
+        /// object or null, a template or needs that is not a string or null, an opens_public that is not true or false.</exception>
         public static OWTool FromJson(JObject row)
         {
             if (row == null) throw new ArgumentNullException(nameof(row), "OWTool.FromJson: a tools row is an object");
@@ -136,7 +154,8 @@ namespace OnlyWorlds.Sdk
                 if (!(o is JObject door)) throw new ArgumentException($"OWTool.FromJson: tool {rid}: open is an object or null", nameof(row));
                 open = new OWToolOpen(Text(door, "world", rid, "open."), Text(door, "element", rid, "open."), Text(door, "needs", rid, "open."),
                     Words(door, "element_skips", rid, string.Join(", ", OWOpeners.ElementMarks)),
-                    Words(door, "element_types", rid, string.Join(", ", OWElementTypes.Slugs)));
+                    Words(door, "element_types", rid, string.Join(", ", OWElementTypes.Slugs)),
+                    Flag(door, "opens_public", rid, "open."));
             }
 
             return new OWTool(rid, (string)name, Text(row, "url", rid, ""), Text(row, "client", rid, ""), Text(row, "rung", rid, ""), open);
@@ -164,6 +183,16 @@ namespace OnlyWorlds.Sdk
             if (token.Type != JTokenType.String)
                 throw new ArgumentException($"OWTool.FromJson: tool {row}: {path}{key} is a string or null", key);
             return (string)token;
+        }
+
+        /// <summary>True or false; false when the key is absent. Null, like any other value, is refused (the TypeScript reader's own rule).</summary>
+        private static bool Flag(JObject o, string key, string row, string path)
+        {
+            var token = o[key];
+            if (token == null) return false;
+            if (token.Type != JTokenType.Boolean)
+                throw new ArgumentException($"OWTool.FromJson: tool {row}: {path}{key} is true or false; got {token.ToString(Newtonsoft.Json.Formatting.None)}", key);
+            return (bool)token;
         }
 
         /// <summary>
@@ -380,7 +409,9 @@ namespace OnlyWorlds.Sdk
     /// world door or not: the tool opens other kinds of element (read from the address, so no element body is needed; a
     /// world's menu reads no element types). For the <c>public</c> audience (the signed-out reader)
     /// a row whose <c>needs</c> is <c>device</c> is not there, since a visitor's device holds no world of this one's, and
-    /// a row whose <c>needs</c> is <c>account</c> is there and says it needs one.
+    /// a row whose <c>needs</c> is <c>account</c> is there and says it needs one, unless its
+    /// <see cref="OWToolOpen.OpensPublic"/> is true: its links open a public world with nothing signed in, so on a public
+    /// page it needs nothing and reads as a live row. Anywhere else the row reads as its <c>needs</c> says.
     /// </para>
     /// <para>
     /// Each row's state, the first that holds: "You are here" for the surface's own tool (its <c>client</c> is
@@ -403,7 +434,8 @@ namespace OnlyWorlds.Sdk
     /// openers asked of an address with no element, an unknown key on the address, a missing or unknown audience, an
     /// element given for a world's menu or naming another element than the address, a tools row that is not one (a
     /// <c>needs</c>, an <c>element_skips</c> or an <c>element_types</c> word outside the list's format, an empty or repeating
-    /// <c>element_types</c>, or skips or types on a row with no element door, included, and a link that opens no app: an
+    /// <c>element_types</c>, skips or types on a row with no element door, or <c>opens_public</c> true beside a
+    /// <c>needs</c> other than <c>account</c>, included, and a link that opens no app: an
     /// <c>open.world</c> or <c>open.element</c> that does not begin with its scheme, or whose scheme is
     /// <c>javascript</c>, <c>data</c>, <c>vbscript</c>, <c>file</c>, <c>blob</c> or <c>about</c>, in any case, on any
     /// row and either kind of menu). <see cref="OWAddressException"/>
@@ -605,6 +637,8 @@ namespace OnlyWorlds.Sdk
                 var needs = open.Needs;
                 if (needs != null && needs != OWToolOpen.Account && needs != OWToolOpen.Device)
                     Fail($"tool {r.Id}: open.needs is 'account', 'device' or null; got \"{needs}\"", nameof(tools));
+                if (open.OpensPublic && needs != OWToolOpen.Account)
+                    Fail($"tool {r.Id}: open.opens_public is true only beside needs 'account'; got needs {(needs == null ? "null" : "\"" + needs + "\"")}", nameof(tools));
                 var skips = open.ElementSkips ?? (IReadOnlyList<string>)Array.Empty<string>();
                 foreach (var s in skips)
                 {
@@ -631,13 +665,16 @@ namespace OnlyWorlds.Sdk
                 // opens, somewhere else), so a world door alone that needs a sign-in says the sign-in. With no
                 // connection a web link opens nothing, whatever else it needs.
                 var href = Placeholder.Replace(template, m => values[m.Groups[1].Value]);
+                // What the row needs on this surface: a public page shows a public world, which a row that opens one
+                // opens with nothing signed in.
+                var need = audience == OWOpenerSurface.Public && open.OpensPublic ? null : needs;
                 string state = null;
                 if (tool != null && r.Client == tool) state = OWOpenerState.YouAreHere;
                 else if (Offline(href)) state = OWOpenerState.NeedsAConnection;
-                else if (audience == OWOpenerSurface.Public && needs == OWToolOpen.Account) state = OWOpenerState.NeedsAnAccount;
-                else if (needs == OWToolOpen.Account && !surface.Browser) state = OWOpenerState.OpensInYourBrowser;
-                else if (needs == OWToolOpen.Account && surface.SignedIn == false) state = OWOpenerState.SignInFirst(r.Name);
-                else if (needs == OWToolOpen.Device && surface.Phone) state = OWOpenerState.NeedsTheWorldOnThisPhone;
+                else if (audience == OWOpenerSurface.Public && need == OWToolOpen.Account) state = OWOpenerState.NeedsAnAccount;
+                else if (need == OWToolOpen.Account && !surface.Browser) state = OWOpenerState.OpensInYourBrowser;
+                else if (need == OWToolOpen.Account && surface.SignedIn == false) state = OWOpenerState.SignInFirst(r.Name);
+                else if (need == OWToolOpen.Device && surface.Phone) state = OWOpenerState.NeedsTheWorldOnThisPhone;
                 else if (kind == Element && open.Element == null) state = OWOpenerState.OpensTheWorld;
                 rows.Add(new OWOpener(r.Id, r.Name, href, state));
             }

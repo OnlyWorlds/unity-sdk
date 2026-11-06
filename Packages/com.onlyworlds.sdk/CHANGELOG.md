@@ -16,6 +16,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   names). The file is larger by about what deflate saves; a web server's own response compression wins most of it back.
   The packing is deterministic as before, and the defaults write the very bytes the other overloads write: every
   overload now packs through this one. Made for web games (see Known issues).
+- **A tools-list row can say it opens a public world with no account: `OWToolOpen.OpensPublic`**, read from the row's
+  `open.opens_public`. On a world's public page such a row is live instead of "Needs an account"; anywhere else it
+  reads as its `needs` says, since only the public page knows the world is public. Absent reads as false, as before. A
+  value that is not true or false is refused when the row is read, and true beside a `needs` other than `account` is
+  refused by `OWOpeners.For`, as the list's own check refuses both. The same rule as the TypeScript SDK 4.133.0 and
+  the Python package.
 
 ### Changed
 
