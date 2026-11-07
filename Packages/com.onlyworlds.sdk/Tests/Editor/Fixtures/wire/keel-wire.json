@@ -5,7 +5,7 @@
     "X-Session-Token",
     "Authorization"
   ],
-  "document_sha256": "d90dbff5c41d18250c428914a5b14545ceea9f6c7d317d5626b5dad2a392425a",
+  "document_sha256": "af1d5795e6f0ee508e334352645f520cc03e279ac794084f2f2b1f5836895ab4",
   "error_codes": {
     "already_member": 409,
     "already_reported": 409,
@@ -88,7 +88,7 @@
     "write_failed": 502,
     "wrong_audience": 401
   },
-  "fetched": "2026-11-07T13:07+01:00",
+  "fetched": "2026-11-07T19:12+01:00",
   "openapi_version": "2.0",
   "paths": {
     "/api/v2/ability": {
@@ -1061,10 +1061,22 @@
         ]
       }
     },
-    "/api/v2/account/worlds/holding/{narrative_id}": {
+    "/api/v2/account/worlds/holding/{element_id}": {
       "GET": {
         "header": [],
         "query": [],
+        "response": [
+          "door",
+          "world_id"
+        ]
+      }
+    },
+    "/api/v2/account/worlds/made": {
+      "GET": {
+        "header": [],
+        "query": [
+          "key"
+        ],
         "response": [
           "door",
           "world_id"
