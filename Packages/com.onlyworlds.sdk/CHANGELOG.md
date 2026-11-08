@@ -6,6 +6,55 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **`OWCalendar.ValidateValue(JToken)`: a raw `atlas_calendar` value validated as the TypeScript SDK's
+  `validateCalendarConfig` validates it.** `Validate(CalendarConfig)` sees only what `ReadConfig` could read, so a value
+  the reader refuses reached it as null; this reads the value itself and names what is wrong with it ("start must be a
+  number", "except must be a list", "except and offset need calendar version 2" on a version-1 entry), in the
+  TypeScript SDK's words and order, reading the value as JavaScript does (a missing key prints `undefined`, mixed
+  values compare as `<` compares them). Where the TypeScript SDK throws (a null value, `eras` or `intercalary` that is
+  not iterable, a null entry), it answers instead: `eras must be a list`, `intercalary must be a list`, or the entry
+  read as one with no keys. A JSON string is a string here: parse it first.
+- **`OWCalendar.FormatDuration(CalendarConfig, double)`: a span that need not be whole**, as the TypeScript SDK takes
+  any number: the step count to two decimals, rounded as JavaScript's `Math.round` rounds (`2.5` reads "2.5 days",
+  `0.125` "0.13 days"). The `long` overload answers as before, and the same for every whole span.
+
+### Changed
+
+- **`OWCalendar.Validate(CalendarConfig)` follows the TypeScript SDK in two checks.** A grain of White_Space alone (the
+  room profile's set) is "Grain is required", as the calendar profile reads a grain; an era whose `direction` is
+  neither absent, `"up"` nor `"down"` (`"Up"`) no longer gets the up era's "end must be after start" (it still reads
+  as up when a date is formatted). Neither reaches a calendar `ReadConfig` produced from a grain the profile refuses,
+  so this changes answers only for a hand-built config or a stray direction word.
+- **`OWCalendarLens.ResolveLens` matches the chosen id only against an element id that is a string**, as the
+  TypeScript SDK's `===` does: an element whose id is the number 5 is no longer chosen by `"5"`.
+- **`OWCalendarLens.WorldCalendars` reads a name JavaScript reads as false as no name**: `0` or `false` names the
+  calendar "(unnamed calendar)", as `""` and a missing name already did.
+
+### Fixed
+
+- **`OWCalendar.FormatDuration` writes a year count as JavaScript does.** A count of 1e15 years or more printed
+  `4.5E+15`; it now prints `4500000000000000`, and every count is the shortest spelling that reads back (Mono's `"R"`
+  is not that).
+- **`OWCalendar.ParseDate` matches a capital I with dot above (U+0130) as JavaScript lowercases it**, to `i` and
+  U+0307: a month named "İlkyaz" now reads from "i̇lkyaz 2 3" as the TypeScript SDK reads it.
+
+### Tests
+
+- The calendar against the TypeScript SDK's own answers: `Fixtures/calendar/calendar_parity.json` (sha256
+  `f756303b…a58ea`), generated from the built code of `@onlyworlds/sdk` 4.133.1 at commit `3cd810b` and vendored
+  byte for byte from the Godot SDK. `OWCalendarParityTests` replays every record through the Unity API: 3,695 year and
+  mid labels, 1,000 month starts, 50 year lengths, 2,250 durations, 250 era years, 15,171 parses, 147 validations
+  (through `ValidateValue`, and the 50 the reader takes through `Validate` too) and 784 resolutions. Each difference
+  kept on purpose is a named entry that selects its records and asserts they still differ, so a change that agrees
+  turns it red: a non-string era abbrev (the typed reader reads it as absent, where npm prints it in a label and throws
+  on it in `parseDate`), version 1's `except` and `offset` (unknown keys there, so the typed `Validate` cannot see
+  them), an element id read as text, and the resolutions no Unity call takes (an unknown option key, a number for the
+  chosen id). Pinned by hand where npm has no answer: a `year_base` other than 0 or 1 still reads as a calendar here
+  (narrowed at the next schema pin), a bare step past 2^53 parses exactly, final sigma is not reproduced, and a
+  non-string `step_name` reads the grain.
+
 ## [0.35.0] - 2026-11-07
 
 `.owworld` files a web player can read: `OWWorldArchivePackOptions.StoreForWebPlayers` writes every entry stored, so a

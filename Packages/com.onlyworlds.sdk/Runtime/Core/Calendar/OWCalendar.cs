@@ -26,6 +26,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json.Linq;
+using Js = OnlyWorlds.Sdk.OWCalendarJs;
 
 namespace OnlyWorlds.Sdk
 {
@@ -207,7 +208,8 @@ namespace OnlyWorlds.Sdk
             var errors = new List<string>();
             if (cfg == null) { errors.Add("Grain is required"); return errors; }
             if (cfg.Version != 1 && cfg.Version != 2) errors.Add("Unsupported calendar version: " + Str(cfg.Version));
-            if (string.IsNullOrEmpty(cfg.Grain)) errors.Add("Grain is required");
+            // The profile's grain: something left after the White_Space trim (the room profile's set).
+            if (cfg.Grain == null || OWProfileText.TrimWhiteSpace(cfg.Grain).Length == 0) errors.Add("Grain is required");
 
             var months = cfg.Bundles?.Months;
             if (months != null)
@@ -255,7 +257,9 @@ namespace OnlyWorlds.Sdk
             {
                 if (string.IsNullOrEmpty(era.Name)) errors.Add("Every era needs a name");
                 // TS: "start must be a number" / "end must be a number": a long always is.
-                if (!era.IsDown && era.End != null && era.End.Value <= era.Start)
+                // As TS: the up check for a direction absent or exactly "up", the down check for exactly "down"; any
+                // other word is neither (EraForStep still reads it as up).
+                if ((era.Direction ?? "up") == "up" && era.End != null && era.End.Value <= era.Start)
                     errors.Add("Era \"" + era.Name + "\": end must be after start");
                 if (era.IsDown && era.End != null && era.End.Value >= era.Start)
                     errors.Add("Era \"" + era.Name + "\": a counting-down era must end below its start");
@@ -272,6 +276,186 @@ namespace OnlyWorlds.Sdk
                 }
             }
             return errors;
+        }
+
+        /// <summary>
+        /// Semantic validation of a raw <c>atlas_calendar</c> value, as the TypeScript SDK's
+        /// <c>validateCalendarConfig</c> reads it: a list of messages, empty when the value is clean. Where
+        /// <see cref="Validate(CalendarConfig)"/> sees only what <see cref="ReadConfig"/> could read, this reads the
+        /// value itself, so it also names what makes the reader refuse it ("start must be a number", "except must be a
+        /// list", "except and offset need calendar version 2" on a version-1 entry). A value is read as JavaScript
+        /// reads it: a missing key is <c>undefined</c> in a message, a string's or a list's <c>length</c> is read as
+        /// one, a string in place of a list is its characters, mixed values compare as JavaScript's <c>&lt;</c> does,
+        /// and the eras are ordered for the overlap check as V8's sort orders them (exact for fewer than 64 eras).
+        /// A JSON string is a string here, not a config: parse it first. Where the TypeScript SDK throws (a null value,
+        /// <c>eras</c> or <c>intercalary</c> an object, a number or <c>true</c>, a null entry), this answers: a null value
+        /// or entry reads as one with no keys, and <c>eras must be a list</c> or <c>intercalary must be a list</c> stands
+        /// where the loop over it would start, with no check of that list.
+        /// </summary>
+        public static List<string> ValidateValue(JToken value)
+        {
+            var errors = new List<string>();
+            var version = Js.Get(value, "version");
+            if (!(Js.IsNumber(version) && (Js.Num(version) == 1 || Js.Num(version) == 2)))
+                errors.Add("Unsupported calendar version: " + Js.Str(version));
+            var grain = Js.Get(value, "grain");
+            if (!(grain != null && grain.Type == JTokenType.String && OWProfileText.TrimWhiteSpace((string)grain).Length > 0))
+                errors.Add("Grain is required");
+
+            var bundles = Js.Get(value, "bundles");
+            var months = Js.Get(bundles, "months");
+            var year = Js.Get(bundles, "year");
+            if (Js.Truthy(months))
+            {
+                var names = Js.Get(months, "names") as JArray;
+                var lengths = Js.Get(months, "lengths") as JArray;
+                if (names == null || lengths == null || names.Count == 0 || names.Count != lengths.Count)
+                    errors.Add("months.names and months.lengths must be same-length non-empty arrays");
+                else if (lengths.Any(l => !Js.IsInteger(l) || Js.Num(l) < 1))
+                    errors.Add("Every month length must be a whole number, 1 or more");
+                if (Js.Truthy(year)) errors.Add("year.steps is legal only when no months are defined (year length is derived from months)");
+            }
+            else if (Js.Truthy(year))
+            {
+                var steps = Js.Get(year, "steps");
+                if (!Js.IsInteger(steps) || Js.Num(steps) < 1) errors.Add("year.steps must be a positive integer");
+            }
+
+            var week = Js.Get(bundles, "week");
+            if (Js.Truthy(week))
+            {
+                var length = Js.Get(week, "length");
+                var names = Js.Get(week, "names") as JArray;
+                if (!Js.IsInteger(length) || Js.Num(length) < 1) errors.Add("The week length must be a whole number, 1 or more");
+                else if (names == null || names.Count != Js.Num(length)) errors.Add("Give the week as many day names as its length");
+            }
+
+            var inter = Js.Get(value, "intercalary");
+            if (Js.Nullish(inter)) inter = new JArray();
+            if (Js.Less(new JValue(0L), Js.Get(inter, "length")) == true && !Js.Truthy(months)) errors.Add("Festival days need months");
+            long monthCount = Js.Get(months, "names") is JArray monthNames ? monthNames.Count : 0;
+            var entries = Js.Items(inter);
+            if (entries == null)
+            {
+                errors.Add("intercalary must be a list");
+                entries = new List<JToken>();
+            }
+            foreach (var ic in entries)
+            {
+                string name = Js.Str(Js.Get(ic, "name"));
+                var after = Js.Get(ic, "after_month");
+                if (!Js.IsInteger(after) || Js.Num(after) < 0 || Js.Num(after) > monthCount)
+                    errors.Add("Festival day \"" + name + "\": pick the month it follows");
+                var every = Js.Get(ic, "every_years");
+                if (!Js.Nullish(every) && (!Js.IsInteger(every) || Js.Num(every) < 1))
+                    errors.Add("Festival day \"" + name + "\": every N yrs must be a whole number, 1 or more");
+                var rule = RawLeapRuleProblem(ic);
+                if (rule != null) errors.Add("Festival day \"" + name + "\": " + rule);
+                if (Js.IsNumber(version) && Js.Num(version) == 1
+                    && (!Js.Nullish(Js.Get(ic, "except")) || !Js.Nullish(Js.Get(ic, "offset"))))
+                    errors.Add("Festival day \"" + name + "\": except and offset need calendar version 2");
+            }
+
+            var eraValue = Js.Get(value, "eras");
+            if (Js.Nullish(eraValue)) eraValue = new JArray();
+            var eras = Js.Items(eraValue);
+            if (eras == null)
+            {
+                errors.Add("eras must be a list");
+                return errors;
+            }
+            foreach (var era in eras)
+            {
+                var nameValue = Js.Get(era, "name");
+                string name = Js.Str(nameValue);
+                var start = Js.Get(era, "start");
+                var end = Js.Get(era, "end");
+                var direction = Js.Get(era, "direction");
+                if (!Js.Truthy(nameValue)) errors.Add("Every era needs a name");
+                if (!Js.IsFinite(start)) errors.Add("Era \"" + name + "\": start must be a number");
+                if (!Js.Nullish(end) && !Js.IsFinite(end)) errors.Add("Era \"" + name + "\": end must be a number");
+                if (DirectionIs(direction, "up") && !Js.Nullish(end) && Js.Less(start, end) == false)
+                    errors.Add("Era \"" + name + "\": end must be after start");
+                if (DirectionIs(direction, "down") && !Js.Nullish(end) && Js.Less(end, start) == false)
+                    errors.Add("Era \"" + name + "\": a counting-down era must end below its start");
+            }
+            var domains = RawEraDomains(eras);
+            for (int i = 0; i < domains.Count; i++)
+            {
+                for (int j = i + 1; j < domains.Count; j++)
+                {
+                    var a = domains[i]; var b = domains[j];
+                    if (Js.Less(a.Lo, b.Hi) == true && Js.Less(b.Lo, a.Hi) == true)
+                        errors.Add("Eras \"" + Js.Str(Js.Get(a.Era, "name")) + "\" and \"" + Js.Str(Js.Get(b.Era, "name")) + "\" overlap");
+                }
+            }
+            return errors;
+        }
+
+        /// <summary>The TypeScript <c>leapRuleProblem</c> on a raw entry: why its version-2 keys cannot be read, or null.</summary>
+        static string RawLeapRuleProblem(JToken ic)
+        {
+            var ex = Js.Get(ic, "except");
+            var off = Js.Get(ic, "offset");
+            if (Js.Nullish(ex) && Js.Nullish(off)) return null;
+            var every = Js.Get(ic, "every_years");
+            if (Js.Nullish(every)) return "except and offset need every_years";
+            if (!Js.Nullish(off) && !Js.IsSafeInt(off)) return "offset must be a whole number";
+            if (!Js.Nullish(ex))
+            {
+                if (!(ex is JArray list)) return "except must be a list";
+                var prev = every;
+                foreach (var d in list)
+                {
+                    // d <= prev, and d % prev !== 0 (JavaScript's remainder: NaN for a zero divisor).
+                    if (!Js.IsPositiveInt(d) || Js.Less(prev, d) == false || !(Js.ToNumber(d) % Js.ToNumber(prev) == 0))
+                        return "each except must be a multiple of the number before it, and larger";
+                    prev = d;
+                }
+            }
+            return null;
+        }
+
+        /// <summary><c>(direction ?? 'up') === word</c>.</summary>
+        static bool DirectionIs(JToken direction, string word) =>
+            Js.Nullish(direction) ? word == "up" : direction.Type == JTokenType.String && (string)direction == word;
+
+        sealed class RawDomain
+        {
+            public JToken Era;
+            public JToken Lo;
+            public JToken Hi;
+        }
+
+        /// <summary>
+        /// The TypeScript <c>resolveEraDomains</c> over raw eras: sorted by V8's sort with <c>(a, b) =&gt; a.start - b.start</c>,
+        /// an up era's open end the next up era's start, a down era's open end minus infinity; the values as given, so the
+        /// overlap check compares them as JavaScript does.
+        /// </summary>
+        static List<RawDomain> RawEraDomains(List<JToken> eras)
+        {
+            var sorted = Js.V8Sort(eras, (a, b) => Js.ToNumber(Js.Get(a, "start")) - Js.ToNumber(Js.Get(b, "start")));
+            var output = new List<RawDomain>();
+            for (int i = 0; i < sorted.Count; i++)
+            {
+                var era = sorted[i];
+                var start = Js.Get(era, "start");
+                var end = Js.Get(era, "end");
+                if (DirectionIs(Js.Get(era, "direction"), "down"))
+                {
+                    output.Add(new RawDomain { Era = era, Lo = Js.Nullish(end) ? new JValue(double.NegativeInfinity) : end, Hi = start });
+                    continue;
+                }
+                JToken hi = end;
+                if (Js.Nullish(hi))
+                {
+                    var nextUp = sorted.Skip(i + 1).FirstOrDefault(e => DirectionIs(Js.Get(e, "direction"), "up"));
+                    var nextStart = nextUp == null ? null : Js.Get(nextUp, "start");
+                    hi = Js.Nullish(nextStart) ? new JValue(double.PositiveInfinity) : nextStart;
+                }
+                output.Add(new RawDomain { Era = era, Lo = start, Hi = hi });
+            }
+            return output;
         }
 
         /// <summary>
@@ -814,7 +998,7 @@ namespace OnlyWorlds.Sdk
         static readonly Regex IntRx = new Regex(@"\A-?[0-9]+\z"); // JS \d is ASCII; .NET \d is not
 
         /// <summary>JavaScript's String.prototype.trim.</summary>
-        static string JsTrim(string s) => TrimRx.Replace(s, "");
+        internal static string JsTrim(string s) => TrimRx.Replace(s, "");
 
         /// <summary>Substitute and collapse. KNOWN tokens with no value render empty and adjacent separators
         /// collapse; UNKNOWN tokens render literally (visible, never swallowed).</summary>
@@ -892,22 +1076,53 @@ namespace OnlyWorlds.Sdk
         public static string FormatDuration(CalendarConfig cfg, long steps)
         {
             long n = Math.Abs(steps);
-            string unit = JsTrim(cfg.StepName ?? cfg.Grain ?? "step");
-            if (unit.Length == 0) unit = "step";
-            long? yearLen = cfg.Bundles?.Months != null
-                ? FixedYearLength(cfg)
-                : cfg.Bundles?.Year?.Steps ?? (unit.ToLowerInvariant() == "year" ? 1 : (long?)null);
-            if (yearLen != null && yearLen.Value > 1 && n >= yearLen.Value)
-            {
-                double years = (double)n / yearLen.Value;
-                // JS Math.round on a non-negative value = round half away from zero.
-                double rounded = years >= 10
-                    ? Math.Round(years, MidpointRounding.AwayFromZero)
-                    : Math.Round(years * 10, MidpointRounding.AwayFromZero) / 10;
-                return JsNumber(rounded) + " " + (rounded == 1 ? "year" : "years");
-            }
+            string unit = StepWord(cfg);
+            long? yearLen = DurationYearLength(cfg, unit);
+            if (yearLen != null && yearLen.Value > 1 && n >= yearLen.Value) return YearsSpoken((double)n / yearLen.Value);
             // TS rounds to two decimals; a long step count is already whole.
             return Str(n) + " " + (n == 1 ? unit : unit + "s");
+        }
+
+        /// <summary>
+        /// A duration of a span that need not be whole (the TypeScript <c>formatDuration</c> takes any number): as the
+        /// <see cref="FormatDuration(CalendarConfig, long)"/> overload, with the step count rounded to two decimals as
+        /// JavaScript's <c>Math.round</c> rounds ("2.5 days", "0.13 days" for 0.125) and every number written as
+        /// JavaScript writes it. The sign is dropped.
+        /// </summary>
+        public static string FormatDuration(CalendarConfig cfg, double steps)
+        {
+            double n = Math.Abs(steps);
+            string unit = StepWord(cfg);
+            long? yearLen = DurationYearLength(cfg, unit);
+            if (yearLen != null && yearLen.Value > 1 && n >= yearLen.Value) return YearsSpoken(n / yearLen.Value);
+            double shown = JsRound(n * 100) / 100;
+            return JsNumber(shown) + " " + (shown == 1 ? unit : unit + "s");
+        }
+
+        /// <summary>The step word: step_name, else the grain, trimmed as JavaScript trims, else "step".</summary>
+        static string StepWord(CalendarConfig cfg)
+        {
+            string unit = JsTrim(cfg.StepName ?? cfg.Grain ?? "step");
+            return unit.Length == 0 ? "step" : unit;
+        }
+
+        /// <summary>The year a duration counts in: the base year, else year.steps, else 1 when the step word is "year".</summary>
+        static long? DurationYearLength(CalendarConfig cfg, string unit) =>
+            cfg.Bundles?.Months != null
+                ? FixedYearLength(cfg)
+                : cfg.Bundles?.Year?.Steps ?? (unit.ToLowerInvariant() == "year" ? 1 : (long?)null);
+
+        static string YearsSpoken(double years)
+        {
+            double rounded = years >= 10 ? JsRound(years) : JsRound(years * 10) / 10;
+            return JsNumber(rounded) + " " + (rounded == 1 ? "year" : "years");
+        }
+
+        /// <summary>JavaScript's Math.round: the nearest whole number, a half toward plus infinity.</summary>
+        static double JsRound(double x)
+        {
+            double r = Math.Floor(x);
+            return x - r >= 0.5 ? r + 1 : r;
         }
 
         /// <summary>
@@ -975,9 +1190,16 @@ namespace OnlyWorlds.Sdk
 
         static string Normalize(string s)
         {
-            string t = s.ToLowerInvariant().Replace(',', ' ').Replace('.', ' ');
+            string t = JsLower(s).Replace(',', ' ').Replace('.', ' ');
             return " " + JsTrim(AnyWsRx.Replace(t, " ")) + " ";
         }
+
+        /// <summary>
+        /// JavaScript's toLowerCase where it differs from ToLowerInvariant on a name a calendar can hold: U+0130 (capital
+        /// I with dot above) lowers to "i" and U+0307, two code units. Final sigma is not reproduced (it needs Unicode's
+        /// Cased and Case_Ignorable properties): ToLowerInvariant lowers every capital sigma to the medial form.
+        /// </summary>
+        static string JsLower(string s) => s.Replace("\u0130", "i\u0307").ToLowerInvariant();
 
         /// <summary>
         /// Parse a written date to a step.
@@ -1137,12 +1359,9 @@ namespace OnlyWorlds.Sdk
 
         static string Str(long v) => v.ToString(CultureInfo.InvariantCulture);
 
-        /// <summary>A double the way JavaScript's String() writes it, for the values FormatDuration produces.</summary>
-        static string JsNumber(double d)
-        {
-            if (d == Math.Floor(d) && Math.Abs(d) < 1e15) return ((long)d).ToString(CultureInfo.InvariantCulture);
-            return d.ToString("R", CultureInfo.InvariantCulture);
-        }
+        /// <summary>A double the way JavaScript's String() writes it: the shortest digits that read back (Mono's "R" is
+        /// not that), whole numbers below 1e21 in full.</summary>
+        static string JsNumber(double d) => Js.Number(d);
 
         static bool IsNullish(JToken t) => t == null || t.Type == JTokenType.Null || t.Type == JTokenType.Undefined;
 
@@ -1196,6 +1415,211 @@ namespace OnlyWorlds.Sdk
         {
             if (!TryInteger(t, out v)) return false;
             return v >= 1 && v <= 9007199254740991L;
+        }
+    }
+
+    /// <summary>
+    /// JavaScript's reading of a JSON value, for <see cref="OWCalendar.ValidateValue"/>: a C# null is
+    /// <c>undefined</c> (a key that is not there), a JSON null is <c>null</c>.
+    /// </summary>
+    internal static class OWCalendarJs
+    {
+        const double MaxSafe = 9007199254740991;
+
+        public static bool Undefined(JToken v) => v == null || v.Type == JTokenType.Undefined;
+
+        /// <summary><c>v == null</c>: null or undefined.</summary>
+        public static bool Nullish(JToken v) => Undefined(v) || v.Type == JTokenType.Null;
+
+        /// <summary>
+        /// <c>o.key</c> on a JSON value: an object's own key, a string's (UTF-16 code units) or a list's <c>length</c>,
+        /// anything else undefined (where JavaScript reads a key of null it throws: undefined here).
+        /// </summary>
+        public static JToken Get(JToken o, string key)
+        {
+            if (o is JObject obj) return obj.TryGetValue(key, out var t) ? t : null;
+            if (key == "length")
+            {
+                if (o is JArray a) return new JValue((long)a.Count);
+                if (o != null && o.Type == JTokenType.String) return new JValue((long)((string)o).Length);
+            }
+            return null;
+        }
+
+        /// <summary>What a for-of reads: a list's items, a string's characters (code points), or null where JavaScript
+        /// throws (the value is not iterable).</summary>
+        public static List<JToken> Items(JToken v)
+        {
+            if (v is JArray a) return a.ToList();
+            if (v == null || v.Type != JTokenType.String) return null;
+            var s = (string)v;
+            var output = new List<JToken>();
+            for (int i = 0; i < s.Length; i++)
+            {
+                int n = char.IsHighSurrogate(s[i]) && i + 1 < s.Length && char.IsLowSurrogate(s[i + 1]) ? 2 : 1;
+                output.Add(new JValue(s.Substring(i, n)));
+                i += n - 1;
+            }
+            return output;
+        }
+
+        public static bool IsNumber(JToken v) => v != null && (v.Type == JTokenType.Integer || v.Type == JTokenType.Float);
+
+        /// <summary>A number token's double (a JavaScript number is one).</summary>
+        public static double Num(JToken v)
+        {
+            switch (((JValue)v).Value)
+            {
+                case double d: return d;
+                case long l: return l;
+                case int i: return i;
+                case System.Numerics.BigInteger b: return (double)b;
+                case decimal m: return (double)m;
+                case float f: return f;
+                default: return Convert.ToDouble(((JValue)v).Value, CultureInfo.InvariantCulture);
+            }
+        }
+
+        public static bool IsFinite(JToken v) => IsNumber(v) && !double.IsNaN(Num(v)) && !double.IsInfinity(Num(v));
+
+        /// <summary>Number.isInteger.</summary>
+        public static bool IsInteger(JToken v) => IsFinite(v) && Math.Floor(Num(v)) == Num(v);
+
+        /// <summary>Number.isSafeInteger.</summary>
+        public static bool IsSafeInt(JToken v) => IsInteger(v) && Math.Abs(Num(v)) <= MaxSafe;
+
+        public static bool IsPositiveInt(JToken v) => IsSafeInt(v) && Num(v) >= 1;
+
+        /// <summary>JavaScript's truthiness: undefined, null, false, 0, NaN and "" are false; a list or object is true.</summary>
+        public static bool Truthy(JToken v)
+        {
+            if (Nullish(v)) return false;
+            switch (v.Type)
+            {
+                case JTokenType.Boolean: return (bool)v;
+                case JTokenType.Integer:
+                case JTokenType.Float:
+                    return Num(v) != 0 && !double.IsNaN(Num(v));
+                case JTokenType.String: return ((string)v).Length > 0;
+                default: return true;
+            }
+        }
+
+        /// <summary>JavaScript's String(v): a number as Number::toString writes it, a list its items joined by commas
+        /// (null and undefined as nothing), an object <c>[object Object]</c>.</summary>
+        public static string Str(JToken v)
+        {
+            if (Undefined(v)) return "undefined";
+            switch (v.Type)
+            {
+                case JTokenType.Null: return "null";
+                case JTokenType.Boolean: return (bool)v ? "true" : "false";
+                case JTokenType.Integer:
+                case JTokenType.Float:
+                    return Number(Num(v));
+                case JTokenType.String: return (string)v;
+                case JTokenType.Array: return string.Join(",", ((JArray)v).Select(x => Nullish(x) ? "" : Str(x)));
+                case JTokenType.Object: return "[object Object]";
+                default: return v.ToString();
+            }
+        }
+
+        /// <summary>Number::toString.</summary>
+        public static string Number(double d)
+        {
+            if (double.IsNaN(d)) return "NaN";
+            if (double.IsPositiveInfinity(d)) return "Infinity";
+            if (double.IsNegativeInfinity(d)) return "-Infinity";
+            return OWJsNumber.Format(d);
+        }
+
+        /// <summary>JavaScript's ToNumber on a JSON value (a list or object through its String()).</summary>
+        public static double ToNumber(JToken v)
+        {
+            if (Undefined(v)) return double.NaN;
+            switch (v.Type)
+            {
+                case JTokenType.Null: return 0;
+                case JTokenType.Boolean: return (bool)v ? 1 : 0;
+                case JTokenType.Integer:
+                case JTokenType.Float:
+                    return Num(v);
+                case JTokenType.String: return StringToNumber((string)v);
+                default: return StringToNumber(Str(v));
+            }
+        }
+
+        static readonly Regex DecimalRx = new Regex(@"\A[+-]?(Infinity|([0-9]+\.?[0-9]*|\.[0-9]+)([eE][+-]?[0-9]+)?)\z");
+        static readonly Regex RadixRx = new Regex(@"\A0(?:[xX]([0-9a-fA-F]+)|[oO]([0-7]+)|[bB]([01]+))\z");
+
+        /// <summary>StringToNumber: trimmed as trim() trims, empty is 0, a decimal (with Infinity), or 0x, 0o, 0b.</summary>
+        static double StringToNumber(string s)
+        {
+            string t = OWCalendar.JsTrim(s);
+            if (t.Length == 0) return 0;
+            if (DecimalRx.IsMatch(t))
+            {
+                if (t.EndsWith("Infinity", StringComparison.Ordinal)) return t[0] == '-' ? double.NegativeInfinity : double.PositiveInfinity;
+                return double.Parse(t, NumberStyles.Float, CultureInfo.InvariantCulture);
+            }
+            var m = RadixRx.Match(t);
+            if (!m.Success) return double.NaN;
+            int radix = m.Groups[1].Success ? 16 : m.Groups[2].Success ? 8 : 2;
+            string digits = m.Groups[1].Value + m.Groups[2].Value + m.Groups[3].Value;
+            double n = 0;
+            foreach (char c in digits) n = n * radix + Convert.ToInt32(c.ToString(), 16);
+            return n;
+        }
+
+        /// <summary>
+        /// JavaScript's <c>a &lt; b</c> (IsLessThan): true, false, or null where it is undefined (a NaN). Two strings compare by
+        /// UTF-16 code units. So <c>a &lt;= b</c> is <c>Less(b, a) == false</c>.
+        /// </summary>
+        public static bool? Less(JToken a, JToken b)
+        {
+            bool aText = IsText(a), bText = IsText(b);
+            if (aText && bText) return string.CompareOrdinal(Str(a), Str(b)) < 0;
+            double x = ToNumber(a), y = ToNumber(b);
+            if (double.IsNaN(x) || double.IsNaN(y)) return null;
+            return x < y;
+        }
+
+        /// <summary>A value whose ToPrimitive is a string: a string, a list or an object.</summary>
+        static bool IsText(JToken v) => !Undefined(v) && (v.Type == JTokenType.String || v.Type == JTokenType.Array || v.Type == JTokenType.Object);
+
+        /// <summary>
+        /// V8's Array.prototype.sort for fewer than 64 items (its TimSort is then one run: the leading run found, a strictly
+        /// descending one reversed, then binary insertion), with a comparator that may answer NaN (read as "not less").
+        /// Past 63 items the same insertion, which a consistent comparator sorts as V8 does.
+        /// </summary>
+        public static List<JToken> V8Sort(List<JToken> items, Func<JToken, JToken, double> compare)
+        {
+            var a = new List<JToken>(items);
+            int n = a.Count;
+            if (n < 2) return a;
+            int run = 2;
+            bool descending = compare(a[1], a[0]) < 0;
+            for (int i = 2; i < n; i++)
+            {
+                double order = compare(a[i], a[i - 1]);
+                if ((descending && order >= 0) || (!descending && order < 0)) break;
+                run++;
+            }
+            if (descending) a.Reverse(0, run);
+            for (int start = run; start < n; start++)
+            {
+                var pivot = a[start];
+                int left = 0, right = start;
+                while (left < right)
+                {
+                    int mid = left + ((right - left) >> 1);
+                    if (compare(pivot, a[mid]) < 0) right = mid;
+                    else left = mid + 1;
+                }
+                for (int p = start; p > left; p--) a[p] = a[p - 1];
+                a[left] = pivot;
+            }
+            return a;
         }
     }
 }

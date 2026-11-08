@@ -12,6 +12,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -72,11 +73,12 @@ namespace OnlyWorlds.Sdk
                 if (el == null) continue;
                 var config = ReadCalendarValue(el[CalendarField]);
                 if (config == null) continue;
-                string name = Text(el["name"]);
+                // A name JavaScript reads as false (absent, null, "", 0, false) is no name, as the TS `el.name || ...`.
+                var name = el["name"];
                 output.Add(new WorldCalendar
                 {
                     Id = Text(el["id"]),
-                    Name = string.IsNullOrEmpty(name) ? "(unnamed calendar)" : name,
+                    Name = OWCalendarJs.Truthy(name) ? Text(name) : "(unnamed calendar)",
                     Config = config,
                 });
             }
@@ -86,12 +88,15 @@ namespace OnlyWorlds.Sdk
         /// <summary>
         /// Resolve a CHOSEN calendar id against the elements. A null id (an explicit "no calendar"), a dangling
         /// id or an invalid config resolve to null: bare numbers. (TS resolveCalendarLens with a string or null
-        /// activeId; for "never chosen", the TS `undefined`, use <see cref="ResolveLensNeverChosen"/>.)
+        /// activeId; for "never chosen", the TS `undefined`, use <see cref="ResolveLensNeverChosen"/>.) The id matches an
+        /// element's id only when that is a string, as the TS `===` compares: an element whose id is the number 5 is not
+        /// chosen by "5".
         /// </summary>
         public static WorldCalendar ResolveLens(IEnumerable<JObject> elements, string activeId)
         {
-            if (string.IsNullOrEmpty(activeId)) return null;
-            foreach (var c in WorldCalendars(elements))
+            if (string.IsNullOrEmpty(activeId) || elements == null) return null;
+            var withTextIds = elements.Where(el => el != null && el["id"]?.Type == JTokenType.String);
+            foreach (var c in WorldCalendars(withTextIds))
                 if (c.Id == activeId) return c;
             return null;
         }
