@@ -22,6 +22,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
+- **The calendar reader refuses an era `year_base` other than 0 or 1**, as the TypeScript and Godot SDKs do: the schema
+  pin moves to `v0.34.0-dist.109` (canonical `00.34.00` unchanged, no field, type or link moved), whose calendar
+  profile now says in its refusal list what its field table always said, with one fixture case,
+  `refuse-year-base-five` (77 cases, 43 refusals). A calendar with `year_base: 5` was read before and is bare
+  numbers now. The generated models changed in their serial and published stamps only; the calendar fixture's test
+  copy and the parity vectors (from the TypeScript SDK 4.133.2) moved with the pin.
 - **`OWCalendar.Validate(CalendarConfig)` follows the TypeScript SDK in two checks.** A grain of White_Space alone (the
   room profile's set) is "Grain is required", as the calendar profile reads a grain; an era whose `direction` is
   neither absent, `"up"` nor `"down"` (`"Up"`) no longer gets the up era's "end must be after start" (it still reads

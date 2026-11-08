@@ -562,7 +562,8 @@ namespace OnlyWorlds.Sdk
                     var yb = eo["year_base"];
                     if (!IsNullish(yb))
                     {
-                        if (!IsSafeInt(yb, out long baseValue)) return null;
+                        // 0 or 1: the profile's field table, and since schema-dist dist.109 its refusal list too.
+                        if (!IsSafeInt(yb, out long baseValue) || (baseValue != 0 && baseValue != 1)) return null;
                         era.YearBase = baseValue;
                     }
                     cfg.Eras.Add(era);

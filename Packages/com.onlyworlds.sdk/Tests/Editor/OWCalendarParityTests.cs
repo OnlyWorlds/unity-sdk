@@ -11,12 +11,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// <see cref="OWCalendar"/> and <see cref="OWCalendarLens"/> against the TypeScript SDK's own answers:
-    /// <c>Fixtures/calendar/calendar_parity.json</c>, vendored byte for byte from the Godot SDK (commit <c>7a6c92c</c>,
+    /// <c>Fixtures/calendar/calendar_parity.json</c>, vendored byte for byte from the Godot SDK (commit <c>79b62a2</c>,
     /// <c>tests/data/calendar_parity.json</c>), which made it with <c>codegen/generate_calendar_parity.mjs</c> from the built
-    /// code of <c>@onlyworlds/sdk</c> 4.133.1 at commit <c>3cd810b</c>. It holds, for every calendar the profile fixture
+    /// code of <c>@onlyworlds/sdk</c> 4.133.2 at commit <c>595dbf6</c>. It holds, for every calendar the profile fixture
     /// reads as one (named by case, so its value is read from <c>calendar.fixture.json</c> beside it) and for sixteen
     /// calendars written for the traps: year and mid labels, month starts, the year length, durations (a fraction carries
-    /// its IEEE 754 bits), era years and about 15,000 parses; then 147 validations and 784 resolutions.
+    /// its IEEE 754 bits), era years and about 15,000 parses; then 148 validations and 784 resolutions.
     /// </summary>
     /// <remarks>
     /// Every record is replayed. Where Unity answers otherwise on purpose, a <see cref="Known"/> entry names the
@@ -28,8 +28,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </remarks>
     public class OWCalendarParityTests
     {
-        /// <summary>The vectors' sha256 at godot-sdk 7a6c92c.</summary>
-        private const string VectorsSha256 = "f756303bb7f4f53d51e750a8e43ecf56ddb179903dfb19e618ae8c0b93fa58ea";
+        /// <summary>The vectors' sha256 at godot-sdk 79b62a2.</summary>
+        private const string VectorsSha256 = "e69c50aab3c881ab68923ce89bf0caa1262219b8776a5295b310286eb24d3adc";
 
         // ---- the documents ----
 
@@ -158,10 +158,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public void TheVectors_AreTheGodotSdksBytes_MadeFromTheVendoredFixture()
         {
             Assert.AreEqual(VectorsSha256, Sha256(PathOf("calendar_parity.json")),
-                "the vendored vectors are not godot-sdk 7a6c92c's: re-vendor them byte for byte (a checkout's line endings change the bytes)");
+                "the vendored vectors are not godot-sdk 79b62a2's: re-vendor them byte for byte (a checkout's line endings change the bytes)");
             Assert.AreEqual("@onlyworlds/sdk", (string)Vectors["npm"]["package"]);
-            Assert.AreEqual("4.133.1", (string)Vectors["npm"]["version"]);
-            Assert.AreEqual("3cd810b", (string)Vectors["npm"]["commit"]);
+            Assert.AreEqual("4.133.2", (string)Vectors["npm"]["version"]);
+            Assert.AreEqual("595dbf6", (string)Vectors["npm"]["commit"]);
             Assert.AreEqual(Sha256(PathOf("calendar.fixture.json")), (string)Vectors["fixture_sha256"],
                 "the vectors were made from another profile fixture than the one vendored here");
             Assert.AreEqual(34, Vectors["calendars"].Count(c => c["case"] != null), "every calendar of the fixture");
@@ -352,7 +352,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public void ValidateValue_AnswersAsNpm()
         {
             Assert.AreEqual(ValidateWhereNpmThrows.Count, Vectors["validate"].Count(r => r["answer"] is JObject), "every listed answer is a row where npm throws");
-            Replay("ValidateValue", ValidateRecords(value => () => new JArray(OWCalendar.ValidateValue(value))), 147);
+            Replay("ValidateValue", ValidateRecords(value => () => new JArray(OWCalendar.ValidateValue(value))), 148);
         }
 
         [Test]
@@ -426,14 +426,17 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         // ---- what the vectors cannot carry ----
 
         [Test]
-        public void KnownDifference_YearBase_UnityReadsAnyWholeNumber()
+        public void YearBase_IsZeroOrOne_AsNpmReadsIt()
         {
             // year_base is 0 or 1 (the profile, schema-dist v0.34.0-dist.109, with its fixture case refuse-year-base-five).
-            // npm and the Godot SDK refuse anything else, so npm has no answer to record here; this reader still takes any
-            // whole number, narrowed at the dist.109 repin. When it refuses, this goes red: drop it.
-            var cfg = OWCalendarLens.ReadCalendarValue(JObject.Parse("{\"version\":1,\"grain\":\"year\",\"eras\":[{\"name\":\"Age\",\"start\":0,\"year_base\":5}]}"));
-            Assert.IsNotNull(cfg, "year_base 5 reads as a calendar in Unity (npm: bare numbers)");
-            Assert.AreEqual("5 Age", OWCalendar.FormatYearLabel(cfg, 0));
+            // npm and the Godot SDK refuse any other whole number, so npm has no vector to record; this pins the same
+            // reading by hand, beside the fixture's own case.
+            string Era(string yb) => "{\"version\":1,\"grain\":\"year\",\"eras\":[{\"name\":\"Age\",\"start\":0,\"year_base\":" + yb + "}]}";
+            Assert.IsNull(OWCalendarLens.ReadCalendarValue(JObject.Parse(Era("5"))), "year_base 5 is no calendar: bare numbers");
+            Assert.IsNull(OWCalendarLens.ReadCalendarValue(JObject.Parse(Era("-1"))), "year_base -1 is no calendar");
+            Assert.IsNull(OWCalendarLens.ReadCalendarValue(JObject.Parse(Era("2"))), "year_base 2 is no calendar");
+            Assert.AreEqual("0 Age", OWCalendar.FormatYearLabel(OWCalendarLens.ReadCalendarValue(JObject.Parse(Era("0"))), 0));
+            Assert.AreEqual("1 Age", OWCalendar.FormatYearLabel(OWCalendarLens.ReadCalendarValue(JObject.Parse(Era("1"))), 0));
         }
 
         [Test]

@@ -2,10 +2,10 @@
  "about": "The npm SDK's calendar answers, for OWCalendar to match: made by codegen/generate_calendar_parity.mjs from the package's built dist/index.js. \"case\" names a calendar of the pinned profile fixture; \"value\" is a calendar written here. A \"throws\" answer is what npm throws; Godot's answer there is in tests/test_calendar_labels.gd.",
  "npm": {
   "package": "@onlyworlds/sdk",
-  "version": "4.133.1",
-  "commit": "3cd810b"
+  "version": "4.133.2",
+  "commit": "595dbf6"
  },
- "fixture_sha256": "1dddb5c94d9b290bc0dcba9a966b3934dee5e4bf7e1dd8e579f4f783ff081d5e",
+ "fixture_sha256": "d2cbe4780c8322d527e13a4e3eaf0dfe6826f3ac20016fe9f4ca18979f2119cb",
  "keys": {
   "labels": "[step, formatYearLabel, formatMidLabel]",
   "month_starts": "[year, [[month, name, step], ...]]",
@@ -23137,6 +23137,7 @@
   {"case":"refuse-era-start-fraction","answer":[]},
   {"case":"refuse-era-end-fraction","answer":[]},
   {"case":"refuse-year-base-string","answer":[]},
+  {"case":"refuse-year-base-five","answer":[]},
   {"case":"refuse-month-name-not-string","answer":[]},
   {"case":"refuse-weekday-name-not-string","answer":[]},
   {"case":"json-string-valid","answer":[]},

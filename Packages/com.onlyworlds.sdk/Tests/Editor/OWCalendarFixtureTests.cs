@@ -9,15 +9,15 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// The <c>atlas_calendar</c> profile's conformance fixture (schema-dist <c>profiles/calendar.fixture.json</c>, tag
-    /// <c>v0.33.0-dist.90</c>, the profile's version 2: 76 cases, 42 of them refusals; serial 89 added 11 written from its
-    /// rulings and turned <c>intercalary-after-month-out-of-range</c> into a refusal, and serial 90 one refusal, an intercalary entry on a calendar with no months), vendored byte for byte. It is
+    /// <c>v0.34.0-dist.109</c>, the profile's version 2: 77 cases, 43 of them refusals; serial 89 added 11 written from its
+    /// rulings and turned <c>intercalary-after-month-out-of-range</c> into a refusal, serial 90 one refusal, an intercalary entry on a calendar with no months, and serial 109 one, a <c>year_base</c> other than 0 or 1), vendored byte for byte. It is
     /// generated from the TypeScript SDK's kernel (4.76.0) against the profile page: every reader refuses the same values and reads the same words, or one tool
     /// shows a calendar where another shows numbers. When the dist moves it, re-vendor and update the hash below.
     /// </summary>
     public class OWCalendarFixtureTests
     {
-        /// <summary>The fixture's sha256 as dist.90's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "1dddb5c94d9b290bc0dcba9a966b3934dee5e4bf7e1dd8e579f4f783ff081d5e";
+        /// <summary>The fixture's sha256 as dist.109's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "d2cbe4780c8322d527e13a4e3eaf0dfe6826f3ac20016fe9f4ca18979f2119cb";
 
         private static string FixturePath
         {
@@ -37,7 +37,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = System.BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(FixturePath))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.90's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.109's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
@@ -96,12 +96,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 }
             }
 
-            Assert.AreEqual(76, refusals + calendars, "the dist.90 fixture holds 76 cases");
-            Assert.AreEqual(42, refusals, "the dist.90 fixture holds 42 refusals");
+            Assert.AreEqual(77, refusals + calendars, "the dist.109 fixture holds 77 cases");
+            Assert.AreEqual(43, refusals, "the dist.109 fixture holds 43 refusals");
             // The steps counted too, as the TypeScript SDK's fixture test does since 4.76.1: a dropped step reads green
             // under a case count alone.
-            Assert.AreEqual(209, steps, "the dist.90 fixture's calendars read 209 steps");
-            Assert.AreEqual(1, founds, "the dist.90 fixture holds one case with a world's elements");
+            Assert.AreEqual(209, steps, "the dist.109 fixture's calendars read 209 steps");
+            Assert.AreEqual(1, founds, "the dist.109 fixture holds one case with a world's elements");
             Assert.IsEmpty(misses, $"{refusals} refusals, {calendars} calendars, {steps} steps:\n" + string.Join("\n", misses));
         }
     }

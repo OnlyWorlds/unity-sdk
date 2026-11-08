@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.34.00";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 108;
+        public const int DistSerial = 109;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.34.0-dist.108";
+        public const string Tag = "v0.34.0-dist.109";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -241,9 +241,15 @@ namespace OnlyWorlds.Sdk
         /// <c>rulings.yaml</c> are byte-identical; the generated models changed in their serial and published stamps and
         /// in those summary lines.
         /// </para>
+        /// <para>
+        /// <b>108 -> 109 (2026-11-07)</b>: canonical unchanged, no field, type or link moved. The calendar profile's
+        /// refusal list says an era's <c>year_base</c> is refused when it is "present and not 0 or 1", as its field
+        /// table always said, and its fixture gains <c>refuse-year-base-five</c> (77 cases, 43 refusals); the calendar
+        /// reader narrows to match. The generated models changed in their serial and published stamps only.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "077a53b463e562b729ba96e941d8ba82403e7cd7184b95450ee57b7b6edbf6ed";
+            "1aa35790618aa99ca22989bc07b4054f6e35f7fca18a435da48646533f6d3f1c";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.
@@ -257,7 +263,7 @@ namespace OnlyWorlds.Sdk
             "af84662c29628b6e90b923c9541f68f5924563adce397cebbadfdbf0f06e5f18";
 
         /// <summary>When these constants were last verified against the published dist.</summary>
-        public const string PinnedOn = "2026-11-05";
+        public const string PinnedOn = "2026-11-08";
 
         /// <summary>
         /// ⚑ Rulings that bind THIS SDK and any emitter generating into it. Read the row, not the key.
