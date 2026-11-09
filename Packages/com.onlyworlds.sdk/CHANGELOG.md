@@ -6,6 +6,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-11-09
+
+The calendar held to the TypeScript SDK's own answers: `OWCalendar` replays its recorded labels, parses, durations,
+validations and resolutions, follows it where it differed, and gains `ValidateValue` and a `FormatDuration` that takes
+a span that need not be whole; the reader refuses an era `year_base` other than 0 or 1 (the schema pin at dist.109).
+A lost key mint can be found: `MintWorldKeyAsync` takes an `idempotencyKey`, and `MadeWorldKeyAsync` answers the key
+it made. A minor release because it adds public API (below).
+
 ### Added
 
 - **`OWClient.MadeWorldKeyAsync(worldId, idempotencyKey)`: the key a lost mint made.** It reads GET
