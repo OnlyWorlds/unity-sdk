@@ -1780,10 +1780,16 @@ namespace OnlyWorlds.Sdk
         /// device passes it). Null or false: revoking the token revokes the key, unless the tool holds another live
         /// token. The answer says <see cref="OWMintedKey.Kept"/>.
         /// </param>
+        /// <param name="idempotencyKey">
+        /// Sent as <c>Idempotency-Key</c>, which keel remembers on the key's row and never replays: a second mint with the
+        /// same key makes a second key (a stored answer would keep the key). When an answer is lost,
+        /// <see cref="MadeWorldKeyAsync"/> finds the key this call made, by the same idempotency key. Null: none sent.
+        /// </param>
         /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
         /// <exception cref="ArgumentException">
         /// <paramref name="scope"/> is neither read nor write, or <paramref name="name"/> is past 80 characters after
-        /// keel's trim, each a 422 at keel; nothing was sent.
+        /// keel's trim, each a 422 at keel; or <paramref name="idempotencyKey"/> is empty (a caller who passes one wants
+        /// the lookup to find the key, and an empty one sends nothing to find it by); nothing was sent.
         /// </exception>
         /// <exception cref="OWApiError">
         /// The server refused: a world the account neither owns nor is a member of is a 404; a member's write key while
@@ -1799,16 +1805,29 @@ namespace OnlyWorlds.Sdk
         /// </para>
         /// <para>
         /// An account token only, sent as its Bearer, never with <c>API-Pin</c>; no <c>X-OW-Agent</c> or
-        /// <c>X-OW-Client</c>, which keel's document does not list here, and no <c>Idempotency-Key</c>: if the answer is
-        /// lost, the key is on the world's key list without its full key, so revoke it and mint another. The options
-        /// come after <paramref name="ct"/>, so a caller passing it by position keeps working. Mirrors the TypeScript
-        /// SDK's <c>mintWorldKey</c> (4.45.0; without <c>X-OW-Agent</c> from 4.120.0).
+        /// <c>X-OW-Client</c>, which keel's document does not list here. The options come after <paramref name="ct"/>,
+        /// so a caller passing it by position keeps working.
+        /// </para>
+        /// <para>
+        /// When the answer may be lost: keep the idempotency key on the device before the send. A 4xx made no key. After
+        /// a network error, a timeout or a cancel, ask <see cref="MadeWorldKeyAsync"/> and revoke the id it names
+        /// (<see cref="RevokeWorldKeyAsync"/>), then mint again with a new idempotency key. Believe its "none made" only a
+        /// couple of minutes after the send, since a cancel stops the wait, not keel's work. Mirrors the TypeScript SDK's
+        /// <c>mintWorldKey</c> (4.45.0; without <c>X-OW-Agent</c> from 4.120.0; <c>idempotencyKey</c> from 4.134.0).
         /// </para>
         /// </remarks>
         public Task<OWMintedKey> MintWorldKeyAsync(
-            string worldId, CancellationToken ct = default, string scope = null, string name = null, bool? keep = null)
+            string worldId, CancellationToken ct = default, string scope = null, string name = null, bool? keep = null,
+            string idempotencyKey = null)
         {
             RequireAccountToken(nameof(MintWorldKeyAsync));
+            if (idempotencyKey != null && idempotencyKey.Length == 0)
+            {
+                throw new ArgumentException(
+                    "MintWorldKeyAsync: idempotencyKey is a non-empty string, or null for none. Nothing was sent.",
+                    nameof(idempotencyKey));
+            }
+
             if (!string.IsNullOrEmpty(scope)
                 && !Array.Exists(KeyScopes, s => string.Equals(s, scope, StringComparison.OrdinalIgnoreCase)))
             {
@@ -1830,7 +1849,49 @@ namespace OnlyWorlds.Sdk
             if (keep.HasValue) body["keep"] = keep.Value;
 
             return RequestAsync<OWMintedKey>("POST", $"/account/worlds/{Seg("worldId", worldId)}/keys",
-                body: body.Count > 0 ? body : null, ct: ct);
+                body: body.Count > 0 ? body : null, idempotencyKey: idempotencyKey, ct: ct);
+        }
+
+        /// <summary>
+        /// GET /account/worlds/{world_id}/keys/made?key= -- the key a <see cref="MintWorldKeyAsync"/> call sent with this
+        /// <paramref name="idempotencyKey"/> made, as its row without the key itself, or null when it made none. A revoked
+        /// key still answers, with <see cref="OWWorldKeyRow.Revoked"/> true.
+        /// </summary>
+        /// <param name="worldId">The world. Escaped.</param>
+        /// <param name="idempotencyKey">The idempotency key the mint sent. Escaped into the query.</param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <exception cref="ArgumentException"><paramref name="idempotencyKey"/> is null or empty; nothing was sent.</exception>
+        /// <exception cref="OWApiError">Any refusal but the two read as null below (a 401, a 429, a 5xx).</exception>
+        /// <remarks>
+        /// The owner finds the keys they minted, a member only the keys bound to their own membership; anything else is
+        /// keel's one 404, read as null. Null also for a 405, which a server from before the lookup answers (this path was
+        /// only the revoke's there), whatever its body. An account token only, sent as its Bearer. Mirrors the TypeScript
+        /// SDK's <c>madeWorldKey</c> (4.134.0).
+        /// </remarks>
+        public Task<OWWorldKeyRow> MadeWorldKeyAsync(string worldId, string idempotencyKey, CancellationToken ct = default)
+        {
+            RequireAccountToken(nameof(MadeWorldKeyAsync));
+            if (string.IsNullOrEmpty(idempotencyKey))
+            {
+                throw new ArgumentException(
+                    "MadeWorldKeyAsync: the idempotency key is a non-empty string. Nothing was sent.", nameof(idempotencyKey));
+            }
+
+            return MadeWorldKeyCoreAsync(worldId, idempotencyKey, ct);
+        }
+
+        private async Task<OWWorldKeyRow> MadeWorldKeyCoreAsync(string worldId, string idempotencyKey, CancellationToken ct)
+        {
+            try
+            {
+                return await RequestAsync<OWWorldKeyRow>("GET", $"/account/worlds/{Seg("worldId", worldId)}/keys/made",
+                    query: "key=" + Uri.EscapeDataString(idempotencyKey), ct: ct).ConfigureAwait(OWAwait.OnCaller);
+            }
+            catch (OWApiError e) when (e.StatusCode == 404 || e.StatusCode == 405)
+            {
+                return null;
+            }
         }
 
         // keel's key mint (accounts/api.py _scope_param, _key_name_param, KEY_NAME_MAX): the scopes it takes, lower-cased

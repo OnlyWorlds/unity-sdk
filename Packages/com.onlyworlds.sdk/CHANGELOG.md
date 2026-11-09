@@ -8,6 +8,15 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Added
 
+- **`OWClient.MadeWorldKeyAsync(worldId, idempotencyKey)`: the key a lost mint made.** It reads GET
+  `/account/worlds/{id}/keys/made?key=` and answers the key's row without the key itself (`OWWorldKeyRow`), a revoked
+  key included, or null when that mint made none (the server's one 404) or the server is from before the lookup (a
+  405). Any other refusal throws. An account token only. Parity with the TypeScript SDK 4.134.0, its test vectors
+  ported.
+- **`MintWorldKeyAsync` takes an `idempotencyKey`**, sent as the `Idempotency-Key` header. The mint remembers it on
+  the key's row and never replays (a second mint with the same key makes a second key), so when an answer is lost,
+  `MadeWorldKeyAsync` finds the key, the tool revokes it by its id and mints again. An empty key is refused, nothing
+  sent. `OWMintedKey` is now `OWWorldKeyRow` with the full key added; its fields are unchanged.
 - **`OWCalendar.ValidateValue(JToken)`: a raw `atlas_calendar` value validated as the TypeScript SDK's
   `validateCalendarConfig` validates it.** `Validate(CalendarConfig)` sees only what `ReadConfig` could read, so a value
   the reader refuses reached it as null; this reads the value itself and names what is wrong with it ("start must be a

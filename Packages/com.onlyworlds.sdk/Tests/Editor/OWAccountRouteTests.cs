@@ -41,6 +41,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             ("ListAccountWorldsAsync", c => c.ListAccountWorldsAsync()),
             ("MintWorldKeyAsync", c => c.MintWorldKeyAsync("w1")),
+            ("MadeWorldKeyAsync", c => c.MadeWorldKeyAsync("w1", "k")),
             ("RevokeWorldKeyAsync", c => c.RevokeWorldKeyAsync("w1", "k1")),
             ("AcceptJoinAsync", c => c.AcceptJoinAsync("ow_j_code")),
             ("CreateWorldLinkAsync", c => c.CreateWorldLinkAsync("w1", new OWWorldLinkCreate { Reader = "person" })),
@@ -89,7 +90,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             {
                 var t = new FakeTransport { ResponseBody = "{}" };
                 await call.Run(Make(t, world: "w9"));
-                Assert.AreEqual("", new Uri(t.Last.Url).Query, call.Name);
+                // The lookup's own key= is its query; nothing else, and never world=.
+                Assert.AreEqual(call.Name == "MadeWorldKeyAsync" ? "?key=k" : "", new Uri(t.Last.Url).Query, call.Name);
                 Assert.AreEqual(new[] { "Authorization" }, HeaderNames(t.Last).Where(h => h != "Content-Type").ToArray(), call.Name);
             }
         }
@@ -260,6 +262,115 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             }
 
             Assert.AreEqual(5, t.Calls.Count, "a name past 80 is never sent");
+        }
+
+        // The TypeScript SDK's mintWorldKey({ idempotencyKey }) (4.134.0, 9be0cde; its test made-world-key.test.mjs): the
+        // key goes as the Idempotency-Key header and the body is unchanged; without it no header. keel remembers the key on
+        // the row and never replays the mint (keel e226d52). Kills: the key dropped, sent in the body or under another
+        // header, or a header sent without one.
+        [Test]
+        public async Task MintWorldKey_AnIdempotencyKey_GoesAsTheHeader_TheBodyUnchanged_NoneWithoutIt()
+        {
+            var t = new FakeTransport { Status = 201, ResponseBody = MintedBody };
+            var c = Make(t);
+            await c.MintWorldKeyAsync("w1", scope: "write", idempotencyKey: "mint-1");
+            await c.MintWorldKeyAsync("w1");
+
+            Assert.AreEqual("mint-1", t.Calls[0].Headers["Idempotency-Key"]);
+            Assert.AreEqual(@"{""scope"":""write""}", t.Calls[0].Body);
+            CollectionAssert.AreEqual(new[] { "Authorization", "Content-Type", "Idempotency-Key" }, HeaderNames(t.Calls[0]));
+            CollectionAssert.AreEqual(new[] { "Authorization" }, HeaderNames(t.Calls[1]));
+        }
+
+        // The TypeScript SDK refuses an idempotencyKey of "" with a TypeError, nothing sent. Kills: an empty key passed
+        // through as no key, which leaves a caller who meant to look the mint up with nothing to look it up by.
+        [Test]
+        public void MintWorldKey_AnEmptyIdempotencyKey_IsRefused_NothingSent()
+        {
+            var t = new FakeTransport { Status = 201, ResponseBody = MintedBody };
+            var e = Assert.ThrowsAsync<ArgumentException>(() => Make(t).MintWorldKeyAsync("w1", idempotencyKey: ""));
+            Assert.AreEqual("idempotencyKey", e.ParamName);
+            StringAssert.Contains("Nothing was sent.", e.Message);
+            CollectionAssert.IsEmpty(t.Calls);
+        }
+
+        // -- MadeWorldKeyAsync ------------------------------------------------------------------------------
+
+        private const string MadeRow =
+            @"{""id"":""0b8f6c1e-0000-4000-8000-000000000001"",""name"":""Lantern"",""last4"":""a1b2"",""scope"":""WRITE"","
+            + @"""last_used_at"":null,""revoked"":false,""kept"":true}";
+
+        // The TypeScript SDK's madeWorldKey(worldId, idempotencyKey) (4.134.0): GET /account/worlds/{id}/keys/made?key=,
+        // the key escaped into the query, the Bearer alone, and the row back without the key. Kills: the wrong verb or
+        // path, the key unescaped (its space, slash and ampersand), an Idempotency-Key header or the PIN sent, or the row
+        // misread.
+        [Test]
+        public async Task MadeWorldKey_GetsKeysMade_TheKeyEscapedInTheQuery_TheBearerAlone_AndAnswersTheRow()
+        {
+            var t = new FakeTransport { ResponseBody = MadeRow };
+            var row = await Make(t).MadeWorldKeyAsync("w1", "mint 1/a&b");
+
+            var a = t.Calls.Single();
+            Assert.AreEqual("GET", a.Method);
+            Assert.AreEqual(Base + "/account/worlds/w1/keys/made?key=mint%201%2Fa%26b", a.Url);
+            CollectionAssert.AreEqual(new[] { "Authorization" }, HeaderNames(a));
+
+            Assert.AreEqual("0b8f6c1e-0000-4000-8000-000000000001", row.Id);
+            Assert.AreEqual("Lantern", row.Name);
+            Assert.AreEqual("a1b2", row.Last4);
+            Assert.AreEqual("WRITE", row.Scope);
+            Assert.IsNull(row.LastUsedAt);
+            Assert.IsFalse(row.Revoked);
+            Assert.IsTrue(row.Kept);
+            Assert.IsNull(row.Member, "an owner key has no member");
+            Assert.IsNotInstanceOf<OWMintedKey>(row, "the row never carries the key");
+        }
+
+        // Kills: a revoked key read as none made, or its revoked flag lost.
+        [Test]
+        public async Task MadeWorldKey_ARevokedKey_StillAnswers_RevokedTrue()
+        {
+            var t = new FakeTransport { ResponseBody = MadeRow.Replace(@"""revoked"":false", @"""revoked"":true") };
+            Assert.IsTrue((await Make(t).MadeWorldKeyAsync("w1", "k")).Revoked);
+        }
+
+        // keel's one 404 is none made; a 405 is a server from before the lookup, where this path was only the revoke's,
+        // whatever its body (HTML or Django's detail). Kills: either thrown instead of read as null.
+        [TestCase(404, @"{""error"":{""type"":""not_found"",""code"":""not_found"",""message"":""Not found."",""param"":null,""doc_url"":null}}")]
+        [TestCase(405, "<h1>Method Not Allowed</h1>")]
+        [TestCase(405, @"{""detail"":""Method Not Allowed""}")]
+        public async Task MadeWorldKey_The404AndA405_AreNull_NoneMade(int status, string body)
+        {
+            var t = new FakeTransport { Status = status, ResponseBody = body };
+            Assert.IsNull(await Make(t).MadeWorldKeyAsync("w1", "k"));
+        }
+
+        // Kills: any other refusal read as none made, which would tell a tool to mint again while the lost key lives.
+        [TestCase(401, "invalid_credentials")]
+        [TestCase(429, "too_many_requests")]
+        [TestCase(500, "server_error")]
+        public void MadeWorldKey_AnyOtherRefusal_Throws_NeverNull(int status, string code)
+        {
+            var t = new FakeTransport
+            {
+                Status = status,
+                ResponseBody = $@"{{""error"":{{""type"":""{code}"",""code"":""{code}"",""message"":""x"",""param"":null,""doc_url"":null}}}}",
+            };
+            var e = Assert.ThrowsAsync<OWApiError>(() => Make(t).MadeWorldKeyAsync("w1", "k"));
+            Assert.AreEqual(status, e.StatusCode);
+        }
+
+        // The TypeScript SDK refuses an empty or missing idempotency key with a TypeError, nothing sent. Kills: a lookup
+        // sent with key= empty, which keel cannot answer for any mint.
+        [TestCase(null)]
+        [TestCase("")]
+        public void MadeWorldKey_ANullOrEmptyIdempotencyKey_IsRefused_NothingSent(string key)
+        {
+            var t = new FakeTransport { ResponseBody = MadeRow };
+            var e = Assert.ThrowsAsync<ArgumentException>(() => Make(t).MadeWorldKeyAsync("w1", key));
+            Assert.AreEqual("idempotencyKey", e.ParamName);
+            StringAssert.Contains("Nothing was sent.", e.Message);
+            CollectionAssert.IsEmpty(t.Calls);
         }
 
         // -- RevokeWorldKeyAsync ----------------------------------------------------------------------------

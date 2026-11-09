@@ -129,7 +129,23 @@ namespace OnlyWorlds.Sdk
     /// shows it, plus the full key, once, in <see cref="Key"/>.
     /// </summary>
     [Serializable]
-    public class OWMintedKey
+    public class OWMintedKey : OWWorldKeyRow
+    {
+        /// <summary>
+        /// The full key, shown in this answer only: keep it, it is never shown again. Its last four characters are
+        /// <see cref="OWWorldKeyRow.Last4"/>.
+        /// </summary>
+        [JsonProperty("key")]
+        public string Key;
+    }
+
+    /// <summary>
+    /// A world key's row without the key itself (npm's <c>OwWorldKeyRow</c>), as
+    /// <see cref="OWClient.MadeWorldKeyAsync"/> answers it; <see cref="OWMintedKey"/> is the same row with the full key.
+    /// A revoked key still answers, with <see cref="Revoked"/> true.
+    /// </summary>
+    [Serializable]
+    public class OWWorldKeyRow
     {
         /// <summary>The key's id: <see cref="OWClient.RevokeWorldKeyAsync"/> takes it.</summary>
         [JsonProperty("id")]
@@ -151,15 +167,9 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("last_used_at")]
         public string LastUsedAt;
 
+        /// <summary>True once the key is revoked: from then on it answers 401 <c>key_revoked</c>.</summary>
         [JsonProperty("revoked")]
         public bool Revoked;
-
-        /// <summary>
-        /// The full key, shown in this answer only: keep it, it is never shown again. Its last four characters are
-        /// <see cref="Last4"/>.
-        /// </summary>
-        [JsonProperty("key")]
-        public string Key;
 
         /// <summary>
         /// On a member's key only: the membership it is bound to (<c>id</c>, and <c>username</c>, or a seat's
