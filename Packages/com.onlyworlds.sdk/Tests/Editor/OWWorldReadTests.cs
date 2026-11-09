@@ -313,6 +313,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 ["SetMemberLensesAsync"] = (Does.Account, c => c.SetMemberLensesAsync(W, "owner", new string[0])),
                 ["ListAccountWorldsAsync"] = (Does.Account, c => c.ListAccountWorldsAsync()),
                 ["MintWorldKeyAsync"] = (Does.Account, c => c.MintWorldKeyAsync(W)),
+                ["MadeWorldKeyAsync"] = (Does.Account, c => c.MadeWorldKeyAsync(W, "k")),
                 ["RevokeWorldKeyAsync"] = (Does.Account, c => c.RevokeWorldKeyAsync(W, "k1")),
                 ["AcceptJoinAsync"] = (Does.Account, c => c.AcceptJoinAsync("ow_j_code")),
                 ["CreateWorldLinkAsync"] = (Does.Account, c => c.CreateWorldLinkAsync(W, new OWWorldLinkCreate { Reader = "person" })),
