@@ -10,15 +10,16 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// The room profile's conformance fixture (schema-dist <c>profiles/room.fixture.json</c>, vendored byte for byte in
-    /// <c>Tests/Editor/Fixtures/room/</c> from dist.83: the ninth pair's two cases at serial 66, the three trim cases at 71, the four mark shapes at 83), read case by case through
+    /// <c>Tests/Editor/Fixtures/room/</c> from dist.112: the ninth pair's two cases at serial 66, the three trim cases at
+    /// 71, the four mark shapes at 83, the tenth pair's three at 112), read case by case through
     /// <see cref="OWRoom.IsRoomElement"/>, and its pairs held equal to <see cref="OWRoom.Pairs"/>. The TypeScript SDK
     /// and the Python package run the same cases; the tests beside the fixture are the TypeScript SDK's (test/room.test.mjs,
     /// 4.57.2). When the dist moves the fixture, re-vendor it and update the hash below.
     /// </summary>
     public class OWRoomTests
     {
-        /// <summary>The fixture's sha256 as dist.83's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "2e024593d510da2a9b4af36666d85d65a7c08274fc6189f5698e9e8da8587ea6";
+        /// <summary>The fixture's sha256 as dist.112's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "8ed9b5d0bc2afdb0ed8ab912cdb25db9d9736c222486f8cecff494d186bdd0e5";
 
         private const string World = "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e0f";
 
@@ -68,7 +69,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.83's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.112's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
@@ -78,9 +79,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual("room", (string)Fixture["profile"]);
             var pairs = Fixture["pairs"].Cast<JObject>().Select(p => ((string)p["type"], (string)p["supertype"])).ToList();
             CollectionAssert.AreEqual(pairs, OWRoom.Pairs.ToList());
-            Assert.AreEqual(9, OWRoom.Pairs.Count);
+            Assert.AreEqual(10, OWRoom.Pairs.Count);
             Assert.AreEqual(OWRoom.MarkField, (string)Fixture["mark"]["field"]);
-            Assert.GreaterOrEqual(((JArray)Fixture["cases"]).Count, 32, "dist.83's fixture holds 32 cases");
+            Assert.GreaterOrEqual(((JArray)Fixture["cases"]).Count, 35, "dist.112's fixture holds 35 cases");
         }
 
         [TestCaseSource(nameof(Cases))]

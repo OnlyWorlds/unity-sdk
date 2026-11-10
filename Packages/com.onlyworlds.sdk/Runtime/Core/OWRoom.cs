@@ -1,8 +1,8 @@
 // The room profile: which elements a parlor or a workshop puts in a world, told apart by type and supertype together
 // with the mark x_room_of (schema-dist profiles/room.md, serial 45; "trimmed and without regard to case" defined once
-// at serial 47; the ninth pair, relation/Take, at serial 66). The reading aids beside them (the charter, its guide and its
-// domains, by their pair and the mark x_charter_of) at serial 82: room.md's "Not in the room" line and the lens profile's
-// rule 4. Both marks are read by one rule, keel's: present and not null, a string only when something is left after
+// at serial 47; the ninth pair, relation/Take, at serial 66; the tenth, narrative/Report, at serial 112, the report
+// profile's). The reading aids beside them (the charter, its guide and its domains, by their pair and the mark
+// x_charter_of) at serial 82: room.md's "Not in the room" line and the lens profile's rule 4. Both marks are read by one rule, keel's: present and not null, a string only when something is left after
 // trimming White_Space (x_charter_of since isCharterElement, 4.98.0; x_room_of since serial 83's ruling).
 //
 // Ported from @onlyworlds/sdk src/room.ts (4.55.0, ca15043; the trim of 4.57.2), isRoomElement. The conformance
@@ -20,11 +20,12 @@ namespace OnlyWorlds.Sdk
         /// <summary>The mark a room element carries: the id of the world or the sitting the room belongs to.</summary>
         public const string MarkField = "x_room_of";
 
-        /// <summary>The profile's nine pairs, a type slug and a supertype, in the fixture's order.</summary>
+        /// <summary>The profile's ten pairs, a type slug and a supertype, in the fixture's order.</summary>
         public static readonly IReadOnlyList<(string type, string supertype)> Pairs = new[]
         {
             ("narrative", "Message"),
             ("narrative", "Board"),
+            ("narrative", "Report"),
             ("relation", "Work item"),
             ("construct", "Spec"),
             ("relation", "Heart"),

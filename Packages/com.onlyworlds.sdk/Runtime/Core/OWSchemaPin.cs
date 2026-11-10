@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.34.00";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 111;
+        public const int DistSerial = 112;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.34.0-dist.111";
+        public const string Tag = "v0.34.0-dist.112";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -260,9 +260,17 @@ namespace OnlyWorlds.Sdk
         /// sentence that reading H holds for the Map row, and a case shape that names the Map read by <c>map_index</c>
         /// (positions in <c>elements</c>) when it has no id. The generated models changed in their serial stamp only.
         /// </para>
+        /// <para>
+        /// <b>111 -> 112 (2026-11-10)</b>: canonical unchanged, no schema file moved. The report profile is new
+        /// (<c>profiles/report.md</c>: a Narrative with supertype <c>Report</c> and the room's mark, and its key
+        /// <c>x_report_answers</c>), the room profile gains its tenth pair, <c>narrative</c> / <c>Report</c>, with three
+        /// fixture cases (35 in all) and the lens fixture's <c>room_pairs</c> with it; the packet profile gains an
+        /// optional fourth key, <c>x_packet_for</c> (a list of Title ids). Sentences made true on the spine, lens,
+        /// review and map-space pages. The generated models changed in their serial stamp only.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "b662309bf0c910b08bd530097ade51dc50a55eaef95b023c1cc57a720d63b8b7";
+            "8dc2266f011656225a3a4b61174c4afc6d34b71d6e685912ca357fd6c27f7e7a";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.

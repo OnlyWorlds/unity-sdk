@@ -6,6 +6,22 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **A report is a room element: `OWRoom.Pairs` holds the room profile's tenth pair, `narrative` / `Report`**, third in
+  the fixture's order (after `narrative` / `Board`). `OWRoom.IsRoomElement` answers true for a Narrative with supertype
+  `Report` that carries `x_room_of`, so a lore view leaves a world's reports out, and a lens's `types` accepts the
+  word `narrative/report`. A Narrative with supertype `Report` and no mark stays lore. The room fixture's three new
+  cases pass (35 in all), and the lens fixture's `room_pairs` is held equal to the pairs in its new order.
+- **The schema pin moves to `v0.34.0-dist.112`** (canonical `00.34.00` unchanged, no schema file moved). The report
+  profile is new (`profiles/report.md`: work done, left in a world by a session, a Narrative with supertype `Report`
+  and the room's mark; its key `x_report_answers` names the work items a report answers), the room profile gains the
+  pair above, and the packet profile gains an optional fourth key, `x_packet_for`, a list of Title ids a work item is
+  for. Neither key has a typed reader in this SDK: both stay in an element's extension fields, kept byte for byte.
+  The lens profile now says keel never reads `x_lens_uses`, so `OWLens.LensesFor`'s `membership` is null only for a
+  folder world, which has no membership; its behaviour is unchanged. The generated models changed in their serial
+  stamp only; the room and lens fixtures' test copies moved with the pin.
+
 ## [0.38.0] - 2026-11-10
 
 The map-space profile's layout reading, on schema-dist serial 111. Parity with the TypeScript SDK 4.142.0 (`layoutOf`)

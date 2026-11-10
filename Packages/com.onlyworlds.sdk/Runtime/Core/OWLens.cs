@@ -466,7 +466,11 @@ namespace OnlyWorlds.Sdk
         /// folder Character's <c>x_lens_uses</c>, else none. The membership wins, so the list is never kept in two places.
         /// Ids that are not empty, each once, in the order given (the TypeScript SDK's <c>lensesInUse</c>).
         /// </summary>
-        /// <param name="membership">The membership's chosen lens ids; null when it has made no choice (or there is none, a folder).</param>
+        /// <param name="membership">
+        /// The membership's chosen lens ids; null when there is no membership (a folder world), and then the Character's
+        /// <see cref="UsesField"/> is read. A keel membership that never chose is not this reading's case: keel starts that
+        /// seat with its Titles' lenses and never reads <see cref="UsesField"/> (the lens profile, serial 112).
+        /// </param>
         /// <param name="characterUses">The Character's <see cref="UsesField"/>; null when absent.</param>
         public static IReadOnlyList<string> LensesFor(IEnumerable<string> membership, IEnumerable<string> characterUses)
         {
