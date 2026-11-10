@@ -103,7 +103,7 @@ namespace OnlyWorlds.Sdk
         /// null; a string only when something is left after trimming White_Space. Any other JSON value (a number, a
         /// boolean, an object, a list) is a mark. The value is never compared.
         /// </summary>
-        private static bool HasMark(JObject element, string field)
+        internal static bool HasMark(JObject element, string field)
         {
             var m = element?[field];
             if (m == null || m.Type == JTokenType.Null || m.Type == JTokenType.Undefined) return false;

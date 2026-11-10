@@ -6,7 +6,34 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **`OWViews.ViewOf(element)`: how an element is shown by its kind**, from the distribution's new `views.json`
+  (schema-dist serial 113), parity with the TypeScript SDK 4.147.0 (`viewOf`, `VIEWS`). Presentation, as the colour
+  groups are, not part of the standard. The answer is an `OWView`: `Row`, the row that matches (an `OWViewRow`: its
+  kind, the fields that give the one sentence, what leads, what folds under which label, the layout, its own banner
+  marks), or null when the element draws as its type does; `Sentence`, the one sentence a card, a list row or a hover
+  shows (the first named field holding text, trimmed, cut at its first line break, U+000A or U+000D, and trimmed
+  again); `Banners`, the marks to show at the head of its page, in the file's order. A row matches by its kind: a
+  profile's pair only with that profile's mark, by `OWRoom.IsRoomElement` or `OWRoom.IsCharterElement`, then a type
+  with a supertype, then a type alone, trimmed and folded as the room profile defines; the most specific row wins.
+  Today's rows are a report, a charter, a message and a line in a room. `OWViews.Banners`, `Layouts` and `Rows` are
+  the table, baked at codegen (`codegen/generate_views.py`, which refuses a file that names a field its type lacks, a
+  pair its profile's reader does not match, a layout it does not define, two rows of one kind, or a cite whose quote
+  is not at its line). The fixture's 28 cases pass, and its 10 cites name fields their rows name and their types have.
+- Where the file is silent, this reads as the TypeScript SDK does, and a test says so: a row's own banner mark is read
+  by presence as the room profile reads its mark, and of two rows matching on one rung the first in the file wins
+  (which none of the file's rows can do). Where it is narrower than the TypeScript SDK, this follows the file:
+  `x_served_trimmed` is a banner "only when it names a field", a list holding a non-empty string, where 4.147.0 shows
+  it for any non-empty list.
+
 ### Changed
+
+- **The schema pin moves to `v0.34.0-dist.113`** (canonical `00.34.00` unchanged, no schema file moved): `views.json`
+  and its fixture at the distribution's root, read by `OWViews` above. The room page says the order of its pairs
+  carries no meaning (no pair or case moved; `OWRoom.Pairs` keeps the fixture's order and its tests still hold it),
+  and the report page's example and one checks fixture case changed in words only. The generated models changed in
+  their serial stamp only; the room fixture's test copy moved with the pin.
 
 - **A report is a room element: `OWRoom.Pairs` holds the room profile's tenth pair, `narrative` / `Report`**, third in
   the fixture's order (after `narrative` / `Board`). `OWRoom.IsRoomElement` answers true for a Narrative with supertype

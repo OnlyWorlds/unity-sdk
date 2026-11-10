@@ -81,7 +81,11 @@ Read the row, not the key. `schema-dist/walk/rulings.yaml` is the authority.
    file fails, **re-vendor — never edit the expected hash until it passes.**
 4. Update `Runtime/Core/OWSchemaPin.cs`: `Tag`, `DistSerial`,
    `CanonicalVersion`, `ManifestSha256`, `PinnedOn`.
-5. `python codegen/generate_models.py`, then run the EditMode suite in Unity.
+5. `python codegen/generate_models.py` and `python codegen/generate_views.py` (the views table
+   `OWViews` reads, from the dist's `views.json`, serial 113 on), then run the EditMode suite in Unity.
+   A profile fixture the tests hold a copy of (`Tests/Editor/Fixtures/`, `views.fixture.json` at the
+   dist's root among them) is copied from the dist with its test's sha256; `check_drift.py` names a
+   stale one.
 6. Read the diff before committing. A pin bump that changes 300 lines of
    whitespace and one field name is a diff nobody reviews.
 

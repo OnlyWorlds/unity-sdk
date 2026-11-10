@@ -102,6 +102,8 @@ def verify_test_fixtures() -> int:
     for copy in sorted(fixtures.rglob("*.fixture.json")):
         source = DIST_DIR / "profiles" / copy.name
         if not source.exists():
+            source = DIST_DIR / copy.name  # a fixture at the dist's root (views.fixture.json, serial 113)
+        if not source.exists():
             continue  # a fixture of a package's own (the openers'), not the dist's
         checked += 1
         if copy.read_bytes() != source.read_bytes():
@@ -132,6 +134,8 @@ def main() -> int:
         [str(root / "tools" / "gen_nfc.py"), "--dir", str(unicode_dir), "--check"],
         # The tools list OWOpeners reads: pinned on its own (codegen/tools-pin.json), not by the dist.
         [str(CODEGEN / "generate_tools.py"), "--check"],
+        # The views table OWViews.ViewOf reads: views.json from the same pinned dist (serial 113 on).
+        [str(CODEGEN / "generate_views.py"), "--check"],
     ):
         failed |= subprocess.run([sys.executable] + args, cwd=str(root)).returncode
     return failed

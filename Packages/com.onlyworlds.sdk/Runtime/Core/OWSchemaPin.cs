@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.34.00";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 112;
+        public const int DistSerial = 113;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.34.0-dist.112";
+        public const string Tag = "v0.34.0-dist.113";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -268,9 +268,16 @@ namespace OnlyWorlds.Sdk
         /// optional fourth key, <c>x_packet_for</c> (a list of Title ids). Sentences made true on the spine, lens,
         /// review and map-space pages. The generated models changed in their serial stamp only.
         /// </para>
+        /// <para>
+        /// <b>112 -> 113 (2026-11-10)</b>: canonical unchanged, no schema file moved. Two presentation files are new at
+        /// the root, <c>views.json</c> (how a report, a charter, a message and a room's line are shown) and its fixture;
+        /// this SDK vendors them and has no reader of them. The room page says its pairs' order carries no meaning (no
+        /// pair or case moved); the report page's example and one checks case's description changed in words only. The
+        /// generated models changed in their serial stamp only.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "8dc2266f011656225a3a4b61174c4afc6d34b71d6e685912ca357fd6c27f7e7a";
+            "b645c8da0985ccedf538941218f31f922b62fe5ec2d5be14d4d6b2b52dca4478";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.
