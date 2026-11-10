@@ -1,10 +1,12 @@
 // The map-space profile: how a reader turns a world's Map, Zone, Marker and Pin elements into geometry (schema-dist
 // profiles/map-space.md, serials 105 and 106, ruled 2026-11-02): a Map's frame, a Zone's outline from its Markers, a
 // Pin's point, and what the reading left aside, counted by reason. Structure and coordinates in the Map's own pixels;
-// looks, cameras, units, rooms and doors are a drawing tool's and are not read here.
+// looks, cameras, units, rooms and doors are a drawing tool's and are not read here. Since serial 110 the profile's
+// second, small reading, OWMapSpace.LayoutOf: one Map's layout keys (x_layout on the Map, x_hand on its Pins).
 //
 // Written from the profile and its conformance fixture, profiles/map-space.fixture.json, which is this file's own test
-// (OWMapSpaceTests); the TypeScript SDK's mapSpace and the Python package's map_space answer the same cases.
+// (OWMapSpaceTests its cases, OWMapLayoutTests its layout_cases); the TypeScript SDK's mapSpace and layoutOf and the
+// Python package's map_space and layout_of answer the same cases.
 
 using System;
 using System.Collections.Generic;
@@ -224,6 +226,57 @@ namespace OnlyWorlds.Sdk
     }
 
     /// <summary>
+    /// One Map's layout reading (<see cref="OWMapSpace.LayoutOf"/>; the map-space profile's rules 8 to 10, serial 110):
+    /// whether the Map is a layout map and by which method, the Map it stands on, and the Pins a new lay-out keeps where
+    /// they are. How a method places Pins, and its own settings, are a layout tool's and are not read here: a tool that
+    /// cannot run the method draws the Pins where they are and never lays them out again.
+    /// </summary>
+    public sealed class OWMapLayout
+    {
+        /// <summary>The method word of a board, a Map whose Pins are all placed by hand.</summary>
+        public const string Board = "hand";
+
+        internal static readonly OWMapLayout None = new OWMapLayout(null, null, Array.Empty<string>());
+
+        internal OWMapLayout(string layout, string ground, IReadOnlyList<string> hand)
+        {
+            Layout = layout;
+            Ground = ground;
+            Hand = hand;
+        }
+
+        /// <summary>
+        /// The Map's <c>x_layout.method</c> when <c>x_layout</c> is an object whose <c>method</c> is a non-empty string
+        /// (<see cref="Board"/> for a board; a method no page names answers itself), else null: the Map is not a layout map.
+        /// </summary>
+        public string Layout { get; }
+
+        /// <summary>
+        /// When <see cref="Layout"/> is not null, the id in <c>x_layout.settings.ground.map</c> when it names a served Map
+        /// other than this one, else null. Its size is not returned: the served Map's own <c>width</c> and <c>height</c>
+        /// win, and the caller holds it.
+        /// </summary>
+        public string Ground { get; }
+
+        /// <summary>
+        /// The ids of this Map's Pins a new lay-out keeps where they are, by id in code point order: every Pin on a board,
+        /// the Pins whose <c>x_hand</c> is exactly <c>true</c> on any other layout map, none on a Map that is not one.
+        /// </summary>
+        public IReadOnlyList<string> Hand { get; }
+
+        /// <summary>True when the Map is a layout map (<see cref="Layout"/> is not null).</summary>
+        public bool IsLayoutMap => Layout != null;
+
+        /// <summary>The profile's answer, <c>{layout, ground, hand}</c>, every key present, in that order.</summary>
+        public JObject ToJson() => new JObject
+        {
+            ["layout"] = OWMapSpace.Str(Layout),
+            ["ground"] = OWMapSpace.Str(Ground),
+            ["hand"] = new JArray(Hand.Select(h => (object)h)),
+        };
+    }
+
+    /// <summary>
     /// A world's map space as one reader is served it (<see cref="Of"/>): the Maps' frames, the Zones' outlines, the
     /// Pins' points, and what the reading left aside by reason. Nothing is stored and nothing in the input is changed.
     /// </summary>
@@ -409,6 +462,62 @@ namespace OnlyWorlds.Sdk
             if (dangling > 0) counts[OWMapSpaceReason.Dangling] = dangling;
             if (noMap > 0) counts[OWMapSpaceReason.NoMap] = noMap;
             return new OWMapSpace(frames, outlines, pins, counts);
+        }
+
+        /// <summary>
+        /// Reads one Map's layout keys (the map-space profile's layout reading, rules 8 to 10): <paramref name="map"/> is
+        /// the Map read, <paramref name="maps"/> the Maps the reader is served, <paramref name="pins"/> every Pin the caller
+        /// holds, of any Map, as served. The reader keeps the Pins whose <c>map</c> names this Map's id, so a caller passes
+        /// every Pin it has. Rows are read as <see cref="Of"/> reads them: a row without a non-empty string <c>id</c> is no
+        /// element (a Map row without one is no layout map), and of two rows with one id the last served is read.
+        /// </summary>
+        /// <remarks>
+        /// The Map is a layout map when its <c>x_layout</c> is an object whose <c>method</c> is a non-empty string;
+        /// anything else (absent, null, a string, an object without a string <c>method</c>, <c>""</c>) is no layout, and
+        /// its ground and Pins are not read. On a board (<c>method</c> <see cref="OWMapLayout.Board"/>) every Pin of the
+        /// Map is kept, marked or not; on any other layout map only the Pins whose <c>x_hand</c> is exactly <c>true</c>
+        /// (never <c>"true"</c> or <c>1</c>); on a Map that is not a layout map none, whatever its Pins carry. A Pin whose
+        /// element the reader cannot see is still a Pin. Nothing in the input is changed. Parity with the TypeScript SDK's
+        /// <c>layoutOf</c> and the Python package's <c>layout_of</c>; <see cref="Of"/> reads neither key.
+        /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="map"/>, <paramref name="maps"/> or <paramref name="pins"/> is null.</exception>
+        public static OWMapLayout LayoutOf(JObject map, IEnumerable<JToken> maps, IEnumerable<JToken> pins)
+        {
+            if (map == null) throw new ArgumentNullException(nameof(map), "OWMapSpace.LayoutOf: map is one Map element");
+            if (maps == null) throw new ArgumentNullException(nameof(maps), "OWMapSpace.LayoutOf: maps is a list of Map elements");
+            if (pins == null) throw new ArgumentNullException(nameof(pins), "OWMapSpace.LayoutOf: pins is a list of Pin elements");
+            var id = Id(map["id"]);
+            if (id == null) return OWMapLayout.None;
+
+            // Rule 8: the mark is x_layout alone, an object with a non-empty string method.
+            if (!(map["x_layout"] is JObject recipe)) return OWMapLayout.None;
+            var method = recipe["method"] is JValue mv && mv.Type == JTokenType.String ? (string)mv : null;
+            if (string.IsNullOrEmpty(method)) return OWMapLayout.None;
+
+            // Rule 9: the ground is a served Map other than this one, named by settings.ground.map.
+            string ground = null;
+            var named = recipe["settings"] is JObject settings && settings["ground"] is JObject g ? Id(g["map"]) : null;
+            if (named != null && named != id && maps.Any(m => m is JObject row && Id(row["id"]) == named)) ground = named;
+
+            // Rule 10: one row per Pin id, the last served; this Map's Pins, every one on a board, else the marked ones.
+            var held = new Dictionary<string, JObject>(StringComparer.Ordinal);
+            foreach (var t in pins)
+            {
+                if (!(t is JObject p)) continue;
+                var pid = Id(p["id"]);
+                if (pid != null) held[pid] = p;
+            }
+
+            var board = method == OWMapLayout.Board;
+            var hand = new List<string>();
+            foreach (var kv in held)
+            {
+                if (Id(kv.Value["map"]) != id) continue;
+                if (board || (kv.Value["x_hand"] is JValue h && h.Type == JTokenType.Boolean && (bool)h)) hand.Add(kv.Key);
+            }
+
+            hand.Sort(OWCodePointComparer.Instance);
+            return new OWMapLayout(method, ground, hand);
         }
 
         // -- Reading -----------------------------------------------------------------------

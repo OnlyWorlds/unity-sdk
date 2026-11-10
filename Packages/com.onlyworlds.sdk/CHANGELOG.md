@@ -6,6 +6,27 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+The map-space profile's layout reading. Parity with the TypeScript SDK 4.142.0 (`layoutOf`) and the Python package
+0.110.0 (`layout_of`), their test vectors ported.
+
+### Added
+
+- **`OWMapSpace.LayoutOf(map, maps, pins)`: one Map's layout keys** (the map-space profile's rules 8 to 10, serial 110),
+  answered as an `OWMapLayout` whose `ToJson()` is the profile's `{layout, ground, hand}`. `Layout` is the Map's
+  `x_layout.method` when `x_layout` is an object whose `method` is a non-empty string (`"hand"` for a board,
+  `OWMapLayout.Board`; a method no page names answers itself), else null. `Ground`, only on a layout map, is the id in
+  `x_layout.settings.ground.map` when it names a Map in `maps` other than this one, else null; its size is not
+  returned, since the served Map's own size wins. `Hand` is the ids, in code point order, of this Map's Pins a new
+  lay-out keeps where they are: every Pin on a board, the Pins whose `x_hand` is exactly `true` (never `"true"` or
+  `1`) on any other layout map, none on a Map that is not a layout map. `pins` may hold every Pin the caller has: the
+  reader keeps those whose `map` names this Map, reads rows as `OWMapSpace.Of` does (a row without a non-empty string
+  id is no element, a Map row without one no layout map; of two rows with one id the last served), and counts a Pin
+  whose element it cannot see. A method's own settings are never read, and nothing here lays Pins out: a tool that
+  cannot run a method draws the Pins where they are. `OWMapSpace.Of` is unchanged and reads neither key.
+- The fixture's seventeen `layout_cases` pass case by case, whole answers in key order, the count held, beside its 34
+  `cases`; the two packages' vectors beyond the fixture are ported (code point order above U+FFFF, the row readings,
+  a method or a ground that is not a string, settings never returned).
+
 ### Changed
 
 - **The schema pin moves to `v0.34.0-dist.110`** (canonical `00.34.00` unchanged, no schema file moved). The

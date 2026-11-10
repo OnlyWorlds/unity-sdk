@@ -1,0 +1,271 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using NUnit.Framework;
+
+namespace OnlyWorlds.Sdk.Tests.Editor
+{
+    /// <summary>
+    /// The map-space profile's layout reading (schema-dist <c>profiles/map-space.md</c>, rules 8 to 10, serial 110): every
+    /// entry of the fixture's <c>layout_cases</c> (the copy in <c>Tests/Editor/Fixtures/map-space/</c>, whose bytes
+    /// <see cref="OWMapSpaceTests"/> holds to the dist's), replayed whole, case by case by name, through
+    /// <see cref="OWMapSpace.LayoutOf"/>. A case is read as the page says: <c>map</c> is the case's Map row with that id,
+    /// <c>maps</c> its Map rows, <c>pins</c> its Pin rows; its <c>want</c> is the whole answer, keys in order. Then the
+    /// TypeScript SDK's (4.142.0, <c>test/layout-of.test.mjs</c>) and the Python package's (0.110.0,
+    /// <c>tests/test_layout_of.py</c>) vectors beyond the fixture.
+    /// </summary>
+    public class OWMapLayoutTests
+    {
+        /// <summary>The fixture's layout cases, as dist.110 holds them.</summary>
+        private const int LayoutCaseCount = 17;
+
+        private static JObject _fixture;
+
+        private static JObject Fixture
+        {
+            get
+            {
+                if (_fixture != null) return _fixture;
+                var root = TestPackage.Root();
+                var path = root == null ? null : Path.Combine(root, "Tests", "Editor", "Fixtures", "map-space", "map-space.fixture.json");
+                return path == null || !File.Exists(path) ? null : _fixture = OWJson.ParseObject(File.ReadAllText(path));
+            }
+        }
+
+        private static IEnumerable<JObject> LayoutCases() => Fixture["layout_cases"].Cast<JObject>();
+
+        /// <summary>One case per layout case, numbered in the fixture's order; the case is found by its name.</summary>
+        public static IEnumerable<TestCaseData> Cases()
+        {
+            var fixture = Fixture;
+            if (fixture == null || !(fixture["layout_cases"] is JArray))
+            {
+                yield return new TestCaseData(string.Empty).SetName("MapLayout_FixtureNotFound");
+                yield break;
+            }
+
+            var i = 0;
+            foreach (var c in LayoutCases())
+                yield return new TestCaseData((string)c["name"]).SetName($"MapLayout_{++i:D2}");
+        }
+
+        /// <summary>A case read as the page says: its Map row with the case's id, its Map rows, its Pin rows.</summary>
+        private static OWMapLayout Read(JObject c)
+        {
+            var elements = ((JArray)c["elements"]).Cast<JObject>().ToList();
+            var maps = elements.Where(e => (string)e["type"] == "map").ToList();
+            var map = maps.SingleOrDefault(e => (string)e["id"] == (string)c["map"]);
+            Assert.IsNotNull(map, (string)c["name"] + ": no Map row with the case's id");
+            return OWMapSpace.LayoutOf(map, maps, elements.Where(e => (string)e["type"] == "pin"));
+        }
+
+        [Test]
+        public void TheFixture_HoldsDist110sLayoutCases_EachNamedOnce_BesideItsCases()
+        {
+            Assert.IsNotNull(Fixture, "the vendored map-space fixture was not found");
+            Assert.IsInstanceOf<JArray>(Fixture["layout_cases"], "dist.110's fixture holds layout_cases beside cases");
+            var names = LayoutCases().Select(c => (string)c["name"]).ToList();
+            Assert.AreEqual(LayoutCaseCount, names.Count, "dist.110's fixture holds 17 layout cases");
+            Assert.AreEqual(names.Count, names.Distinct().Count(), "a case is found by its name, so each name is once");
+            Assert.AreEqual(34, Fixture["cases"].Count(), "the map-space reading's cases are unchanged beside them");
+        }
+
+        [TestCaseSource(nameof(Cases))]
+        public void EveryLayoutCase_IsAnsweredAsTheProfileSays(string name)
+        {
+            Assert.IsNotNull(Fixture, "the vendored map-space fixture was not found");
+            var c = LayoutCases().Single(x => (string)x["name"] == name);
+            var got = Read(c).ToJson();
+            var want = (JObject)c["want"];
+            CollectionAssert.AreEqual(new[] { "layout", "ground", "hand" },
+                got.Properties().Select(p => p.Name).ToList(), name + ": all three keys, in order");
+            foreach (var p in want.Properties())
+                Assert.AreEqual(p.Value.ToString(Formatting.None), got[p.Name].ToString(Formatting.None), $"{name}: {p.Name}");
+            Assert.AreEqual(want.ToString(Formatting.None), got.ToString(Formatting.None), name + ": the whole answer");
+        }
+
+        /// <summary>The map-space reading is unchanged by rules 8 to 10: its answer on every layout case carries no layout key.</summary>
+        [Test]
+        public void TheMapSpaceReading_CarriesNoLayoutKey()
+        {
+            Assert.IsNotNull(Fixture, "the vendored map-space fixture was not found");
+            foreach (var c in LayoutCases())
+            {
+                var got = OWMapSpace.Of((JArray)c["elements"]).ToJson();
+                CollectionAssert.AreEqual(new[] { "maps", "zones", "pins", "out" }, got.Properties().Select(p => p.Name).ToList());
+                var rows = ((JArray)got["maps"]).Concat((JArray)got["pins"]).Cast<JObject>();
+                Assert.IsFalse(rows.SelectMany(r => r.Properties()).Any(p => p.Name.StartsWith("x_", StringComparison.Ordinal)
+                    || p.Name == "layout" || p.Name == "hand"), (string)c["name"]);
+            }
+        }
+
+        /// <summary>The reading is pure: the rows are not moved, the same case gives the same bytes, and the typed answer says what its JSON says.</summary>
+        [Test]
+        public void TheReading_IsPure_AndItsTypedAnswerMatchesItsJson()
+        {
+            Assert.IsNotNull(Fixture, "the vendored map-space fixture was not found");
+            foreach (var c in LayoutCases())
+            {
+                var before = c["elements"].ToString(Formatting.None);
+                var once = Read(c);
+                Assert.AreEqual(once.ToJson().ToString(Formatting.None), Read(c).ToJson().ToString(Formatting.None), (string)c["name"]);
+                Assert.AreEqual(before, c["elements"].ToString(Formatting.None), (string)c["name"] + ": the elements moved");
+                var want = (JObject)c["want"];
+                Assert.AreEqual(want["layout"].Type == JTokenType.Null ? null : (string)want["layout"], once.Layout);
+                Assert.AreEqual(want["layout"].Type != JTokenType.Null, once.IsLayoutMap);
+                Assert.AreEqual(want["ground"].Type == JTokenType.Null ? null : (string)want["ground"], once.Ground);
+                CollectionAssert.AreEqual(want["hand"].Select(h => (string)h).ToList(), once.Hand);
+            }
+        }
+
+        // -- Beyond the fixture: the TypeScript SDK's vectors (test/layout-of.test.mjs, 4.142.0) ----------------------
+
+        private const string M = "m1";
+
+        private static JObject Row(string json) => OWJson.ParseObject(json);
+
+        private static JObject Trail => Row(@"{""type"":""map"",""id"":""m1"",""x_layout"":{""method"":""trail-by-place""}}");
+
+        private static JObject Board => Row(@"{""type"":""map"",""id"":""m1"",""x_layout"":{""method"":""hand""}}");
+
+        private static JObject Pin(string id, bool hand) =>
+            new JObject { ["type"] = "pin", ["id"] = id, ["map"] = M, ["x_hand"] = hand };
+
+        private static string Json(OWMapLayout l) => l.ToJson().ToString(Formatting.None);
+
+        /// <summary>U+FF5E sorts before U+1F600 by code point; as UTF-16 units the surrogate D83D sorts first.</summary>
+        [Test]
+        public void Hand_IsInCodePointOrder_NeverUtf16Order()
+        {
+            var low = char.ConvertFromUtf32(0xFF5E);
+            var high = char.ConvertFromUtf32(0x1F600);
+            var pins = new[] { Pin(high, true), Pin(low, true) };
+            CollectionAssert.AreEqual(new[] { low, high }, OWMapSpace.LayoutOf(Trail, new[] { Trail }, pins).Hand);
+            CollectionAssert.AreEqual(new[] { low, high }, OWMapSpace.LayoutOf(Board, new JObject[0], pins).Hand);
+        }
+
+        [Test]
+        public void ARowWithoutANonEmptyStringId_IsNoPin_AndOfTwoRowsWithOneId_TheLastServedIsRead()
+        {
+            var pins = new JToken[]
+            {
+                Row(@"{""type"":""pin"",""map"":""m1"",""x_hand"":true}"),
+                Row(@"{""type"":""pin"",""id"":"""",""map"":""m1"",""x_hand"":true}"),
+                Row(@"{""type"":""pin"",""id"":7,""map"":""m1"",""x_hand"":true}"),
+                JValue.CreateNull(),
+                new JValue("p"),
+                Row(@"{""type"":""pin"",""id"":""p1"",""map"":""m1"",""x_hand"":true}"),
+                Row(@"{""type"":""pin"",""id"":""p1"",""map"":""other"",""x_hand"":true}"),
+                Row(@"{""type"":""pin"",""id"":""p2"",""map"":""m1""}"),
+                Row(@"{""type"":""pin"",""id"":""p2"",""map"":""m1"",""x_hand"":true}"),
+            };
+            Assert.AreEqual(@"{""layout"":""trail-by-place"",""ground"":null,""hand"":[""p2""]}",
+                Json(OWMapSpace.LayoutOf(Trail, new[] { Trail }, pins)));
+        }
+
+        [Test]
+        public void AMapRowWithoutAnId_IsNoLayoutMap_AndAnXLayoutThatIsAList_IsNoLayout()
+        {
+            var pins = new[] { Pin("p1", true) };
+            const string none = @"{""layout"":null,""ground"":null,""hand"":[]}";
+            Assert.AreEqual(none, Json(OWMapSpace.LayoutOf(Row(@"{""type"":""map"",""x_layout"":{""method"":""hand""}}"), new JObject[0], pins)));
+            Assert.AreEqual(none, Json(OWMapSpace.LayoutOf(Row(@"{""type"":""map"",""id"":""m1"",""x_layout"":[{""method"":""hand""}]}"), new JObject[0], pins)));
+        }
+
+        [Test]
+        public void AGroundNamedByAMapRowTheReaderCannotReadAsAnElement_IsNoGround()
+        {
+            var grounded = Row(@"{""type"":""map"",""id"":""m1"",""x_layout"":{""method"":""trail-by-place"",""settings"":{""ground"":{""map"":""g""}}}}");
+            Assert.AreEqual("g", OWMapSpace.LayoutOf(grounded, new[] { grounded, Row(@"{""type"":""map"",""id"":""g""}") }, new JObject[0]).Ground);
+            Assert.IsNull(OWMapSpace.LayoutOf(grounded, new[] { grounded, Row(@"{""type"":""map"",""name"":""g""}") }, new JObject[0]).Ground);
+            var flat = Row(@"{""type"":""map"",""id"":""m1"",""x_layout"":{""method"":""trail-by-place"",""settings"":{""ground"":""g""}}}");
+            Assert.IsNull(OWMapSpace.LayoutOf(flat, new[] { Row(@"{""type"":""map"",""id"":""g""}") }, new JObject[0]).Ground);
+        }
+
+        [Test]
+        public void TheAnswer_IsTheCallersOwn()
+        {
+            var c = LayoutCases().Single(x => (string)x["name"] == "board-every-pin-is-hand");
+            var got = Read(c);
+            got.ToJson()["hand"].Last.AddAfterSelf("planted");
+            if (got.Hand is IList<string> list && !list.IsReadOnly) list.Add("planted");
+            Assert.AreEqual(c["want"].ToString(Formatting.None), Json(Read(c)));
+        }
+
+        [Test]
+        public void NoMapOrNoList_IsRefused()
+        {
+            Assert.Throws<ArgumentNullException>(() => OWMapSpace.LayoutOf(null, new JObject[0], new JObject[0]));
+            Assert.Throws<ArgumentNullException>(() => OWMapSpace.LayoutOf(Trail, null, new JObject[0]));
+            Assert.Throws<ArgumentNullException>(() => OWMapSpace.LayoutOf(Trail, new JObject[0], null));
+        }
+
+        // -- Beyond the fixture: the Python package's vectors (tests/test_layout_of.py, 0.110.0) ---------------------
+
+        [Test]
+        public void RowsAreReadAsTheMapSpaceReadingReadsThem_OnABoard()
+        {
+            var board = Row(@"{""type"":""map"",""id"":""m"",""x_layout"":{""method"":""hand""}}");
+            var pins = new JToken[]
+            {
+                Row(@"{""type"":""pin"",""id"":""b"",""map"":""m""}"),
+                Row(@"{""type"":""pin"",""id"":"""",""map"":""m""}"),
+                Row(@"{""type"":""pin"",""id"":7,""map"":""m""}"),
+                Row(@"{""type"":""pin"",""map"":""m""}"),
+                new JValue("not a row"),
+                Row(@"{""type"":""pin"",""id"":""a"",""map"":""m""}"),
+                Row(@"{""type"":""pin"",""id"":""a"",""map"":""elsewhere""}"),
+            };
+            Assert.AreEqual(@"{""layout"":""hand"",""ground"":null,""hand"":[""b""]}", Json(OWMapSpace.LayoutOf(board, new[] { board }, pins)));
+        }
+
+        [Test]
+        public void AMethodThatIsNotANonEmptyString_IsNoLayout()
+        {
+            foreach (var method in new[] { "true", "false", "1", "1.0", "null", @"[""hand""]", @"{""method"":""hand""}", @"""""" })
+            {
+                var map = Row(@"{""type"":""map"",""id"":""m"",""x_layout"":{""method"":" + method + "}}");
+                var pin = Row(@"{""type"":""pin"",""id"":""p"",""map"":""m"",""x_hand"":true}");
+                Assert.AreEqual(@"{""layout"":null,""ground"":null,""hand"":[]}", Json(OWMapSpace.LayoutOf(map, new[] { map }, new[] { pin })), method);
+            }
+        }
+
+        /// <summary>U+FFFF sorts before U+10000 by code point, after it by UTF-16 unit.</summary>
+        [Test]
+        public void Hand_IsInCodePointOrder_AboveUFFFF()
+        {
+            var board = Row(@"{""type"":""map"",""id"":""m"",""x_layout"":{""method"":""hand""}}");
+            var above = char.ConvertFromUtf32(0x10000);
+            var edge = "\uFFFF";
+            var pins = new[]
+            {
+                new JObject { ["type"] = "pin", ["id"] = above, ["map"] = "m" },
+                new JObject { ["type"] = "pin", ["id"] = edge, ["map"] = "m" },
+            };
+            CollectionAssert.AreEqual(new[] { edge, above }, OWMapSpace.LayoutOf(board, new[] { board }, pins).Hand);
+        }
+
+        [Test]
+        public void Settings_AreNeverReturned()
+        {
+            var ground = Row(@"{""type"":""map"",""id"":""g"",""width"":30,""height"":20}");
+            var map = Row(@"{""type"":""map"",""id"":""m"",""x_layout"":{""method"":""trail-by-place"",""settings"":{""ground"":{""map"":""g"",""width"":3,""height"":2}}}}");
+            Assert.AreEqual(@"{""layout"":""trail-by-place"",""ground"":""g"",""hand"":[]}",
+                Json(OWMapSpace.LayoutOf(map, new[] { map, ground }, new JObject[0])));
+        }
+
+        [Test]
+        public void AGroundMapThatIsNoId_IsNoGround()
+        {
+            var ground = Row(@"{""type"":""map"",""id"":""g""}");
+            foreach (var named in new[] { @"""""", "5", "true", "null", @"[""g""]", @"{""id"":""g""}" })
+            {
+                var map = Row(@"{""type"":""map"",""id"":""m"",""x_layout"":{""method"":""trail-by-place"",""settings"":{""ground"":{""map"":" + named + "}}}}");
+                Assert.IsNull(OWMapSpace.LayoutOf(map, new[] { map, ground }, new JObject[0]).Ground, named);
+            }
+        }
+    }
+}
