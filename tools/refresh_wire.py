@@ -151,8 +151,12 @@ def main():
         with open(FIXTURE, encoding='utf-8', newline='') as f:
             have = json.load(f)
         moved = have.get('paths') != paths or have.get('auth_headers') != auth or have.get('error_codes') != errors
+        # The fixture's own sha beside the live one: a document can move (a description, an undeclared key) while every
+        # part the tests check stays equal, and one sha beside the fixture's date read as the fixture's (2026-11-10).
+        have_sha = (have.get('document_sha256') or '')[:12]
+        same = 'the same document' if have_sha == sha[:12] else 'the document moved, the checked parts did not' if not moved else 'the document moved'
         print(f"wire fixture {'MOVED' if moved else 'current'}: {len(paths)} paths, {len(errors)} error codes "
-              f"(fixture fetched {have.get('fetched')}, document sha {sha[:12]})")
+              f"(fixture fetched {have.get('fetched')} at document sha {have_sha}; live document sha {sha[:12]}: {same})")
         return 1 if moved else 0
 
     out = {
