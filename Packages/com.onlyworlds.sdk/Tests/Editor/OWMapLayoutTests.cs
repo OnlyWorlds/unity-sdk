@@ -52,14 +52,52 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 yield return new TestCaseData((string)c["name"]).SetName($"MapLayout_{++i:D2}");
         }
 
-        /// <summary>A case read as the page says: its Map row with the case's id, its Map rows, its Pin rows.</summary>
-        private static OWMapLayout Read(JObject c)
+        /// <summary>
+        /// A case read as the page says, once per Map row it names: by <c>map</c>, the one Map row with that id; by
+        /// <c>map_index</c> (since dist.111, for rows with no id to name them by), each row at those positions in its
+        /// elements, every one a Map row. <c>maps</c> are the case's Map rows, <c>pins</c> its Pin rows. A case names its
+        /// Map one way, never both and never neither: a reader that looked a row up by an absent id would find a row
+        /// with no id by accident and read one row where the case names two.
+        /// </summary>
+        private static List<OWMapLayout> Reads(JObject c)
         {
+            var name = (string)c["name"];
             var elements = ((JArray)c["elements"]).Cast<JObject>().ToList();
             var maps = elements.Where(e => (string)e["type"] == "map").ToList();
-            var map = maps.SingleOrDefault(e => (string)e["id"] == (string)c["map"]);
-            Assert.IsNotNull(map, (string)c["name"] + ": no Map row with the case's id");
-            return OWMapSpace.LayoutOf(map, maps, elements.Where(e => (string)e["type"] == "pin"));
+            var pins = elements.Where(e => (string)e["type"] == "pin").ToList();
+            var byId = c["map"] != null;
+            var byIndex = c["map_index"] != null;
+            Assert.IsTrue(byId != byIndex, name + ": a case names its Map by map or by map_index, one of the two");
+            var read = new List<JObject>();
+            if (byId)
+            {
+                Assert.AreEqual(JTokenType.String, c["map"].Type, name + ": map is an id");
+                read.Add(maps.SingleOrDefault(e => e["id"]?.Type == JTokenType.String && (string)e["id"] == (string)c["map"]));
+                Assert.IsNotNull(read[0], name + ": no Map row with the case's id");
+            }
+            else
+            {
+                var index = c["map_index"] as JArray;
+                Assert.IsTrue(index != null && index.Count > 0, name + ": map_index is a list of positions");
+                foreach (var i in index)
+                {
+                    Assert.AreEqual(JTokenType.Integer, i.Type, name + ": a position is a whole number");
+                    var at = (int)i;
+                    Assert.IsTrue(at >= 0 && at < elements.Count, name + ": position " + at + " is in the elements");
+                    Assert.AreEqual("map", (string)elements[at]["type"], name + ": position " + at + " is a Map row");
+                    read.Add(elements[at]);
+                }
+            }
+
+            return read.Select(map => OWMapSpace.LayoutOf(map, maps, pins)).ToList();
+        }
+
+        /// <summary>A case that names one Map row (by its id): its one answer.</summary>
+        private static OWMapLayout Read(JObject c)
+        {
+            var all = Reads(c);
+            Assert.AreEqual(1, all.Count, (string)c["name"] + ": one Map row read");
+            return all[0];
         }
 
         [Test]
@@ -78,13 +116,33 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             Assert.IsNotNull(Fixture, "the vendored map-space fixture was not found");
             var c = LayoutCases().Single(x => (string)x["name"] == name);
-            var got = Read(c).ToJson();
             var want = (JObject)c["want"];
-            CollectionAssert.AreEqual(new[] { "layout", "ground", "hand" },
-                got.Properties().Select(p => p.Name).ToList(), name + ": all three keys, in order");
-            foreach (var p in want.Properties())
-                Assert.AreEqual(p.Value.ToString(Formatting.None), got[p.Name].ToString(Formatting.None), $"{name}: {p.Name}");
-            Assert.AreEqual(want.ToString(Formatting.None), got.ToString(Formatting.None), name + ": the whole answer");
+            var n = 0;
+            foreach (var answer in Reads(c))
+            {
+                var got = answer.ToJson();
+                var row = $"{name} (row {++n})";
+                CollectionAssert.AreEqual(new[] { "layout", "ground", "hand" },
+                    got.Properties().Select(p => p.Name).ToList(), row + ": all three keys, in order");
+                foreach (var p in want.Properties())
+                    Assert.AreEqual(p.Value.ToString(Formatting.None), got[p.Name].ToString(Formatting.None), $"{row}: {p.Name}");
+                Assert.AreEqual(want.ToString(Formatting.None), got.ToString(Formatting.None), row + ": the whole answer");
+            }
+        }
+
+        /// <summary>
+        /// The replay reads every row a case names: one per <c>map</c> case, each of a <c>map_index</c> case's positions
+        /// (dist.111's <c>map-without-a-string-id</c> names two, a row with no <c>id</c> and one whose <c>id</c> is 7).
+        /// </summary>
+        [Test]
+        public void TheReplay_ReadsEveryRowACaseNames()
+        {
+            Assert.IsNotNull(Fixture, "the vendored map-space fixture was not found");
+            var byIndex = LayoutCases().Where(c => c["map_index"] != null).ToList();
+            CollectionAssert.AreEqual(new[] { "map-without-a-string-id" }, byIndex.Select(c => (string)c["name"]).ToList(),
+                "dist.111 names one case's Maps by map_index");
+            Assert.AreEqual(2, Reads(byIndex[0]).Count, "its two rows, each read");
+            Assert.AreEqual(LayoutCaseCount - 1 + 2, LayoutCases().Sum(c => Reads(c).Count), "every row a case names, read once");
         }
 
         /// <summary>The map-space reading is unchanged by rules 8 to 10: its answer on every layout case carries no layout key.</summary>
@@ -110,14 +168,19 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             foreach (var c in LayoutCases())
             {
                 var before = c["elements"].ToString(Formatting.None);
-                var once = Read(c);
-                Assert.AreEqual(once.ToJson().ToString(Formatting.None), Read(c).ToJson().ToString(Formatting.None), (string)c["name"]);
+                var first = Reads(c);
+                var second = Reads(c);
                 Assert.AreEqual(before, c["elements"].ToString(Formatting.None), (string)c["name"] + ": the elements moved");
                 var want = (JObject)c["want"];
-                Assert.AreEqual(want["layout"].Type == JTokenType.Null ? null : (string)want["layout"], once.Layout);
-                Assert.AreEqual(want["layout"].Type != JTokenType.Null, once.IsLayoutMap);
-                Assert.AreEqual(want["ground"].Type == JTokenType.Null ? null : (string)want["ground"], once.Ground);
-                CollectionAssert.AreEqual(want["hand"].Select(h => (string)h).ToList(), once.Hand);
+                for (var i = 0; i < first.Count; i++)
+                {
+                    var once = first[i];
+                    Assert.AreEqual(once.ToJson().ToString(Formatting.None), second[i].ToJson().ToString(Formatting.None), (string)c["name"]);
+                    Assert.AreEqual(want["layout"].Type == JTokenType.Null ? null : (string)want["layout"], once.Layout);
+                    Assert.AreEqual(want["layout"].Type != JTokenType.Null, once.IsLayoutMap);
+                    Assert.AreEqual(want["ground"].Type == JTokenType.Null ? null : (string)want["ground"], once.Ground);
+                    CollectionAssert.AreEqual(want["hand"].Select(h => (string)h).ToList(), once.Hand);
+                }
             }
         }
 
