@@ -6,6 +6,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The schema pin moves to `v0.34.0-dist.110`** (canonical `00.34.00` unchanged, no schema file moved). The
+  map-space profile gains its layout keys, rules 8 to 10 (`x_layout` on a Map, its ground, `x_hand` on a Pin), and a
+  second, small reading of one Map with seventeen `layout_cases` beside the fixture's `cases`, which keep their 34
+  entries unchanged. The generated models changed in their serial and published stamps only; the map-space fixture's
+  test copy moved with the pin.
+
 ## [0.37.0] - 2026-11-10
 
 The AI door: one route a tool calls a model through, by a named use, with the token that opens only it. Parity with

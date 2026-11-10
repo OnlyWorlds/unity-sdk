@@ -11,17 +11,17 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// The map-space profile's conformance fixture (schema-dist <c>profiles/map-space.fixture.json</c>, vendored byte for
-    /// byte in <c>Tests/Editor/Fixtures/map-space/</c> from dist.106), replayed whole, case by case by name, through
+    /// byte in <c>Tests/Editor/Fixtures/map-space/</c> from dist.110; its <c>cases</c> as dist.106 left them), replayed whole, case by case by name, through
     /// <see cref="OWMapSpace.Of"/>: each case's elements as one reader is served them, and its <c>want</c>, the whole
     /// answer with its keys in order. The TypeScript SDK's <c>mapSpace</c> and the Python package's <c>map_space</c>
     /// replay the same cases. When the dist moves the fixture, re-vendor it and update the hash and the count below.
     /// </summary>
     public class OWMapSpaceTests
     {
-        /// <summary>The fixture's sha256 as dist.106's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "7622c9cc44f7254481b29add8846e2077e431353f993e8fc95702d7a530279af";
+        /// <summary>The fixture's sha256 as dist.110's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "33ce47811bdc5715fa2f0617fb34c505e698e8ea8a66c725b7e7c8f9ac804d76";
 
-        /// <summary>The fixture's cases, as dist.106 holds them.</summary>
+        /// <summary>The fixture's cases, as dist.106 holds them and dist.110 keeps them.</summary>
         private const int CaseCount = 34;
 
         private static JObject _fixture;
@@ -68,7 +68,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.106's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.110's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
