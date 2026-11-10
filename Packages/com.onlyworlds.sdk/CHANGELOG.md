@@ -6,8 +6,10 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.37.0] - 2026-11-10
+
 The AI door: one route a tool calls a model through, by a named use, with the token that opens only it. Parity with
-the TypeScript SDK 4.141.0, its test vectors ported.
+the TypeScript SDK 4.141.0, its test vectors ported. A minor release because it adds public API (below).
 
 ### Added
 
