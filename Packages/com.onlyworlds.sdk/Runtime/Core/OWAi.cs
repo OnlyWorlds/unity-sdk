@@ -183,4 +183,43 @@ namespace OnlyWorlds.Sdk
         /// <summary>As on <see cref="OWAiAskAnswer.WasReplay"/>.</summary>
         public bool WasReplay;
     }
+
+    /// <summary>
+    /// An AI door token (npm's <c>OwAiToken</c>), answered by the sign-in's code exchange beside the account token when
+    /// <see cref="OWClient.CompleteSignInAsync"/> asked for one: an <c>ow_a_</c> token that opens only
+    /// <see cref="OWClient.AiUsesAsync"/> and the AI uses it names, as the person and on their token rating.
+    /// </summary>
+    /// <remarks>
+    /// Another use answers 403 <c>use_not_granted</c> (<see cref="OWApiError.IsUseNotGranted"/>), every other route 401
+    /// <c>wrong_audience</c> (<see cref="OWApiError.IsWrongAudience"/>). It ends at <see cref="ExpiresAt"/> (midnight UTC at
+    /// the latest), then answers 401 <c>key_revoked</c>. A client built on it may revoke it with
+    /// <see cref="OWClient.RevokeAccountTokenAsync"/> and <see cref="TokenId"/>; revoking it touches no other token, and
+    /// revoking the account token beside it leaves it live.
+    /// </remarks>
+    [Serializable]
+    public class OWAiToken
+    {
+        /// <summary>The <c>ow_a_</c> AI door token, shown only here: keep it, the SDK stores none.</summary>
+        [JsonProperty("token")]
+        public string Token;
+
+        [JsonProperty("token_id")]
+        public string TokenId;
+
+        /// <summary><c>bearer</c>.</summary>
+        [JsonProperty("token_type")]
+        public string TokenType;
+
+        /// <summary><c>ai</c>.</summary>
+        [JsonProperty("audience")]
+        public string Audience;
+
+        /// <summary>The uses it opens, as the server took them (each once, in the order sent).</summary>
+        [JsonProperty("ai_uses")]
+        public List<string> AiUses;
+
+        /// <summary>When it stops working (ISO 8601, as served).</summary>
+        [JsonProperty("expires_at")]
+        public string ExpiresAt;
+    }
 }

@@ -248,10 +248,15 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// Who the token is for: empty for a token made by hand or a sign-in tool's; <c>mcp</c> for a hosted client's
-        /// grant on the MCP server.
+        /// grant on the MCP server; <c>ai</c> for an AI door token (<see cref="OWClient.MintAiTokenAsync"/>, or the
+        /// sign-in's AI uses).
         /// </summary>
         [JsonProperty("audience")]
         public string Audience;
+
+        /// <summary>On an <c>ai</c> token only: the AI uses it opens; null on any other.</summary>
+        [JsonProperty("ai_uses")]
+        public List<string> AiUses;
 
         /// <summary>On an <c>mcp</c> token only: the client's name, as it registered itself, or its id when it is no longer registered.</summary>
         [JsonProperty("client")]
@@ -260,5 +265,17 @@ namespace OnlyWorlds.Sdk
         /// <summary>On an <c>mcp</c> token only: the host the client returns the person to.</summary>
         [JsonProperty("return_host")]
         public string ReturnHost;
+    }
+
+    /// <summary>
+    /// An AI door token as <see cref="OWClient.MintAiTokenAsync"/> mints it (POST /account/tokens with <c>ai_uses</c>;
+    /// npm's <c>OwMintedAiToken</c>): its row, as the account's token list shows it, plus the token itself once.
+    /// </summary>
+    [Serializable]
+    public class OWMintedAiToken : OWAccountToken
+    {
+        /// <summary>The <c>ow_a_</c> AI door token, shown only here: keep it, it is never shown again.</summary>
+        [JsonProperty("token")]
+        public string Token;
     }
 }

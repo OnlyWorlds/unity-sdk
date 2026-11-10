@@ -2101,6 +2101,71 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
+        /// POST /account/tokens with <c>ai_uses</c> -- trade this client's account token down to an AI door token: an
+        /// <c>ow_a_</c> token that opens only <see cref="AiUsesAsync"/> and the uses named here, as this account and on its
+        /// token rating. The answer is the token's row with the token itself, shown only here (<see cref="OWMintedAiToken"/>).
+        /// </summary>
+        /// <param name="uses">
+        /// The AI uses it opens, 1 to 8, by slug as <see cref="AiUsesAsync"/> lists them, each one path segment. Required:
+        /// without them the same route mints a full account token.
+        /// </param>
+        /// <param name="lifetimeMinutes">
+        /// It ends this many minutes after the mint (1 to 1440), or at midnight UTC if that comes first. Null: at midnight
+        /// UTC.
+        /// </param>
+        /// <param name="name">A label for the token, at most 255 characters, sent as given. Null: none sent (keel names it after this token).</param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <exception cref="ArgumentException">
+        /// The uses are null or a list the SDK can see is wrong (not 1 to 8 names, a name that is not one path segment), the
+        /// lifetime is outside 1 to 1440, or the name is past 255 characters; nothing was sent.
+        /// </exception>
+        /// <exception cref="OWApiError">
+        /// A name the server does not run is a 422 (<see cref="OWApiError.Code"/> <c>invalid_request</c>,
+        /// <see cref="OWApiError.Param"/> <c>ai_uses</c>). An AI door token mints nothing (401 <c>wrong_audience</c>,
+        /// <see cref="OWApiError.IsWrongAudience"/>).
+        /// </exception>
+        /// <remarks>
+        /// <para>
+        /// Another use answers 403 <c>use_not_granted</c> (<see cref="OWApiError.IsUseNotGranted"/>), every other route 401
+        /// <c>wrong_audience</c>. Past its end it answers 401 <c>key_revoked</c>. It belongs to the token that minted it:
+        /// revoking this client's token revokes it too, while revoking it leaves this one live. A client built on it revokes
+        /// it with <see cref="RevokeAccountTokenAsync"/> and its <see cref="OWAccountToken.Id"/>.
+        /// </para>
+        /// <para>
+        /// An account token only, sent as its Bearer. Mirrors the TypeScript SDK's <c>mintAiToken</c> (4.138.0); the name
+        /// is counted in characters as keel counts it.
+        /// </para>
+        /// </remarks>
+        public Task<OWMintedAiToken> MintAiTokenAsync(
+            IEnumerable<string> uses, int? lifetimeMinutes = null, string name = null, CancellationToken ct = default)
+        {
+            RequireAccountToken(nameof(MintAiTokenAsync));
+
+            // The uses are required here: without them the same route mints a full account token.
+            if (uses == null)
+            {
+                throw new ArgumentException(
+                    $"MintAiTokenAsync: the AI uses are a list of 1 to {AiUsesMax} use names, got null. Nothing was sent.", nameof(uses));
+            }
+
+            var body = AiTokenParams(nameof(MintAiTokenAsync), uses, lifetimeMinutes, nameof(uses), nameof(lifetimeMinutes));
+            if (name != null)
+            {
+                if (CodePoints(name) > TokenNameMax)
+                {
+                    throw new ArgumentException(
+                        $"MintAiTokenAsync: name is a string of at most {TokenNameMax} characters, got {CodePoints(name)}. "
+                        + "Nothing was sent.", nameof(name));
+                }
+
+                body["name"] = name;
+            }
+
+            return RequestAsync<OWMintedAiToken>("POST", "/account/tokens", body: body, ct: ct);
+        }
+
+        /// <summary>
         /// PATCH /account/worlds/{world_id}/members/{member_id} with <c>lenses</c> alone -- set the lenses a row of the
         /// world starts with: lens ids in order, 0 to 20, repeats dropped by the server; an empty list is a choice too, and
         /// keeps a seat off its Titles' lenses. Null puts the row back to never chosen. Answers the row as served, a
@@ -2550,26 +2615,53 @@ namespace OnlyWorlds.Sdk
         /// <param name="pending">The sign-in <see cref="SignInWithOnlyWorlds"/> began.</param>
         /// <param name="url">The address the return reached: what the app's loopback server or scheme handler received.</param>
         /// <param name="ct">Cancels the request.</param>
+        /// <param name="aiUses">
+        /// Also ask the exchange for an AI door token for these AI uses (their slugs, as <see cref="AiUsesAsync"/> lists
+        /// them): 1 to 8, each one path segment, sent as <c>ai_uses</c>. It comes back as
+        /// <see cref="OWSignInResult.AiToken"/>. Null: none asked.
+        /// </param>
+        /// <param name="aiLifetimeMinutes">
+        /// With <paramref name="aiUses"/> only: the AI door token ends this many minutes after the exchange (1 to 1440),
+        /// or at midnight UTC if that comes first; sent as <c>ai_lifetime_minutes</c>. Null: to midnight UTC.
+        /// </param>
         /// <exception cref="ArgumentNullException"><paramref name="pending"/> is null; nothing was sent.</exception>
-        /// <exception cref="ArgumentException"><paramref name="url"/> is null or empty; nothing was sent.</exception>
+        /// <exception cref="ArgumentException">
+        /// <paramref name="url"/> is null or empty, or the AI uses are a list the SDK can see is wrong (not 1 to 8 names, a
+        /// name that is not one path segment, a lifetime outside 1 to 1440 or without uses); nothing was sent, and the
+        /// sign-in stays pending.
+        /// </exception>
         /// <exception cref="OWSignInError">
         /// <c>state_mismatch</c> (no sign-in pending, another state or none, or the wrong page; nothing sent),
         /// <c>invalid_grant</c> (keel's 400: the code used, expired, or another tool's), <c>rate_limited</c>,
         /// <c>offline</c>, <c>failed</c>.
         /// </exception>
         /// <remarks>
+        /// <para>
         /// The sign-in is spent (<see cref="OWSignInBegun.Pending"/> false) once a return carries its state, on success and
         /// on refusal; a return with another state leaves it pending, since anyone can open a custom scheme's address and a
         /// forged one must not cancel a sign-in in flight. The body is <c>{grant_type, code, code_verifier, client_id,
         /// redirect_uri}</c>, with <c>Content-Type</c> and nothing else of this client's, on any client. The SDK keeps no
         /// token: the caller does. Mirrors the TypeScript SDK's <c>completeSignIn</c> (4.46.0; <c>expiresAt</c> from
-        /// 4.94.0), whose storage and address bar are the caller's here.
+        /// 4.94.0; <c>aiUses</c> and <c>aiLifetimeMinutes</c> from 4.138.0), whose storage and address bar are the caller's
+        /// here.
+        /// </para>
+        /// <para>
+        /// The exchange spends its code whatever it answers, so the AI uses are checked before anything is sent and before
+        /// the pending sign-in is touched; a name the server does not run is its 422 (<c>failed</c>, status 422), and the
+        /// code is then spent. With the AI uses, the body adds <c>ai_uses</c> and, when given, <c>ai_lifetime_minutes</c>.
+        /// The options come after <paramref name="ct"/>, so a caller passing it by position keeps working.
+        /// </para>
         /// </remarks>
-        public Task<OWSignInResult> CompleteSignInAsync(OWSignInBegun pending, string url, CancellationToken ct = default)
+        public Task<OWSignInResult> CompleteSignInAsync(
+            OWSignInBegun pending, string url, CancellationToken ct = default, IEnumerable<string> aiUses = null,
+            int? aiLifetimeMinutes = null)
         {
             if (pending == null) throw new ArgumentNullException(nameof(pending), "CompleteSignInAsync: the pending sign-in. Nothing was sent.");
             if (string.IsNullOrEmpty(url))
                 throw new ArgumentException("CompleteSignInAsync: the address the return reached. Nothing was sent.", nameof(url));
+
+            // Checked before the pending sign-in is read or spent: a refusal here spends nothing.
+            var ai = AiTokenParams(nameof(CompleteSignInAsync), aiUses, aiLifetimeMinutes, nameof(aiUses), nameof(aiLifetimeMinutes));
 
             if (!pending.Pending || string.IsNullOrEmpty(pending.State) || string.IsNullOrEmpty(pending.Verifier)
                 || string.IsNullOrEmpty(pending.RedirectUri) || string.IsNullOrEmpty(pending.ClientId))
@@ -2600,10 +2692,10 @@ namespace OnlyWorlds.Sdk
                     "This page is not the return address the sign-in was started with.");
             }
 
-            return CompleteSignInCoreAsync(pending, code, ct);
+            return CompleteSignInCoreAsync(pending, code, ai, ct);
         }
 
-        private async Task<OWSignInResult> CompleteSignInCoreAsync(OWSignInBegun pending, string code, CancellationToken ct)
+        private async Task<OWSignInResult> CompleteSignInCoreAsync(OWSignInBegun pending, string code, JObject ai, CancellationToken ct)
         {
             var body = new JObject
             {
@@ -2613,6 +2705,7 @@ namespace OnlyWorlds.Sdk
                 ["client_id"] = pending.ClientId,
                 ["redirect_uri"] = pending.RedirectUri,
             };
+            foreach (var p in ai.Properties()) body[p.Name] = p.Value;
 
             var res = await SendSignInAsync(new OWRequest
             {
@@ -2669,7 +2762,92 @@ namespace OnlyWorlds.Sdk
                     Id = (string)account["id"],
                     Username = account["username"]?.Type == JTokenType.String ? (string)account["username"] : "",
                 },
+                AiToken = ai.ContainsKey("ai_uses") ? ReadAiToken(answer["ai_token"]) : null,
             };
+        }
+
+        /// <summary>The longest list of AI uses one AI door token names (keel's <c>USES_MAX</c>).</summary>
+        private const int AiUsesMax = 8;
+
+        /// <summary>The longest an AI door token may be asked to live, in minutes: a day.</summary>
+        private const int AiLifetimeMaxMinutes = 1440;
+
+        /// <summary>
+        /// The AI door token's two options as the server will read them, checked before sending (shared by
+        /// <see cref="CompleteSignInAsync"/> and <see cref="MintAiTokenAsync"/>): the uses 1 to 8 names, each one path
+        /// segment; the minutes 1 to 1440, only with the uses. Answers the body keys to send, none for no uses. Mirrors the
+        /// TypeScript SDK's <c>aiTokenParams</c> (4.138.0), its words included.
+        /// </summary>
+        private static JObject AiTokenParams(
+            string method, IEnumerable<string> uses, int? minutes, string usesParam, string minutesParam)
+        {
+            if (uses == null)
+            {
+                if (minutes.HasValue)
+                {
+                    throw new ArgumentException(
+                        $"{method}: the AI token's lifetime goes with its uses: send {usesParam} too. Nothing was sent.", minutesParam);
+                }
+
+                return new JObject();
+            }
+
+            var list = new List<string>(uses);
+            if (list.Count < 1 || list.Count > AiUsesMax)
+            {
+                throw new ArgumentException(
+                    $"{method}: the AI uses are a list of 1 to {AiUsesMax} use names, got "
+                    + Newtonsoft.Json.JsonConvert.SerializeObject(list) + ". Nothing was sent.", usesParam);
+            }
+
+            foreach (var use in list)
+            {
+                if (use == null || !PathValue.IsMatch(use))
+                {
+                    throw new ArgumentException(
+                        $"{method}: {Newtonsoft.Json.JsonConvert.SerializeObject(use)} is not an AI use's name (one path "
+                        + "segment, as AiUsesAsync lists them). Nothing was sent.", usesParam);
+                }
+            }
+
+            var body = new JObject { ["ai_uses"] = new JArray(list.ToArray()) };
+            if (minutes.HasValue)
+            {
+                if (minutes.Value < 1 || minutes.Value > AiLifetimeMaxMinutes)
+                {
+                    throw new ArgumentException(
+                        $"{method}: the AI token's lifetime is a whole number of minutes, 1 to {AiLifetimeMaxMinutes}, got "
+                        + minutes.Value.ToString(CultureInfo.InvariantCulture) + ". Nothing was sent.", minutesParam);
+                }
+
+                body["ai_lifetime_minutes"] = minutes.Value;
+            }
+
+            return body;
+        }
+
+        /// <summary>
+        /// The answer's <c>ai_token</c>, or null when it is missing or not the shape the server documents (a non-empty
+        /// token and id, a list of names, an expiry). Mirrors the TypeScript SDK's <c>readAiToken</c> (4.138.0).
+        /// </summary>
+        private static OWAiToken ReadAiToken(JToken value)
+        {
+            if (!(value is JObject t)) return null;
+
+            string NonEmpty(JToken v) => v?.Type == JTokenType.String && (string)v != "" ? (string)v : null;
+            var token = NonEmpty(t["token"]);
+            var id = NonEmpty(t["token_id"]);
+            var expires = NonEmpty(t["expires_at"]);
+            if (token == null || id == null || expires == null || !(t["ai_uses"] is JArray uses)) return null;
+
+            var names = new List<string>();
+            foreach (var u in uses)
+            {
+                if (u.Type != JTokenType.String) return null;
+                names.Add((string)u);
+            }
+
+            return new OWAiToken { Token = token, TokenId = id, TokenType = "bearer", Audience = "ai", AiUses = names, ExpiresAt = expires };
         }
 
         /// <summary>

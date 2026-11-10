@@ -259,6 +259,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             await account.ListAccountTokensAsync();
             t.ResponseBody = "{}";
             await account.RevokeAccountTokenAsync("t1");
+            // The trade down to an AI door token, every option given, so each body key is checked.
+            await account.MintAiTokenAsync(new[] { "ask", "sort" }, lifetimeMinutes: 60, name: "night");
             // A seat for one's own AI, every option given; its list, a new key, its removal.
             await account.CreateSeatAsync("w1", "Scout", role: "contributor", character: "mine");
             t.ResponseBody = @"{""data"":[]}";
@@ -332,6 +334,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var pending = signer.SignInWithOnlyWorlds("atlas", "https://atlas.example.test/cb");
             t.ResponseBody = @"{""token"":""ow_a_x"",""token_id"":""t1"",""token_type"":""bearer"",""account"":{""id"":""u1"",""username"":""a""}}";
             await signer.CompleteSignInAsync(pending, "https://atlas.example.test/cb?code=c1&state=" + pending.State);
+            // The exchange that also asks for an AI door token, both options given.
+            pending = signer.SignInWithOnlyWorlds("atlas", "https://atlas.example.test/cb");
+            await signer.CompleteSignInAsync(pending, "https://atlas.example.test/cb?code=c1&state=" + pending.State,
+                aiUses: new[] { "ask" }, aiLifetimeMinutes: 480);
 
             // Joining is keyless, so it is not on the client; the same transport records it. The redeem passes every
             // option at once (no real code takes all three) so each key it can put in the body is on the wire here.
@@ -617,6 +623,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [TestCase(typeof(OWAiAskAnswer), "/api/v2/account/ai/ask", "POST")]
         [TestCase(typeof(OWAiSortAnswer), "/api/v2/account/ai/sort", "POST")]
         [TestCase(typeof(OWSignedIn), "/api/v2/account/tokens", "POST")]
+        [TestCase(typeof(OWMintedAiToken), "/api/v2/account/tokens", "POST")]
         [TestCase(typeof(OWSignInResult), "/api/v2/auth/token", "POST")]
         public void EveryKeyAModelReads_IsOneKeelServes(Type model, string path, string method)
         {
@@ -729,11 +736,14 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             foreach (var path in ((JObject)Wire["paths"]).Properties().Select(p => p.Name))
                 StringAssert.DoesNotStartWith("/api/v2/auth/app/", path, "keel's document describes the sign-in service now");
 
-            // keel's document declares the mint's body since PR 390: one optional name, which SignInWithPasswordAsync sends
-            // as its tokenName (RecordEveryCall signs in with one, so EveryBodyKey_IsOneKeelDeclares checks the key). A key
-            // keel adds there fails here: add it to the sign-in, or say why not.
+            // keel's document declares the mint's body since PR 390: an optional name, which SignInWithPasswordAsync sends
+            // as its tokenName, and since the AI door ai_uses and ai_lifetime_minutes, which MintAiTokenAsync sends beside
+            // a name (RecordEveryCall makes both mints, so EveryBodyKey_IsOneKeelDeclares checks each key). A key keel adds
+            // there fails here: add it to a mint, or say why not. The password sign-in mints a full account token and
+            // sends no AI use: with them the mint is an AI door token's.
             var mint = (JObject)Wire["paths"]["/api/v2/account/tokens"]["POST"];
-            CollectionAssert.AreEqual(new[] { "name" }, mint["body"]?.Values<string>().ToList(), "the mint's body is the token's name alone");
+            CollectionAssert.AreEquivalent(new[] { "name", "ai_uses", "ai_lifetime_minutes" }, mint["body"]?.Values<string>().ToList(),
+                "the mint's body is the token's name and an AI door token's uses and lifetime");
             CollectionAssert.IsEmpty(mint["header"], "X-Session-Token is one of the document's auth headers, not the operation's");
             CollectionAssert.Contains(Wire["auth_headers"].Values<string>().ToList(), "X-Session-Token");
         }
@@ -867,7 +877,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             // An empty recording would pass the checks above with nothing checked.
             var calls = await RecordEveryCall();
-            Assert.AreEqual(92, calls.Count);
+            Assert.AreEqual(94, calls.Count);
 
             // The upload host's and the sign-in service's requests are recorded and left out of the checks; the keel
             // request of each two-step call, and the password sign-in's mint, are in, so the checks above judged them.
@@ -875,10 +885,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var signIn = all.Where(c => c.Url.StartsWith(SignInService, StringComparison.Ordinal)).ToList();
             CollectionAssert.AreEqual(new[] { "POST " + SignInService + "v1/auth/login", "DELETE " + SignInService + "v1/auth/session" },
                 signIn.Select(c => c.Method + " " + c.Url).ToArray(), "the sign-in and the session's end, at the sign-in service");
-            Assert.AreEqual(1, calls.Count(c => c.Method == "POST" && new Uri(c.Url).AbsolutePath.EndsWith("/account/tokens")),
-                "the password sign-in's mint is judged");
-            Assert.AreEqual(1, calls.Count(c => c.Method == "POST" && new Uri(c.Url).AbsolutePath.EndsWith("/auth/token")),
-                "Sign in with OnlyWorlds' exchange is judged");
+            Assert.AreEqual(2, calls.Count(c => c.Method == "POST" && new Uri(c.Url).AbsolutePath.EndsWith("/account/tokens")),
+                "the password sign-in's mint and the AI door token's are judged");
+            Assert.AreEqual(2, calls.Count(c => c.Method == "POST" && new Uri(c.Url).AbsolutePath.EndsWith("/auth/token")),
+                "Sign in with OnlyWorlds' exchange, plain and with AI uses, is judged");
             var host = all.Where(c => !c.Url.StartsWith(SignInService, StringComparison.Ordinal)).ToList();
             Assert.AreEqual(4, host.Count, "the two image uploads, the removal and the file upload reached the upload host");
             Assert.AreEqual(2, calls.Count(c => c.Method == "POST" && new Uri(c.Url).AbsolutePath.EndsWith("/character/c1/files")),

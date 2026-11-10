@@ -53,6 +53,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("RemoveSeatAsync", c => c.RemoveSeatAsync("w1", "s1")),
             ("ListAccountTokensAsync", c => c.ListAccountTokensAsync()),
             ("RevokeAccountTokenAsync", c => c.RevokeAccountTokenAsync("t1")),
+            ("MintAiTokenAsync", c => c.MintAiTokenAsync(new[] { "ask" })),
         };
 
         // Kills: a world key, a read key, a legacy key or no key reaching an /account route, which keel answers 401; the

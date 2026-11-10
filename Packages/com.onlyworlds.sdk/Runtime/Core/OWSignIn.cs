@@ -161,6 +161,14 @@ namespace OnlyWorlds.Sdk
 
         [JsonProperty("account")]
         public OWSignInAccount Account;
+
+        /// <summary>
+        /// The AI door token, when <see cref="OWClient.CompleteSignInAsync"/> asked for one with its AI uses; null when none
+        /// was asked, and from a server that answered none or not in its documented shape (the account token above is good
+        /// either way).
+        /// </summary>
+        [JsonProperty("ai_token")]
+        public OWAiToken AiToken;
     }
 
     /// <summary>The account a sign-in's token belongs to.</summary>

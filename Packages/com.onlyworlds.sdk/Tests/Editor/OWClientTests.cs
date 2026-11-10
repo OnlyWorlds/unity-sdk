@@ -159,6 +159,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("remove seat", "DELETE", true, true, c => c.RemoveSeatAsync("w1", "s1")),
             ("account tokens", "GET", false, true, c => c.ListAccountTokensAsync()),
             ("revoke account token", "DELETE", true, true, c => c.RevokeAccountTokenAsync("t1")),
+            ("mint ai token", "POST", true, true, c => c.MintAiTokenAsync(new[] { "ask" })),
             // the AI routes, an account token's alone too
             ("ask", "POST", true, true, c => c.AskAsync("w1", "q", new[] { "x" })),
             ("sort", "POST", true, true, c => c.SortAsync("w1", new OWSortNote[] { "x" }, new OWSortRef[0])),
@@ -197,7 +198,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             "account worlds", "mint world key", "revoke world key", "accept join",
             "create world link", "world links", "revoke world link",
             "create seat", "seats", "rekey seat", "remove seat",
-            "account tokens", "revoke account token",
+            "account tokens", "revoke account token", "mint ai token",
             "ask", "sort", "allowance", "ai uses", "ai",
         };
 
@@ -313,7 +314,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public async Task ApiPin_AccountToken_Never_EvenWithAPinConfigured_BearerAndNoApiKey()
         {
             var all = await PinSweep("ow_a_acct", "1234", "w1");
-            Assert.AreEqual(32, all.Count,
+            Assert.AreEqual(33, all.Count,
                 "the health pulse, the world reads (the draught's two and the escape hatch's among them), the two lens routes, the roster, the "
                 + "account routes, the AI routes and the two sign-ins sent");
             foreach (var (name, _, sent) in all)
