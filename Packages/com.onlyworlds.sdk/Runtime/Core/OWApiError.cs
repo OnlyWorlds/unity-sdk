@@ -180,6 +180,31 @@ namespace OnlyWorlds.Sdk
         public bool IsUseInFlight => StatusCode == 429 && Code == "use_in_flight";
 
         /// <summary>
+        /// <see cref="OWClient.AiAsync(string, JObject, string, System.Threading.CancellationToken)"/>: an AI door token
+        /// called a use it was not minted for (403 <c>use_not_granted</c>, param <c>use</c>). Nothing was counted. Mint one
+        /// that names this use (<see cref="OWClient.MintAiTokenAsync"/>), or call with an account token. Mirrors the
+        /// TypeScript SDK's <c>isUseNotGranted</c>.
+        /// </summary>
+        public bool IsUseNotGranted => StatusCode == 403 && Code == "use_not_granted";
+
+        /// <summary>
+        /// The account token works on some routes only (401 <c>wrong_audience</c>): an AI door token on any route but
+        /// <see cref="OWClient.AiUsesAsync"/>, its uses and its own revoke, or a hosted MCP client's token anywhere but
+        /// /mcp. Not <see cref="IsAuthError"/>: the token is good where it belongs. Mirrors the TypeScript SDK's
+        /// <c>isWrongAudience</c>.
+        /// </summary>
+        public bool IsWrongAudience => StatusCode == 401 && Code == "wrong_audience";
+
+        /// <summary>
+        /// <see cref="OWClient.AiAsync(string, JObject, string, System.Threading.CancellationToken)"/>: the use's model
+        /// answered, but not in the shape the use promises, and asked again gave no usable answer either (422
+        /// <c>answer_not_parsed</c>, param <c>answer</c>). The provider billed it to the use's own budget, not the token
+        /// rating; under an idempotency key the same refusal is replayed. Fall back to the tool's own answer, and do not
+        /// retry. Mirrors the TypeScript SDK's <c>isAnswerNotParsed</c>.
+        /// </summary>
+        public bool IsAnswerNotParsed => StatusCode == 422 && Code == "answer_not_parsed";
+
+        /// <summary>
         /// <c>/changes</c> refused the cursor (409 <c>resync_required</c>): a guest key's view of the
         /// world changed, or the key's role did. Walk the feed again from the start and REPLACE the
         /// local copy: a guest never receives deletes, so only a replace drops what it no longer sees.

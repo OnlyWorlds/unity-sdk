@@ -243,12 +243,19 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             (422, "own_key_refused", "IsOwnKeyRefused", null, null),
             (503, "ask_unavailable", "IsAskUnavailable", "use", null),
             (502, "ask_failed", "IsAskFailed", null, null),
+            (422, "answer_not_parsed", "IsAnswerNotParsed", "answer", null),
         };
 
         private static readonly string[] Helpers =
-            { "IsUseCeiling", "IsUseInFlight", "IsQuotaExceeded", "IsOwnKeyRefused", "IsAskUnavailable", "IsAskFailed" };
+            { "IsUseCeiling", "IsUseInFlight", "IsQuotaExceeded", "IsOwnKeyRefused", "IsAskUnavailable", "IsAskFailed", "IsAnswerNotParsed" };
 
-        private static bool Read(OWApiError e, string helper) => (bool)typeof(OWApiError).GetProperty(helper).GetValue(e);
+        // By name, so a helper this client lacks is a red here, not a compile error.
+        private static bool Read(OWApiError e, string helper)
+        {
+            var p = typeof(OWApiError).GetProperty(helper);
+            Assert.IsNotNull(p, $"OWApiError has no {helper}");
+            return (bool)p.GetValue(e);
+        }
 
         [Test]
         public void Ai_EachRefusalByItsCode_ThrownOnce_NeverRetried()
@@ -281,6 +288,47 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual("idempotency_in_flight", inFlight.Code);
             Assert.IsFalse(inFlight.IsUseInFlight);
             Assert.AreEqual(1, f.Calls.Count);
+        }
+
+        // The vector "isUseNotGranted is the 403 use_not_granted and isWrongAudience the 401 wrong_audience, each on its
+        // own" (4.138.0), on an AI door token calling sort.
+        [Test]
+        public void IsUseNotGranted_IsThe403_AndIsWrongAudience_The401_EachOnItsOwn()
+        {
+            var cases = new (int Status, string Code, bool NotGranted, bool WrongAudience)[]
+            {
+                (403, "use_not_granted", true, false),
+                (401, "wrong_audience", false, true),
+                (403, "permission_error", false, false),
+                (401, "key_revoked", false, false),
+                (404, "use_not_granted", false, false),
+            };
+
+            foreach (var (status, code, notGranted, wrongAudience) in cases)
+            {
+                var t = new FakeTransport
+                {
+                    Status = status,
+                    ResponseBody = $@"{{""error"":{{""type"":""permission_error"",""code"":""{code}"",""message"":""m"",""param"":""use""}}}}",
+                };
+                var e = Assert.ThrowsAsync<OWApiError>(
+                    () => Make(t, "ow_a_narrow").AiAsync(new OWAiSortBody { WorldId = "w1", Notes = new List<OWSortNote> { "a" } }),
+                    $"{status} {code}");
+                Assert.AreEqual(notGranted, Read(e, "IsUseNotGranted"), $"{status} {code}");
+                Assert.AreEqual(wrongAudience, Read(e, "IsWrongAudience"), $"{status} {code}");
+            }
+        }
+
+        // 4.140.0's answer_not_parsed by itself: the 422 a use answers when its model was off its shape twice, not a
+        // body past the use's limits, and not worth retrying.
+        [Test]
+        public void IsAnswerNotParsed_IsThe422AnswerNotParsed_Only_AndNotRetryable()
+        {
+            var parsed = new OWApiError((System.Net.HttpStatusCode)422, "m", code: "answer_not_parsed", param: "answer");
+            Assert.IsTrue(Read(parsed, "IsAnswerNotParsed"));
+            Assert.IsFalse(parsed.IsRetryable);
+            Assert.IsFalse(Read(new OWApiError((System.Net.HttpStatusCode)422, "m", code: "invalid_request", param: "answer"), "IsAnswerNotParsed"));
+            Assert.IsFalse(Read(new OWApiError((System.Net.HttpStatusCode)502, "m", code: "answer_not_parsed"), "IsAnswerNotParsed"));
         }
 
         // This client's own reading of the two 429s (the TypeScript SDK has no IsRetryable): a ceiling lasts until
