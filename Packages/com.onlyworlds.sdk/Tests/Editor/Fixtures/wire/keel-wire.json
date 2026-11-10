@@ -5,10 +5,11 @@
     "X-Session-Token",
     "Authorization"
   ],
-  "document_sha256": "e363fc04076cce3c1efbd7b7db8915e4e3cf010cab9dfbb531880eb1f82f23c0",
+  "document_sha256": "5e2753047c7bc4fc01ceb6b5c896df2d045ea1abbfa480022eef11ae25f77afc",
   "error_codes": {
     "already_member": 409,
     "already_reported": 409,
+    "answer_not_parsed": 422,
     "api_error": 500,
     "apply_failed": 422,
     "ask_failed": 502,
@@ -83,12 +84,15 @@
     "too_many_requests": 429,
     "unsupported_type": 415,
     "upload_pending": 409,
+    "use_ceiling": 429,
+    "use_in_flight": 429,
+    "use_not_granted": 403,
     "view_as_owner_only": 403,
     "world_full": 422,
     "write_failed": 502,
     "wrong_audience": 401
   },
-  "fetched": "2026-11-09T09:22+01:00",
+  "fetched": "2026-11-10T02:31+01:00",
   "openapi_version": "2.0",
   "paths": {
     "/api/v2/ability": {
@@ -779,6 +783,169 @@
         ]
       }
     },
+    "/api/v2/account/ai": {
+      "GET": {
+        "header": [],
+        "query": [],
+        "response": [
+          "uses",
+          "uses[].calls_left",
+          "uses[].ceiling",
+          "uses[].effort",
+          "uses[].input_caps",
+          "uses[].model",
+          "uses[].needs_world",
+          "uses[].on",
+          "uses[].output_cap",
+          "uses[].owner",
+          "uses[].price_tokens",
+          "uses[].prompt_sha256",
+          "uses[].provider",
+          "uses[].rating_need",
+          "uses[].slug",
+          "uses[].structured"
+        ]
+      }
+    },
+    "/api/v2/account/ai/ask": {
+      "POST": {
+        "body": [
+          "context",
+          "question",
+          "world_id"
+        ],
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "answer",
+          "model",
+          "paid_by",
+          "remaining",
+          "stop_reason",
+          "token_rating",
+          "tokens_remaining",
+          "usage",
+          "usage.input_tokens",
+          "usage.output_tokens",
+          "use_remaining"
+        ]
+      }
+    },
+    "/api/v2/account/ai/sort": {
+      "POST": {
+        "body": [
+          "notes",
+          "notes[].image_url",
+          "notes[].text",
+          "slice",
+          "slice[].anchor",
+          "slice[].id",
+          "slice[].name",
+          "slice[].type",
+          "world_id"
+        ],
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "model",
+          "not_proposed",
+          "not_proposed[].reason",
+          "not_proposed[].source_line",
+          "paid_by",
+          "remaining",
+          "rows",
+          "rows[].candidates",
+          "rows[].field",
+          "rows[].kind",
+          "rows[].op",
+          "rows[].proposal",
+          "rows[].question",
+          "rows[].source_line",
+          "rows[].target",
+          "rows[].then",
+          "rows[].value",
+          "rows[].value_id",
+          "rows[].value_name",
+          "stop_reason",
+          "token_rating",
+          "tokens_remaining",
+          "usage",
+          "usage.input_tokens",
+          "usage.output_tokens",
+          "use_remaining"
+        ]
+      }
+    },
+    "/api/v2/account/ai/subs-captain": {
+      "POST": {
+        "body": [
+          "character",
+          "story",
+          "view",
+          "wire"
+        ],
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "attempts",
+          "line",
+          "model",
+          "order",
+          "paid_by",
+          "remaining",
+          "stop_reason",
+          "token_rating",
+          "tokens_remaining",
+          "usage",
+          "usage.input_tokens",
+          "usage.output_tokens",
+          "use_remaining",
+          "wire"
+        ]
+      }
+    },
+    "/api/v2/account/ai/subs-jev": {
+      "POST": {
+        "body": [
+          "menu",
+          "menu[].description",
+          "menu[].value",
+          "question",
+          "question.instructions",
+          "question.name",
+          "state"
+        ],
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "confidence",
+          "fallback",
+          "model",
+          "paid_by",
+          "pick",
+          "probabilities",
+          "remaining",
+          "token_rating",
+          "tokens_remaining",
+          "usage",
+          "usage.input_tokens",
+          "usage.output_tokens",
+          "use_remaining"
+        ]
+      }
+    },
     "/api/v2/account/allowance": {
       "GET": {
         "header": [],
@@ -923,6 +1090,7 @@
         "query": [],
         "response": [
           "data",
+          "data[].ai_uses",
           "data[].audience",
           "data[].client",
           "data[].expires_at",
@@ -937,11 +1105,14 @@
       },
       "POST": {
         "body": [
+          "ai_lifetime_minutes",
+          "ai_uses",
           "name"
         ],
         "header": [],
         "query": [],
         "response": [
+          "ai_uses",
           "audience",
           "client",
           "expires_at",
@@ -1516,6 +1687,8 @@
     "/api/v2/auth/token": {
       "POST": {
         "body": [
+          "ai_lifetime_minutes",
+          "ai_uses",
           "client_id",
           "code",
           "code_verifier",
@@ -1528,6 +1701,13 @@
           "account",
           "account.id",
           "account.username",
+          "ai_token",
+          "ai_token.ai_uses",
+          "ai_token.audience",
+          "ai_token.expires_at",
+          "ai_token.token",
+          "ai_token.token_id",
+          "ai_token.token_type",
           "expires_at",
           "token",
           "token_id",
