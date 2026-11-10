@@ -163,6 +163,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("ask", "POST", true, true, c => c.AskAsync("w1", "q", new[] { "x" })),
             ("sort", "POST", true, true, c => c.SortAsync("w1", new OWSortNote[] { "x" }, new OWSortRef[0])),
             ("allowance", "GET", false, true, c => c.AllowanceAsync()),
+            ("ai uses", "GET", false, true, c => c.AiUsesAsync()),
+            ("ai", "POST", true, true, c => c.AiAsync("ask", new JObject { ["world_id"] = "w1", ["question"] = "q", ["context"] = new JArray("x") })),
             // signing in, on every client with no credential of its own (NoCredential): the password's mint, keel's one
             // request among its three (the sign-in and the session's end go to the sign-in service, SignInService), and
             // Sign in with OnlyWorlds' exchange. Each answer is scripted (Scripted).
@@ -196,7 +198,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             "create world link", "world links", "revoke world link",
             "create seat", "seats", "rekey seat", "remove seat",
             "account tokens", "revoke account token",
-            "ask", "sort", "allowance",
+            "ask", "sort", "allowance", "ai uses", "ai",
         };
 
         /// <summary>The calls that send a second request, to the upload host their ticket names, after keel's.</summary>
@@ -311,7 +313,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public async Task ApiPin_AccountToken_Never_EvenWithAPinConfigured_BearerAndNoApiKey()
         {
             var all = await PinSweep("ow_a_acct", "1234", "w1");
-            Assert.AreEqual(30, all.Count,
+            Assert.AreEqual(32, all.Count,
                 "the health pulse, the world reads (the draught's two and the escape hatch's among them), the two lens routes, the roster, the "
                 + "account routes, the AI routes and the two sign-ins sent");
             foreach (var (name, _, sent) in all)

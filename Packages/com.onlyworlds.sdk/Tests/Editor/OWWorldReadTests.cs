@@ -328,6 +328,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 ["AskAsync"] = (Does.Account, c => c.AskAsync(W, "q", new[] { "x" })),
                 ["SortAsync"] = (Does.Account, c => c.SortAsync(W, new OWSortNote[] { "x" }, new OWSortRef[0])),
                 ["AllowanceAsync"] = (Does.Account, c => c.AllowanceAsync()),
+                ["AiUsesAsync"] = (Does.Account, c => c.AiUsesAsync()),
+                ["AiAsync"] = (Does.Account, c => c.AiAsync(new OWAiAskBody { WorldId = W, Question = "q", Context = new List<string> { "x" } })),
                 ["SignInWithPasswordAsync"] = (Does.SignIn, c => Sent(() => c.SignInWithPasswordAsync("ana@example.org", null, "pw"))),
                 ["SignInWithOnlyWorlds"] = (Does.Nothing, c =>
                 {

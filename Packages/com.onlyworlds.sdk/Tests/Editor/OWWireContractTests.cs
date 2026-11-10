@@ -275,6 +275,21 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 new[] { new OWSortRef { Id = "c1", Type = "character", Name = "Mira", Anchor = "the ferrywoman" },
                     new OWSortRef { Id = "l1", Type = "location", Name = "Ostvik" } });
             await account.AllowanceAsync();
+            // The AI door: the uses, then a call of each typed use with its key, every body key given, and an open use's
+            // body as its page in the document describes it.
+            t.ResponseBody = @"{""uses"":[]}";
+            await account.AiUsesAsync();
+            t.ResponseBody = "{}";
+            await account.AiAsync(new OWAiAskBody { WorldId = "w1", Question = "Who rules?", Context = new List<string> { "Ostvik: a town." } }, "k1");
+            await account.AiAsync(new OWAiSortBody
+            {
+                WorldId = "w1",
+                Notes = new List<OWSortNote> { "Mira.", new OWSortNote { Text = "Tor.", ImageUrl = "https://media.example.test/u/w1/t.png" } },
+                Slice = new List<OWSortRef> { new OWSortRef { Id = "c1", Type = "character", Name = "Mira", Anchor = "the ferrywoman" } },
+            }, "k2");
+            await account.AiAsync("subs-jev", JObject.Parse(
+                @"{""state"":""s"",""menu"":[{""value"":""hold"",""description"":""d""},{""value"":""go"",""description"":""d""}],"
+                + @"""question"":{""name"":""helm"",""instructions"":""pick one""}}"), "k3");
 
             // The lens routes on an account token: its own list in the world World names (world=), the world's lenses by
             // the path's world, and a row's list (PATCH with lenses alone).
@@ -538,6 +553,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.That(checkedOps, Does.Contain("POST /api/v2/media/remove-ticket"));
             Assert.That(checkedOps, Does.Contain("POST /api/v2/character/c1/files"));
             Assert.That(checkedOps, Does.Contain("POST /api/v2/account/ask").And.Contain("POST /api/v2/account/sort"));
+            Assert.That(checkedOps, Does.Contain("POST /api/v2/account/ai/ask").And.Contain("POST /api/v2/account/ai/sort")
+                .And.Contain("POST /api/v2/account/ai/subs-jev"));
             Assert.That(checkedOps, Does.Contain("POST /api/v2/auth/token"));
         }
 
@@ -597,6 +614,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [TestCase(typeof(OWAskAnswer), "/api/v2/account/ask", "POST")]
         [TestCase(typeof(OWSortAnswer), "/api/v2/account/sort", "POST")]
         [TestCase(typeof(OWAllowance), "/api/v2/account/allowance", "GET")]
+        [TestCase(typeof(OWAiAskAnswer), "/api/v2/account/ai/ask", "POST")]
+        [TestCase(typeof(OWAiSortAnswer), "/api/v2/account/ai/sort", "POST")]
         [TestCase(typeof(OWSignedIn), "/api/v2/account/tokens", "POST")]
         [TestCase(typeof(OWSignInResult), "/api/v2/auth/token", "POST")]
         public void EveryKeyAModelReads_IsOneKeelServes(Type model, string path, string method)
@@ -633,6 +652,23 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             Assert.IsNotEmpty(mapped, $"{row.Name} maps no keys");
             CollectionAssert.AreEquivalent(served.Where(k => k.StartsWith("data[].")).ToList(), mapped);
+        }
+
+        [Test]
+        public void TheAiDoorsRowsAndAnswers_AreEveryKeyKeelServes()
+        {
+            // GET /account/ai answers {uses: [...]}: OWAiUse reads every key of a row and no other, so a key keel adds to
+            // a use (as 4.140.0's rating_need was) fails here.
+            var served = Wire["paths"]["/api/v2/account/ai"]["GET"]["response"].Values<string>().ToList();
+            CollectionAssert.AreEquivalent(served.Where(k => k.StartsWith("uses[].")).ToList(),
+                MappedKeys(typeof(OWAiUse), false).Select(k => "uses[]." + k).ToList());
+
+            // The typed uses' answers read every top-level key keel serves on them, the use's meter included.
+            foreach (var (model, path) in new[] { (typeof(OWAiAskAnswer), "/api/v2/account/ai/ask"), (typeof(OWAiSortAnswer), "/api/v2/account/ai/sort") })
+            {
+                var answer = Wire["paths"][path]["POST"]["response"].Values<string>().Where(k => !k.Contains('.') && !k.Contains("[]")).ToList();
+                CollectionAssert.AreEquivalent(answer, MappedKeys(model, false), path);
+            }
         }
 
         [Test]
@@ -831,7 +867,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             // An empty recording would pass the checks above with nothing checked.
             var calls = await RecordEveryCall();
-            Assert.AreEqual(88, calls.Count);
+            Assert.AreEqual(92, calls.Count);
 
             // The upload host's and the sign-in service's requests are recorded and left out of the checks; the keel
             // request of each two-step call, and the password sign-in's mint, are in, so the checks above judged them.

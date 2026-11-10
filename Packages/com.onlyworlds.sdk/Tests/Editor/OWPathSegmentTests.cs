@@ -192,7 +192,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             yield return Case("RevokeWorldLinkWorldId", c => c.RevokeWorldLinkAsync("w/1", "l2"), "worldId", true);
             yield return Case("CreateSeatWorldId", c => c.CreateSeatAsync("w/1", "Scout"), "worldId", true);
             yield return Case("RekeySeatSeatId", c => c.RekeySeatAsync("w1", "s/1"), "seatId", true);
-            yield return Case("SetMemberLensesMemberId", c => c.SetMemberLensesAsync("w1", "m/1", new[] { "l1" }), "memberId", true);
+            yield return Case("AiUse", c => c.AiAsync("ask/../sort", new JObject()), "use", true);
+            yield return Case("SetMemberLensesMemberId",c => c.SetMemberLensesAsync("w1", "m/1", new[] { "l1" }), "memberId", true);
             yield return Case("GetTrailingNewline", c => c.GetAsync<JObject>("character", Uuid + "\n"), "id");
             yield return Case("GetIdAbcNewline", c => c.GetAsync<JObject>("character", "abc\n"), "id");
             yield return Case("GetTypeNewline", c => c.GetAsync<JObject>("character\n", Uuid), "type");

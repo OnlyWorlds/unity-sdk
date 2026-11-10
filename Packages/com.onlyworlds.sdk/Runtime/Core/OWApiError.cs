@@ -164,6 +164,22 @@ namespace OnlyWorlds.Sdk
         public bool IsAskFailed => StatusCode == 502 && Code == "ask_failed";
 
         /// <summary>
+        /// <see cref="OWClient.AiAsync(string, JObject, string, System.Threading.CancellationToken)"/>: this use's calls for
+        /// the day are made (429 <c>use_ceiling</c>, param <c>use</c>): the use's own daily ceiling per account, not the
+        /// token rating (<see cref="IsQuotaExceeded"/>). <see cref="RetryAfter"/> runs to midnight UTC. Mirrors the
+        /// TypeScript SDK's <c>isUseCeiling</c>.
+        /// </summary>
+        public bool IsUseCeiling => StatusCode == 429 && Code == "use_ceiling";
+
+        /// <summary>
+        /// <see cref="OWClient.AiAsync(string, JObject, string, System.Threading.CancellationToken)"/>: another call to this
+        /// use is running for this account (429 <c>use_in_flight</c>, param <c>use</c>): a use with a ceiling runs one call
+        /// at a time. Wait <see cref="RetryAfter"/> seconds (a short wait) and send again. Mirrors the TypeScript SDK's
+        /// <c>isUseInFlight</c>.
+        /// </summary>
+        public bool IsUseInFlight => StatusCode == 429 && Code == "use_in_flight";
+
+        /// <summary>
         /// <c>/changes</c> refused the cursor (409 <c>resync_required</c>): a guest key's view of the
         /// world changed, or the key's role did. Walk the feed again from the start and REPLACE the
         /// local copy: a guest never receives deletes, so only a replace drops what it no longer sees.
@@ -324,8 +340,8 @@ namespace OnlyWorlds.Sdk
         /// a PIN lockout (429 <c>rate_limited</c>), or a same-key request still running (409
         /// <c>idempotency_in_flight</c>: send the same key and body again, and it replays the first
         /// one's answer; the image routes' 409 <c>upload_pending</c> and <c>removal_in_flight</c>
-        /// likewise). False for a daily allowance used up (429 <c>quota_exceeded</c>, which
-        /// lasts until midnight UTC), for a feature switched off (503 <c>ask_unavailable</c>,
+        /// likewise). False for a daily allowance used up (429 <c>quota_exceeded</c>, and an AI use's
+        /// own 429 <c>use_ceiling</c>, each lasting until midnight UTC), for a feature switched off (503 <c>ask_unavailable</c>,
         /// <c>media_unavailable</c>), and for every other 4xx, which fails again identically.
         /// </summary>
         public bool IsRetryable
@@ -339,6 +355,7 @@ namespace OnlyWorlds.Sdk
                     case "removal_in_flight":
                         return StatusCode == 409;
                     case "quota_exceeded":
+                    case "use_ceiling":
                     case "ask_unavailable":
                     case "media_unavailable":
                         return false;

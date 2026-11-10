@@ -2833,6 +2833,203 @@ namespace OnlyWorlds.Sdk
             return RequestAsync<OWAllowance>("GET", "/account/allowance", ct: ct);
         }
 
+        // -- The AI door ----------------------------------------------------------
+        //
+        // keel's one route a tool calls a model through, by a named use: GET /account/ai lists the uses, POST
+        // /account/ai/{use} calls one with the use's own body, metered on the same token rating as ask and sort. Mirrors
+        // the TypeScript SDK's aiUses and ai (4.137.0; rating_need and the provider's words 4.140.0).
+
+        /// <summary>The longest <c>Idempotency-Key</c> keel takes on an AI use, in characters (its document's cap).</summary>
+        private const int AiIdempotencyKeyMax = 200;
+
+        /// <summary>
+        /// GET /account/ai -- the AI uses onlyworlds.com runs, each a named call a tool makes with
+        /// <see cref="AiAsync(string, JObject, string, CancellationToken)"/>: its owner, provider, model and effort, the
+        /// hash of its system prompt, what its body may hold, its answer cap, the rating a call needs, its price, its daily
+        /// ceiling, this account's calls left today, and whether it is on (<see cref="OWAiUse"/>). Spends nothing.
+        /// </summary>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <remarks>
+        /// An account token, or an AI door token (<see cref="OWAiToken"/>), sent as its Bearer. Mirrors the TypeScript SDK's
+        /// <c>aiUses</c> (4.137.0).
+        /// </remarks>
+        public async Task<List<OWAiUse>> AiUsesAsync(CancellationToken ct = default)
+        {
+            RequireAccountToken(nameof(AiUsesAsync), "The uses and their calls left are per account.");
+            var page = await RequestAsync<JObject>("GET", "/account/ai", ct: ct).ConfigureAwait(OWAwait.OnCaller);
+            return (page?["uses"] as JArray)?.ToObject<List<OWAiUse>>(Newtonsoft.Json.JsonSerializer.Create(OWJson.Settings))
+                ?? new List<OWAiUse>();
+        }
+
+        /// <summary>
+        /// POST /account/ai/{use} -- one call of an AI use (<see cref="AiUsesAsync"/> lists them), metered on the account's
+        /// daily token rating, then its own saved AI key, as <see cref="AskAsync"/> and <see cref="SortAsync"/> are. The
+        /// body is the use's own, in its wire spelling, sent as given; the answer is the use's own, as served
+        /// (<see cref="OWAiAnswer.Answer"/>), with its meter: <see cref="OWAiAnswer.UseRemaining"/> and
+        /// <see cref="OWAiAnswer.WasReplay"/>. The <c>ask</c> and <c>sort</c> uses have typed overloads.
+        /// </summary>
+        /// <param name="use">The use's slug, as <see cref="OWAiUse.Slug"/> lists it; checked as one path segment.</param>
+        /// <param name="body">The use's own body, as the use's listing describes it. Sent as given.</param>
+        /// <param name="idempotencyKey">
+        /// Sent as <c>Idempotency-Key</c>, 1 to 200 characters: the same key and body answer the first answer again
+        /// (<see cref="OWAiAnswer.WasReplay"/> true) and bill nothing. Null: none sent.
+        /// </param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <exception cref="ArgumentException">
+        /// <paramref name="use"/> is not one path segment, or <paramref name="idempotencyKey"/> is empty or past 200
+        /// characters; nothing was sent.
+        /// </exception>
+        /// <exception cref="ArgumentNullException"><paramref name="body"/> is null; nothing was sent.</exception>
+        /// <exception cref="OWApiError">
+        /// keel refused, none of them counted against the rating: 429 <c>use_ceiling</c>
+        /// (<see cref="OWApiError.IsUseCeiling"/>: the use's calls for the day are made), 429 <c>use_in_flight</c>
+        /// (<see cref="OWApiError.IsUseInFlight"/>: another call to this use is running; wait
+        /// <see cref="OWApiError.RetryAfter"/>), 429 <c>quota_exceeded</c> (<see cref="OWApiError.IsQuotaExceeded"/>: the
+        /// token rating is spent and no own key is saved), 422 <c>own_key_refused</c>
+        /// (<see cref="OWApiError.IsOwnKeyRefused"/>), 503 <c>ask_unavailable</c> (<see cref="OWApiError.IsAskUnavailable"/>;
+        /// with <c>param</c> <c>use</c>, this use is switched off or spent its own budget today), 502 <c>ask_failed</c>
+        /// (<see cref="OWApiError.IsAskFailed"/>), 404 <c>not_found</c> (a use that is not listed, <c>param</c>
+        /// <c>use</c>, or a world the account is not in), 422 for a body past the use's limits (<c>param</c> names it).
+        /// </exception>
+        /// <remarks>
+        /// <para>
+        /// With an idempotency key, a retry is safe: the same key with another body is 409 <c>idempotency_error</c>, and a
+        /// key whose first call is still running is 409 <c>idempotency_in_flight</c> (retry after
+        /// <see cref="OWApiError.RetryAfter"/>). Retry with the same key and body, a few times at most, and never mint a new
+        /// key to get past an in-flight answer: when the server cannot store an answer, the key is held for a day and keeps
+        /// answering <c>idempotency_in_flight</c> although the call ran and was billed. The client never retries on its own.
+        /// </para>
+        /// <para>
+        /// An account token, or an AI door token that names this use, sent as its Bearer, never with <c>API-Pin</c>; the
+        /// client's name goes as <c>X-OW-Client</c>, and <c>X-OW-Agent</c> never, which keel's document does not declare
+        /// on the door. Mirrors the TypeScript SDK's <c>ai(use, body, { idempotencyKey })</c> (4.137.0).
+        /// </para>
+        /// </remarks>
+        public Task<OWAiAnswer> AiAsync(string use, JObject body, string idempotencyKey = null, CancellationToken ct = default)
+        {
+            AiRefusals(nameof(AiAsync), use, body, idempotencyKey);
+            var path = $"/account/ai/{Seg("use", use)}";
+            return AiOpenCoreAsync(path, body, idempotencyKey, ct);
+        }
+
+        /// <summary>
+        /// POST /account/ai/ask -- the <c>ask</c> use (<see cref="AiAsync(string, JObject, string, CancellationToken)"/>
+        /// typed): <see cref="AskAsync"/>'s answer, with the use's meter (<see cref="OWAiAskAnswer.UseRemaining"/>) and an
+        /// idempotency key, under which a retry is answered from the first call and billed nothing.
+        /// </summary>
+        /// <param name="body">
+        /// <c>{world_id, question, context}</c>, sent as given; a member left null is not sent, and keel's 422 names it.
+        /// </param>
+        /// <param name="idempotencyKey">As on <see cref="AiAsync(string, JObject, string, CancellationToken)"/>.</param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <exception cref="ArgumentNullException"><paramref name="body"/> is null; nothing was sent.</exception>
+        /// <exception cref="ArgumentException"><paramref name="idempotencyKey"/> is empty or past 200 characters; nothing was sent.</exception>
+        /// <exception cref="OWApiError">As on <see cref="AiAsync(string, JObject, string, CancellationToken)"/>.</exception>
+        /// <remarks>Mirrors the TypeScript SDK's <c>ai('ask', body)</c> (4.137.0).</remarks>
+        public Task<OWAiAskAnswer> AiAsync(OWAiAskBody body, string idempotencyKey = null, CancellationToken ct = default)
+        {
+            AiRefusals(nameof(AiAsync), "ask", body, idempotencyKey);
+            return AiTypedCoreAsync<OWAiAskAnswer>("/account/ai/ask", OnlyGiven(body), idempotencyKey, ct,
+                (answer, replay) => answer.WasReplay = replay);
+        }
+
+        /// <summary>
+        /// POST /account/ai/sort -- the <c>sort</c> use (<see cref="AiAsync(string, JObject, string, CancellationToken)"/>
+        /// typed): <see cref="SortAsync"/>'s answer, with the use's meter (<see cref="OWAiSortAnswer.UseRemaining"/>) and an
+        /// idempotency key, under which a retry is answered from the first call and billed nothing.
+        /// </summary>
+        /// <param name="body">
+        /// <c>{world_id, notes, slice}</c>: each note as <see cref="SortAsync"/> sends it, each slice row with only the
+        /// members given; a member left null is not sent (the slice is optional), and keel's 422 names a missing one.
+        /// </param>
+        /// <param name="idempotencyKey">As on <see cref="AiAsync(string, JObject, string, CancellationToken)"/>.</param>
+        /// <param name="ct">Cancels the request.</param>
+        /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
+        /// <exception cref="ArgumentNullException"><paramref name="body"/> is null; nothing was sent.</exception>
+        /// <exception cref="ArgumentException">
+        /// <paramref name="idempotencyKey"/> is empty or past 200 characters, or a note or a slice row is null or a note
+        /// holds neither words nor a picture; nothing was sent.
+        /// </exception>
+        /// <exception cref="OWApiError">As on <see cref="AiAsync(string, JObject, string, CancellationToken)"/>.</exception>
+        /// <remarks>Mirrors the TypeScript SDK's <c>ai('sort', body)</c> (4.137.0).</remarks>
+        public Task<OWAiSortAnswer> AiAsync(OWAiSortBody body, string idempotencyKey = null, CancellationToken ct = default)
+        {
+            AiRefusals(nameof(AiAsync), "sort", body, idempotencyKey);
+            var sent = new JObject();
+            if (body.WorldId != null) sent["world_id"] = body.WorldId;
+            if (body.Notes != null)
+            {
+                var notes = new JArray();
+                foreach (var note in body.Notes)
+                {
+                    notes.Add(note?.ToJson() ?? throw new ArgumentException(
+                        "AiAsync: each note is its words, a picture's image_url, or both. Nothing was sent.", nameof(body)));
+                }
+
+                sent["notes"] = notes;
+            }
+
+            if (body.Slice != null)
+            {
+                var rows = new JArray();
+                foreach (var row in body.Slice)
+                {
+                    if (row == null) throw new ArgumentException("AiAsync: a slice row is null. Nothing was sent.", nameof(body));
+                    rows.Add(OnlyGiven(row));
+                }
+
+                sent["slice"] = rows;
+            }
+
+            return AiTypedCoreAsync<OWAiSortAnswer>("/account/ai/sort", sent, idempotencyKey, ct, (answer, replay) => answer.WasReplay = replay);
+        }
+
+        /// <summary>
+        /// The door's refusals before sending, in the TypeScript SDK's order: an account token, the use as one path
+        /// segment, a body, and an idempotency key of 1 to 200 characters.
+        /// </summary>
+        private void AiRefusals(string method, string use, object body, string idempotencyKey)
+        {
+            RequireAccountToken(method, "Every AI use is metered per account.");
+            Seg("use", use);
+            if (body == null) throw new ArgumentNullException(nameof(body), $"{method}: the body is the use's own object. Nothing was sent.");
+            if (idempotencyKey != null && (idempotencyKey.Length == 0 || CodePoints(idempotencyKey) > AiIdempotencyKeyMax))
+            {
+                throw new ArgumentException(
+                    $"{method}: idempotencyKey is a string of 1 to {AiIdempotencyKeyMax} characters, or null for none, got "
+                    + (idempotencyKey.Length == 0 ? "\"\"" : $"{CodePoints(idempotencyKey)} characters") + ". Nothing was sent.",
+                    nameof(idempotencyKey));
+            }
+        }
+
+        private async Task<OWAiAnswer> AiOpenCoreAsync(string path, JObject body, string idempotencyKey, CancellationToken ct)
+        {
+            var (answer, response) = await RequestWithResponseAsync<JObject>(
+                "POST", path, body: body, idempotencyKey: idempotencyKey, ct: ct, named: true).ConfigureAwait(OWAwait.OnCaller);
+
+            var left = answer?["use_remaining"];
+            return new OWAiAnswer
+            {
+                Answer = answer ?? new JObject(),
+                UseRemaining = left != null && left.Type == JTokenType.Integer ? (long?)left : null,
+                WasReplay = ReadReplayHeader(response),
+            };
+        }
+
+        private async Task<T> AiTypedCoreAsync<T>(
+            string path, JObject body, string idempotencyKey, CancellationToken ct, Action<T, bool> replay)
+            where T : class
+        {
+            var (answer, response) = await RequestWithResponseAsync<T>(
+                "POST", path, body: body, idempotencyKey: idempotencyKey, ct: ct, named: true).ConfigureAwait(OWAwait.OnCaller);
+
+            if (answer != null) replay(answer, ReadReplayHeader(response));
+            return answer;
+        }
+
         /// <summary>A world's id, not null or empty: an <see cref="ArgumentException"/> naming the call, before sending.</summary>
         private static void RequireWorldId(string method, string worldId)
         {
@@ -3305,16 +3502,16 @@ namespace OnlyWorlds.Sdk
 
                 // The upload host refuses with {"error": "<code>"}, not keel's envelope: the string is the code, as the
                 // TypeScript SDK's parseErrorEnvelope reads it.
-                var code = error["code"]?.ToString()
+                var code = Text(error["code"])
                     ?? (envelope["error"]?.Type == JTokenType.String ? envelope["error"].ToString() : null);
 
                 return new OWApiError(
                     status,
-                    error["message"]?.ToString(),
-                    error["type"]?.ToString(),
+                    Text(error["message"]),
+                    Text(error["type"]),
                     code,
-                    error["param"]?.ToString(),
-                    error["doc_url"]?.ToString(),
+                    Text(error["param"]),
+                    Text(error["doc_url"]),
                     response.Body,
                     retryAfter);
             }
@@ -3323,6 +3520,12 @@ namespace OnlyWorlds.Sdk
                 return new OWApiError(status, Truncate(response.Body), rawBody: response.Body, retryAfter: retryAfter);
             }
         }
+
+        /// <summary>
+        /// An envelope member as text: null when absent or JSON <c>null</c> (keel sends <c>"param": null</c> on a refusal
+        /// that names none, which the TypeScript SDK reads as null), else as written.
+        /// </summary>
+        private static string Text(JToken value) => value == null || value.Type == JTokenType.Null ? null : value.ToString();
 
         /// <summary>A response header by name, case-insensitively (keel sends them lowercase), or null.</summary>
         private static string ReadHeader(OWResponse response, string name)
