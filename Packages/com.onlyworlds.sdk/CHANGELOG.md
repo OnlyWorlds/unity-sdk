@@ -29,11 +29,14 @@ The map-space profile's layout reading. Parity with the TypeScript SDK 4.142.0 (
 
 ### Changed
 
-- **The schema pin moves to `v0.34.0-dist.110`** (canonical `00.34.00` unchanged, no schema file moved). The
-  map-space profile gains its layout keys, rules 8 to 10 (`x_layout` on a Map, its ground, `x_hand` on a Pin), and a
-  second, small reading of one Map with seventeen `layout_cases` beside the fixture's `cases`, which keep their 34
-  entries unchanged. The generated models changed in their serial and published stamps only; the map-space fixture's
-  test copy moved with the pin.
+- **The schema pin moves to `v0.34.0-dist.110`, then `v0.34.0-dist.111`** (canonical `00.34.00` unchanged, no schema
+  file moved). Serial 110: the map-space profile gains its layout keys, rules 8 to 10 (`x_layout` on a Map, its
+  ground, `x_hand` on a Pin), and a second, small reading of one Map with seventeen `layout_cases` beside the
+  fixture's `cases`, which keep their 34 entries unchanged. Serial 111: four more `layout_cases` (twenty-one: code
+  point order, a repeated Pin id, a Pin row and a Map row without a string id), the page's sentence that a Map row
+  without a string id is no Map, and a case that names the Map it reads by `map_index` (positions in its elements)
+  when the row has no id. The generated models changed in their serial and published stamps only; the map-space
+  fixture's test copy moved with the pin.
 
 ## [0.37.0] - 2026-11-10
 

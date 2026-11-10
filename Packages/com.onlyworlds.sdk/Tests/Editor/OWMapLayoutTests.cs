@@ -19,8 +19,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </summary>
     public class OWMapLayoutTests
     {
-        /// <summary>The fixture's layout cases, as dist.110 holds them.</summary>
-        private const int LayoutCaseCount = 17;
+        /// <summary>The fixture's layout cases, as dist.111 holds them (seventeen at dist.110).</summary>
+        private const int LayoutCaseCount = 21;
 
         private static JObject _fixture;
 
@@ -63,12 +63,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
-        public void TheFixture_HoldsDist110sLayoutCases_EachNamedOnce_BesideItsCases()
+        public void TheFixture_HoldsDist111sLayoutCases_EachNamedOnce_BesideItsCases()
         {
             Assert.IsNotNull(Fixture, "the vendored map-space fixture was not found");
-            Assert.IsInstanceOf<JArray>(Fixture["layout_cases"], "dist.110's fixture holds layout_cases beside cases");
+            Assert.IsInstanceOf<JArray>(Fixture["layout_cases"], "dist.111's fixture holds layout_cases beside cases");
             var names = LayoutCases().Select(c => (string)c["name"]).ToList();
-            Assert.AreEqual(LayoutCaseCount, names.Count, "dist.110's fixture holds 17 layout cases");
+            Assert.AreEqual(LayoutCaseCount, names.Count, "dist.111's fixture holds 21 layout cases");
             Assert.AreEqual(names.Count, names.Distinct().Count(), "a case is found by its name, so each name is once");
             Assert.AreEqual(34, Fixture["cases"].Count(), "the map-space reading's cases are unchanged beside them");
         }
