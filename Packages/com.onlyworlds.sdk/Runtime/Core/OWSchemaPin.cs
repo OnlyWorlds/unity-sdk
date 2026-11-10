@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.34.00";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 113;
+        public const int DistSerial = 114;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.34.0-dist.113";
+        public const string Tag = "v0.34.0-dist.114";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -275,9 +275,19 @@ namespace OnlyWorlds.Sdk
         /// pair or case moved); the report page's example and one checks case's description changed in words only. The
         /// generated models changed in their serial stamp only.
         /// </para>
+        /// <para>
+        /// <b>113 -> 114 (2026-11-10)</b>: canonical unchanged, no schema file moved. A lens's short rows
+        /// (<c>first_line</c>, <c>name</c>) carry <c>supertype</c> and <c>subtype</c> where the served body holds them
+        /// (nine lens fixture cases, 210 in all); <c>views.json</c> is version 2 (the order a page draws its fields in,
+        /// the tie and banner readings stated) with a fixture of 41 cases and two tables of its own, read by
+        /// <see cref="OWViews"/>. The review page's rule 5 (an object holding a key is a mark whatever its keys), the
+        /// report page's rule 8 (a <c>consequences</c> line may have no address), the lens page's <c>lenses_from</c>
+        /// <c>none</c>, and the room fixture's note that a serial never reorders the pairs are words a reader here
+        /// already met or does not read. The generated models changed in their serial stamp only.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "b645c8da0985ccedf538941218f31f922b62fe5ec2d5be14d4d6b2b52dca4478";
+            "a42a1d57907f45b0c696db4b86731531903f0c91060b05f9cf7767d43bd5bbea";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.

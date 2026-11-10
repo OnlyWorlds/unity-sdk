@@ -9,26 +9,41 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 ### Added
 
 - **`OWViews.ViewOf(element)`: how an element is shown by its kind**, from the distribution's new `views.json`
-  (schema-dist serial 113), parity with the TypeScript SDK 4.147.0 (`viewOf`, `VIEWS`). Presentation, as the colour
-  groups are, not part of the standard. The answer is an `OWView`: `Row`, the row that matches (an `OWViewRow`: its
-  kind, the fields that give the one sentence, what leads, what folds under which label, the layout, its own banner
-  marks), or null when the element draws as its type does; `Sentence`, the one sentence a card, a list row or a hover
-  shows (the first named field holding text, trimmed, cut at its first line break, U+000A or U+000D, and trimmed
-  again); `Banners`, the marks to show at the head of its page, in the file's order. A row matches by its kind: a
-  profile's pair only with that profile's mark, by `OWRoom.IsRoomElement` or `OWRoom.IsCharterElement`, then a type
-  with a supertype, then a type alone, trimmed and folded as the room profile defines; the most specific row wins.
-  Today's rows are a report, a charter, a message and a line in a room. `OWViews.Banners`, `Layouts` and `Rows` are
-  the table, baked at codegen (`codegen/generate_views.py`, which refuses a file that names a field its type lacks, a
-  pair its profile's reader does not match, a layout it does not define, two rows of one kind, or a cite whose quote
-  is not at its line). The fixture's 28 cases pass, and its 10 cites name fields their rows name and their types have.
-- Where the file is silent, this reads as the TypeScript SDK does, and a test says so: a row's own banner mark is read
-  by presence as the room profile reads its mark, and of two rows matching on one rung the first in the file wins
-  (which none of the file's rows can do). Where it is narrower than the TypeScript SDK, this follows the file:
-  `x_served_trimmed` is a banner "only when it names a field", a list holding a non-empty string, where 4.147.0 shows
-  it for any non-empty list.
+  (schema-dist serial 113 on; the file's version 2 from serial 114), parity with the TypeScript SDK 4.151.0 (`viewOf`,
+  `VIEWS`). Presentation, as the colour groups are, not part of the standard. The answer is an `OWView`: `Row`, the
+  row that matches (an `OWViewRow`: its kind, the fields that give the one sentence, what leads, what folds under
+  which label, the layout, its own banner marks), or null when the element draws as its type does; `Sentence`, the
+  one sentence a card, a list row or a hover shows (the first named field holding text, trimmed, cut at its first line
+  break, U+000A or U+000D, and trimmed again); `Banners`, the marks to show at the head of its page, in the file's
+  order; `Order`, the fields its page draws, in the order drawn (the row's lead, then the type's other section fields
+  in the schema's own order, then its folds; each field once, and only a field that holds something). A row matches by
+  its kind: a profile's pair only with that profile's mark, by `OWRoom.IsRoomElement` or `OWRoom.IsCharterElement`,
+  then a type with a supertype, then a type alone, trimmed and folded as the room profile defines; the most specific
+  row wins, and of two rows on one rung the first in the table. Today's rows are a report, a charter, a message and a
+  line in a room. `OWViews.Banners`, `Layouts` and `Rows` are the table, baked at codegen
+  (`codegen/generate_views.py`, which refuses a file of another version, one that names a field its type lacks, a pair
+  its profile's reader does not match, a layout it does not define, two rows of one kind, or a cite whose quote is not
+  at its line). The fixture's 41 cases pass, two of them against tables of the fixture's own, and its 10 cites name
+  fields their rows name and their types have.
+- The banners read as version 2 of the file says: a review mark is an object with at least one key, whatever its
+  keys; `x_served_trimmed` only when it names a field, a list holding a string with something left after trimming
+  (a list of blanks shows none); a row's own banner mark by presence, as the room profile reads its mark.
 
 ### Changed
 
+- **A lens's short rows carry `supertype` and `subtype`**: under `show` `first_line` or `name`, `OWLens.Resolve`'s
+  rows now carry each of the two where the body the reader is served holds it as a string with something left after
+  trimming White_Space, as stored (never trimmed); absent, null, blank and non-string values give no key. A known-of
+  stub is served both, so its short row carries them too. The lens profile's rule from schema-dist serial 114, parity
+  with the TypeScript SDK 4.151.0; the lens fixture's nine new cases pass (210 in all).
+- **The schema pin moves to `v0.34.0-dist.114`** (canonical `00.34.00` unchanged, no schema file moved). The lens
+  profile's short rows above; `views.json` version 2 and its fixture (41 cases, two tables of its own), read by
+  `OWViews` above. The review profile's new rule 5 (an object holding at least one key is a mark, whatever its keys)
+  is how `OWPayload.IsProposed` already read a mark; its two vectors are added to the review cases. The report
+  profile's new rule 8 (one line of `consequences` may stand for the same change made to many elements, with no
+  address) binds a reader of report lines, which this SDK has none of. The lens page's `lenses_from` gains `none`,
+  which `GetMeAsync` and `GetMembersAsync` hand on as served. The generated models changed in their serial stamp
+  only; the lens, room and views fixtures' test copies moved with the pin.
 - **The schema pin moves to `v0.34.0-dist.113`** (canonical `00.34.00` unchanged, no schema file moved): `views.json`
   and its fixture at the distribution's root, read by `OWViews` above. The room page says the order of its pairs
   carries no meaning (no pair or case moved; `OWRoom.Pairs` keeps the fixture's order and its tests still hold it),

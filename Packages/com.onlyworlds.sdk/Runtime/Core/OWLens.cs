@@ -235,8 +235,11 @@ namespace OnlyWorlds.Sdk
         /// <summary>
         /// The kept elements as <c>show</c> makes them, one per id in <see cref="Kept"/>: <c>full</c> (the body as this
         /// reader is served it, links to what it cannot see left out), <c>first_line</c> (<c>id</c>, <c>type</c>,
-        /// <c>name</c>, <c>description</c> up to its first line break) or <c>name</c> (<c>id</c>, <c>type</c>,
-        /// <c>name</c>); a kept anchor with a note carries it as <c>note</c>.
+        /// <c>name</c>, <c>supertype</c> and <c>subtype</c> where the body holds them, <c>description</c> up to its first
+        /// line break) or <c>name</c> (<c>id</c>, <c>type</c>, <c>name</c>, <c>supertype</c> and <c>subtype</c> where the
+        /// body holds them); a kept anchor with a note carries it as <c>note</c>. A short row carries <c>supertype</c>
+        /// and <c>subtype</c> each only when the served body holds it as a string with something left after trimming
+        /// White_Space, and carries it as stored, untrimmed (the lens profile, schema-dist serial 114).
         /// </summary>
         public IReadOnlyList<JObject> Rows { get; }
 
@@ -908,6 +911,8 @@ namespace OnlyWorlds.Sdk
 
         private static readonly char[] LineBreaks = { '\r', '\n' };
 
+        private static readonly string[] ShortRowKinds = { "supertype", "subtype" };
+
         /// <summary>
         /// A kept element as <c>show</c> makes it, from the body this reader is served, with its note when it is one of
         /// the lens's <paramref name="anchors"/> (a note on any other id is ignored, and counted in <c>notes_ignored</c>).
@@ -924,6 +929,13 @@ namespace OnlyWorlds.Sdk
                     ["type"] = Copy(body["type"]),
                     ["name"] = Copy(body["name"]),
                 };
+                // Serial 114: supertype and subtype where the served body holds one as a string with something left
+                // after trimming White_Space, carried as stored (never trimmed); anything else gives no key.
+                foreach (var key in ShortRowKinds)
+                {
+                    if (StringOf(body[key]) is string kind && OWProfileText.TrimWhiteSpace(kind).Length > 0) row[key] = kind;
+                }
+
                 // Up to the first line break, CR or LF; a body with no string description has none in its row.
                 if (r.Show == "first_line" && StringOf(body["description"]) is string description)
                 {

@@ -18,8 +18,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </summary>
     public class OWRoomTests
     {
-        /// <summary>The fixture's sha256 as dist.113's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "c445d38f03a7a61c8ca849e136fb1f498b39bc97afcb4c7efd84bd43213b16e9";
+        /// <summary>The fixture's sha256 as dist.114's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "7a6cb0899060b95e40f87d9d3e34d3ab57b5212486d92c90654e030f001105cd";
 
         private const string World = "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e0f";
 
@@ -69,7 +69,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.113's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.114's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]

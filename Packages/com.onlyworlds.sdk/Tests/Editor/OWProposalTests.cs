@@ -584,8 +584,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         private static string Chars(params int[] codePoints) => new string(codePoints.Select(c => (char)c).ToArray());
 
         /// <summary>
-        /// The packages' 24 review cases (the TypeScript SDK's <c>test/review.test.mjs</c>, 4.102.1, and the Python
-        /// package's <c>tests/test_review.py</c>, 0.84.1, the same names in the same order): the mark (null: no key),
+        /// The packages' 26 review cases (the TypeScript SDK's <c>test/review.test.mjs</c>, 4.102.1, and the Python
+        /// package's <c>tests/test_review.py</c>, 0.84.1, the same names in the same order; the two of the review
+        /// profile's rule 5, schema-dist serial 114, from the TypeScript SDK 4.151.0): the mark (null: no key),
         /// whether <c>proposedMarkOf</c> shows a mark (<see cref="OWPayload.IsProposed"/>), and whether
         /// <c>handsOnAsProposed</c> leaves the element out (<see cref="OWPayload.IsProposedOrInDoubt"/>). This SDK reads
         /// no mark's <c>by</c>, <c>expires</c> or lapse from an element, so only those two answers are held.
@@ -603,6 +604,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("zero: a value, a doubt", () => 0, false, true),
             ("an empty object: an empty mark, settled", () => new JObject(), false, false),
             ("an object with no key the profile names: present, a mark", () => JObject.Parse(@"{""x"":null}"), true, true),
+            ("rule 5: only a key the table does not name ({\"note\": \"x\"}), a mark that never lapses", () => JObject.Parse(@"{""note"":""x""}"), true, true),
+            ("rule 5: a named key whose value is null ({\"by\": null}), a mark, no proposer named", () => JObject.Parse(@"{""by"":null}"), true, true),
             ("a whole mark, open", () => JObject.Parse(@"{""by"":""m1"",""evidence"":""seen"",""expires"":""2026-11-01""}"), true, true),
             ("trimmed by and expires", () => JObject.Parse(@"{""by"":""  m1 "",""expires"":"" 2026-11-01 ""}"), true, true),
             ("lapses on its own day", () => JObject.Parse(@"{""by"":""m1"",""expires"":""2026-10-26""}"), true, true),
@@ -622,7 +625,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             PackageCases.Select(c => new TestCaseData(c.What).SetName("Review_" + c.What));
 
         [Test]
-        public void ThePackagesReviewCases_AreTwentyFour() => Assert.AreEqual(24, PackageCases.Length);
+        public void ThePackagesReviewCases_AreTwentySix() => Assert.AreEqual(26, PackageCases.Length);
 
         [TestCaseSource(nameof(PackageCaseNames))]
         public void ThePackagesReviewCase_ReadsAsTheyReadIt(string what)

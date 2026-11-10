@@ -10,17 +10,18 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// The views table and its fixture (schema-dist <c>views.json</c> and <c>views.fixture.json</c>, at the dist's root
-    /// since serial 113, vendored byte for byte in <c>Tests/Editor/Fixtures/views/</c>): the baked table is the file,
-    /// every case gives its row, its sentence and its banners through <see cref="OWViews.ViewOf"/>, and the fixture's
-    /// cites name fields their rows name and their types have. The cites' quotes are checked at their lines by
-    /// <c>codegen/generate_views.py</c>, which has the profile pages; the package does not carry them. The tests beside
-    /// the fixture are the TypeScript SDK's (test/views.test.mjs, 4.147.0), then this SDK's own for the two readings
-    /// the file leaves open and the one where it reads narrower than npm.
+    /// since serial 113, vendored byte for byte in <c>Tests/Editor/Fixtures/views/</c>; version 2 since serial 114): the
+    /// baked table is the file, every case gives its row, its sentence, its banners and, where it names one, its order
+    /// through <see cref="OWViews.ViewOf"/> (a case that names a table of the fixture's own reads against that table),
+    /// and the fixture's cites name fields their rows name and their types have. The cites' quotes are checked at their
+    /// lines by <c>codegen/generate_views.py</c>, which has the profile pages; the package does not carry them. The
+    /// tests beside the fixture are the TypeScript SDK's (test/views.test.mjs, 4.151.0), then this SDK's own vectors
+    /// for the readings version 2 states.
     /// </summary>
     public class OWViewsTests
     {
-        /// <summary>The fixture's sha256 as dist.113's MANIFEST.json records it.</summary>
-        private const string FixtureSha256 = "61543b9d39a0dcfc300da40b07ed593ec5e2b815dc3cff1e874f2556c8aa5472";
+        /// <summary>The fixture's sha256 as dist.114's MANIFEST.json records it.</summary>
+        private const string FixtureSha256 = "229348e116cfa842e1ce61549f34d86341cffc92c7c9046b9579b8754dbe9867";
 
         private const string World = "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e0f";
 
@@ -71,12 +72,41 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             }
         }
 
-        private static JObject Answer(OWView v) => new JObject
+        /// <summary>The answer as a case writes it: <c>order</c> only where the case gives one (the fixture's first note).</summary>
+        private static JObject Answer(OWView v, bool withOrder)
         {
-            ["row"] = v.Row == null ? JValue.CreateNull() : new JValue(v.Row.Id),
-            ["sentence"] = v.Sentence == null ? JValue.CreateNull() : new JValue(v.Sentence),
-            ["banners"] = new JArray(v.Banners),
-        };
+            var answer = new JObject
+            {
+                ["row"] = v.Row == null ? JValue.CreateNull() : new JValue(v.Row.Id),
+                ["sentence"] = v.Sentence == null ? JValue.CreateNull() : new JValue(v.Sentence),
+                ["banners"] = new JArray(v.Banners),
+            };
+            if (withOrder) answer["order"] = new JArray(v.Order);
+            return answer;
+        }
+
+        /// <summary>
+        /// A table of the fixture's own (its <c>tables</c>), built past the codegen's checks: <c>two-rows-one-kind</c>
+        /// is at fault on purpose. Only the keys its rows carry are read; a pair row is a profile and its pair.
+        /// </summary>
+        private static (IReadOnlyList<OWViewBanner> Banners, IReadOnlyList<OWViewRow> Rows) TableOf(string name)
+        {
+            var t = (JObject)Fixture["tables"][name];
+            Assert.IsNotNull(t, "the fixture holds no table " + name);
+            var banners = t["banners"].Select(b => new OWViewBanner((string)b["mark"], (string)b["defined_by"])).ToList();
+            var rows = t["rows"].Cast<JObject>().Select(r =>
+            {
+                var kind = (JObject)r["kind"];
+                var k = kind["profile"] != null
+                    ? OWViewKind.OfProfile((string)kind["profile"], (string)kind["pair"])
+                    : OWViewKind.OfType((string)kind["type"], (string)kind["supertype"]);
+                var folds = (r["fold"] ?? new JArray()).Select(f => new OWViewFold((string)f["field"], (string)f["label"])).ToArray();
+                return new OWViewRow((string)r["id"], k, (string)r["from"] ?? "the fixture's table",
+                    Strings(r["sentence"]).ToArray(), Strings(r["lead"]).ToArray(), folds,
+                    new OWViewLayout((string)r["layout"]["name"], (string)r["layout"]["by"]), Strings(r["banner"]).ToArray());
+            }).ToList();
+            return (banners, rows);
+        }
 
         private static List<string> Strings(JToken token) =>
             token == null ? new List<string>() : token.Select(t => (string)t).ToList();
@@ -87,7 +117,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsNotNull(Fixture, "the vendored views fixture was not found");
             Assert.IsNotNull(TheFile, "the vendored views.json was not found");
             Assert.AreEqual(FixtureSha256, Sha("views.fixture.json"),
-                "the vendored fixture is not dist.113's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.114's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
             Assert.AreEqual(OWViews.Sha256, Sha("views.json"),
                 "the vendored views.json is not the one OWViews.Table.cs was baked from: regenerate with codegen/generate_views.py");
         }
@@ -97,8 +127,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             var file = TheFile;
             Assert.IsNotNull(file, "the vendored views.json was not found");
-            Assert.AreEqual(1, (int)file["_meta"]["version"]);
-            Assert.AreEqual(1, OWViews.Version);
+            Assert.AreEqual(2, (int)file["_meta"]["version"]);
+            Assert.AreEqual(2, OWViews.Version);
 
             CollectionAssert.AreEqual(file["banners"].Select(b => ((string)b["mark"], (string)b["defined_by"])).ToList(),
                 OWViews.Banners.Select(b => (b.Mark, b.DefinedBy)).ToList());
@@ -143,24 +173,37 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
-        public void TheFixture_HoldsDist113sCases_AndEveryRowIsReached()
+        public void TheFixture_HoldsDist114sCases_AndEveryRowIsReached()
         {
             Assert.IsNotNull(Fixture, "the vendored views fixture was not found");
             Assert.AreEqual("views.json", (string)Fixture["views"]);
             var cases = Fixture["cases"].Cast<JObject>().ToList();
-            Assert.GreaterOrEqual(cases.Count, 28, "dist.113's fixture holds 28 cases");
-            var seen = new HashSet<string>(cases.Select(c => OWViews.ViewOf(c["element"]).Row?.Id).Where(id => id != null));
+            Assert.GreaterOrEqual(cases.Count, 41, "dist.114's fixture holds 41 cases");
+            var own = cases.Where(c => c["table"] == null).ToList();
+            Assert.GreaterOrEqual(own.Count(c => c["expect"]["order"] != null), 2, "a case per layout names the order drawn");
+            Assert.Greater(cases.Count - own.Count, 0, "the fixture holds a case with a table of its own");
+            var seen = new HashSet<string>(own.Select(c => OWViews.ViewOf(c["element"]).Row?.Id).Where(id => id != null));
             foreach (var r in OWViews.Rows) Assert.IsTrue(seen.Contains(r.Id), "no case reaches the row " + r.Id);
         }
 
         [TestCaseSource(nameof(Cases))]
-        public void EveryCase_GivesItsRowItsSentenceAndItsBanners(string name)
+        public void EveryCase_GivesItsRowItsSentenceItsBannersAndItsOrder(string name)
         {
             Assert.IsNotNull(Fixture, "the vendored views fixture was not found");
             var c = Fixture["cases"].Cast<JObject>().Single(x => (string)x["name"] == name);
-            var got = OWViews.ViewOf(c["element"]);
             var want = (JObject)c["expect"];
-            Assert.IsTrue(JToken.DeepEquals(want, Answer(got)), $"case {name}: want {want}, got {Answer(got)}");
+            var withOrder = want["order"] != null;
+            if (c["table"] != null)
+            {
+                var (banners, rows) = TableOf((string)c["table"]);
+                var fromTable = OWViews.ViewOf(c["element"], banners, rows);
+                Assert.IsTrue(JToken.DeepEquals(want, Answer(fromTable, withOrder)),
+                    $"case {name}: want {want}, got {Answer(fromTable, withOrder)}");
+                return;
+            }
+
+            var got = OWViews.ViewOf(c["element"]);
+            Assert.IsTrue(JToken.DeepEquals(want, Answer(got, withOrder)), $"case {name}: want {want}, got {Answer(got, withOrder)}");
             if (got.Row != null)
                 Assert.AreSame(OWViews.Rows.Single(r => r.Id == got.Row.Id), got.Row, "the row is the table's own row");
         }
@@ -209,6 +252,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 Assert.IsNull(v.Row, bad?.ToString() ?? "null");
                 Assert.IsNull(v.Sentence);
                 CollectionAssert.IsEmpty(v.Banners);
+                CollectionAssert.IsEmpty(v.Order);
             }
         }
 
@@ -240,17 +284,16 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreNotSame(first.Banners, OWViews.ViewOf(el).Banners);
         }
 
-        // -- Where the file is silent or narrower than npm -------------------------
+        // -- This SDK's vectors for what version 2 states ---------------------------
 
         private static OWViewRow Row(string id, OWViewKind kind, params string[] banner) =>
             new OWViewRow(id, kind, "a test", new[] { "story" }, Array.Empty<string>(), Array.Empty<OWViewFold>(),
                 new OWViewLayout("document", null), banner);
 
         /// <summary>
-        /// Undefined by the file, npm's choice: the file says a row's own <c>banner</c> "adds to" the table's, and not
-        /// how its mark is read as present. The TypeScript SDK 4.147.0 (<c>src/views.ts</c>, <c>carries</c>) reads it
-        /// by presence as the room profile reads its mark: present and not null, a string only when something is left
-        /// after trimming White_Space, any other value a mark.
+        /// The file's words (version 2's <c>banners</c> sentence): a row's own <c>banner</c> marks are "each read by
+        /// presence as the room profile reads a mark: not null, a string only when something is left after trimming,
+        /// any other value counts". Version 1 left it open; the TypeScript SDK read it so from 4.147.0.
         /// </summary>
         [TestCase("\"" + World + "\"", true)]
         [TestCase("\"  \"", false)]
@@ -259,7 +302,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [TestCase("false", true)]
         [TestCase("{}", true)]
         [TestCase("null", false)]
-        public void ARowsOwnBannerMark_IsReadByPresence_UndefinedByTheFile_NpmsChoice(string json, bool shown)
+        public void ARowsOwnBannerMark_IsReadByPresence_TheFilesWords(string json, bool shown)
         {
             var rows = new[] { Row("noted", OWViewKind.OfType("character", null), "x_note") };
             var el = new JObject { ["type"] = "character", ["x_note"] = JToken.Parse(json) };
@@ -271,14 +314,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         /// <summary>
-        /// Undefined by the file, npm's choice: the file ranks the rungs and says no two rows hold one kind, but not
-        /// which wins when two rows tie on one rung. Under the file's own rows no element can match two (a kind is
-        /// its folded type and supertype, or a profile's pair, and the codegen refuses two rows of one kind), so the
-        /// tie is built here past that check. The TypeScript SDK 4.147.0 keeps the first row in the table's order
-        /// (<c>viewOf</c>: a later row must score higher to win), and so does this.
+        /// The file's words (version 2's <c>match</c> sentence): two rows on one kind are a fault "refused where it is
+        /// built", and "a reader drawing a page never refuses over the table: where two rows match on one rung, the
+        /// first in the file wins". Under the file's own rows no element can match two, so the tie is built here past
+        /// the codegen's check; the fixture's <c>faulty-table-first-row-wins</c> holds the same with its own table.
         /// </summary>
         [Test]
-        public void ATieOnOneRung_TheFirstRowWins_UndefinedByTheFile_NpmsChoice()
+        public void ATieOnOneRung_TheFirstRowWins_TheFilesWords()
         {
             var el = new JObject { ["type"] = "narrative", ["supertype"] = "Message", ["story"] = "Hi." };
             var a = Row("first", OWViewKind.OfType("narrative", "Message"));
@@ -292,14 +334,16 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         /// <summary>
-        /// The file's words, narrower than npm: <c>x_served_trimmed</c> shows "only when it names a field". The
-        /// TypeScript SDK 4.147.0 shows it for any non-empty list; this shows it for a list holding a non-empty string,
-        /// so a list of only <c>""</c>, a number or null names nothing. The fixture's empty list is no banner in both.
+        /// The file's words (version 2's <c>banners</c> sentence): <c>x_served_trimmed</c> shows "only when it names a
+        /// field (its list holds at least one string with something left after trimming: a list of blanks shows no
+        /// banner)". The TypeScript SDK reads the same from 4.151.0.
         /// </summary>
         [TestCase("[\"characters\"]", true)]
         [TestCase("[\"narrator\", \"characters\"]", true)]
+        [TestCase("[\" \", \"characters\"]", true)]
         [TestCase("[]", false)]
         [TestCase("[\"\"]", false)]
+        [TestCase("[\" \\t\", \"\\u3000\"]", false)]
         [TestCase("[42]", false)]
         [TestCase("[null]", false)]
         [TestCase("\"characters\"", false)]
@@ -307,6 +351,59 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             var el = new JObject { ["type"] = "narrative", ["supertype"] = "Message", ["story"] = "Hi.", ["x_served_trimmed"] = JToken.Parse(json) };
             CollectionAssert.AreEqual(shown ? new[] { "x_served_trimmed" } : Array.Empty<string>(), OWViews.ViewOf(el).Banners, json);
+        }
+
+        /// <summary>
+        /// The order's section fields are the walk's: for every type they are <see cref="OWElementTypes.FieldNames"/>
+        /// (the models' generation, the same walk) in the same order, but for the Pin, whose generic link the schema
+        /// lists once as <c>element</c> and a body carries as <c>element_type</c> and <c>element_id</c>.
+        /// </summary>
+        [Test]
+        public void TheSectionFields_AreTheWalksInItsOrder_ThePinsGenericLinkAsTheSchemaListsIt()
+        {
+            CollectionAssert.AreEquivalent(OWElementTypes.Slugs, OWViews.SectionFields.Keys);
+            foreach (var slug in OWElementTypes.Slugs)
+            {
+                var models = OWElementTypes.FieldNames[slug];
+                var want = slug == "pin"
+                    ? models.Where(f => f != "element_id").Select(f => f == "element_type" ? "element" : f).ToArray()
+                    : models;
+                CollectionAssert.AreEqual(want, OWViews.SectionFields[slug], slug);
+            }
+        }
+
+        /// <summary>
+        /// The file names the schema's fields as listed, and a Pin's is <c>element</c>, which no served body holds: it
+        /// carries <c>element_type</c> and <c>element_id</c>. So a Pin's page draws no element, as the TypeScript SDK
+        /// 4.151.0 reads it (<c>ELEMENT_SECTIONS.pin</c> names <c>element</c>). The file does not say otherwise.
+        /// </summary>
+        [Test]
+        public void APinsGenericLink_IsNoFieldItsBodyHolds_SoItsPageDrawsNoElement()
+        {
+            var pin = new JObject
+            {
+                ["type"] = "pin", ["name"] = "The ferry", ["map"] = "m1", ["element_type"] = "location", ["element_id"] = "l1",
+                ["x"] = 0, ["y"] = 12,
+            };
+            CollectionAssert.AreEqual(new[] { "map", "x", "y" }, OWViews.ViewOf(pin).Order);
+        }
+
+        /// <summary>
+        /// What holds something, field by field, beside the fixture's cases: a number (zero too) and a boolean (false
+        /// too) hold it; a list of blank strings holds something here, whatever a banner reads of one; White_Space alone
+        /// (U+3000 too) and an object with no keys hold nothing. The type is folded as the room profile folds it.
+        /// </summary>
+        [Test]
+        public void AFieldHoldsSomething_ByTheFilesTest()
+        {
+            var el = new JObject
+            {
+                ["type"] = " Character ", ["physicality"] = "　 ", ["mentality"] = new JArray(" "), ["height"] = 0,
+                ["weight"] = false, ["species"] = new JArray(), ["background"] = new JObject(), ["motivations"] = new JObject { ["a"] = 1 },
+                ["birthplace"] = JValue.CreateNull(), ["x_note"] = "an extension key is in no order", ["name"] = "Sol",
+                ["description"] = "a base field is the page's head",
+            };
+            CollectionAssert.AreEqual(new[] { "mentality", "height", "weight", "motivations" }, OWViews.ViewOf(el).Order);
         }
     }
 }
