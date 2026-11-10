@@ -6,8 +6,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
-The map-space profile's layout reading. Parity with the TypeScript SDK 4.142.0 (`layoutOf`) and the Python package
-0.110.0 (`layout_of`), their test vectors ported.
+## [0.38.0] - 2026-11-10
+
+The map-space profile's layout reading, on schema-dist serial 111. Parity with the TypeScript SDK 4.142.0 (`layoutOf`)
+and the Python package 0.110.0 (`layout_of`), their test vectors ported, and with the TypeScript SDK 4.144.0 for
+`OWAiUse.CanPay`. A minor release because it adds public API (below).
 
 ### Added
 
