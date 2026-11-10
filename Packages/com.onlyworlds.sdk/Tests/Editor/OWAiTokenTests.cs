@@ -160,6 +160,29 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsFalse(p.Pending, "the code is spent: the exchange answered");
         }
 
+        // The TypeScript SDK's 4.141.0 vector: the 422 keeps the field the server named (ai_uses, ai_lifetime_minutes),
+        // and none when it named none or an empty one. Read by name, so its absence is a red here, not a compile error.
+        [Test]
+        public void CompleteSignIn_TheServers422_KeepsTheParamItNamed()
+        {
+            var cases = new (string Sent, string Want)[] { ("\"ai_uses\"", "ai_uses"), ("\"ai_lifetime_minutes\"", "ai_lifetime_minutes"), (null, null), ("\"\"", null), ("null", null) };
+            foreach (var (sent, want) in cases)
+            {
+                var p = Begun();
+                var param = sent == null ? "" : @",""param"":" + sent;
+                var t = new FakeTransport
+                {
+                    Status = 422,
+                    ResponseBody = @"{""error"":{""type"":""invalid_request_error"",""code"":""invalid_request"",""message"":""refused""" + param + "}}",
+                };
+                var e = Assert.ThrowsAsync<OWSignInError>(() => Bare(t).CompleteSignInAsync(p, Back(p), aiUses: new[] { "nope" }), sent ?? "absent");
+                Assert.AreEqual((OWSignInReason.Failed, (int?)422, "invalid_request"), (e.Reason, e.Status, e.Code), sent ?? "absent");
+                var prop = typeof(OWSignInError).GetProperty("Param");
+                Assert.IsNotNull(prop, "OWSignInError has no Param");
+                Assert.AreEqual(want, prop.GetValue(e), sent ?? "absent");
+            }
+        }
+
         private const string Minted =
             @"{""id"":""t3"",""name"":""subs, AI uses"",""last4"":""abcd"",""last_used_at"":null,""revoked"":false,"
             + @"""expires_at"":""2026-11-10T00:00:00+00:00"",""keys_minted"":0,""audience"":""ai"",""ai_uses"":[""ask""],""token"":""ow_a_minted""}";

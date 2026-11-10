@@ -7,7 +7,7 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 ## [Unreleased]
 
 The AI door: one route a tool calls a model through, by a named use, with the token that opens only it. Parity with
-the TypeScript SDK 4.140.0, its test vectors ported.
+the TypeScript SDK 4.141.0, its test vectors ported.
 
 ### Added
 
@@ -34,6 +34,10 @@ the TypeScript SDK 4.140.0, its test vectors ported.
   answers, so a list the SDK can see is wrong (not 1 to 8 names, a name that is not one path segment, a lifetime
   outside 1 to 1440 minutes or without uses) is refused before anything is sent, and the sign-in stays pending. A name
   the server does not run is its 422, and the code is then spent.
+- **`OWSignInError.Param`: the field the server named when it refused the code exchange**, as on the TypeScript SDK's
+  `OwSignInError.param`: `ai_uses` or `ai_lifetime_minutes` on a 422 that refused the AI door token, null when the
+  answer named none. The error kept the status and code and dropped the field before, so that refusal could not be told
+  from any other 422.
 - **`OWClient.MintAiTokenAsync(uses, lifetimeMinutes, name)`: trade an account token down to an AI door token**
   (POST `/account/tokens` with `ai_uses`), answered as `OWMintedAiToken`, the token's row with the token once. It
   belongs to the token that minted it: revoking that one revokes it too. The uses are required, so a call without

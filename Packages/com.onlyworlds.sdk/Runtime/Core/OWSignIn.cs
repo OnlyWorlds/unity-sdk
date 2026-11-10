@@ -64,13 +64,21 @@ namespace OnlyWorlds.Sdk
         /// <summary>Seconds to wait before trying again, from <c>Retry-After</c>.</summary>
         public int? RetryAfter { get; }
 
-        public OWSignInError(string reason, string message, int? status = null, string code = null, int? retryAfter = null)
+        /// <summary>
+        /// The field the server's answer named, when it named one: <c>ai_uses</c> or <c>ai_lifetime_minutes</c> on a 422
+        /// that refused the AI door token asked in the exchange (the code is spent either way). Null otherwise.
+        /// </summary>
+        public string Param { get; }
+
+        public OWSignInError(string reason, string message, int? status = null, string code = null, int? retryAfter = null,
+            string param = null)
             : base(message)
         {
             Reason = reason;
             Status = status;
             Code = code;
             RetryAfter = retryAfter;
+            Param = param;
         }
     }
 

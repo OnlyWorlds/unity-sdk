@@ -2647,8 +2647,9 @@ namespace OnlyWorlds.Sdk
         /// </para>
         /// <para>
         /// The exchange spends its code whatever it answers, so the AI uses are checked before anything is sent and before
-        /// the pending sign-in is touched; a name the server does not run is its 422 (<c>failed</c>, status 422), and the
-        /// code is then spent. With the AI uses, the body adds <c>ai_uses</c> and, when given, <c>ai_lifetime_minutes</c>.
+        /// the pending sign-in is touched; a name the server does not run is its 422 (<c>failed</c>, status 422,
+        /// <see cref="OWSignInError.Param"/> <c>ai_uses</c>, or <c>ai_lifetime_minutes</c> for the lifetime), and the code
+        /// is then spent. With the AI uses, the body adds <c>ai_uses</c> and, when given, <c>ai_lifetime_minutes</c>.
         /// The options come after <paramref name="ct"/>, so a caller passing it by position keeps working.
         /// </para>
         /// </remarks>
@@ -2719,6 +2720,8 @@ namespace OnlyWorlds.Sdk
             var answer = JsonObjectOrNull(res.Body);
             var err = answer?["error"] as JObject;
             var errCode = err?["code"]?.Type == JTokenType.String ? (string)err["code"] : null;
+            // The field a refusal named (ai_uses, ai_lifetime_minutes on a 422 for the AI door token), as npm 4.141.0 keeps it.
+            var errParam = err?["param"]?.Type == JTokenType.String && (string)err["param"] != "" ? (string)err["param"] : null;
             var said = err?["message"]?.Type == JTokenType.String ? (string)err["message"] : null;
 
             // keel's words, unless they hold the code or the verifier.
@@ -2726,18 +2729,19 @@ namespace OnlyWorlds.Sdk
                 => said == null || said.Contains(code) || said.Contains(pending.Verifier) ? fallback : said;
 
             if (errCode != null && (errCode.Contains(code) || errCode.Contains(pending.Verifier))) errCode = null;
+            if (errParam != null && (errParam.Contains(code) || errParam.Contains(pending.Verifier))) errParam = null;
 
             if (res.Status == 429)
             {
                 throw new OWSignInError(OWSignInReason.RateLimited, Words("Too many sign-in attempts. Wait a while, then try again."),
-                    429, errCode, retryAfter);
+                    429, errCode, retryAfter, errParam);
             }
 
             if (res.Status == 400 && errCode == "invalid_grant")
             {
                 throw new OWSignInError(OWSignInReason.InvalidGrant,
                     Words("The sign-in code could not be exchanged: it was used, expired, or made for another tool. Start again."),
-                    400, errCode);
+                    400, errCode, param: errParam);
             }
 
             var token = answer?["token"] is JValue t && t.Type == JTokenType.String && (string)t != "" ? (string)t : null;
@@ -2746,7 +2750,7 @@ namespace OnlyWorlds.Sdk
             {
                 throw new OWSignInError(OWSignInReason.Failed,
                     token != null && said != null && said.Contains(token) ? $"Signing in did not work ({res.Status})." : Words($"Signing in did not work ({res.Status})."),
-                    res.Status, errCode);
+                    res.Status, errCode, param: errParam);
             }
 
             string NonEmpty(JToken v) => v?.Type == JTokenType.String && (string)v != "" ? (string)v : null;
@@ -3044,8 +3048,8 @@ namespace OnlyWorlds.Sdk
         /// <param name="ct">Cancels the request.</param>
         /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
         /// <remarks>
-        /// An account token, or an AI door token (<see cref="OWAiToken"/>), sent as its Bearer. Mirrors the TypeScript SDK's
-        /// <c>aiUses</c> (4.137.0).
+        /// An account token, or an AI door token (<see cref="OWAiToken"/>), sent as its Bearer; on an AI door token the list
+        /// holds only the uses that token names. Mirrors the TypeScript SDK's <c>aiUses</c> (4.137.0).
         /// </remarks>
         public async Task<List<OWAiUse>> AiUsesAsync(CancellationToken ct = default)
         {
