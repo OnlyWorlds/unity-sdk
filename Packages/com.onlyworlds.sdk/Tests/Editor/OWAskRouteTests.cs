@@ -5,6 +5,9 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 
+// AskAsync and SortAsync are deprecated in favour of AiAsync's ask and sort uses, and keep working: these tests hold them to it.
+#pragma warning disable CS0618
+
 namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>

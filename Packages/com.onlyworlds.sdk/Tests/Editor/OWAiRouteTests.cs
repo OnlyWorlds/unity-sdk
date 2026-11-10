@@ -331,6 +331,21 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsFalse(Read(new OWApiError((System.Net.HttpStatusCode)502, "m", code: "answer_not_parsed"), "IsAnswerNotParsed"));
         }
 
+        // 4.139.0: ask() and sort() deprecated in favour of ai('ask') and ai('sort'), as a warning that names the call to
+        // use instead, never an error, so a present caller keeps compiling (OWAskRouteTests holds that they keep working).
+        [Test]
+        public void AskAndSort_AreDeprecatedInFavourOfTheirUses_AsAWarning()
+        {
+            foreach (var (name, body) in new[] { ("AskAsync", "OWAiAskBody"), ("SortAsync", "OWAiSortBody") })
+            {
+                var obsolete = typeof(OWClient).GetMethod(name).GetCustomAttributes(typeof(ObsoleteAttribute), false)
+                    .Cast<ObsoleteAttribute>().SingleOrDefault();
+                Assert.IsNotNull(obsolete, $"{name} is not marked [Obsolete]");
+                Assert.IsFalse(obsolete.IsError, $"{name}: a warning, not an error");
+                StringAssert.StartsWith($"Use AiAsync(new {body} ", obsolete.Message, name);
+            }
+        }
+
         // This client's own reading of the two 429s (the TypeScript SDK has no IsRetryable): a ceiling lasts until
         // midnight UTC, as quota_exceeded does, while another call in flight clears in seconds.
         [Test]

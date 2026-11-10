@@ -269,13 +269,15 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             await account.RekeySeatAsync("w1", "s1");
             await account.RemoveSeatAsync("w1", "s1");
             // The AI routes: a question, notes of each shape (words, a picture, both) with a slice row anchored and one
-            // not, so each body key is checked, and the meter.
+            // not, so each body key is checked, and the meter. Ask and sort are deprecated and still judged: they keep working.
+#pragma warning disable CS0618
             await account.AskAsync("w1", "Who rules?", new[] { "Ostvik: a town." });
             await account.SortAsync("w1",
                 new[] { (OWSortNote)"Mira.", new OWSortNote { ImageUrl = "https://media.example.test/u/w1/n.png" },
                     new OWSortNote { Text = "Tor.", ImageUrl = "https://media.example.test/u/w1/t.png" } },
                 new[] { new OWSortRef { Id = "c1", Type = "character", Name = "Mira", Anchor = "the ferrywoman" },
                     new OWSortRef { Id = "l1", Type = "location", Name = "Ostvik" } });
+#pragma warning restore CS0618
             await account.AllowanceAsync();
             // The AI door: the uses, then a call of each typed use with its key, every body key given, and an open use's
             // body as its page in the document describes it.

@@ -161,8 +161,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("revoke account token", "DELETE", true, true, c => c.RevokeAccountTokenAsync("t1")),
             ("mint ai token", "POST", true, true, c => c.MintAiTokenAsync(new[] { "ask" })),
             // the AI routes, an account token's alone too
+#pragma warning disable CS0618 // deprecated, and still swept: they keep working
             ("ask", "POST", true, true, c => c.AskAsync("w1", "q", new[] { "x" })),
             ("sort", "POST", true, true, c => c.SortAsync("w1", new OWSortNote[] { "x" }, new OWSortRef[0])),
+#pragma warning restore CS0618
             ("allowance", "GET", false, true, c => c.AllowanceAsync()),
             ("ai uses", "GET", false, true, c => c.AiUsesAsync()),
             ("ai", "POST", true, true, c => c.AiAsync("ask", new JObject { ["world_id"] = "w1", ["question"] = "q", ["context"] = new JArray("x") })),
