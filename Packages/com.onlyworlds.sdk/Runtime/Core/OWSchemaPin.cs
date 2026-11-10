@@ -271,7 +271,7 @@ namespace OnlyWorlds.Sdk
         /// <para>
         /// <b>112 -> 113 (2026-11-10)</b>: canonical unchanged, no schema file moved. Two presentation files are new at
         /// the root, <c>views.json</c> (how a report, a charter, a message and a room's line are shown) and its fixture;
-        /// this SDK vendors them and has no reader of them. The room page says its pairs' order carries no meaning (no
+        /// <see cref="OWViews"/> reads them (the table baked by <c>codegen/generate_views.py</c>). The room page says its pairs' order carries no meaning (no
         /// pair or case moved); the report page's example and one checks case's description changed in words only. The
         /// generated models changed in their serial stamp only.
         /// </para>
