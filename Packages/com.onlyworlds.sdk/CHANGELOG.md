@@ -6,6 +6,58 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+The AI door: one route a tool calls a model through, by a named use, with the token that opens only it. Parity with
+the TypeScript SDK 4.140.0, its test vectors ported.
+
+### Added
+
+- **`OWClient.AiUsesAsync()`: the AI uses onlyworlds.com runs** (GET `/account/ai`), each an `OWAiUse`: its slug,
+  owner, provider (`OWAiProvider`: `anthropic` or `jev`), model and effort, the hash of its system prompt, what its
+  body may hold, its answer cap, the rating a call needs left today to run (`RatingNeed`), its price, its daily
+  ceiling, this account's calls left today, and whether it is on. Reading it spends nothing.
+- **`OWClient.AiAsync(use, body, idempotencyKey)`: one call of a listed use** (POST `/account/ai/{use}`), metered on
+  the account's token rating and then its own saved AI key, as `AskAsync` and `SortAsync` are. The body is the use's
+  own `JObject`, in its wire spelling, sent as given, and the answer is the use's own, as served (`OWAiAnswer.Answer`).
+  The `ask` and `sort` uses are typed: `AiAsync(OWAiAskBody)` answers `OWAiAskAnswer`, `AiAsync(OWAiSortBody)`
+  answers `OWAiSortAnswer`. Every answer adds `UseRemaining` (null when the use has no daily ceiling) and `WasReplay`,
+  read from the `Idempotent-Replay` header. The client's name goes as `X-OW-Client`. The use is checked as one path
+  segment and the key as 1 to 200 characters before anything is sent.
+- **With an idempotency key, a retry is safe**: the same key and body answer the first answer again and bill nothing,
+  and so does a refusal the provider billed (`answer_not_parsed`, or a 502 after a billed answer). A key whose first
+  call is still running answers 409 `idempotency_in_flight`: retry with the same key and body a few times at most,
+  and never mint a new key to get past it. The client never retries on its own.
+- **An AI door token at sign-in**: `CompleteSignInAsync(pending, url, ct, aiUses, aiLifetimeMinutes)` asks the code
+  exchange for an `ow_a_` token that opens only `AiUsesAsync` and the uses it names, as the person and on their token
+  rating, until midnight UTC at the latest. It comes back as `OWSignInResult.AiToken` (`OWAiToken`) beside the account
+  token, and is null when none was asked or the server answered none. Both options come after the cancellation token
+  and are optional, so every present call compiles and sends what it sent. The exchange spends its code whatever it
+  answers, so a list the SDK can see is wrong (not 1 to 8 names, a name that is not one path segment, a lifetime
+  outside 1 to 1440 minutes or without uses) is refused before anything is sent, and the sign-in stays pending. A name
+  the server does not run is its 422, and the code is then spent.
+- **`OWClient.MintAiTokenAsync(uses, lifetimeMinutes, name)`: trade an account token down to an AI door token**
+  (POST `/account/tokens` with `ai_uses`), answered as `OWMintedAiToken`, the token's row with the token once. It
+  belongs to the token that minted it: revoking that one revokes it too. The uses are required, so a call without
+  them never reaches the route that would mint a full account token.
+- **`OWAccountToken.AiUses`**, on an AI door token's row.
+- **Five refusals by name on `OWApiError`**: `IsUseCeiling` (429 `use_ceiling`: the use's calls for the day are
+  made), `IsUseInFlight` (429 `use_in_flight`: another call to this use is running; wait `RetryAfter`),
+  `IsUseNotGranted` (403 `use_not_granted`: an AI door token called a use it does not name), `IsWrongAudience` (401
+  `wrong_audience`: a token on a route it does not open) and `IsAnswerNotParsed` (422 `answer_not_parsed`: the use's
+  model answered off its promised shape twice, billed to the use's own budget; do not retry). `IsRetryable` reads
+  `use_ceiling` as it reads `quota_exceeded`: not before midnight UTC.
+
+### Changed
+
+- **An error whose envelope says `"param": null` reads `OWApiError.Param` as null**, as the TypeScript SDK reads it;
+  it read as an empty string before. The same for `Message`, `Type`, `Code` and `DocUrl` when the server sends null.
+
+### Deprecated
+
+- **`AskAsync` and `SortAsync`, in favour of `AiAsync(OWAiAskBody)` and `AiAsync(OWAiSortBody)`**: the same answers,
+  with the use's meter (`UseRemaining`) and an idempotency key, under which a retry is answered from the first call and
+  billed nothing. Both are marked `[Obsolete]` as a warning, not an error, and keep working, unchanged, on their own
+  routes.
+
 ## [0.36.0] - 2026-11-09
 
 The calendar held to the TypeScript SDK's own answers: `OWCalendar` replays its recorded labels, parses, durations,
