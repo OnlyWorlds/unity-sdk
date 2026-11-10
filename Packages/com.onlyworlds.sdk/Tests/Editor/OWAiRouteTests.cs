@@ -24,7 +24,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             @"{""slug"":""ask"",""owner"":""lantern"",""provider"":""anthropic"",""model"":""claude-haiku-5-5"",""effort"":""low"","
             + @"""prompt_sha256"":""aaaa"",""needs_world"":true,""input_caps"":{""question"":500,""context"":12000},"
             + @"""output_cap"":600,""rating_need"":5505,""structured"":false,""price_tokens"":null,""ceiling"":null,"
-            + @"""calls_left"":null,""on"":true}";
+            + @"""calls_left"":null,""on"":true,""can_pay"":true}";
 
         private const string Meter =
             @"""model"":""claude-haiku-5-5"",""stop_reason"":""end_turn"",""usage"":{""input_tokens"":300,""output_tokens"":12},"
@@ -64,6 +64,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsNull(u.Ceiling);
             Assert.IsNull(u.CallsLeft);
             Assert.IsTrue(u.On);
+            Assert.IsTrue(u.CanPay, "4.144.0's can_pay");
         }
 
         // A use with a price and a ceiling reads its numbers; a provider a later server adds reads as itself.

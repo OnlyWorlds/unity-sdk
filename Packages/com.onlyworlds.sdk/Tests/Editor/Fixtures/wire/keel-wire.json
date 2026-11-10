@@ -5,7 +5,7 @@
     "X-Session-Token",
     "Authorization"
   ],
-  "document_sha256": "5e2753047c7bc4fc01ceb6b5c896df2d045ea1abbfa480022eef11ae25f77afc",
+  "document_sha256": "e3132bc27e6f780a1e75f620f8011378fc91a082cb233708119193bc8be05425",
   "error_codes": {
     "already_member": 409,
     "already_reported": 409,
@@ -92,7 +92,7 @@
     "write_failed": 502,
     "wrong_audience": 401
   },
-  "fetched": "2026-11-10T02:31+01:00",
+  "fetched": "2026-11-10T04:39+01:00",
   "openapi_version": "2.0",
   "paths": {
     "/api/v2/ability": {
@@ -790,6 +790,7 @@
         "response": [
           "uses",
           "uses[].calls_left",
+          "uses[].can_pay",
           "uses[].ceiling",
           "uses[].effort",
           "uses[].input_caps",
@@ -822,6 +823,53 @@
         "response": [
           "answer",
           "model",
+          "paid_by",
+          "remaining",
+          "stop_reason",
+          "token_rating",
+          "tokens_remaining",
+          "usage",
+          "usage.input_tokens",
+          "usage.output_tokens",
+          "use_remaining"
+        ]
+      }
+    },
+    "/api/v2/account/ai/lens": {
+      "POST": {
+        "body": [
+          "sentence",
+          "world_id"
+        ],
+        "header": [
+          "Idempotency-Key",
+          "X-OW-Client"
+        ],
+        "query": [],
+        "response": [
+          "attempts",
+          "candidates",
+          "candidates[].id",
+          "candidates[].links",
+          "candidates[].name",
+          "candidates[].type",
+          "dropped",
+          "dropped.kinds",
+          "dropped.starts",
+          "dropped.window",
+          "model",
+          "model.form",
+          "model.kinds",
+          "model.says",
+          "model.starts",
+          "model.window",
+          "model_id",
+          "no_model",
+          "no_model.form",
+          "no_model.kinds",
+          "no_model.starts",
+          "no_model.window",
+          "page",
           "paid_by",
           "remaining",
           "stop_reason",

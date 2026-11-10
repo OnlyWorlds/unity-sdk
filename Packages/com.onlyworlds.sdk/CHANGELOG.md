@@ -28,6 +28,10 @@ The map-space profile's layout reading. Parity with the TypeScript SDK 4.142.0 (
   with no id, by `map_index` (positions in its elements), and the replay reads every row a case names. The two
   packages' vectors beyond the fixture are ported (code point order above U+FFFF, the row readings, a method or a
   ground that is not a string, settings never returned).
+- **`OWAiUse.CanPay`** (`can_pay` on `AiUsesAsync`'s rows), parity with the TypeScript SDK 4.144.0: true when a call
+  by this account would be paid now, by the same check the call runs (`On`, the server's daily cap, today's token
+  rating against `RatingNeed`, or a saved AI key that runs the use). Offer a use only when it is true. The server's
+  fifth use, `lens`, is reached through `AiAsync("lens", body)` and answers as served; it is not typed.
 
 ### Changed
 

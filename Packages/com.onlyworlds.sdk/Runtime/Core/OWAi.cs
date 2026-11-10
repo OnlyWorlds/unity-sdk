@@ -85,6 +85,15 @@ namespace OnlyWorlds.Sdk
         /// </summary>
         [JsonProperty("on")]
         public bool On;
+
+        /// <summary>
+        /// True when a call by this account would be paid now, by the same check the call runs: <see cref="On"/>, the
+        /// server's daily cap not reached, and today's token rating holding <see cref="RatingNeed"/> (or, with the rating
+        /// spent, a saved AI key that runs this use). Offer the use only when this is true. False when a server that does
+        /// not send it answers.
+        /// </summary>
+        [JsonProperty("can_pay")]
+        public bool CanPay;
     }
 
     /// <summary>The words of <see cref="OWAiUse.Provider"/> (npm's <c>OwAiUse.provider</c>).</summary>
