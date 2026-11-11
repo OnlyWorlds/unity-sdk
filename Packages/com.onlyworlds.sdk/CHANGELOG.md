@@ -9,22 +9,26 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 ### Added
 
 - **`OWViews.ViewOf(element)`: how an element is shown by its kind**, from the distribution's new `views.json`
-  (schema-dist serial 113 on; the file's version 2 from serial 114), parity with the TypeScript SDK 4.151.0 (`viewOf`,
-  `VIEWS`). Presentation, as the colour groups are, not part of the standard. The answer is an `OWView`: `Row`, the
+  (schema-dist serial 113 on; the file's version 3 from serial 115), parity with the TypeScript SDK 4.151.0 (`viewOf`,
+  `VIEWS`) for version 2, and version 3's generic link built to the file's words and its fixture (no package had
+  published a version-3 reader). Presentation, as the colour groups are, not part of the standard. The answer is an `OWView`: `Row`, the
   row that matches (an `OWViewRow`: its kind, the fields that give the one sentence, what leads, what folds under
   which label, the layout, its own banner marks), or null when the element draws as its type does; `Sentence`, the
   one sentence a card, a list row or a hover shows (the first named field holding text, trimmed, cut at its first line
   break, U+000A or U+000D, and trimmed again); `Banners`, the marks to show at the head of its page, in the file's
   order; `Order`, the fields its page draws, in the order drawn (the row's lead, then the type's other section fields
-  in the schema's own order, then its folds; each field once, and only a field that holds something). A row matches by
+  in the schema's own order, then its folds; each field once, and only a field that holds something; a generic link,
+  a Pin's `element`, is one field at its place, holding something only when both its keys, `element_type` and
+  `element_id`, are strings with something left after trimming). A row matches by
   its kind: a profile's pair only with that profile's mark, by `OWRoom.IsRoomElement` or `OWRoom.IsCharterElement`,
   then a type with a supertype, then a type alone, trimmed and folded as the room profile defines; the most specific
   row wins, and of two rows on one rung the first in the table. Today's rows are a report, a charter, a message and a
   line in a room. `OWViews.Banners`, `Layouts` and `Rows` are the table, baked at codegen
   (`codegen/generate_views.py`, which refuses a file of another version, one that names a field its type lacks, a pair
   its profile's reader does not match, a layout it does not define, two rows of one kind, or a cite whose quote is not
-  at its line). The fixture's 41 cases pass, two of them against tables of the fixture's own, and its 10 cites name
-  fields their rows name and their types have.
+  at its line; each type's generic links and their two keys are baked from the walk's `schema.json`). The fixture's 45
+  cases pass, two of them against tables of the fixture's own, and its 10 cites name fields their rows name and their
+  types have.
 - The banners read as version 2 of the file says: a review mark is an object with at least one key, whatever its
   keys; `x_served_trimmed` only when it names a field, a list holding a string with something left after trimming
   (a list of blanks shows none); a row's own banner mark by presence, as the room profile reads its mark.
@@ -37,6 +41,22 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
+- **A lens's `first_line` row carries the first line that holds something**: under `show` `first_line`,
+  `OWLens.Resolve`'s row carries as `description` the first line, the description split at every carriage return
+  and every line feed (no other character breaks a line), that holds something after trimming White_Space, as stored
+  with its own spaces; a description with no such line (empty, line breaks alone, White_Space alone) or one that is
+  not a string gives no `description`. Until now the row carried everything up to the first line break, so a
+  description starting with a line break gave an empty `description`, and one of White_Space alone was carried. The
+  lens profile's rule from schema-dist serial 115; the lens fixture's ten new cases pass (220 in all).
+- **The schema pin moves to `v0.34.0-dist.115`** (canonical `00.34.00` unchanged, no schema file moved). The lens
+  profile's first line above; `views.json` version 3 and its fixture (45 cases), read by `OWViews` above (a Pin's page
+  now draws its `element`). The charter page's proposed mark (an empty mark is settled) and a Domain's `sentence`
+  (trimmed, cut at the first line break, trimmed again) are how `OWCharter.CharterOf` already read them; the charter
+  fixture's four new cases pass (31 in all). The report page's keeper report in one write and its reporter by
+  `created_by`, the packet page's producer whose `version` is optional, and the folder lint's review warnings bind
+  readers or tools this SDK does not have (it reads no report or packet line; the folder lint is the vendored walk's).
+  The generated models changed in their serial stamp only; the charter, lens and views fixtures' test copies moved
+  with the pin.
 - **A lens's short rows carry `supertype` and `subtype`**: under `show` `first_line` or `name`, `OWLens.Resolve`'s
   rows now carry each of the two where the body the reader is served holds it as a string with something left after
   trimming White_Space, as stored (never trimmed); absent, null, blank and non-string values give no key. A known-of

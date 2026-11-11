@@ -415,7 +415,7 @@ namespace OnlyWorlds.Sdk
             return ids;
         }
 
-        /// <summary>The lens profile's <c>first_line</c>, as keel cuts a Domain's sentence: trimmed, up to the first line break, trimmed again.</summary>
+        /// <summary>A Domain's sentence, the charter profile's own words (serial 115), as keel cuts it: the description trimmed of White_Space, cut at its first line break (CR or LF), trimmed again; the empty string when nothing is left. Not the lens's <c>first_line</c>, which carries its line as stored.</summary>
         private static string SentenceOf(JObject body)
         {
             var text = StringOf(body["description"]);

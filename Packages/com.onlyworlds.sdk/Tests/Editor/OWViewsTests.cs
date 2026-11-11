@@ -10,7 +10,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// The views table and its fixture (schema-dist <c>views.json</c> and <c>views.fixture.json</c>, at the dist's root
-    /// since serial 113, vendored byte for byte in <c>Tests/Editor/Fixtures/views/</c>; version 2 since serial 114): the
+    /// since serial 113, vendored byte for byte in <c>Tests/Editor/Fixtures/views/</c>; version 3 since serial 115): the
     /// baked table is the file, every case gives its row, its sentence, its banners and, where it names one, its order
     /// through <see cref="OWViews.ViewOf"/> (a case that names a table of the fixture's own reads against that table),
     /// and the fixture's cites name fields their rows name and their types have. The cites' quotes are checked at their
@@ -20,8 +20,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </summary>
     public class OWViewsTests
     {
-        /// <summary>The fixture's sha256 as dist.114's MANIFEST.json records it.</summary>
-        private const string FixtureSha256 = "229348e116cfa842e1ce61549f34d86341cffc92c7c9046b9579b8754dbe9867";
+        /// <summary>The fixture's sha256 as dist.115's MANIFEST.json records it.</summary>
+        private const string FixtureSha256 = "2e18d362ed9eabda463ddfd4d098e00f5eb65f0da59e26a083dbe1099383cd9f";
 
         private const string World = "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e0f";
 
@@ -117,7 +117,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsNotNull(Fixture, "the vendored views fixture was not found");
             Assert.IsNotNull(TheFile, "the vendored views.json was not found");
             Assert.AreEqual(FixtureSha256, Sha("views.fixture.json"),
-                "the vendored fixture is not dist.114's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.115's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
             Assert.AreEqual(OWViews.Sha256, Sha("views.json"),
                 "the vendored views.json is not the one OWViews.Table.cs was baked from: regenerate with codegen/generate_views.py");
         }
@@ -127,8 +127,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             var file = TheFile;
             Assert.IsNotNull(file, "the vendored views.json was not found");
-            Assert.AreEqual(2, (int)file["_meta"]["version"]);
-            Assert.AreEqual(2, OWViews.Version);
+            Assert.AreEqual(3, (int)file["_meta"]["version"]);
+            Assert.AreEqual(3, OWViews.Version);
 
             CollectionAssert.AreEqual(file["banners"].Select(b => ((string)b["mark"], (string)b["defined_by"])).ToList(),
                 OWViews.Banners.Select(b => (b.Mark, b.DefinedBy)).ToList());
@@ -173,12 +173,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
-        public void TheFixture_HoldsDist114sCases_AndEveryRowIsReached()
+        public void TheFixture_HoldsDist115sCases_AndEveryRowIsReached()
         {
             Assert.IsNotNull(Fixture, "the vendored views fixture was not found");
             Assert.AreEqual("views.json", (string)Fixture["views"]);
             var cases = Fixture["cases"].Cast<JObject>().ToList();
-            Assert.GreaterOrEqual(cases.Count, 41, "dist.114's fixture holds 41 cases");
+            Assert.GreaterOrEqual(cases.Count, 45, "dist.115's fixture holds 45 cases");
             var own = cases.Where(c => c["table"] == null).ToList();
             Assert.GreaterOrEqual(own.Count(c => c["expect"]["order"] != null), 2, "a case per layout names the order drawn");
             Assert.Greater(cases.Count - own.Count, 0, "the fixture holds a case with a table of its own");
@@ -373,19 +373,39 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         /// <summary>
-        /// The file names the schema's fields as listed, and a Pin's is <c>element</c>, which no served body holds: it
-        /// carries <c>element_type</c> and <c>element_id</c>. So a Pin's page draws no element, as the TypeScript SDK
-        /// 4.151.0 reads it (<c>ELEMENT_SECTIONS.pin</c> names <c>element</c>). The file does not say otherwise.
+        /// Version 3's document layout: a generic link (a Pin's <c>element</c>) is one field of the order, under its
+        /// schema name and at its place, read as the two keys the walk gives it, never as two entries. It holds
+        /// something only when both are strings with something left after trimming White_Space (U+3000 too). A body's
+        /// own <c>element</c> key is not one of the two and is never read; a non-string key holds nothing. (At serial
+        /// 114 this test pinned the opposite: no served body holds <c>element</c>, so a Pin's page drew none.)
         /// </summary>
         [Test]
-        public void APinsGenericLink_IsNoFieldItsBodyHolds_SoItsPageDrawsNoElement()
+        public void APinsGenericLink_IsOneFieldAtItsPlace_ReadByItsTwoKeys()
         {
-            var pin = new JObject
+            JObject Pin(JToken type, JToken id) => new JObject
             {
-                ["type"] = "pin", ["name"] = "The ferry", ["map"] = "m1", ["element_type"] = "location", ["element_id"] = "l1",
-                ["x"] = 0, ["y"] = 12,
+                ["type"] = "pin", ["name"] = "The ferry", ["map"] = "m1", ["element_type"] = type, ["element_id"] = id,
+                ["x"] = 0, ["y"] = 12, ["z"] = 3,
             };
-            CollectionAssert.AreEqual(new[] { "map", "x", "y" }, OWViews.ViewOf(pin).Order);
+            CollectionAssert.AreEqual(new[] { "map", "element", "x", "y", "z" }, OWViews.ViewOf(Pin("location", "l1")).Order);
+            CollectionAssert.AreEqual(new[] { "map", "element", "x", "y", "z" }, OWViews.ViewOf(Pin(" location ", " l1")).Order,
+                "a key with White_Space around something holds it");
+            CollectionAssert.AreEqual(new[] { "map", "x", "y", "z" }, OWViews.ViewOf(Pin("location", "　")).Order);
+            CollectionAssert.AreEqual(new[] { "map", "x", "y", "z" }, OWViews.ViewOf(Pin(JValue.CreateNull(), "l1")).Order);
+            CollectionAssert.AreEqual(new[] { "map", "x", "y", "z" }, OWViews.ViewOf(Pin("location", 7)).Order);
+
+            var keyless = new JObject { ["type"] = "Pin", ["map"] = "m1", ["element"] = "l1", ["x"] = 0 };
+            CollectionAssert.AreEqual(new[] { "map", "x" }, OWViews.ViewOf(keyless).Order,
+                "a body's own element key is not one of the two keys, and the type is folded");
+        }
+
+        /// <summary>The generic links baked from the walk's schema.json: a Pin's <c>element</c> alone, read by its two keys.</summary>
+        [Test]
+        public void TheGenericLinks_AreTheWalks()
+        {
+            Assert.AreEqual(1, OWViews.GenericLinks.Count);
+            Assert.AreEqual(("element_type", "element_id"), OWViews.GenericLinks["pin"]["element"]);
+            Assert.AreEqual(1, OWViews.GenericLinks["pin"].Count);
         }
 
         /// <summary>

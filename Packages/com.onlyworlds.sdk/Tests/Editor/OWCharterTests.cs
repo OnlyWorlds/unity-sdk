@@ -26,13 +26,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </remarks>
     public class OWCharterTests
     {
-        /// <summary>The fixture's sha256 as dist.95's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "a99bd7c799921ff00c82ce2f8834cc08d15a947faa05a36de4437ed80ae90476";
+        /// <summary>The fixture's sha256 as dist.115's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "3f1c3c4bd41b4332f7dfc0f7034b0a61d29dba18445aa99e1a482a69927e5ba7";
 
-        /// <summary>The fixture's cases by kind, as dist.95 holds them (27 in all).</summary>
+        /// <summary>The fixture's cases by kind, as dist.115 holds them (31 in all).</summary>
         private static readonly Dictionary<string, int> Counts = new Dictionary<string, int>
         {
-            ["element"] = 5, ["charter"] = 22,
+            ["element"] = 5, ["charter"] = 26,
         };
 
         private static JObject _fixture;
@@ -81,7 +81,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.95's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.115's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
@@ -89,7 +89,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             Assert.IsNotNull(Fixture, "the vendored charter fixture was not found");
             var cases = Fixture["cases"].Cast<JObject>().ToList();
-            Assert.AreEqual(27, cases.Count, "dist.95's fixture holds 27 cases");
+            Assert.AreEqual(31, cases.Count, "dist.115's fixture holds 31 cases");
             var counts = cases.GroupBy(c => (string)c["kind"]).ToDictionary(g => g.Key, g => g.Count());
             CollectionAssert.AreEquivalent(Counts, counts);
         }

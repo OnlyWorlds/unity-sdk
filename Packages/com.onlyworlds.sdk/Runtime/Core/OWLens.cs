@@ -235,8 +235,10 @@ namespace OnlyWorlds.Sdk
         /// <summary>
         /// The kept elements as <c>show</c> makes them, one per id in <see cref="Kept"/>: <c>full</c> (the body as this
         /// reader is served it, links to what it cannot see left out), <c>first_line</c> (<c>id</c>, <c>type</c>,
-        /// <c>name</c>, <c>supertype</c> and <c>subtype</c> where the body holds them, <c>description</c> up to its first
-        /// line break) or <c>name</c> (<c>id</c>, <c>type</c>, <c>name</c>, <c>supertype</c> and <c>subtype</c> where the
+        /// <c>name</c>, <c>supertype</c> and <c>subtype</c> where the body holds them, and <c>description</c> its first
+        /// line: the first, split at every carriage return and line feed, that holds something after trimming
+        /// White_Space, carried as stored; no such line, or a description that is not a string, gives no
+        /// <c>description</c>, schema-dist serial 115) or <c>name</c> (<c>id</c>, <c>type</c>, <c>name</c>, <c>supertype</c> and <c>subtype</c> where the
         /// body holds them); a kept anchor with a note carries it as <c>note</c>. A short row carries <c>supertype</c>
         /// and <c>subtype</c> each only when the served body holds it as a string with something left after trimming
         /// White_Space, and carries it as stored, untrimmed (the lens profile, schema-dist serial 114).
@@ -936,11 +938,13 @@ namespace OnlyWorlds.Sdk
                     if (StringOf(body[key]) is string kind && OWProfileText.TrimWhiteSpace(kind).Length > 0) row[key] = kind;
                 }
 
-                // Up to the first line break, CR or LF; a body with no string description has none in its row.
-                if (r.Show == "first_line" && StringOf(body["description"]) is string description)
+                // Serial 115: the first line that holds something after trimming White_Space, the description split
+                // at every CR and every LF (no other break), carried as stored; no such line, or a description that
+                // is not a string, gives no key.
+                if (r.Show == "first_line" && StringOf(body["description"]) is string description
+                    && FirstLineHolding(description) is string line)
                 {
-                    var lineBreak = description.IndexOfAny(LineBreaks);
-                    row["description"] = lineBreak < 0 ? description : description.Substring(0, lineBreak);
+                    row["description"] = line;
                 }
             }
             else
@@ -950,6 +954,20 @@ namespace OnlyWorlds.Sdk
 
             if (anchors.Contains(i) && r.Notes.TryGetValue(i, out var note)) row["note"] = note;
             return row;
+        }
+
+        /// <summary>
+        /// The first line of <paramref name="text"/>, split at every carriage return and every line feed, that holds
+        /// something after trimming White_Space (the room profile's set), as stored, its own spaces kept; null when no
+        /// line does. Trimming only decides which line.
+        /// </summary>
+        private static string FirstLineHolding(string text)
+        {
+            foreach (var line in text.Split(LineBreaks))
+            {
+                if (OWProfileText.TrimWhiteSpace(line).Length > 0) return line;
+            }
+            return null;
         }
 
         /// <summary>

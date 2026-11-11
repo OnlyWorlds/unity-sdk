@@ -1,12 +1,14 @@
 // How an element is shown by its kind: the distribution's views.json sidecar (schema-dist serial 113 on; version 2 from
-// serial 114), baked at codegen into OWViews.Table.cs by codegen/generate_views.py. Presentation like the colour groups
+// serial 114, version 3 from serial 115), baked at codegen into OWViews.Table.cs by codegen/generate_views.py. Presentation like the colour groups
 // (OWPresentation), not part of the standard, and nothing in it says who may see or do what: that is the server's, by
 // what it serves.
 //
 // Ported from @onlyworlds/sdk src/views.ts (4.151.0, dd1f3dc), viewOf, viewIn and VIEWS, with its codegen's checks of
 // the file (codegen/generate_types.py load_views). The file's own fixture, views.fixture.json, is this file's test
 // (OWViewsTests), as it is the TypeScript SDK's. Version 2 states what version 1 left open (a tie on one rung, a row's
-// own banner marks, the x_served_trimmed banner) and adds the order a page draws its fields in (OWView.Order).
+// own banner marks, the x_served_trimmed banner) and adds the order a page draws its fields in (OWView.Order). Version 3
+// draws a generic link (a Pin's element) as one field of that order, read by its two keys: built to the file's words and
+// its fixture, since no package had published a version-3 reader at serial 115.
 
 using System.Collections.Generic;
 using System.Linq;
@@ -200,8 +202,11 @@ namespace OnlyWorlds.Sdk
         /// own order (<c>schema/&lt;type&gt;.yaml</c>, its sections and their fields as listed, as the walk reads them
         /// and the codegen bakes them) that the row puts in neither lead nor fold, then each fold; a field named in both lead and fold is drawn in the
         /// lead. A field that holds nothing (absent, null, a string with nothing left after trimming, an empty list, an
-        /// object with no keys) is not drawn. The base fields (name, description, supertype, subtype, image_url) are the
-        /// page's head, drawn here only where the row names one in lead or fold.
+        /// object with no keys) is not drawn. A generic link (a Pin's <c>element</c>) is one field of the order, under its
+        /// schema name and at its place, never its two keys as two entries: it holds something only when both keys the
+        /// walk gives it (<c>element_type</c>, <c>element_id</c>) are strings with something left after trimming
+        /// (version 3). The base fields (name, description, supertype, subtype, image_url) are the page's head, drawn
+        /// here only where the row names one in lead or fold.
         /// </para>
         /// </remarks>
         public static OWView ViewOf(JToken element) => ViewOf(element, Banners, Rows);
@@ -241,11 +246,19 @@ namespace OnlyWorlds.Sdk
                 : (IReadOnlyList<string>)System.Array.Empty<string>();
             var lead = row?.Lead ?? (IReadOnlyList<string>)System.Array.Empty<string>();
             var folds = row == null ? new List<string>() : row.Fold.Select(f => f.Field).ToList();
+            var generic = type != null && GenericLinks.TryGetValue(OWProfileText.Fold(type), out var links) ? links : null;
             var drawn = new List<string>();
+
+            // A generic link (a Pin's element) is one field of the order, under its schema name, read as its two keys:
+            // it holds something only when both are strings with something left after trimming (version 3).
+            bool FieldHolds(string field) =>
+                generic != null && generic.TryGetValue(field, out var keys)
+                    ? HoldsText(el[keys.TypeKey]) && HoldsText(el[keys.IdKey])
+                    : Holds(el[field]);
 
             void Draw(string field)
             {
-                if (!drawn.Contains(field) && Holds(el[field])) drawn.Add(field);
+                if (!drawn.Contains(field) && FieldHolds(field)) drawn.Add(field);
             }
 
             foreach (var f in lead) Draw(f);
@@ -257,6 +270,10 @@ namespace OnlyWorlds.Sdk
             foreach (var f in folds) Draw(f);
             return drawn.AsReadOnly();
         }
+
+        /// <summary>A string with something left after trimming White_Space; anything else holds no text.</summary>
+        private static bool HoldsText(JToken v) =>
+            v != null && v.Type == JTokenType.String && OWProfileText.TrimWhiteSpace((string)v).Length > 0;
 
         /// <summary>A field holds nothing when absent, null, a string with nothing after trimming, an empty list, or an object with no keys.</summary>
         private static bool Holds(JToken v)

@@ -83,7 +83,7 @@ Read the row, not the key. `schema-dist/walk/rulings.yaml` is the authority.
    `CanonicalVersion`, `ManifestSha256`, `PinnedOn`.
 5. `python codegen/generate_models.py` and `python codegen/generate_views.py` (the views table
    `OWViews` reads, from the dist's `views.json`, serial 113 on; it refuses a `_meta.version` other than
-   the one `OWViews` reads, 2 since serial 114), then run the EditMode suite in Unity.
+   the one `OWViews` reads, 3 since serial 115), then run the EditMode suite in Unity.
    A profile fixture the tests hold a copy of (`Tests/Editor/Fixtures/`, `views.fixture.json` at the
    dist's root among them) is copied from the dist with its test's sha256; `check_drift.py` names a
    stale one.
