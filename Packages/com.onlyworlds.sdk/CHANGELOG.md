@@ -1731,7 +1731,7 @@ format 0.3.18. A minor release because it adds public API (below).
 
 - **Reading the hidden mark** (folder format §4.8): `OWPayload.IsHidden(body)` and `OWElement.IsHidden` are true when an
   element's `hidden` is there with any value but `null` and `false`: the mark, or a doubt (`"true"`, `1`) counted as
-  the mark, as the npm SDK and the Python package read it (Kael h58). One rule for every reader, so the word a viewer
+  the mark, as the npm SDK and the Python package read it. One rule for every reader, so the word a viewer
   shows predicts what a share leaves out. A folder carries no viewer identity, so the mark means hidden from whoever
   the world is handed to, never from the person who opened it: a viewer shows the element with the word hidden on it,
   and a reader that hands the world on leaves it out unless asked. The key is kept and written back as it came.

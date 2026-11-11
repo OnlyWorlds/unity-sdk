@@ -106,7 +106,7 @@ namespace OnlyWorlds.Sdk
         /// the word hidden on it; a reader that hands a world on (a pack, a context packet, a share) leaves it out unless
         /// asked and counts what it left out. A writer keeps the key byte for byte. One rule for both kinds of reader, so
         /// the word a viewer shows predicts what a share leaves out: the Python package's <c>folder.is_hidden</c> (0.43.0)
-        /// and the npm SDK's world-file writer (4.70.0) read it the same way (Kael h58).
+        /// and the npm SDK's world-file writer (4.70.0) read it the same way.
         /// </remarks>
         public static bool IsHidden(JObject body) => IsHiddenMark(body?[Hidden]);
 
