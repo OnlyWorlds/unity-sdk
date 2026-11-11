@@ -29,11 +29,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
         private const string Row =
             @"{""id"":""" + Fid + @""",""name"":""Map notes.pdf"",""kind"":""pdf"",""size"":5,""label"":""description"","
-            + @"""added_by"":{""name"":""Ada"",""membership"":null,""agent"":false},""added_at"":""2026-10-19T18:00:00Z""}";
+            + @"""added_by"":{""name"":""Ada"",""membership"":null,""agent"":false,""owner"":true},""added_at"":""2026-10-19T18:00:00Z""}";
 
         private const string WorldFiles =
             @"{""data"":[{""id"":""" + Fid + @""",""name"":""Map notes.pdf"",""kind"":""pdf"",""size"":5,""label"":null,"
-            + @"""added_by"":{""name"":""Scout"",""membership"":""m1"",""agent"":true},""added_at"":""2026-10-19T18:00:00Z"","
+            + @"""added_by"":{""name"":""Scout"",""membership"":""m1"",""agent"":true,""owner"":false},""added_at"":""2026-10-19T18:00:00Z"","
             + @"""element_type"":""location"",""element_id"":""" + El + @"""}],""used_bytes"":42991616,""cap_bytes"":262144000}";
 
         private const string Ticket =
@@ -98,10 +98,40 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual("Ada", row.AddedBy.Name);
             Assert.IsNull(row.AddedBy.Membership);
             Assert.IsFalse(row.AddedBy.Agent);
+            Assert.IsTrue(row.AddedBy.Owner);
             Assert.AreEqual("2026-10-19T18:00:00Z", row.AddedAt);
 
             var empty = new FakeTransport { ResponseBody = "{}" };
             CollectionAssert.IsEmpty(await Make(empty).ListFilesAsync("location", El));
+        }
+
+        // added_by's owner (the TypeScript SDK 4.154.0; keel serves it on every file row): said by the flag, never read from
+        // a null membership. A null membership with owner false is a former member, named so; a member's own file is not
+        // the owner's; a row from a server that sends no owner reads false. Kills: owner inferred from a null membership,
+        // owner read under another key.
+        [Test]
+        public async Task ListFiles_ReadsAddedBysOwner_AsServed_NeverFromANullMembership()
+        {
+            const string row = @"{""id"":""" + Fid + @""",""name"":""n.md"",""kind"":""md"",""size"":1,""label"":null,""added_by"":";
+            const string at = @",""added_at"":""2026-10-19T18:00:00Z""}";
+            var t = new FakeTransport
+            {
+                ResponseBody = @"{""data"":["
+                    + row + @"{""name"":""a former member"",""membership"":null,""agent"":false,""owner"":false}" + at + ","
+                    + row + @"{""name"":""alice"",""membership"":""m2"",""agent"":false,""owner"":false}" + at + ","
+                    + row + @"{""name"":""Ada"",""membership"":null,""agent"":true,""owner"":true}" + at + ","
+                    + row + @"{""name"":""Ada"",""membership"":null,""agent"":false}" + at + "]}",
+            };
+            var rows = await Make(t).ListFilesAsync("location", El);
+
+            Assert.AreEqual(4, rows.Count);
+            Assert.IsNull(rows[0].AddedBy.Membership);
+            Assert.IsFalse(rows[0].AddedBy.Owner, "a former member: a null membership, owner false");
+            Assert.AreEqual("a former member", rows[0].AddedBy.Name);
+            Assert.IsFalse(rows[1].AddedBy.Owner, "a member's file");
+            Assert.IsTrue(rows[2].AddedBy.Owner, "the owner's file through an agent door");
+            Assert.IsTrue(rows[2].AddedBy.Agent);
+            Assert.IsFalse(rows[3].AddedBy.Owner, "no owner key: false");
         }
 
         // The TypeScript SDK's worldFiles() (4.32.0): GET /world/files, the rows with their element, and the world's total.
@@ -124,6 +154,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsNull(row.Label);
             Assert.AreEqual("m1", row.AddedBy.Membership);
             Assert.IsTrue(row.AddedBy.Agent);
+            Assert.IsFalse(row.AddedBy.Owner);
 
             var none = await Make(new FakeTransport { ResponseBody = @"{""used_bytes"":0,""cap_bytes"":1}" }).WorldFilesAsync();
             CollectionAssert.IsEmpty(none.Data);

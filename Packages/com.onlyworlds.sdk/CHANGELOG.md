@@ -38,6 +38,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   as `by`, or the mark exactly as the element holds it now. Parity with the TypeScript SDK 4.152.0
   (`isReviewByAnother`), its row ported into the proposal codes' test; the wire fixture refetched at keel's document
   `4ff51aa46085`, where the code is listed.
+- **`OWFileAddedBy.Owner`**: true when the world's current owner added the file, through any door (the site, the
+  API, or an agent with the owner's own keys; a seat the owner sponsors is the seat's, false); false for everyone
+  else, on every file of a world with no owner, and on a past owner's files once the world has another owner.
+  onlyworlds.com serves it on every row of `ListFilesAsync` and `WorldFilesAsync`. `Membership` is null both for the
+  owner's files and for a file whose membership no longer exists, and `Owner` tells the two apart: a null
+  `Membership` with `Owner` false is a former member, named "a former member". A server from before the key sends
+  none, which reads false. Parity with the TypeScript SDK 4.154.0 (`OwFileAddedBy.owner`).
 
 ### Changed
 

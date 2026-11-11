@@ -722,11 +722,15 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             CollectionAssert.AreEquivalent(new[] { "removed", "bytes", "cache" }, MappedKeys(typeof(OWRemovedImage)));
             CollectionAssert.AreEquivalent(new[] { "key", "fid", "bytes", "type", "etag" }, MappedKeys(typeof(OWUploadedFile)));
 
-            // keel's document names a file row's added_by but not its keys: held to the TypeScript SDK's OwFileAddedBy.
+            // The fixture lists a response's keys only one level down (data[].added_by), so a file row's added_by keys
+            // are not in it. They are held to keel's own: its OpenAPI schema for added_by (files/api.py, ADDED_BY) requires
+            // name, membership, agent and owner, and its serializer (files/service.py, added_by) writes the four on every
+            // row, owner true exactly when the world's current owner added the file. The TypeScript SDK's OwFileAddedBy
+            // (4.154.0) holds the same four.
             var rows = Wire["paths"]["/api/v2/character/{id}/files"]["GET"]["response"].Values<string>().ToList();
             Assert.That(rows, Does.Contain("data[].added_by").And.Not.Contains("data[].added_by.name"),
-                "keel's document names added_by's keys now: check OWFileAddedBy against it");
-            CollectionAssert.AreEquivalent(new[] { "name", "membership", "agent" }, MappedKeys(typeof(OWFileAddedBy)));
+                "the fixture names added_by's keys now: check OWFileAddedBy against them");
+            CollectionAssert.AreEquivalent(new[] { "name", "membership", "agent", "owner" }, MappedKeys(typeof(OWFileAddedBy)));
         }
 
         [Test]

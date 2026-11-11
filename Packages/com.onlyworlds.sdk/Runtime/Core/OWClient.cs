@@ -1264,7 +1264,7 @@ namespace OnlyWorlds.Sdk
         /// <summary>
         /// GET /{type}/{id}/files -- the element's files, newest first, the rows of keel's <c>{data}</c> (no paging): each
         /// with its name, kind, size in bytes, label (or null), who added it (<see cref="OWFileAddedBy.Agent"/> true when an
-        /// agent did) and when.
+        /// agent did, <see cref="OWFileAddedBy.Owner"/> when the world's current owner did) and when.
         /// </summary>
         /// <param name="type">The element's type, as the routes spell it (<c>location</c>).</param>
         /// <param name="id">The element's id. Escaped.</param>

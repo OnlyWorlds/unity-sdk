@@ -42,21 +42,40 @@ namespace OnlyWorlds.Sdk
         }
     }
 
-    /// <summary>Who added a file (npm's <c>OwFileAddedBy</c>).</summary>
+    /// <summary>
+    /// Who added a file (npm's <c>OwFileAddedBy</c>). A removed member's file keeps its membership id and name; a file
+    /// whose member's account was deleted keeps its membership id and is named "a former member".
+    /// </summary>
     [Serializable]
     public class OWFileAddedBy
     {
-        /// <summary>A member's or a seat's name; the owner's username for the owner's keys.</summary>
+        /// <summary>
+        /// A member's or a seat's name; the owner's username for the owner's own files; "a former member" where no one
+        /// is left to name.
+        /// </summary>
         [JsonProperty("name")]
         public string Name;
 
-        /// <summary>Their membership id; null for the owner's keys.</summary>
+        /// <summary>
+        /// Their membership id; null for the owner's files and for a file whose membership no longer exists
+        /// (<see cref="Owner"/> tells the two apart: null with <see cref="Owner"/> false is a former member).
+        /// </summary>
         [JsonProperty("membership")]
         public string Membership;
 
         /// <summary>True when an agent added it: an agent seat, the MCP surface, or a key that declared an agent.</summary>
         [JsonProperty("agent")]
         public bool Agent;
+
+        /// <summary>
+        /// True when the world's current owner added the file, through any door (the site, the API, or an agent with the
+        /// owner's own keys; a seat the owner sponsors is the seat's, false). False for everyone else, on every file of a
+        /// world with no owner, and on a past owner's files once the world has another owner. onlyworlds.com serves it
+        /// on every file row; a server from before it sends none, which reads false here, so a null
+        /// <see cref="Membership"/> with <see cref="Owner"/> false from such a server is not proof of a former member.
+        /// </summary>
+        [JsonProperty("owner")]
+        public bool Owner;
     }
 
     /// <summary>
