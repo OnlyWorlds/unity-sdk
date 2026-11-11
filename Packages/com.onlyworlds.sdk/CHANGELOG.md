@@ -48,6 +48,17 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
+- **A queue row's `evidence` and `expires` are read as stored, any JSON value: `OWProposal.EvidenceValue` and
+  `OWProposal.ExpiresValue`** (`JToken`). onlyworlds.com's world queue (`WorldProposalsAsync`) serves a new element's
+  review mark's `evidence` and `expires` as the mark holds them: a string as written, a list of ids, a number, an
+  object or a boolean as itself, null when the mark holds null or has none. Until now both were read into strings, so
+  a list or an object anywhere in the queue made the whole page's read throw, and a number or a boolean was read and
+  written back as its text. Each now reads as the value served (a JSON null as null) and is written back as it was
+  read; a string that looks like a date stays a string. On a proposed change they are keel's own record and still
+  strings. Whether a row has lapsed is its `State`: an `expires` that is not a date or a date-time never lapses.
+  Parity with the TypeScript SDK 4.156.0 (`OwProposedNewElement.evidence` and `.expires` as `unknown`), with keel's
+  own values for the queue row (a string, a blank one, a list, an empty list, an object, an integer, a fraction, both
+  booleans, null) as read and write-back cases.
 - **The schema pin moves to `v0.34.0-dist.117`** (canonical `00.34.00` unchanged; no schema file or walk moved,
   `views.json` still version 3): the views table's description says a tool's own words for a heading or a fold are
   its drawing, and a fold's label the word a tool uses where it has none of its own; `OWViews` bakes no `_meta`, so
@@ -111,6 +122,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   The lens profile now says keel never reads `x_lens_uses`, so `OWLens.LensesFor`'s `membership` is null only for a
   folder world, which has no membership; its behaviour is unchanged. The generated models changed in their serial
   stamp only; the room and lens fixtures' test copies moved with the pin.
+
+### Deprecated
+
+- **`OWProposal.Evidence` and `OWProposal.Expires`, in favour of `EvidenceValue` and `ExpiresValue`**: each still
+  reads a string as itself and null as null, and now reads any other JSON value as its compact JSON text
+  (`["a","b"]`, `20991121`, `true`); setting one sets the value to that string. Both are marked `[Obsolete]` as a
+  warning, not an error, and are no longer fields but properties over the new values, so a caller that passed either
+  by `ref` or `out` must read it first.
 
 ## [0.38.0] - 2026-11-10
 

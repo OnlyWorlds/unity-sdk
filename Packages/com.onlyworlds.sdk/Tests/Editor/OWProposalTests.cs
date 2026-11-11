@@ -248,14 +248,17 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(NewEl, marked.ElementId);
             Assert.AreEqual("open", marked.State);
             Assert.AreEqual("018f0000-0000-7000-8000-0000000000b1", marked.By);
-            Assert.AreEqual("Met her in chapter 4.", marked.Evidence);
-            Assert.AreEqual("2026-11-22", marked.Expires);
+            Assert.AreEqual(JTokenType.String, marked.EvidenceValue.Type);
+            Assert.AreEqual("Met her in chapter 4.", (string)marked.EvidenceValue);
+            Assert.AreEqual("2026-11-22", (string)marked.ExpiresValue);
             Assert.AreEqual("2026-10-23T07:00:00Z", marked.CreatedAt);
             Assert.IsNull(marked.Fields);
             Assert.IsNull(marked.Omitted);
             var proposal = page.Data[1];
             Assert.AreEqual(Pid, proposal.Id);
             Assert.IsEmpty(proposal.Omitted);
+            Assert.AreEqual("Chapter 3 names the harbour.", (string)proposal.EvidenceValue);
+            Assert.AreEqual("2026-11-21T16:00:00Z", (string)proposal.ExpiresValue, "a date-time string stays a string");
             Assert.AreEqual(opaque, page.NextCursor);
 
             await c.WorldProposalsAsync(new OWProposalQuery { Cursor = page.NextCursor });
@@ -263,6 +266,149 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             // An old bare proposal id still reads as a cursor: sent as given.
             await c.WorldProposalsAsync(new OWProposalQuery { Cursor = Pid });
             Assert.AreEqual(Pid, QueryOf(t.Last)["cursor"]);
+        }
+
+        // -- a new element's evidence and expires, as stored (npm 4.156.0) -----
+
+        /// <summary>
+        /// The values keel's queue serves a new element's mark's <c>evidence</c> and <c>expires</c> as, each as itself
+        /// (keel's own test of the queue row's values, and the TypeScript SDK 4.156.0, where both became
+        /// <c>unknown</c>): a string as written, a blank one too, a list of ids, an empty list, an object, an integer,
+        /// a fraction, both booleans and null.
+        /// </summary>
+        private static readonly (string What, string Json)[] StoredValues =
+        {
+            ("a line of text", @"""the Harbour Ledger, entry 14"""),
+            ("an empty string", @""""""),
+            ("White_Space alone", @"""   """),
+            ("a list of ids", @"[""0199c3a0-0000-7000-8000-0000000000a1"",""0199c3a0-0000-7000-8000-0000000000b2""]"),
+            ("an empty list", "[]"),
+            ("an object", @"{""k"":1}"),
+            ("an integer", "14"),
+            ("a date as a number", "20991121"),
+            ("a fraction", "2.5"),
+            ("true", "true"),
+            ("false", "false"),
+            ("null", "null"),
+            ("a date-time string stays a string", @"""2026-11-22T07:00:00Z"""),
+            ("an integer past 2^53", "9007199254740993"),
+        };
+
+        private static IEnumerable<TestCaseData> StoredValueCases(string test)
+        {
+            foreach (var key in new[] { "evidence", "expires" })
+                foreach (var (what, json) in StoredValues)
+                    yield return new TestCaseData(key, json).SetName($"QueueRow_{test}_{key}_{what.Replace(' ', '_')}");
+        }
+
+        private static IEnumerable<TestCaseData> WriteBackCases() => StoredValueCases("WritesBack");
+
+        private static IEnumerable<TestCaseData> ReadCases() => StoredValueCases("Reads");
+
+        /// <summary>A queue row for a new element whose mark holds <paramref name="json"/> at <paramref name="key"/>, read through the client.</summary>
+        private static async Task<(OWProposal Row, JObject Served)> ReadRowWith(string key, string json)
+        {
+            var served = (JObject)NewElementRow.DeepClone();
+            served[key] = OWJson.ParseObject("{\"v\":" + json + "}")["v"];
+            var t = new FakeTransport
+            {
+                ResponseBody = "{\"data\":[" + OWJson.Write(served) + "],\"has_more\":false,\"next_cursor\":null}",
+            };
+            var page = await Make(t).WorldProposalsAsync();
+            return (page.Data.Single(), served);
+        }
+
+        [TestCaseSource(nameof(WriteBackCases))]
+        public async Task ANewElementRow_WritesBackTheMarksValue_AsItWasServed(string key, string json)
+        {
+            var (row, _) = await ReadRowWith(key, json);
+
+            var written = OWJson.ParseObject(OWJson.Serialize(row));
+            Assert.IsTrue(written.ContainsKey(key), $"{key} is written");
+            Assert.AreEqual(json, OWJson.Write(written[key]), $"{key} written back byte for byte");
+        }
+
+        [TestCaseSource(nameof(ReadCases))]
+        public async Task ANewElementRow_ReadsTheMarksValue_AsItself(string key, string json)
+        {
+            var (row, served) = await ReadRowWith(key, json);
+            var read = key == "evidence" ? row.EvidenceValue : row.ExpiresValue;
+
+            if (served[key].Type == JTokenType.Null)
+            {
+                Assert.IsNull(read, "a JSON null reads as null, never as a null token");
+                return;
+            }
+
+            Assert.IsNotNull(read);
+            Assert.AreEqual(served[key].Type, read.Type, "the same JSON kind");
+            Assert.IsTrue(JToken.DeepEquals(served[key], read), $"{key}: {read}");
+            Assert.AreEqual(json, OWJson.Write(read), "the same value, to the digit");
+        }
+
+        [Test]
+        public async Task ANewElementRow_WithoutTheKeys_ReadsNull_AndWritesNull()
+        {
+            var served = (JObject)NewElementRow.DeepClone();
+            served.Remove("evidence");
+            served.Remove("expires");
+            var t = new FakeTransport { ResponseBody = new JObject { ["data"] = new JArray(served), ["has_more"] = false }.ToString() };
+            var row = (await Make(t).WorldProposalsAsync()).Data.Single();
+
+            Assert.IsNull(row.EvidenceValue);
+            Assert.IsNull(row.ExpiresValue);
+            var written = OWJson.ParseObject(OWJson.Serialize(row));
+            Assert.AreEqual(JTokenType.Null, written["evidence"].Type);
+            Assert.AreEqual(JTokenType.Null, written["expires"].Type);
+        }
+
+#pragma warning disable CS0618 // the deprecated string accessors, held to what they read and write
+        [TestCase("evidence", @"""Met her in chapter 4.""", "Met her in chapter 4.")]
+        [TestCase("evidence", @"""   """, "   ")]
+        [TestCase("evidence", "null", null)]
+        [TestCase("evidence", @"[""0199c3a0-0000-7000-8000-0000000000a1"",""0199c3a0-0000-7000-8000-0000000000b2""]",
+            @"[""0199c3a0-0000-7000-8000-0000000000a1"",""0199c3a0-0000-7000-8000-0000000000b2""]")]
+        [TestCase("evidence", @"{""k"":1}", @"{""k"":1}")]
+        [TestCase("evidence", "true", "true")]
+        [TestCase("expires", @"""2026-11-22""", "2026-11-22")]
+        [TestCase("expires", "20991121", "20991121")]
+        [TestCase("expires", "2.5", "2.5")]
+        public async Task TheDeprecatedStringAccessors_ReadAStringAsItself_AndAnyOtherValueAsItsJsonText(
+            string key, string json, string expected)
+        {
+            var (row, _) = await ReadRowWith(key, json);
+            Assert.AreEqual(expected, key == "evidence" ? row.Evidence : row.Expires);
+        }
+
+        [Test]
+        public void TheDeprecatedStringAccessors_SetTheValueToTheString_OrToNull()
+        {
+            var row = new OWProposal { Evidence = "Chapter 3 names the harbour.", Expires = "2026-11-21" };
+            Assert.AreEqual(JTokenType.String, row.EvidenceValue.Type);
+            Assert.AreEqual("Chapter 3 names the harbour.", (string)row.EvidenceValue);
+            Assert.AreEqual("2026-11-21", (string)row.ExpiresValue);
+
+            row.Evidence = null;
+            row.Expires = null;
+            Assert.IsNull(row.EvidenceValue);
+            Assert.IsNull(row.ExpiresValue);
+        }
+#pragma warning restore CS0618
+
+        [Test]
+        public void TheValues_AreTheWiresKeys_AndTheDeprecatedAccessorsAreNotWritten()
+        {
+            var row = new OWProposal
+            {
+                EvidenceValue = new JArray("0199c3a0-0000-7000-8000-0000000000a1"),
+                ExpiresValue = new JValue(20991121),
+            };
+            var written = OWJson.ParseObject(OWJson.Serialize(row));
+
+            Assert.AreEqual(@"[""0199c3a0-0000-7000-8000-0000000000a1""]", OWJson.Write(written["evidence"]));
+            Assert.AreEqual("20991121", OWJson.Write(written["expires"]));
+            Assert.IsFalse(written.Properties().Any(p => p.Name == "Evidence" || p.Name == "Expires" || p.Name.EndsWith("Value")),
+                string.Join(",", written.Properties().Select(p => p.Name)));
         }
 
         [Test]
