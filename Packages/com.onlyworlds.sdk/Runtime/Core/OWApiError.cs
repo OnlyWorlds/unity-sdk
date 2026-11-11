@@ -352,6 +352,15 @@ namespace OnlyWorlds.Sdk
         public bool IsReviewMarkEmpty => StatusCode == 422 && Code == "review_mark_empty";
 
         /// <summary>
+        /// A write from a key below co-builder whose <c>x_review_proposed</c> or <c>x_review_checked</c> carries a
+        /// <c>by</c> that is not the writer's own membership id, in a mark that is not exactly the one the element holds
+        /// (403 <c>review_by_another</c>, <c>param</c> the mark; nothing written). Send your own membership id as
+        /// <c>by</c>, or the mark exactly as the element holds it now. On a create, an update, a proposal and a bulk
+        /// write item by item. Retrying will not help. npm's <c>isReviewByAnother</c> (4.152.0).
+        /// </summary>
+        public bool IsReviewByAnother => StatusCode == 403 && Code == "review_by_another";
+
+        /// <summary>
         /// Seconds to wait before retrying, from the <c>Retry-After</c> header (a delay in seconds,
         /// or an HTTP date turned into one), else null. keel sends it on 503 <c>server_busy</c>,
         /// 429 <c>rate_limited</c> and <c>quota_exceeded</c>, and 409 <c>idempotency_in_flight</c>.

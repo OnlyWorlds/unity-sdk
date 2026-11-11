@@ -28,6 +28,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 - The banners read as version 2 of the file says: a review mark is an object with at least one key, whatever its
   keys; `x_served_trimmed` only when it names a field, a list holding a string with something left after trimming
   (a list of blanks shows none); a row's own banner mark by presence, as the room profile reads its mark.
+- **`OWApiError.IsReviewByAnother`**: keel refuses, with 403 `review_by_another` (`param` the mark, nothing written),
+  a write from a key below co-builder whose `x_review_proposed` or `x_review_checked` carries a `by` that is not the
+  writer's own membership id, in a mark that is not exactly the one the element holds. Send your own membership id
+  as `by`, or the mark exactly as the element holds it now. Parity with the TypeScript SDK 4.152.0
+  (`isReviewByAnother`), its row ported into the proposal codes' test; the wire fixture refetched at keel's document
+  `4ff51aa46085`, where the code is listed.
 
 ### Changed
 

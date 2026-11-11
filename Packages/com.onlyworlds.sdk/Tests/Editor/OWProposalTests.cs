@@ -678,10 +678,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("IsProposedOnly", 403, "permission_error", "proposed_only", e => e.IsProposedOnly),
             ("IsOwnProposal", 403, "permission_error", "own_proposal", e => e.IsOwnProposal),
             ("IsNotProposed", 422, "invalid_request", "not_proposed", e => e.IsNotProposed), // a review of an unmarked element
+            // A review mark whose `by` is not the writer's own membership id, from a key below co-builder (keel's 403;
+            // the TypeScript SDK's row in test/proposals.test.mjs, 4.152.0).
+            ("IsReviewByAnother", 403, "permission_error", "review_by_another", e => e.IsReviewByAnother),
         };
 
         [Test]
-        public void TheSixProposalCodes_EachHaveAHelper_TrueForTheirOwnStatusAndCodeOnly()
+        public void TheSixProposalCodesAndReviewByAnother_EachHaveAHelper_TrueForTheirOwnStatusAndCodeOnly()
         {
             foreach (var (name, status, type, code, _) in Codes)
             {

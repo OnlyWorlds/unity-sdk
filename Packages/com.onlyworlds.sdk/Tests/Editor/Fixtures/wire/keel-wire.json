@@ -5,7 +5,7 @@
     "X-Session-Token",
     "Authorization"
   ],
-  "document_sha256": "e3132bc27e6f780a1e75f620f8011378fc91a082cb233708119193bc8be05425",
+  "document_sha256": "4ff51aa46085aaf09ac8722951b2d72017647831dc1e8f6129b6630f6a39598a",
   "error_codes": {
     "already_member": 409,
     "already_reported": 409,
@@ -69,6 +69,7 @@
     "removal_in_flight": 409,
     "remove_failed": 502,
     "resync_required": 409,
+    "review_by_another": 403,
     "review_mark_empty": 422,
     "served_trimmed_not_writable": 422,
     "server_busy": 503,
@@ -92,7 +93,7 @@
     "write_failed": 502,
     "wrong_audience": 401
   },
-  "fetched": "2026-11-10T04:39+01:00",
+  "fetched": "2026-11-11T04:06+01:00",
   "openapi_version": "2.0",
   "paths": {
     "/api/v2/ability": {
