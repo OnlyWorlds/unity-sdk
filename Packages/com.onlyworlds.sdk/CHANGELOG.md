@@ -67,6 +67,16 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   TypeScript SDK 4.156.0 (`OwProposedNewElement.evidence` and `.expires` as `unknown`), with keel's own values for
   the queue row (a string, a blank one, a list, an empty list, an object, an integer, a fraction, both booleans,
   null) as read and write-back cases.
+- **The schema pin moves to `v0.34.0-dist.118`** (canonical `00.34.00` unchanged; no schema file or walk moved,
+  `views.json` still version 3, and no answer of a reader here moves): the views table's sentence rule ends by saying a
+  tool that shows names only need show no sentence, and its `conversation` layout by saying a tool that shows one
+  element and no thread draws it as a document and asks nothing of this layout. The `conversation` layout is the one
+  string `OWViews` bakes of the two, so the table moved in that string, its stamp and its sha256. The checks fixture
+  gains two room-mark rules (an extension key as the field) with eight cases, and the checks page names the
+  White_Space set `present` trims; this SDK has no checks reader. The room page says a sitting's own mark holds the
+  world's id and a sitting's winning spec is named in its `x_star`: the pairs and the cases are the same, so
+  `OWRoom` is unchanged and its test copy of the fixture moved with the new bytes. The generated models changed in
+  their serial stamp only.
 - **The schema pin moves to `v0.34.0-dist.117`** (canonical `00.34.00` unchanged; no schema file or walk moved,
   `views.json` still version 3): the views table's description says a tool's own words for a heading or a fold are
   its drawing, and a fold's label the word a tool uses where it has none of its own; `OWViews` bakes no `_meta`, so

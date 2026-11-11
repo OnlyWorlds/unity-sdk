@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.34.00";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 117;
+        public const int DistSerial = 118;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.34.0-dist.117";
+        public const string Tag = "v0.34.0-dist.118";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -314,9 +314,22 @@ namespace OnlyWorlds.Sdk
         /// White_Space alone holds nothing (<see cref="OWViews.ViewOf"/> already trims both keys). The lens page's
         /// history line changed in its words only. The generated models changed in their serial stamp only.
         /// </para>
+        /// <para>
+        /// <b>117 -> 118 (2026-11-11)</b>: canonical unchanged, no schema file or walk moved; <c>views.json</c> stays
+        /// version 3. Two sentences in it gain a clause and nothing a reader answers moves: the sentence rule ends by
+        /// saying a tool that shows names only need show no sentence, and the <c>conversation</c> layout ends by
+        /// saying a tool that shows one element and no thread draws it as a document. The <c>conversation</c> layout
+        /// is baked, so the views table moved in its stamp, its sha256 and that one string. The checks fixture gains
+        /// rules 7 and 8, the room-mark rules (an extension key as the field, eight cases; 9 rules, 27 cases in all),
+        /// and the checks page names the White_Space set <c>present</c> trims; this SDK has no checks reader. The room
+        /// page says a sitting's own mark holds the world's id and a sitting's winning spec is named in its
+        /// <c>x_star</c>, and its fixture's note says the first; the pairs and cases are the same, so
+        /// <see cref="OWRoom"/> is unchanged and its test copy moved with the fixture's sha256. The generated models
+        /// changed in their serial stamp only.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "c56d3acb3797191fbe4fb4ca120ab6d1791cc3c64f41e5abf347cb75940e0fe0";
+            "37f856a2235c24732fe75ef24f1ba3a2c51310041a31c0917891959d4528e83e";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.
