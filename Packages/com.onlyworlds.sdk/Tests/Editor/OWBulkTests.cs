@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
@@ -276,6 +277,41 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var result = await Client().BulkAsync(TwoItems());
 
             Assert.IsFalse(result.WasReplay);
+        }
+
+        // The API document's BulkResult item: `id`, `created_at` and `updated_at` are each ["string", "null"], and a
+        // failed slot whose element was never identified (an element that is not an object) carries a null id.
+        // Parity with the TypeScript SDK 4.157.0's `string | null`. Kills: a slot field read
+        // into a value type (a DateTime or a Guid), which throws on null or invents a date that was never served,
+        // and a failed slot dropped from Failed or from the partial-failure message because its id is null.
+        [Test]
+        public async Task Result_NullIdAndTimestamps_ReadAsNull_AndTheSlotStillCounts()
+        {
+            _transport.Bodies.Enqueue(@"{
+                ""errors"": true,
+                ""items"": [
+                    {""status"":201,""id"":""0eac22e7-0000-4000-8000-000000000001"",""created_at"":null,""updated_at"":null},
+                    {""status"":422,""id"":null,""created_at"":null,""updated_at"":null,
+                     ""error"":{""type"":""invalid_request"",""code"":""invalid_request"",
+                                ""message"":""item.element must be an object."",""param"":""element""}}
+                ]}");
+
+            var result = await Client().BulkAsync(TwoItems());
+
+            var made = result.Items[0];
+            Assert.AreEqual("0eac22e7-0000-4000-8000-000000000001", made.Id);
+            Assert.IsNull(made.CreatedAt, "a null created_at reads as null, never a default date");
+            Assert.IsNull(made.UpdatedAt, "a null updated_at reads as null, never a default date");
+
+            var failed = result.Items[1];
+            Assert.IsNull(failed.Id, "a failed slot with no id reads as null");
+            Assert.IsNull(failed.CreatedAt);
+            Assert.IsNull(failed.UpdatedAt);
+            Assert.AreEqual("element", failed.Error.Param);
+            Assert.AreSame(failed, result.Failed.Single(), "the slot with a null id is still a failed slot");
+
+            var e = Assert.Throws<OWBulkPartialFailureException>(result.ThrowIfAnyFailed);
+            StringAssert.Contains("[1] 422 invalid_request (element)", e.Message);
         }
 
         // -- Guards -----------------------------------------------------------
