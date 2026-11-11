@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.34.00";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 116;
+        public const int DistSerial = 117;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.34.0-dist.116";
+        public const string Tag = "v0.34.0-dist.117";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -305,9 +305,18 @@ namespace OnlyWorlds.Sdk
         /// <see cref="OWApiError.IsReviewByAnother"/> say the page's words in their docs. The generated models and the
         /// views table changed in their serial stamp only.
         /// </para>
+        /// <para>
+        /// <b>116 -> 117 (2026-11-11)</b>: canonical unchanged, no schema file or walk moved; <c>views.json</c> stays
+        /// version 3. Its <c>_meta.what</c> now says a tool's own words for a heading or a fold are its drawing, a
+        /// fold's label the word a tool uses where it has none of its own, and which fields are drawn, in what order,
+        /// open or folded, the row's; <c>_meta</c> is not baked, so the views table moved in its stamp and sha256
+        /// only. The views fixture gains a 46th case: a Pin's generic link with one key holding and the other
+        /// White_Space alone holds nothing (<see cref="OWViews.ViewOf"/> already trims both keys). The lens page's
+        /// history line changed in its words only. The generated models changed in their serial stamp only.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "7e604e9c976500bd0d3b9781d947da8ed0785980ac92709861a48421f4af53c3";
+            "c56d3acb3797191fbe4fb4ca120ab6d1791cc3c64f41e5abf347cb75940e0fe0";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.

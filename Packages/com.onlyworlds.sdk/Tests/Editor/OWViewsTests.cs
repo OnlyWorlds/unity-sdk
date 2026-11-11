@@ -20,8 +20,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </summary>
     public class OWViewsTests
     {
-        /// <summary>The fixture's sha256 as dist.115's MANIFEST.json records it.</summary>
-        private const string FixtureSha256 = "2e18d362ed9eabda463ddfd4d098e00f5eb65f0da59e26a083dbe1099383cd9f";
+        /// <summary>The fixture's sha256 as dist.117's MANIFEST.json records it.</summary>
+        private const string FixtureSha256 = "525f61b9bf85ea5b74a3e420f55806cdd901dcbcd46414c86ab9cb7a99996853";
 
         private const string World = "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e0f";
 
@@ -117,7 +117,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsNotNull(Fixture, "the vendored views fixture was not found");
             Assert.IsNotNull(TheFile, "the vendored views.json was not found");
             Assert.AreEqual(FixtureSha256, Sha("views.fixture.json"),
-                "the vendored fixture is not dist.115's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.117's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
             Assert.AreEqual(OWViews.Sha256, Sha("views.json"),
                 "the vendored views.json is not the one OWViews.Table.cs was baked from: regenerate with codegen/generate_views.py");
         }
@@ -173,12 +173,15 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
-        public void TheFixture_HoldsDist115sCases_AndEveryRowIsReached()
+        public void TheFixture_HoldsDist117sCases_AndEveryRowIsReached()
         {
             Assert.IsNotNull(Fixture, "the vendored views fixture was not found");
             Assert.AreEqual("views.json", (string)Fixture["views"]);
             var cases = Fixture["cases"].Cast<JObject>().ToList();
-            Assert.GreaterOrEqual(cases.Count, 45, "dist.115's fixture holds 45 cases");
+            Assert.AreEqual(46, cases.Count, "dist.117's fixture holds 46 cases");
+            Assert.AreEqual(46, Cases().Count(), "every case runs here, one test each");
+            Assert.IsTrue(cases.Any(c => (string)c["name"] == "document-a-generic-link-with-one-key-white-space-alone-holds-nothing"),
+                "dist.117's case: a generic link with one key holding and the other White_Space alone holds nothing");
             var own = cases.Where(c => c["table"] == null).ToList();
             Assert.GreaterOrEqual(own.Count(c => c["expect"]["order"] != null), 2, "a case per layout names the order drawn");
             Assert.Greater(cases.Count - own.Count, 0, "the fixture holds a case with a table of its own");

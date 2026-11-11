@@ -48,6 +48,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
+- **The schema pin moves to `v0.34.0-dist.117`** (canonical `00.34.00` unchanged; no schema file or walk moved,
+  `views.json` still version 3): the views table's description says a tool's own words for a heading or a fold are
+  its drawing, and a fold's label the word a tool uses where it has none of its own; `OWViews` bakes no `_meta`, so
+  the table moved in its stamp and sha256 only. The views fixture gains a 46th case, a Pin whose generic link has one
+  key holding and the other White_Space alone, which holds nothing: `OWViews.ViewOf` already read it so, and the
+  fixture's count test now holds 46. The lens page's history line changed in its words only. The generated models
+  changed in their serial stamp only.
 - **The schema pin moves to `v0.34.0-dist.116`** (canonical `00.34.00` unchanged; no schema file, fixture or walk
   moved): the review page says who a mark's `by` names, the writer's own word and a claim, read as stored and never
   trimmed (White_Space alone, or a value that is not a string, names nobody), shown as the mark's word and in a name's
