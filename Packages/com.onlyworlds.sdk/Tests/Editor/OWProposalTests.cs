@@ -362,7 +362,6 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(JTokenType.Null, written["expires"].Type);
         }
 
-#pragma warning disable CS0618 // the deprecated string accessors, held to what they read and write
         [TestCase("evidence", @"""Met her in chapter 4.""", "Met her in chapter 4.")]
         [TestCase("evidence", @"""   """, "   ")]
         [TestCase("evidence", "null", null)]
@@ -373,7 +372,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [TestCase("expires", @"""2026-11-22""", "2026-11-22")]
         [TestCase("expires", "20991121", "20991121")]
         [TestCase("expires", "2.5", "2.5")]
-        public async Task TheDeprecatedStringAccessors_ReadAStringAsItself_AndAnyOtherValueAsItsJsonText(
+        public async Task TheStringAccessors_ReadAStringAsItself_AndAnyOtherValueAsItsJsonText(
             string key, string json, string expected)
         {
             var (row, _) = await ReadRowWith(key, json);
@@ -381,7 +380,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
-        public void TheDeprecatedStringAccessors_SetTheValueToTheString_OrToNull()
+        public void TheStringAccessors_SetTheValueToTheString_OrToNull()
         {
             var row = new OWProposal { Evidence = "Chapter 3 names the harbour.", Expires = "2026-11-21" };
             Assert.AreEqual(JTokenType.String, row.EvidenceValue.Type);
@@ -393,10 +392,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsNull(row.EvidenceValue);
             Assert.IsNull(row.ExpiresValue);
         }
-#pragma warning restore CS0618
 
         [Test]
-        public void TheValues_AreTheWiresKeys_AndTheDeprecatedAccessorsAreNotWritten()
+        public void TheValues_AreTheWiresKeys_AndTheStringAccessorsAreNotWritten()
         {
             var row = new OWProposal
             {

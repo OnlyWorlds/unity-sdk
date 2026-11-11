@@ -117,11 +117,12 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
-        /// <see cref="EvidenceValue"/> as text: a string as itself, null as null, any other JSON value as its compact
-        /// JSON text (<c>["a","b"]</c>, <c>14</c>, <c>true</c>). Setting it sets <see cref="EvidenceValue"/> to the string.
+        /// <see cref="EvidenceValue"/> as a string: the value itself when it is a string, null when it is null, and the
+        /// compact JSON text of any other value (<c>["a","b"]</c>, <c>14</c>, <c>true</c>). On a proposed change it is
+        /// always the string. A new element's row may hold any JSON value: read <see cref="EvidenceValue"/> for the
+        /// value itself. Setting it sets <see cref="EvidenceValue"/> to the string.
         /// </summary>
         [JsonIgnore]
-        [Obsolete(EvidenceDeprecated)]
         public string Evidence
         {
             get => AsText(_evidence);
@@ -129,24 +130,17 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
-        /// <see cref="ExpiresValue"/> as text: a string as itself, null as null, any other JSON value as its compact
-        /// JSON text (<c>20991121</c>). Setting it sets <see cref="ExpiresValue"/> to the string.
+        /// <see cref="ExpiresValue"/> as a string: the value itself when it is a string, null when it is null, and the
+        /// compact JSON text of any other value (<c>20991121</c>). On a proposed change it is always the string. A new
+        /// element's row may hold any JSON value: read <see cref="ExpiresValue"/> for the value itself. Setting it sets
+        /// <see cref="ExpiresValue"/> to the string.
         /// </summary>
         [JsonIgnore]
-        [Obsolete(ExpiresDeprecated)]
         public string Expires
         {
             get => AsText(_expires);
             set => _expires = value == null ? null : new JValue(value);
         }
-
-        private const string EvidenceDeprecated =
-            "A new element's row serves its mark's evidence as stored, any JSON value: read EvidenceValue. " +
-            "Evidence reads a value that is not a string as its JSON text.";
-
-        private const string ExpiresDeprecated =
-            "A new element's row serves its mark's expires as stored, any JSON value: read ExpiresValue. " +
-            "Expires reads a value that is not a string as its JSON text.";
 
         private JToken _evidence;
         private JToken _expires;
