@@ -584,9 +584,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         private static string Chars(params int[] codePoints) => new string(codePoints.Select(c => (char)c).ToArray());
 
         /// <summary>
-        /// The packages' 26 review cases (the TypeScript SDK's <c>test/review.test.mjs</c>, 4.102.1, and the Python
+        /// The packages' 29 review cases (the TypeScript SDK's <c>test/review.test.mjs</c>, 4.102.1, and the Python
         /// package's <c>tests/test_review.py</c>, 0.84.1, the same names in the same order; the two of the review
-        /// profile's rule 5, schema-dist serial 114, from the TypeScript SDK 4.151.0): the mark (null: no key),
+        /// profile's rule 5, schema-dist serial 114, from the TypeScript SDK 4.151.0; <c>1</c>, <c>true</c> and
+        /// <c>["a"]</c> read as a doubt, from the TypeScript SDK 4.152.0, in its order): the mark (null: no key),
         /// whether <c>proposedMarkOf</c> shows a mark (<see cref="OWPayload.IsProposed"/>), and whether
         /// <c>handsOnAsProposed</c> leaves the element out (<see cref="OWPayload.IsProposedOrInDoubt"/>). This SDK reads
         /// no mark's <c>by</c>, <c>expires</c> or lapse from an element, so only those two answers are held.
@@ -602,6 +603,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("an array holding an empty array: present, not a mark, a doubt", () => JArray.Parse("[[]]"), false, true),
             ("false: a value, a doubt", () => false, false, true),
             ("zero: a value, a doubt", () => 0, false, true),
+            ("one: a value, a doubt", () => 1, false, true),
+            ("true: a value, a doubt", () => true, false, true),
+            ("a list holding a string: present, not a mark, a doubt", () => JArray.Parse(@"[""a""]"), false, true),
             ("an empty object: an empty mark, settled", () => new JObject(), false, false),
             ("an object with no key the profile names: present, a mark", () => JObject.Parse(@"{""x"":null}"), true, true),
             ("rule 5: only a key the table does not name ({\"note\": \"x\"}), a mark that never lapses", () => JObject.Parse(@"{""note"":""x""}"), true, true),
@@ -625,7 +629,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             PackageCases.Select(c => new TestCaseData(c.What).SetName("Review_" + c.What));
 
         [Test]
-        public void ThePackagesReviewCases_AreTwentySix() => Assert.AreEqual(26, PackageCases.Length);
+        public void ThePackagesReviewCases_AreTwentyNine() => Assert.AreEqual(29, PackageCases.Length);
 
         [TestCaseSource(nameof(PackageCaseNames))]
         public void ThePackagesReviewCase_ReadsAsTheyReadIt(string what)

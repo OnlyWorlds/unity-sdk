@@ -1238,6 +1238,33 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         /// <summary>
+        /// The lens profile's first-line rule (schema-dist serial 115): trimming White_Space decides which line is the
+        /// first that holds something; the line itself is carried as stored, its leading spaces kept; a description with
+        /// no such line gives no <c>description</c> key. The TypeScript SDK's eight cases (<c>test/lens.test.mjs</c>,
+        /// 4.153.0) and the Python package's (<c>tests/test_lens.py</c>, 0.116.0), the same inputs and answers.
+        /// </summary>
+        [TestCase("One.\nTwo.", "One.", TestName = "AFirstLineRow_plain")]
+        [TestCase("\n  Rung for every crossing.\nMore.", "  Rung for every crossing.", TestName = "AFirstLineRow_a leading break, then spaces")]
+        [TestCase("\r\n \t\r\n \r\nThird.\r\nFourth.", "Third.", TestName = "AFirstLineRow_blank lines first, CRLF")]
+        [TestCase("\rAfter the return.", "After the return.", TestName = "AFirstLineRow_a carriage return alone")]
+        [TestCase("  Only line  ", "  Only line  ", TestName = "AFirstLineRow_one line with spaces")]
+        [TestCase("\n \n\t\r\n", null, TestName = "AFirstLineRow_blank lines only")]
+        [TestCase(" 　 ", null, TestName = "AFirstLineRow_White_Space alone")]
+        [TestCase("", null, TestName = "AFirstLineRow_empty")]
+        public void AFirstLineRow_CarriesTheFirstLineHoldingSomething_AsStored_NoneGivesNoDescription(string description, string expected)
+        {
+            var world = new List<JObject>
+            {
+                JObject.Parse(@"{""id"":""a"",""type"":""institution"",""name"":""Anchor"",""objects"":[""o""]}"),
+                new JObject { ["id"] = "o", ["type"] = "object", ["name"] = "Ledger", ["description"] = description },
+            };
+            var lens = Lens("L", @"{""show"":""first_line""}", @"""institutions"":[""a""]");
+            var row = OWLens.Resolve(world, lens, OWLensReader.Owner()).Rows.Single(r => (string)r["id"] == "o");
+            Assert.AreEqual(expected != null, row.ContainsKey("description"), "the key");
+            if (expected != null) Assert.AreEqual(expected, (string)row["description"]);
+        }
+
+        /// <summary>
         /// Hidden beats known_of: a hidden element named in a guest's <c>known_of</c> that is not its own creation is not
         /// in that guest's view, so no stub, no row, no count and no mark; a hidden id in <c>whole</c> stays its own
         /// creation. A filter keeps nothing of it; an anchor on it is one the guest cannot see, counted only for the owner
