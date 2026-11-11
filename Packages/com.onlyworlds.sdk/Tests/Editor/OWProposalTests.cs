@@ -584,10 +584,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         private static string Chars(params int[] codePoints) => new string(codePoints.Select(c => (char)c).ToArray());
 
         /// <summary>
-        /// The packages' 29 review cases (the TypeScript SDK's <c>test/review.test.mjs</c>, 4.102.1, and the Python
+        /// The packages' 31 review cases (the TypeScript SDK's <c>test/review.test.mjs</c>, 4.102.1, and the Python
         /// package's <c>tests/test_review.py</c>, 0.84.1, the same names in the same order; the two of the review
         /// profile's rule 5, schema-dist serial 114, from the TypeScript SDK 4.151.0; <c>1</c>, <c>true</c> and
-        /// <c>["a"]</c> read as a doubt, from the TypeScript SDK 4.152.0, in its order): the mark (null: no key),
+        /// <c>["a"]</c> read as a doubt, from the TypeScript SDK 4.152.0, in its order; with schema-dist serial 116, a
+        /// <c>by</c> read as stored, one row renamed and two added, from the TypeScript SDK 4.155.0): the mark (null: no key),
         /// whether <c>proposedMarkOf</c> shows a mark (<see cref="OWPayload.IsProposed"/>), and whether
         /// <c>handsOnAsProposed</c> leaves the element out (<see cref="OWPayload.IsProposedOrInDoubt"/>). This SDK reads
         /// no mark's <c>by</c>, <c>expires</c> or lapse from an element, so only those two answers are held.
@@ -611,11 +612,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             ("rule 5: only a key the table does not name ({\"note\": \"x\"}), a mark that never lapses", () => JObject.Parse(@"{""note"":""x""}"), true, true),
             ("rule 5: a named key whose value is null ({\"by\": null}), a mark, no proposer named", () => JObject.Parse(@"{""by"":null}"), true, true),
             ("a whole mark, open", () => JObject.Parse(@"{""by"":""m1"",""evidence"":""seen"",""expires"":""2026-11-01""}"), true, true),
-            ("trimmed by and expires", () => JObject.Parse(@"{""by"":""  m1 "",""expires"":"" 2026-11-01 ""}"), true, true),
+            ("a by read as stored, never trimmed; expires trimmed", () => JObject.Parse(@"{""by"":""  m1 "",""expires"":"" 2026-11-01 ""}"), true, true),
+            ("a by of owner with White_Space around it is not the word owner", () => new JObject { ["by"] = " owner\n" }, true, true),
             ("lapses on its own day", () => JObject.Parse(@"{""by"":""m1"",""expires"":""2026-10-26""}"), true, true),
             ("lapsed before today", () => JObject.Parse(@"{""by"":""m1"",""expires"":""2026-10-01""}"), true, true),
             ("an expires not shaped as a day", () => JObject.Parse(@"{""by"":""m1"",""expires"":""2026-1-1""}"), true, true),
             ("a blank or non-string by", () => JObject.Parse(@"{""by"":""   "",""expires"":7}"), true, true),
+            ("a by that is not a string names nobody", () => JObject.Parse(@"{""by"":7,""expires"":""2026-11-01""}"), true, true),
             ("U+3000 only: White_Space, an empty mark, settled", () => Chars(0x3000), false, false),
             ("U+001C only: not White_Space, present, a doubt", () => Chars(0x1C), false, true),
             ("a byte order mark only: not White_Space, present, a doubt", () => Chars(0xFEFF), false, true),
@@ -629,7 +632,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             PackageCases.Select(c => new TestCaseData(c.What).SetName("Review_" + c.What));
 
         [Test]
-        public void ThePackagesReviewCases_AreTwentyNine() => Assert.AreEqual(29, PackageCases.Length);
+        public void ThePackagesReviewCases_AreThirtyOne() => Assert.AreEqual(31, PackageCases.Length);
 
         [TestCaseSource(nameof(PackageCaseNames))]
         public void ThePackagesReviewCase_ReadsAsTheyReadIt(string what)

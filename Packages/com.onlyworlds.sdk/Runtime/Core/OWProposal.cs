@@ -89,7 +89,13 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("expires")]
         public string Expires;
 
-        /// <summary>Who proposed it: a membership id (a person, an agent seat or a player seat), or <c>owner</c>.</summary>
+        /// <summary>
+        /// On a proposed change, who proposed it, as the server recorded it: a membership id (a person, an agent seat or a
+        /// player seat), or <c>owner</c>. On a proposed new element (<see cref="IsNewElement"/>), the mark's own
+        /// <c>by</c>: the writer's word for who made the mark, a claim with no format to rely on and never proof of who
+        /// wrote it (the review profile's "Who <c>by</c> names", schema-dist serial 116); show it as the mark's word, never
+        /// as a fact. Null when the row carries none.
+        /// </summary>
         [JsonProperty("by")]
         public string By;
 

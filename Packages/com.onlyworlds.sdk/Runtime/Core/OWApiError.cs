@@ -353,7 +353,8 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// A write from a key below co-builder whose <c>x_review_proposed</c> or <c>x_review_checked</c> carries a
-        /// <c>by</c> that is not the writer's own membership id, in a mark that is not exactly the one the element holds
+        /// <c>by</c> that holds something (a value that is not a string included; White_Space alone holds nothing) and is
+        /// not the writer's own membership id, in a mark that is not exactly the one the element holds
         /// (403 <c>review_by_another</c>, <c>param</c> the mark; nothing written). Send your own membership id as
         /// <c>by</c>, or the mark exactly as the element holds it now. On a create, an update, a proposal and a bulk
         /// write item by item. Retrying will not help. npm's <c>isReviewByAnother</c> (4.152.0).

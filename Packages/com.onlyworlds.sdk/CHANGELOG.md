@@ -48,6 +48,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
+- **The schema pin moves to `v0.34.0-dist.116`** (canonical `00.34.00` unchanged; no schema file, fixture or walk
+  moved): the review page says who a mark's `by` names, the writer's own word and a claim, read as stored and never
+  trimmed (White_Space alone, or a value that is not a string, names nobody), shown as the mark's word and in a name's
+  place only where the platform resolves it. This SDK reads the review marks by presence and reads no mark's `by`, so
+  no reader moved. `OWProposal.By`'s doc now says that on a proposed new element it is the mark's own `by`, a claim,
+  and `OWApiError.IsReviewByAnother`'s that a `by` of White_Space alone holds nothing. The review cases follow the
+  TypeScript SDK 4.155.0 (one row renamed, two added, 31 in all). The generated models and the views table changed in
+  their serial stamp only.
 - **A lens's `first_line` row carries the first line that holds something**: under `show` `first_line`,
   `OWLens.Resolve`'s row carries as `description` the first line, the description split at every carriage return
   and every line feed (no other character breaks a line), that holds something after trimming White_Space, as stored

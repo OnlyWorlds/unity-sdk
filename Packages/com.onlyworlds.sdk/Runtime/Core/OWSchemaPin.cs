@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.34.00";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 115;
+        public const int DistSerial = 116;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.34.0-dist.115";
+        public const string Tag = "v0.34.0-dist.116";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -296,9 +296,18 @@ namespace OnlyWorlds.Sdk
         /// <c>created_by</c>, the packet page's optional producer <c>version</c>, and the folder lint's review
         /// warnings are words a reader here does not read. The generated models changed in their serial stamp only.
         /// </para>
+        /// <para>
+        /// <b>115 -> 116 (2026-11-11)</b>: canonical unchanged, no schema file, fixture or walk moved; one profile page's
+        /// prose. The review page says who a mark's <c>by</c> names: the writer's own word, a claim, read as stored and
+        /// never trimmed (White_Space alone, or a value that is not a string, names nobody), shown as the mark's word
+        /// and in a name's place only when the platform resolves it. Nothing here reads a mark's <c>by</c>: the review
+        /// marks are read by presence (<see cref="OWPayload.IsProposed"/>); <see cref="OWProposal.By"/> and
+        /// <see cref="OWApiError.IsReviewByAnother"/> say the page's words in their docs. The generated models and the
+        /// views table changed in their serial stamp only.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "bd1cb0491222c928305463181da61e424beac08cc0bf35fafc85cff141ea1a80";
+            "7e604e9c976500bd0d3b9781d947da8ed0785980ac92709861a48421f4af53c3";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.
