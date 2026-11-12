@@ -1462,6 +1462,36 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual("upsert", page.Changes[0].Op);
         }
 
+        // The API document's ChangesPage rows: an upsert's `updated_at` and a delete's `deleted_at` are each
+        // ["string", "null"]. Parity with the TypeScript SDK 4.157.0's `string | null`. OWChange maps neither key, so a
+        // null there is ignored with the rest of the row read as served. Kills: a mapping of either key added as a value
+        // type (a DateTime), which would throw on null and lose the whole page.
+        [Test]
+        public async Task Changes_NullUpdatedAtAndDeletedAt_ReadTheRowsAsServed()
+        {
+            var t = new FakeTransport
+            {
+                ResponseBody = @"{""cursor"":""opaque-abc"",""has_more"":false,""head"":202,""changes"":[
+                    {""op"":""upsert"",""type"":""character"",""id"":""c1"",""change_seq"":201,""updated_at"":null,
+                     ""element"":{""id"":""c1"",""name"":""A""}},
+                    {""op"":""delete"",""type"":""event"",""id"":""e1"",""change_seq"":202,""deleted_at"":null,
+                     ""deleted_by"":null,""deleted_via"":null}]}",
+            };
+
+            var page = await Make(t).ChangesAsync();
+
+            Assert.AreEqual(2, page.Changes.Count);
+            var upsert = page.Changes[0];
+            Assert.AreEqual("c1", upsert.Id);
+            Assert.AreEqual(201, upsert.ChangeSeq);
+            Assert.AreEqual("A", upsert.Element["name"].ToString());
+            var delete = page.Changes[1];
+            Assert.AreEqual("delete", delete.Op);
+            Assert.AreEqual("e1", delete.Id);
+            Assert.AreEqual(202, delete.ChangeSeq);
+            Assert.IsNull(delete.Element);
+        }
+
         [Test]
         public async Task Changes_HeadOnly_IsACheapTipCheck()
         {

@@ -247,6 +247,23 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(@"{""lenses"":null}", a.Body, "null, not [] and not left out");
         }
 
+        // The API document's MemberLenses: `x_served_trimmed` is a list naming `lenses`, or null (its default). Parity
+        // with the TypeScript SDK 4.157.0's `'lenses'[] | null`. The answer is the row as served, so a null mark is a
+        // JSON null token, never a list and never a missing key. Kills: an answer reshaped so a null mark reads as an
+        // empty list (trimmed of nothing, which is a claim) or is dropped.
+        [Test]
+        public async Task SetMemberLenses_NullServedTrimmed_IsAnsweredAsANullToken()
+        {
+            const string row = @"{""id"":""m1"",""role"":""guest"",""kind"":""agent"",""lenses"":[""l1""],""x_served_trimmed"":null}";
+            var t = new FakeTransport { ResponseBody = row };
+
+            var answer = await Make(t, "ow_a_test", null).SetMemberLensesAsync("w1", "m1", new[] { "l1" });
+
+            Assert.IsTrue(JToken.DeepEquals(JObject.Parse(row), answer), "the row as served: " + answer);
+            Assert.AreEqual(JTokenType.Null, answer["x_served_trimmed"].Type, "a null mark is a null token");
+            Assert.IsNotInstanceOf<JArray>(answer["x_served_trimmed"], "a null mark names no field");
+        }
+
         // Kills: a world key, a read key, a legacy key or a keyless client reaching the transport.
         [Test]
         public void SetMemberLenses_AnyKeyButAnAccountToken_IsRefused_NothingSent()
