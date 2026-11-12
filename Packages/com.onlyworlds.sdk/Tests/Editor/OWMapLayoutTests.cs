@@ -19,8 +19,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </summary>
     public class OWMapLayoutTests
     {
-        /// <summary>The fixture's layout cases, as dist.111 holds them (seventeen at dist.110).</summary>
-        private const int LayoutCaseCount = 21;
+        /// <summary>The fixture's layout cases, as dist.119 holds them (seventeen at dist.110, 21 at dist.111).</summary>
+        private const int LayoutCaseCount = 23;
 
         private static JObject _fixture;
 
@@ -101,14 +101,16 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
-        public void TheFixture_HoldsDist111sLayoutCases_EachNamedOnce_BesideItsCases()
+        public void TheFixture_HoldsDist119sLayoutCases_EachNamedOnce_BesideItsCases()
         {
             Assert.IsNotNull(Fixture, "the vendored map-space fixture was not found");
             Assert.IsInstanceOf<JArray>(Fixture["layout_cases"], "dist.111's fixture holds layout_cases beside cases");
             var names = LayoutCases().Select(c => (string)c["name"]).ToList();
-            Assert.AreEqual(LayoutCaseCount, names.Count, "dist.111's fixture holds 21 layout cases");
+            Assert.AreEqual(LayoutCaseCount, names.Count, "dist.119's fixture holds 23 layout cases");
             Assert.AreEqual(names.Count, names.Distinct().Count(), "a case is found by its name, so each name is once");
-            Assert.AreEqual(34, Fixture["cases"].Count(), "the map-space reading's cases are unchanged beside them");
+            CollectionAssert.IsSubsetOf(new[] { "parentless-layout-beside-ground", "ground-beside-parentless-layout" }, names,
+                "dist.119's two cases: a layout Map and its ground, neither with a parent_map, each read in turn");
+            Assert.AreEqual(35, Fixture["cases"].Count(), "the map-space reading's cases beside them (35 since dist.119)");
         }
 
         [TestCaseSource(nameof(Cases))]
@@ -236,6 +238,18 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             const string none = @"{""layout"":null,""ground"":null,""hand"":[]}";
             Assert.AreEqual(none, Json(OWMapSpace.LayoutOf(Row(@"{""type"":""map"",""x_layout"":{""method"":""hand""}}"), new JObject[0], pins)));
             Assert.AreEqual(none, Json(OWMapSpace.LayoutOf(Row(@"{""type"":""map"",""id"":""m1"",""x_layout"":[{""method"":""hand""}]}"), new JObject[0], pins)));
+        }
+
+        /// <summary>
+        /// Reading H says a non-empty string id (dist.119's words): a Map row whose <c>id</c> is <c>""</c> is no Map, so
+        /// no layout map, even with a method and a Pin naming <c>""</c> as its map. No fixture case holds this row yet.
+        /// </summary>
+        [Test]
+        public void AMapRowWhoseIdIsTheEmptyString_IsNoLayoutMap()
+        {
+            var map = Row(@"{""type"":""map"",""id"":"""",""x_layout"":{""method"":""hand""}}");
+            var pins = new[] { Row(@"{""type"":""pin"",""id"":""p1"",""map"":""""}") };
+            Assert.AreEqual(@"{""layout"":null,""ground"":null,""hand"":[]}", Json(OWMapSpace.LayoutOf(map, new[] { map }, pins)));
         }
 
         [Test]

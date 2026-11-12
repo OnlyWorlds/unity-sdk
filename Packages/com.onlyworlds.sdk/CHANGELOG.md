@@ -67,6 +67,15 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   TypeScript SDK 4.156.0 (`OwProposedNewElement.evidence` and `.expires` as `unknown`), with keel's own values for
   the queue row (a string, a blank one, a list, an empty list, an object, an integer, a fraction, both booleans,
   null) as read and write-back cases.
+- **The schema pin moves to `v0.34.0-dist.119`** (canonical `00.34.00` unchanged; no schema file, `schema.json` or
+  walk reader moved, and no answer of a reader here moves): the map-space page gains rule 11 (a layout map is no
+  candidate when a tool picks the Map that stands for the world's space, and a Pin or a Marker on one is a place in
+  that drawing, never in the world) and its reading H says a row's id is a non-empty string, as `OWMapSpace` already
+  read it. The fixture gains one map-space case (a layout map read as any Map, 35 in all) and two layout cases (a
+  layout Map and its ground, neither with a `parent_map`, 23 in all), each answered by `OWMapSpace.Of` and
+  `OWMapSpace.LayoutOf` as before; the test copy of the fixture moved with the new bytes, and a new test holds a Map
+  row whose `id` is `""` as no layout map. The distribution's folder lint knows folder format 0.3.22 and gains no
+  check. The generated models and the views table changed in their serial stamp only.
 - **The schema pin moves to `v0.34.0-dist.118`** (canonical `00.34.00` unchanged; no schema file or walk moved,
   `views.json` still version 3, and no answer of a reader here moves): the views table's sentence rule ends by saying a
   tool that shows names only need show no sentence, and its `conversation` layout by saying a tool that shows one
