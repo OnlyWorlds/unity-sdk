@@ -163,6 +163,15 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             {
                 Filter = new System.Collections.Generic.Dictionary<string, string> { ["parent_location"] = "p1", ["zone"] = "" },
             });
+            // The Pin list's element filter (keel's document from c1d6b0ff0cdd): an id, then the empty value for the Pins placing nothing.
+            await c.ListAsync<JObject>("pin", new OWListParams
+            {
+                Expand = new[] { "map" }, Filter = new System.Collections.Generic.Dictionary<string, string> { ["element"] = "e1" },
+            });
+            await c.ListAsync<JObject>("pin", new OWListParams
+            {
+                Filter = new System.Collections.Generic.Dictionary<string, string> { ["element"] = "" },
+            });
             t.ResponseBody = "{}";
             await c.GetAsync<JObject>("character", "c1");
             await c.GetAsync<JObject>("character", "c1", expand: new[] { "friends" }, fields: new[] { "name" }, viewAs: "public");
@@ -883,7 +892,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             // An empty recording would pass the checks above with nothing checked.
             var calls = await RecordEveryCall();
-            Assert.AreEqual(94, calls.Count);
+            Assert.AreEqual(96, calls.Count);
+
+            // The Pin list's element filter is on the wire as given: the id, and the empty value sent (not dropped).
+            var pinLists = calls.Where(c => c.Method == "GET" && new Uri(c.Url).AbsolutePath.EndsWith("/api/v2/pin/")).ToList();
+            Assert.AreEqual(2, pinLists.Count, "the two Pin list calls are judged");
+            Assert.That(pinLists[0].Url, Does.Contain("expand=map").And.EndWith("element=e1"),"the element id is sent");
+            Assert.That(pinLists[1].Url, Does.EndWith("element="), "the empty element is sent, not dropped: dropping it lists every Pin");
 
             // The upload host's and the sign-in service's requests are recorded and left out of the checks; the keel
             // request of each two-step call, and the password sign-in's mint, are in, so the checks above judged them.

@@ -50,6 +50,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   owner's files and for a file whose membership no longer exists, and `Owner` tells the two apart: a null
   `Membership` with `Owner` false is a former member, named "a former member". A server from before the key sends
   none, which reads false. Parity with the TypeScript SDK 4.154.0 (`OwFileAddedBy.owner`).
+- **The Pin list's `element` filter**, served since 2026-11-12: `Filter = { ["element"] = id }` lists the Pins that
+  place that element, of any type, so with `Expand = new[] { "map" }` one `ListAsync<OWElement>("pin", ...)` call gives
+  an element its maps; `["element"] = ""` lists the Pins placing nothing. The client already sent any field-named
+  filter as given, so only the words (the `OWListParams.Filter` notes) and the proof are new: the wire fixture
+  refetched at keel's document `c1d6b0ff0cdd`, where `/api/v2/pin` lists `element`, and the wire sweep's two Pin list
+  calls (the id and the empty value) judged against it. Parity with the TypeScript SDK's unreleased notes line after
+  4.157.2 (the list filter's notes name the Pin list's `element=<id>`).
 
 ### Changed
 
