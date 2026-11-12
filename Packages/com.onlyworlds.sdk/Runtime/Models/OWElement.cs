@@ -69,8 +69,9 @@ namespace OnlyWorlds.Sdk
         public string ImageUrl { get => _imageUrl; set => _imageUrl = value; }
 
         // -- Server-managed. Read-only: never send these back. ----------------
-        // See OWPayload.ReadOnlyFields -- world alone returns 422, because world identity comes
-        // from the API key, not the payload.
+        // See OWPayload.ReadOnlyFields: never sent, because world identity comes from the API key,
+        // not the payload. The site serves no world in an element's body, so World is null on a
+        // read from it; nothing in this package gives it meaning (folder format 0.3.22).
 
         [JsonProperty("world")]
         [SerializeField] private string _world;

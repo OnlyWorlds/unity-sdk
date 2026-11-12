@@ -712,6 +712,25 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 () => OWFolderWriter.WriteWorld(_temp, new JObject { ["name"] = "Nameless" }));
         }
 
+        /// <summary>
+        /// §4.1's <c>id</c> is a non-empty string, and a draft world (§3.4, v0.3.22) conforms as any other: the writer
+        /// asks the question the folder read asks (<c>OWFolderReader.WorldIdOf</c>), so it never writes a
+        /// <c>world.json</c> its own reader refuses.
+        /// </summary>
+        [TestCase("null")]
+        [TestCase("\"\"")]
+        [TestCase("\"   \"")]
+        [TestCase("7")]
+        [TestCase("true")]
+        [TestCase("[\"w\"]")]
+        public void AWorldWhoseIdIsNoNonEmptyString_Throws_AndNothingIsWritten(string id)
+        {
+            var world = JObject.Parse("{\"id\":" + id + ",\"name\":\"Draft\"}");
+            var folder = Path.Combine(_temp, "draft");
+            Assert.Throws<OWFolderFormatException>(() => OWFolderWriter.WriteWorld(folder, world), id);
+            Assert.IsFalse(File.Exists(Path.Combine(folder, "world.json")), id + ": nothing written");
+        }
+
         // -- Layout and filenames ---------------------------------------------
 
         [Test]

@@ -278,7 +278,7 @@ namespace OnlyWorlds.Sdk
         /// <c>image_url</c>.
         /// </param>
         /// <returns>Absolute path of <c>world.json</c>.</returns>
-        /// <exception cref="OWFolderFormatException">The world has no id.</exception>
+        /// <exception cref="OWFolderFormatException">The world's id is no non-empty string.</exception>
         /// <remarks>
         /// On disk the world's now-line is <c>time_current</c>, the canonical schema's spelling --
         /// not the wire's <c>time_range_current</c>, which is a server-side rename the standard
@@ -290,11 +290,14 @@ namespace OnlyWorlds.Sdk
             if (string.IsNullOrEmpty(folder)) throw new ArgumentNullException(nameof(folder));
             if (world == null) throw new ArgumentNullException(nameof(world));
 
-            if (string.IsNullOrEmpty(world["id"]?.ToString()))
+            // The folder read's own question (§4.1: a non-empty string), so this never writes a world.json the reader
+            // refuses. A draft world (§3.4, v0.3.22) is no exception: its id is the tool's own until a host gives one.
+            if (OWFolderReader.WorldIdOf(world) == null)
             {
                 throw new OWFolderFormatException(
-                    "Cannot write a world.json with no id. Id and name are the only required keys, "
-                    + "and a world without an id cannot be keyed or compared.");
+                    "Cannot write a world.json with no id (a non-empty string). Id and name are the only required "
+                    + "keys, and a world without an id cannot be keyed or compared; a draft world's id is the "
+                    + "tool's own until a host gives it one.");
             }
 
             Directory.CreateDirectory(folder);

@@ -67,6 +67,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   TypeScript SDK 4.156.0 (`OwProposedNewElement.evidence` and `.expires` as `unknown`), with keel's own values for
   the queue row (a string, a blank one, a list, an empty list, an object, an integer, a fraction, both booleans,
   null) as read and write-back cases.
+- **Folders declare format 0.3.22** (`OWFolderExport.FormatVersion`), which the distribution's folder lint knows from
+  `v0.34.0-dist.119`. The version rules a draft world (a world no host holds yet is a world folder or a world file's
+  content kept by the tool, with no `api` block and no `source`; its element ids are kept through a hand-over, and the
+  host gives the world its id) and that a writer adds no `world` to an element file and a reader gives one no meaning.
+  The writers already did both: `OWFolderWriter` writes a body as given, refuses one without an id and mints none, and
+  an export writes element rows as served, with no `world`. One change: **`OWFolderWriter.WriteWorld` now refuses a
+  world whose `id` is not a non-empty string** (a number, a boolean, a list, a blank), the question the folder read
+  asks, so it never writes a `world.json` its own reader refuses; before, only a missing or empty id was refused.
 - **The schema pin moves to `v0.34.0-dist.119`** (canonical `00.34.00` unchanged; no schema file, `schema.json` or
   walk reader moved, and no answer of a reader here moves): the map-space page gains rule 11 (a layout map is no
   candidate when a tool picks the Map that stands for the world's space, and a Pin or a Marker on one is a place in
