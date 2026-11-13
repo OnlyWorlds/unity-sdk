@@ -8,14 +8,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
-- **Two read marks at the same instant tie by the higher id.** `OWMessage.ReadMarkOf` still takes the mark with the
-  newest `updated_at` wherever it stands in the list, and one whose time cannot be read still never wins over one that
-  can; but of two marks at the same instant it now takes the one with the higher id, by code point as written, where it
-  kept the first in the list. An instant written two ways is one (`2026-10-20T10:00:00Z` and
-  `2026-10-20T11:00:00+01:00`), so those two tie too. When several marks count and none of their times can be read,
-  there is now no mark (null), where the first in the list was kept; a single mark that counts is still the mark,
-  whatever its time. The answer no longer depends on the order the relations are given in. This follows the message profile's ruling for schema-dist serial 123, which is not yet published; the
-  schema pin stays at `v0.34.0-dist.122`.
+- **Read marks at the same instant, or with no time that can be read, go to the higher id.** `OWMessage.ReadMarkOf`
+  reads the message profile's rule: a lone mark is the mark. Among several, the newest readable `updated_at` wins; one
+  that cannot be read never beats one that can; among equal instants, or when none can be read, the higher id (by code
+  point, as written) is the mark. Before, equal instants and marks none of whose times could be read kept the first in
+  the list. An instant written two ways is one (`2026-10-20T10:00:00Z` and `2026-10-20T11:00:00+01:00`), so those two
+  tie too. The answer no longer depends on the order the relations are given in. This follows the message profile's
+  ruling for schema-dist serial 123, which is not yet published; the schema pin stays at `v0.34.0-dist.122`.
 - **A lens's budget orders by the clock `changed_within` reads.** Within a type, `OWLens.Resolve` ranks the newest
   first by one clock: on the wire `updated_at`, and for a folder element the newer of `server_updated_at` and
   `local_updated_at` (each read as the message profile reads a `created_at`), where the order read `updated_at` only.

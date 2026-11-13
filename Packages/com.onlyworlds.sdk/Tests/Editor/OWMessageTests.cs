@@ -390,13 +390,15 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var unreadable = Mark(High, "2026-10-20");
             Assert.AreEqual(Low, MarkOf(a, unreadable));
             Assert.AreEqual(Low, MarkOf(unreadable, a));
-            // Two marks neither of whose times can be read: neither wins, so there is no mark, in either order. One mark
-            // alone stands whatever its time (a folder's mark may carry none).
+            // None can be read: the higher id is the mark, in either order. A readable one among them still wins. A lone
+            // mark is the mark whatever its time (a folder's mark may carry none).
             var undated = Mark(Low, null);
-            Assert.IsNull(OWMessage.ReadMarkOf(new[] { undated, unreadable }, Ada, null), "neither can be read");
-            Assert.IsNull(OWMessage.ReadMarkOf(new[] { unreadable, undated }, Ada, null), "neither can be read, either order");
-            Assert.AreEqual(Low, MarkOf(undated, unreadable, a), "a readable third still wins");
-            Assert.AreEqual(Low, MarkOf(undated), "one mark alone stands");
+            Assert.AreEqual(High, MarkOf(undated, unreadable), "none can be read: the higher id");
+            Assert.AreEqual(High, MarkOf(unreadable, undated), "none can be read: the higher id, either order");
+            Assert.AreEqual(Low, MarkOf(undated, unreadable, a), "a readable one beats every unreadable one");
+            Assert.AreEqual(Low, MarkOf(a, unreadable, undated), "a readable one beats every unreadable one, either order");
+            Assert.AreEqual(Low, MarkOf(undated), "a lone mark is the mark");
+            Assert.AreEqual(High, MarkOf(unreadable), "a lone mark is the mark, its time unreadable");
             // Code point as written: an upper-case letter sorts before every lower-case one.
             var upper = Mark("0b5f2d8e-0000-7000-8000-00000000000B", "2026-10-20T10:00:00Z");
             Assert.AreEqual(High, MarkOf(upper, b));

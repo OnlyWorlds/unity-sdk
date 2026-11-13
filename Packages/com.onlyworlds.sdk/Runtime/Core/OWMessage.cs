@@ -295,12 +295,11 @@ namespace OnlyWorlds.Sdk
         /// served no <c>created_by</c> or <c>changed_by</c> on any body, so the hands were taken off, not missing.
         /// </summary>
         /// <remarks>
-        /// Of several that count, the one with the newest <c>updated_at</c> is the mark, wherever it stands in the list:
-        /// one whose time cannot be read never wins over one that can, and two at the same instant (an instant written
-        /// two ways is one) tie by the higher id, by code point as written. When several count and none of their times
-        /// can be read, there is no mark (null); a single mark that counts is the mark whatever its time. A newer mark in
-        /// another's hand is ignored, and the reader's own older mark stands. Read another member's mark as a fact about
-        /// them; never write it.
+        /// A lone mark that counts is the mark, whatever its time. Among several, the newest readable <c>updated_at</c>
+        /// wins, wherever it stands in the list; one that cannot be read never beats one that can; among equal instants
+        /// (an instant written two ways is one), or when none can be read, the higher id, by code point as written, is
+        /// the mark. A newer mark in another's hand is ignored, and the reader's own older mark stands. Read another
+        /// member's mark as a fact about them; never write it.
         /// </remarks>
         /// <param name="relations">Relations, the Read marks among them (a list filtered by supertype is enough).</param>
         /// <param name="characterId">The reader's Character id.</param>
@@ -313,7 +312,6 @@ namespace OnlyWorlds.Sdk
             if (relations == null || string.IsNullOrEmpty(characterId) || keyless) return null;
             JObject mark = null;
             long? markKey = null;
-            var counted = 0;
             foreach (var entry in relations)
             {
                 if (!(entry is JObject relation) || !Matches(relation, ReadMarkPair)) continue;
@@ -322,19 +320,19 @@ namespace OnlyWorlds.Sdk
                 if (relation.TryGetValue("changed_by", out var lastHand)
                     && !(relation.TryGetValue("created_by", out var author) && SameHand(lastHand, author))) continue;
 
-                counted++;
                 var key = TimeKey(relation["updated_at"]);
-                if (mark == null || (key != null && (markKey == null || key > markKey
-                        || (key == markKey && OWCodePointComparer.Instance.Compare(StringOf(relation["id"]),
-                            StringOf(mark["id"])) > 0))))
+                // A readable time beats an unreadable one and a newer beats an older; equal instants, or two that cannot
+                // be read (null == null), go to the higher id.
+                if (mark == null || (key != null && markKey == null) || key > markKey
+                    || (key == markKey
+                        && OWCodePointComparer.Instance.Compare(StringOf(relation["id"]), StringOf(mark["id"])) > 0))
                 {
                     mark = relation;
                     markKey = key;
                 }
             }
 
-            // Several that count and none whose time can be read: the unreadable never wins, so none does.
-            return markKey == null && counted > 1 ? null : mark;
+            return mark;
         }
 
         /// <summary>
