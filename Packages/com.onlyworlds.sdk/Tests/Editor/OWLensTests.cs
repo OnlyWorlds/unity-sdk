@@ -965,9 +965,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsNull(OWLens.Resolve(world, LensOn(anchored, @"{""changed_within"":null}"), OWLensReader.Owner(), options).RefusedKey);
         }
 
-        // The TypeScript SDK 4.98.0's folder vector: a folder element reads the newer of its two sync stamps; a folder
-        // stamp, where one reads, wins over updated_at; an unreadable one is no stamp. Kills: updated_at read over a
-        // readable folder stamp, an unreadable folder stamp read as a time or as hiding updated_at.
+        // From the TypeScript SDK 4.98.0's folder vector, moved to the element's clock: the newest of its readable
+        // updated_at and two sync stamps; an unreadable one is no stamp. Kills: an older updated_at read over a newer
+        // folder stamp, a folder stamp read over a newer updated_at, an unreadable folder stamp read as a time or as
+        // hiding updated_at.
         [Test]
         public void ChangedWithin_ReadsAFolderElement_ByTheNewerOfItsTwoSyncStamps()
         {
@@ -986,15 +987,17 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsTrue(Kept(@",""server_updated_at"":""2026-09-01T00:00:00Z"",""local_updated_at"":""2026-10-26T00:00:00Z"""));
             Assert.IsTrue(Kept(@",""server_updated_at"":""2026-10-26T00:00:00Z"",""local_updated_at"":""2026-09-01T00:00:00Z"""));
             Assert.IsFalse(Kept(@",""server_updated_at"":""2026-09-01T00:00:00Z"",""local_updated_at"":""2026-09-02T00:00:00Z"""));
-            Assert.IsFalse(Kept(@",""updated_at"":""2026-10-26T00:00:00Z"",""local_updated_at"":""2026-09-02T00:00:00Z"""),
-                "a folder stamp, where one reads, wins over updated_at");
+            Assert.IsTrue(Kept(@",""updated_at"":""2026-10-26T00:00:00Z"",""local_updated_at"":""2026-09-02T00:00:00Z"""),
+                "the newest of the three: an updated_at newer than the folder stamp");
+            Assert.IsFalse(Kept(@",""updated_at"":""2026-09-01T00:00:00Z"",""local_updated_at"":""2026-09-02T00:00:00Z"""),
+                "the newest of the three, all old");
             Assert.IsTrue(Kept(@",""updated_at"":""2026-10-26T00:00:00Z"",""local_updated_at"":""soon"""),
                 "an unreadable folder stamp is no stamp");
         }
 
-        // One clock per lens: rule 5's order reads the clock changed_within reads, on the wire updated_at, in a folder
-        // the newer of server_updated_at and local_updated_at. Kills: the budget ranking a folder element by its
-        // updated_at while changed_within judges it by its sync stamps.
+        // One clock per lens: rule 5's order reads the clock changed_within reads, the newest of an element's readable
+        // updated_at, server_updated_at and local_updated_at. Kills: the budget ranking a folder element by its
+        // updated_at alone while changed_within judges it by its sync stamps.
         [Test]
         public void TheBudgetsOrder_ReadsTheClockChangedWithinReads()
         {
@@ -1018,10 +1021,67 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 "the newer folder stamp, over an older updated_at");
             Assert.AreEqual("e1", KeptOf(@",""server_updated_at"":""2026-10-15T00:00:00Z"",""local_updated_at"":""2026-10-25T00:00:00Z"""),
                 "the newer of the two folder stamps");
-            Assert.AreEqual("e2", KeptOf(@",""updated_at"":""2026-10-25T00:00:00Z"",""server_updated_at"":""2026-10-15T00:00:00Z"""),
-                "a folder stamp, where one reads, is the clock, as for changed_within");
+            Assert.AreEqual("e1", KeptOf(@",""updated_at"":""2026-10-25T00:00:00Z"",""server_updated_at"":""2026-10-15T00:00:00Z"""),
+                "the newest of the three: an updated_at newer than the folder stamp");
+            Assert.AreEqual("e2", KeptOf(@",""updated_at"":""2026-10-15T00:00:00Z"",""server_updated_at"":""2026-10-16T00:00:00Z"""),
+                "the newest of the three, older than e2's");
             Assert.AreEqual("e1", KeptOf(@",""updated_at"":""2026-10-25T00:00:00Z"",""local_updated_at"":""soon"""),
                 "an unreadable folder stamp is no stamp");
+        }
+
+        // An element's clock is the newest of its readable updated_at, server_updated_at and local_updated_at, decided
+        // element by element; a value that cannot be read is ignored; an element with no readable clock comes last of
+        // its type. The budget's order and changed_within read that one clock. Kills: a folder stamp read before
+        // updated_at (the wire stamp newer than both is lost), updated_at alone, no clock sorted last of the budget.
+        [Test]
+        public void AnElementsClock_IsTheNewestOfItsThreeReadableStamps()
+        {
+            // An updated_at newer than both folder stamps is the clock, and orders the budget.
+            var peat = new List<JObject>
+            {
+                JObject.Parse(@"{""id"":""p0"",""type"":""family"",""name"":""The Peat Kin"",""languages"":[""p1"",""p2""],""updated_at"":""2026-11-01T12:00:00Z""}"),
+                JObject.Parse(@"{""id"":""p1"",""type"":""language"",""name"":""Peatspeech"",""server_updated_at"":""2026-10-01T12:00:00Z"",""local_updated_at"":""2026-10-02T12:00:00Z"",""updated_at"":""2026-11-05T12:00:00Z""}"),
+                JObject.Parse(@"{""id"":""p2"",""type"":""language"",""name"":""Turfcant"",""updated_at"":""2026-11-01T12:00:00Z""}"),
+            };
+            var budget = OWLens.Resolve(peat, JObject.Parse(
+                    @"{""id"":""L"",""type"":""construct"",""name"":""L"",""supertype"":""Lens"",""families"":[""p0""],""x_lens"":{""budget"":2}}"),
+                OWLensReader.Owner());
+            CollectionAssert.AreEqual(new[] { "p0", "p1" }, budget.Kept, "an updated_at newer than both folder stamps");
+            CollectionAssert.AreEquivalent(new Dictionary<string, int> { [OWLensCut.Budget] = 1 }, budget.Cut);
+        }
+
+        [Test]
+        public void ChangedWithin_CutsByTheClock_ALocalEditAndAWireStampEachNewer()
+        {
+            // changed_within cuts by the same clock: a local edit newer than updated_at, and a wire stamp newer than the
+            // server's folder stamp, each keep their element.
+            var moss = new List<JObject>
+            {
+                JObject.Parse(@"{""id"":""m0"",""type"":""family"",""name"":""The Moss Kin"",""languages"":[""m1"",""m2""],""updated_at"":""2026-11-01T12:00:00Z""}"),
+                JObject.Parse(@"{""id"":""m1"",""type"":""language"",""name"":""Mossspeech"",""updated_at"":""2026-10-01T12:00:00Z"",""local_updated_at"":""2026-11-18T12:00:00Z""}"),
+                JObject.Parse(@"{""id"":""m2"",""type"":""language"",""name"":""Lichencant"",""server_updated_at"":""2026-10-01T12:00:00Z"",""updated_at"":""2026-11-18T12:00:00Z""}"),
+            };
+            var within = OWLens.Resolve(moss, JObject.Parse(
+                    @"{""id"":""L"",""type"":""construct"",""name"":""L"",""supertype"":""Lens"",""families"":[""m0""],""x_lens"":{""changed_within"":7}}"),
+                OWLensReader.Owner(), new OWLensOptions { Clock = new DateTimeOffset(2026, 11, 20, 12, 0, 0, TimeSpan.Zero) });
+            CollectionAssert.AreEquivalent(new[] { "m0", "m1", "m2" }, within.Kept, "a local edit and a wire stamp each newer");
+            CollectionAssert.IsEmpty(within.Cut);
+        }
+
+        [Test]
+        public void AnElementWithNoReadableClock_ComesLastOfItsType_NotOfTheBudget()
+        {
+            // No readable clock comes last of its type, not of the budget: an ability comes before a language.
+            var rush = new List<JObject>
+            {
+                JObject.Parse(@"{""id"":""r0"",""type"":""family"",""name"":""The Rush Kin"",""abilities"":[""r1""],""languages"":[""r2""],""updated_at"":""2026-11-01T12:00:00Z""}"),
+                JObject.Parse(@"{""id"":""r1"",""type"":""ability"",""name"":""Rushweaving"",""local_updated_at"":""soon""}"),
+                JObject.Parse(@"{""id"":""r2"",""type"":""language"",""name"":""Rushcant"",""updated_at"":""2026-11-01T12:00:00Z""}"),
+            };
+            var last = OWLens.Resolve(rush, JObject.Parse(
+                    @"{""id"":""L"",""type"":""construct"",""name"":""L"",""supertype"":""Lens"",""families"":[""r0""],""x_lens"":{""budget"":2}}"),
+                OWLensReader.Owner());
+            CollectionAssert.AreEqual(new[] { "r0", "r1" }, last.Kept, "last of its type, not of the budget");
         }
 
         // -- The lens profile owner's rulings on readings no fixture case decided yet (each a case in its next serial) ---

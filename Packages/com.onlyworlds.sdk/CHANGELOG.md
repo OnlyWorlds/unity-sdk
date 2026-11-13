@@ -15,13 +15,16 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   the list. An instant written two ways is one (`2026-10-20T10:00:00Z` and `2026-10-20T11:00:00+01:00`), so those two
   tie too. The answer no longer depends on the order the relations are given in. This follows the message profile's
   ruling for schema-dist serial 123, which is not yet published; the schema pin stays at `v0.34.0-dist.122`.
-- **A lens's budget orders by the clock `changed_within` reads.** Within a type, `OWLens.Resolve` ranks the newest
-  first by one clock: on the wire `updated_at`, and for a folder element the newer of `server_updated_at` and
-  `local_updated_at` (each read as the message profile reads a `created_at`), where the order read `updated_at` only.
-  So an element edited locally yesterday is ranked as newer than one the server stamped last week, and the budget, which
-  keeps the newest, keeps it; and an element is never judged by one clock for `stale` and ranked by another. Wire
-  elements, which carry no folder stamps, order as before; every case of the vendored lens fixture reads as before. The
-  lens profile's ruling for schema-dist serial 123, not yet published.
+- **A lens reads one clock per element: the newest of its readable stamps.** An element's clock is the newest of its
+  `updated_at`, `server_updated_at` and `local_updated_at` that can be read (each read as the message profile reads a
+  `created_at`; a folder element carries the last two), decided element by element; a value that cannot be read is
+  ignored, and an element with no readable clock comes last of its type. `OWLens.Resolve` reads that clock for both the
+  budget's order, which read `updated_at` only, and `changed_within`, which read a folder element's newer sync stamp
+  before `updated_at`. So an element edited locally yesterday is ranked as newer than one the server stamped last week
+  and the budget keeps it; a wire `updated_at` newer than both folder stamps is no longer passed over, so such an
+  element is no longer cut `stale`; and an element is never judged by one clock for `stale` and ranked by another.
+  Wire elements, which carry no folder stamps, read as before; every case of the vendored lens fixture reads as before.
+  The lens profile's ruling for schema-dist serial 123, not yet published.
 - **A record's `played_at` is read by the message profile's grammar**, the one grammar for a time in the standard,
   where it had a narrower grammar of its own. `OWRecord.MarkOf` and `OWRecord.Of` now read a lower-case `t` and `z`
   (`2026-11-01t00:30:00z`), an offset (`2026-11-01T00:30:00+01:00`, ordered as the instant it is), a time with no zone

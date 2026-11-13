@@ -859,7 +859,8 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// <c>changed_within</c>: <c>stale</c> when the element changed longer ago than that many days before the reading's
-        /// wall clock. No cut when the key is absent or the element carries no time (<see cref="ChangedAt"/>).
+        /// wall clock, by the element's clock (<see cref="ChangedAt"/>). No cut when the key is absent or the element has no
+        /// readable clock.
         /// </summary>
         private static string Stale(View view, string i, Recipe r, DateTimeOffset clock)
         {
@@ -874,17 +875,23 @@ namespace OnlyWorlds.Sdk
         private const long MicrosPerDay = 86_400_000_000L;
 
         /// <summary>
-        /// When an element last changed, for <c>changed_within</c> and rule 5's order alike: the server's <c>updated_at</c>,
-        /// or for a folder element the newer of <c>server_updated_at</c> and <c>local_updated_at</c>. Null when it carries
-        /// none.
+        /// An element's clock, for <c>changed_within</c> and rule 5's order alike: the newest of its <c>updated_at</c>,
+        /// <c>server_updated_at</c> and <c>local_updated_at</c> that can be read (a folder element carries the last two),
+        /// decided element by element; a value that cannot be read is ignored. Null when none can be read.
         /// </summary>
         private static long? ChangedAt(JObject e)
         {
-            var server = OWMessage.TimeKey(e["server_updated_at"]);
-            var local = OWMessage.TimeKey(e["local_updated_at"]);
-            if (server.HasValue || local.HasValue) return Math.Max(server ?? long.MinValue, local ?? long.MinValue);
-            return OWMessage.TimeKey(e["updated_at"]);
+            long? newest = null;
+            foreach (var key in ClockFields)
+            {
+                var at = OWMessage.TimeKey(e[key]);
+                if (at.HasValue && (!newest.HasValue || at.Value > newest.Value)) newest = at;
+            }
+
+            return newest;
         }
+
+        private static readonly string[] ClockFields = { "updated_at", "server_updated_at", "local_updated_at" };
 
         private enum DateKind
         {
@@ -903,10 +910,10 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
-        /// By type in the schema's order, then newest first by the clock <c>changed_within</c> reads (<see cref="ChangedAt"/>:
-        /// on the wire <c>updated_at</c>, in a folder the newer of <c>server_updated_at</c> and <c>local_updated_at</c>, each
-        /// read as the message profile reads a <c>created_at</c>; an element with no time that can be read comes after
-        /// every one that has one), then by id by code point. One clock per lens.
+        /// By type in the schema's order, then newest first by the element's clock, the one <c>changed_within</c> reads
+        /// (<see cref="ChangedAt"/>: the newest of its readable <c>updated_at</c>, <c>server_updated_at</c> and
+        /// <c>local_updated_at</c>, each read as the message profile reads a <c>created_at</c>; an element with no readable
+        /// clock comes last of its type), then by id by code point. One clock per lens.
         /// </summary>
         private static IEnumerable<string> Ordered(View view, IEnumerable<string> ids)
         {
