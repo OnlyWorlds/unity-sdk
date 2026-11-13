@@ -12,8 +12,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   newest `updated_at` wherever it stands in the list, and one whose time cannot be read still never wins over one that
   can; but of two marks at the same instant it now takes the one with the higher id, by code point as written, where it
   kept the first in the list. An instant written two ways is one (`2026-10-20T10:00:00Z` and
-  `2026-10-20T11:00:00+01:00`), so those two tie too. The answer no longer depends on the order the relations are
-  given in. This follows the message profile's ruling for schema-dist serial 123, which is not yet published; the
+  `2026-10-20T11:00:00+01:00`), so those two tie too. When several marks count and none of their times can be read,
+  there is now no mark (null), where the first in the list was kept; a single mark that counts is still the mark,
+  whatever its time. The answer no longer depends on the order the relations are given in. This follows the message profile's ruling for schema-dist serial 123, which is not yet published; the
   schema pin stays at `v0.34.0-dist.122`.
 - **A lens's budget orders by the clock `changed_within` reads.** Within a type, `OWLens.Resolve` ranks the newest
   first by one clock: on the wire `updated_at`, and for a folder element the newer of `server_updated_at` and
