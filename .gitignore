@@ -57,3 +57,6 @@ secrets/
 # committed one. The default sync target is Assets/OnlyWorlds/.
 /[Aa]ssets/OnlyWorlds/
 /[Aa]ssets/OnlyWorlds.meta
+
+# Python bytecode, written when a script under tools/ or codegen/ is imported.
+__pycache__/
