@@ -110,6 +110,14 @@ namespace OnlyWorlds.Sdk
             return m.Type != JTokenType.String || OWProfileText.TrimWhiteSpace((string)m).Length > 0;
         }
 
+        /// <summary>
+        /// True when the element is a room element of one pair: <see cref="IsRoomElement"/>'s test (the pair trimmed and
+        /// folded, the mark by presence) against that pair alone. The report profile's threads tell a report
+        /// (<c>narrative</c> / <c>Report</c>) from a board entry (<c>narrative</c> / <c>Board</c>) by it.
+        /// </summary>
+        internal static bool IsRoomElementOf(JObject element, (string type, string supertype) pair) =>
+            HasMark(element, MarkField) && Matches(element, new[] { pair });
+
         private static bool Matches(JObject element, IReadOnlyList<(string type, string supertype)> pairs)
         {
             if (element == null) return false;

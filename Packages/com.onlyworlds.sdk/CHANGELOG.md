@@ -8,6 +8,20 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Added
 
+- **`OWReport.ThreadsOf(narratives)`: the report profile's rule 9, threads** (schema-dist `v0.34.0-dist.120`). Give it
+  the Narratives as a reader is served them; it answers an `OWReportThreads`: `Parents`, for each report, what its
+  `parent_narrative` names (`none`, `report`, `board`, `missing`, `other` or `self`, the words of `OWReportParent`);
+  `Groups`, one per report or board entry that some report names, each with the reports that name it in `created_at`
+  order as the message profile orders messages (through `OWMessage`'s one instant reader: equal times keep the list's
+  order, an unreadable time comes last); and `Lints`, `chain` on a report whose parent is a report that itself has a
+  report for its parent, `self` on a report that names itself. A report and a board entry are the room profile's pairs
+  with the mark (`OWReport.IsReport`, `OWReport.IsBoardEntry`, through `OWRoom`'s reader); only reports are grouped.
+  The parent is read as written: no string, or blank once trimmed, is no parent, and `" r1 "` names no `r1`. Of two
+  elements with one id the first is read. `ToJson()` writes the fixture's `{parents, groups, lints}`. The profile's
+  first fixture, `profiles/report.fixture.json`, passes all 20 of its cases; the corners it holds no case for (a time
+  with no offset, an id given twice, a parent that is no string or an expanded object, a padded parent) are this
+  SDK's own tests, read as the TypeScript SDK 4.159.0 (`reportThreadsOf`) and the Python package 0.120.0
+  (`report_threads_of`) read them.
 - **`OWProposal.EvidenceValue` and `OWProposal.ExpiresValue`** (`JToken`): a row's `evidence` and `expires` as
   served. On a new element's row in the world queue, the mark's own values as stored, any JSON value (a string as
   written, a list of ids, a number, an object), null when the mark holds null or has none; on a proposed change, the
