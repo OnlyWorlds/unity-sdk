@@ -572,13 +572,15 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 ("E2", "0000-01-01T00:00:00Z", -62167219200L),
                 ("R", "2026-11-12T10:00:00Z", 1794477600L),
                 ("E3", "0000-01-01T00:00:00+01:00", -62167222800L),
+                // The leap rule is taken on the year number as written, so 0000 is a leap year and its 29 February reads.
+                ("L", "0000-02-29T00:00:00Z", -62162121600L),
             };
             foreach (var (id, text, seconds) in times)
                 Assert.AreEqual((seconds + 62135596800L) * 1000000L, OWMessage.TimeKey(new JValue(text)), id + " " + text);
 
             JObject Message(string id, string text) => J("{'id': '" + id + "', 'characters': [], 'created_at': '" + text + "'}");
             var given = times.Select(t => Message(t.id, t.text)).ToArray();
-            var want = new[] { "E3", "E2", "R", "E1" };
+            var want = new[] { "E3", "E2", "L", "R", "E1" };
             CollectionAssert.AreEqual(want, IdList(OWMessage.UnreadFor(given, Ada, null, null)), "as given");
             CollectionAssert.AreEqual(want, IdList(OWMessage.UnreadFor(given.Reverse(), Ada, null, null)), "reversed");
         }
