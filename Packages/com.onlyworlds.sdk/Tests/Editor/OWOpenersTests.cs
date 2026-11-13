@@ -350,7 +350,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             CollectionAssert.AreEqual(new[] { "character" }, tangle.Open.ElementTypes);
             CollectionAssert.AreEqual(new[] { "room", "hidden", "proposed" }, tangle.Open.ElementSkips);
             Assert.AreEqual(OWToolOpen.Account, tangle.Open.Needs);
-            foreach (var t in OWTools.All.Where(t => t.Id != "tangle")) Assert.IsNull(t.Open?.ElementTypes, t.Id);
+            // Since the list at 0a7539c, Subs is the other row that names its types (its own test, below).
+            foreach (var t in OWTools.All.Where(t => t.Id != "tangle" && t.Id != "subs")) Assert.IsNull(t.Open?.ElementTypes, t.Id);
 
             var member = new OWOpenerSurface { Audience = OWOpenerSurface.Member, SignedIn = true };
             var world = OWOpeners.For(OWTools.All, OWOpeners.World, World, null, null, member);
@@ -367,6 +368,28 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             // The public sees it on a Character as a row that needs an account.
             var visitor = OWOpeners.For(OWTools.All, OWOpeners.Element, World, "character", Element, new OWOpenerSurface { Audience = OWOpenerSurface.Public });
             Assert.AreEqual(OWOpenerState.NeedsAnAccount, visitor.Single(r => r.Id == "tangle").State);
+        }
+
+        [Test]
+        public void TheBakedList_OffersSubs_OnACharacterOnly_AndNeverOnAWorldsMenu()
+        {
+            // The list at 0a7539c: Subs opens a world's Character as a captain, and has no world link.
+            var subs = OWTools.All.Single(t => t.Id == "subs");
+            Assert.IsNull(subs.Open.World);
+            CollectionAssert.AreEqual(new[] { "character" }, subs.Open.ElementTypes);
+            CollectionAssert.AreEqual(new[] { "room", "hidden", "proposed" }, subs.Open.ElementSkips);
+            Assert.AreEqual(OWToolOpen.Account, subs.Open.Needs);
+
+            var member = new OWOpenerSurface { Audience = OWOpenerSurface.Member, SignedIn = true };
+            Assert.IsFalse(OWOpeners.For(OWTools.All, OWOpeners.World, World, null, null, member).Any(r => r.Id == "subs"),
+                "no world link: not on a world's menu");
+            var character = OWOpeners.For(OWTools.All, OWOpeners.Element, World, "character", Element, member);
+            Assert.AreEqual($"https://subs.onlyworlds.com/#/open/{World}/element/{Element}", character.Single(r => r.Id == "subs").Href);
+            Assert.IsNull(character.Single(r => r.Id == "subs").State);
+            foreach (var type in OWElementTypes.Slugs.Where(s => s != "character"))
+                Assert.IsFalse(OWOpeners.For(OWTools.All, OWOpeners.Element, World, type, Element, member).Any(r => r.Id == "subs"), type);
+            var visitor = OWOpeners.For(OWTools.All, OWOpeners.Element, World, "character", Element, new OWOpenerSurface { Audience = OWOpenerSurface.Public });
+            Assert.AreEqual(OWOpenerState.NeedsAnAccount, visitor.Single(r => r.Id == "subs").State);
         }
 
         [TestCase("[\"character\", \"character\"]")]
