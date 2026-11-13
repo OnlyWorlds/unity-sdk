@@ -559,5 +559,49 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(JTokenType.String, text["created_at"].Type, "the house parse leaves a string");
             CollectionAssert.AreEqual(new[] { "t", "s" }, IdList(OWMessage.UnreadFor(new[] { text, token }, Ada, null, null)));
         }
+
+        [Test]
+        public void AYearIsAnyFourDigits_AndAnOffsetMayCarryATimePastEitherEnd()
+        {
+            // The message page's year sentence: 0000 reads, the Gregorian calendar runs on in both directions, and an
+            // offset may carry an instant before year 0000 or past the end of 9999. Seconds since 1970 as the
+            // TypeScript SDK 4.159.0 and onlyworlds 0.120.0 give them for the same four texts.
+            var times = new (string id, string text, long seconds)[]
+            {
+                ("E1", "9999-12-31T23:00:00-02:00", 253402304400L),
+                ("E2", "0000-01-01T00:00:00Z", -62167219200L),
+                ("R", "2026-11-12T10:00:00Z", 1794477600L),
+                ("E3", "0000-01-01T00:00:00+01:00", -62167222800L),
+            };
+            foreach (var (id, text, seconds) in times)
+                Assert.AreEqual((seconds + 62135596800L) * 1000000L, OWMessage.TimeKey(new JValue(text)), id + " " + text);
+
+            JObject Message(string id, string text) => J("{'id': '" + id + "', 'characters': [], 'created_at': '" + text + "'}");
+            var given = times.Select(t => Message(t.id, t.text)).ToArray();
+            var want = new[] { "E3", "E2", "R", "E1" };
+            CollectionAssert.AreEqual(want, IdList(OWMessage.UnreadFor(given, Ada, null, null)), "as given");
+            CollectionAssert.AreEqual(want, IdList(OWMessage.UnreadFor(given.Reverse(), Ada, null, null)), "reversed");
+        }
+
+        [Test]
+        public void AYearAtEitherEnd_ParsedWithDates_OrdersAsItsText()
+        {
+            // The second door: a host that parses the body with Newtonsoft's defaults hands in whatever the parse made
+            // of each text, a Date token or the string left alone. These four order as the page says either way, but
+            // not every instant survives that parse: year 0000 stays a string (read by the page's rule), and
+            // 9999-12-31T23:00:00-02:00 arrives as a Date held at the end of 9999 in the host's local time (measured
+            // 2026-11-13 on Mono, an hour east of Greenwich: 22:59:59.999999Z, not the page's 10000-01-01T01:00Z).
+            // A host that needs the page's instants at the ends reads its JSON with dates off, as OWJson does.
+            var texts = new (string id, string text)[]
+            {
+                ("E1", "9999-12-31T23:00:00-02:00"), ("E2", "0000-01-01T00:00:00Z"),
+                ("R", "2026-11-12T10:00:00Z"), ("E3", "0000-01-01T00:00:00+01:00"),
+            };
+            var given = texts.Select(t => JObject.Parse("{\"id\": \"" + t.id + "\", \"characters\": [], \"created_at\": \"" + t.text + "\"}")).ToArray();
+            var made = string.Join(", ", given.Select(m => m["id"] + " " + m["created_at"].Type + " " + OWMessage.TimeKey(m["created_at"])));
+            var want = new[] { "E3", "E2", "R", "E1" };
+            CollectionAssert.AreEqual(want, IdList(OWMessage.UnreadFor(given, Ada, null, null)), "as given: " + made);
+            CollectionAssert.AreEqual(want, IdList(OWMessage.UnreadFor(given.Reverse(), Ada, null, null)), "reversed: " + made);
+        }
     }
 }

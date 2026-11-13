@@ -501,7 +501,10 @@ namespace OnlyWorlds.Sdk
         /// <summary>
         /// A time as microseconds since the epoch, so microseconds still order, as the TypeScript SDK reads them; null
         /// when unreadable. A string is read by the profile's rule (<see cref="InstantOf"/>); a Date token, as
-        /// <c>JObject.Parse</c> leaves one, is read as its instant.
+        /// <c>JObject.Parse</c> leaves one, is read as its instant. A Date token is what the host's parse made of the
+        /// text, not the text: a time whose offset carries it past the end of year 9999 arrives held at that end in
+        /// the host's local time. A host that needs the profile's instants there reads its JSON with dates off, as
+        /// <see cref="OWJson"/> does.
         /// </summary>
         internal static long? TimeKey(JToken token)
         {
