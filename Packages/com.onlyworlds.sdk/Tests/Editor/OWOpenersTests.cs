@@ -424,6 +424,32 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(OWOpenerState.NeedsAnAccount, visitor.Single(r => r.Id == "subs").State);
         }
 
+        [Test]
+        public void TheBakedList_HoldsWindrose_WhichOpensNothing_AndIsOnNoMenu()
+        {
+            // The list at 53a05e4: Windrose is a map of one world in the browser, listed with no open link at all.
+            var windrose = OWTools.All.Single(t => t.Id == "windrose");
+            Assert.AreEqual("Windrose", windrose.Name);
+            Assert.AreEqual("https://windrose.onlyworlds.com", windrose.Url);
+            Assert.AreEqual("listed", windrose.Rung);
+            Assert.IsNull(windrose.Client);
+            Assert.IsNull(windrose.Open);
+
+            var surfaces = new[]
+            {
+                new OWOpenerSurface { Audience = OWOpenerSurface.Member, SignedIn = true },
+                new OWOpenerSurface { Audience = OWOpenerSurface.Public },
+            };
+            foreach (var surface in surfaces)
+            {
+                Assert.IsFalse(OWOpeners.For(OWTools.All, OWOpeners.World, World, null, null, surface).Any(r => r.Id == "windrose"),
+                    surface.Audience + ": a world's menu");
+                foreach (var type in OWElementTypes.Slugs)
+                    Assert.IsFalse(OWOpeners.For(OWTools.All, OWOpeners.Element, World, type, Element, surface).Any(r => r.Id == "windrose"),
+                        surface.Audience + ": " + type);
+            }
+        }
+
         [TestCase("[\"character\", \"character\"]")]
         [TestCase("[\"Character\"]")]
         public void ARepeatOrAWordInAnotherCase_IsRefusedByName_EvenOnAWorldsMenu(string types)

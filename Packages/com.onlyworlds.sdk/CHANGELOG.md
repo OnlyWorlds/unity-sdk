@@ -37,6 +37,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   of an address in either case. The same rule for the same id as the Charter's skill ids above. The shared openers
   fixture is re-vendored at 111 cases (sha256 `ac14435b…`): its old id-case case is now two, an element held in upper
   case under a lowercase address (refused) and a lowercase element under an upper-case address (the rows).
+- **`OWTools` repinned at the tools list's `53a05e4`: Windrose listed**, a map of one world in the browser that only
+  reads: its row has no `open` and no client name, so it is on no opener menu, a world's or an element's. Six rows,
+  where there were five. The same list and bytes as the TypeScript SDK 4.160.0 (tools.json sha256 `198f62a2…`).
 
 ## [0.39.0] - 2026-11-13
 
