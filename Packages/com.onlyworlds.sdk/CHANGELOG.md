@@ -6,6 +6,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.39.1] - 2026-11-13
+
+Ids as written, on schema-dist serial 122. A Charter's skill ids and the openers' check now compare an id held in
+the world as it is written, following the address page's rule for the same id; `OWTools` lists Windrose. A patch
+release: no public API is added or changed.
+
 ### Changed
 
 - **The schema pin moves to `v0.34.0-dist.122`** (canonical `00.34.00` unchanged; no schema file or `schema.json`
