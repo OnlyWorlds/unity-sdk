@@ -280,7 +280,8 @@ namespace OnlyWorlds.Sdk
         /// a stub is its name and served sentence with no hubs, a hidden one is not there and nothing marks the gap, and a
         /// hub the reader cannot see is not listed. The Charter is every member rung's to read whole on the platform, the
         /// public's only on a world open to anyone, so its name, rules and skill text are read from its body whole, a stub
-        /// the reader holds or not; a skill id matches an Object the reader sees whatever the case of either id. A
+        /// the reader holds or not; a skill id found in the text is taken in lowercase and matched as written against the
+        /// ids of the Objects the reader sees (the address profile's rule for the same id), so a kept skill is the Object's own id. A
         /// superseded Charter or Guide is never in the packet.
         /// </para>
         /// </remarks>
@@ -303,10 +304,10 @@ namespace OnlyWorlds.Sdk
                 // holds it as a stub still gets its rules and skill text.
                 var body = view.Els[law];
                 var rules = body[RulesField];
-                // Case never matters in an id, as keel compares UUIDs: both sides lowercase.
+                // The address profile's rule for the same id: an id found in the text is taken in lowercase (IdsIn), and
+                // the Object's own id is read as written, so an Object held in upper case is not the one a text names.
                 var objects = new HashSet<string>(view.Order
-                    .Where(i => view.Sees(i) && view.TypeOf(i) == "object")
-                    .Select(i => i.ToLowerInvariant()));
+                    .Where(i => view.Sees(i) && view.TypeOf(i) == "object"), StringComparer.Ordinal);
                 var skill = IdsIn(StringOf(body["description"])).Where(objects.Contains).Take(SkillMax).ToList();
                 charter = new OWReadingAidsCharter(law, NameOf(body),
                     rules == null || rules.Type == JTokenType.Null ? new JArray() : rules.DeepClone(), skill);

@@ -215,22 +215,40 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         /// <summary>
-        /// A skill id's case never matters, as keel compares UUIDs: an Object stored with an uppercase id is named by the
-        /// Charter's lowercase text, and the skill lists the id lowercase. Kills: the text's id matched against the id as
-        /// stored.
+        /// The address profile's rule for the same id, at the Charter's door: a skill id named in lowercase in the text is
+        /// not an Object whose own id is held in upper case, since the Object's id is read as written. Kills: the held id
+        /// folded to meet the text's.
         /// </summary>
         [Test]
-        public void ASkillId_MatchesWhateverItsCase()
+        public void ASkillNamedInLowercase_IsNotAnObjectHeldInUpperCase()
         {
             var elements = new List<JObject>
             {
                 JObject.Parse(@"{""id"":""019a7f00-0000-7000-8000-0000000002b0"",""type"":""law"",""name"":""Rules"",
                     ""supertype"":""Charter"",""x_charter_of"":""w"",
-                    ""description"":""Read ow://object/019a7f00-0000-7000-8000-0000000002bf and 019A7F00-0000-7000-8000-0000000002BE.""}"),
+                    ""description"":""Read ow://object/019a7f00-0000-7000-8000-0000000002bf.""}"),
                 JObject.Parse(@"{""id"":""019A7F00-0000-7000-8000-0000000002BF"",""type"":""object"",""name"":""Upper""}"),
+            };
+            var charter = OWCharter.CharterOf(elements, OWLensReader.Owner()).Charter;
+            Assert.IsNotNull(charter, "the Charter itself is read");
+            CollectionAssert.IsEmpty(charter.Skill, "an Object held in upper case is not the Object a lowercase id names");
+        }
+
+        /// <summary>
+        /// An id found in the text is read in either case and taken in lowercase: named in upper case, it is the Object
+        /// held in lowercase, and the skill lists the Object's own id. Kills: the text's id matched as written.
+        /// </summary>
+        [Test]
+        public void ASkillNamedInUpperCase_IsTheObjectHeldInLowercase()
+        {
+            var elements = new List<JObject>
+            {
+                JObject.Parse(@"{""id"":""019a7f00-0000-7000-8000-0000000002b0"",""type"":""law"",""name"":""Rules"",
+                    ""supertype"":""Charter"",""x_charter_of"":""w"",
+                    ""description"":""Read 019A7F00-0000-7000-8000-0000000002BE.""}"),
                 JObject.Parse(@"{""id"":""019a7f00-0000-7000-8000-0000000002be"",""type"":""object"",""name"":""Lower""}"),
             };
-            CollectionAssert.AreEqual(new[] { "019a7f00-0000-7000-8000-0000000002bf", "019a7f00-0000-7000-8000-0000000002be" },
+            CollectionAssert.AreEqual(new[] { "019a7f00-0000-7000-8000-0000000002be" },
                 OWCharter.CharterOf(elements, OWLensReader.Owner()).Charter.Skill);
         }
 
