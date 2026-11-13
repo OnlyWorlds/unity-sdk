@@ -22,8 +22,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </remarks>
     public class OWStrandTests
     {
-        /// <summary>The fixture's sha256 as dist.99's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "f5bd8d85fdec97883e403a407d30cfa8b0a236001616ef6fee246cad8410a975";
+        /// <summary>The fixture's sha256 as dist.123's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "d0f9bb23e9f538c99165b3e590d4da33dc329fa9ee565e0875d2fa4a09e2979d";
 
         private const string Story = "019a7f00-0000-7000-8000-000000000301";
 
@@ -73,7 +73,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.99's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.123's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
@@ -81,7 +81,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             Assert.IsNotNull(Fixture, "the vendored strand fixture was not found");
             var cases = Fixture["cases"].Cast<JObject>().ToList();
-            Assert.AreEqual(26, cases.Count, "dist.99's fixture holds 26 cases");
+            Assert.AreEqual(27, cases.Count, "dist.123's fixture holds 27 cases");
             CollectionAssert.AreEqual(new[] { "strand" }, cases.Select(c => (string)c["kind"]).Distinct().ToArray());
             Assert.AreEqual("strand", (string)Fixture["profile"]);
             Assert.AreEqual((string)Fixture["mark"]["field"], OWStrand.MarkField);

@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.34.00";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 122;
+        public const int DistSerial = 123;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.34.0-dist.122";
+        public const string Tag = "v0.34.0-dist.123";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -368,9 +368,24 @@ namespace OnlyWorlds.Sdk
         /// profile's, and the report row's <c>from</c> lost its serial; the views fixture changed one description's words.
         /// The generated models changed in their serial stamp only.
         /// </para>
+        /// <para>
+        /// <b>122 -> 123 (2026-11-13)</b>: canonical unchanged, no schema file, <c>schema.json</c> or <c>views.json</c>
+        /// moved. The message page's read mark: a lone mark is the mark; among several the newest readable
+        /// <c>updated_at</c> wins, one that cannot be read never beats one that can, and among equal instants, or when
+        /// none can be read, the higher id (code point, as written). The lens page's element clock: the newest of its
+        /// readable <c>updated_at</c>, <c>server_updated_at</c> and <c>local_updated_at</c>, read by the budget's order
+        /// and by <c>changed_within</c> alike, an element with none last of its type. The record page reads
+        /// <c>played_at</c> by the message page's grammar (seconds required; a lower-case <c>t</c> and <c>z</c>, an
+        /// offset and no zone read). The address page's "An address in prose" (a finder's rules; this SDK has no finder
+        /// of addresses in prose), with the report page's rule 8 pointing to it; the checks page's <c>one_of</c> over a
+        /// list is <c>short</c>. Fixtures: address 197 (57 prose cases), lens 233, message 100, record 46 (three
+        /// renamed, four changed), strand 27, checks two rules and two cases. The Hyperion example's world gained
+        /// <c>public_read</c> and a format version. The generated models and the views table changed in their serial
+        /// stamp only.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "067eeba68bb30d36e8d20e58f5a0dd575e84ee8488018e81507b78cf32b24b45";
+            "47f8a02d9647daf75fd66cfe17a0be73a0d1502c1907640155118a01ddf8063f";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.

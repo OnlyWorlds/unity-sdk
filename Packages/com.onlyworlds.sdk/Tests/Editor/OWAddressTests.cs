@@ -18,8 +18,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </summary>
     public class OWAddressTests
     {
-        /// <summary>The fixture's sha256 as dist.122's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "c04fec95ca86f3c97808c6cee703932844df5311661eb65d4faf0c4cad3fa42d";
+        /// <summary>The fixture's sha256 as dist.123's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "4c4e4ebbdf08d8a1c29d14d888182e9639f4ac51a1ff8e6f3c0d6878cf3d8eaf";
 
         private const string World = "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e0f";
         private const string Element = "019a1f3c-2b4e-7d10-8c3a-6f2e9b0d4a71";
@@ -71,7 +71,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.122's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.123's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
@@ -80,9 +80,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsNotNull(Fixture, "the vendored address fixture was not found");
             Assert.AreEqual("address", (string)Fixture["profile"]);
             var cases = Fixture["cases"].Cast<JObject>().ToList();
-            Assert.AreEqual(140, cases.Count, "dist.122's fixture holds 140 cases");
+            Assert.AreEqual(197, cases.Count, "dist.123's fixture holds 197 cases");
             Assert.AreEqual(36, cases.Count(c => (string)c["kind"] == "format"));
             Assert.AreEqual(104, cases.Count(c => (string)c["kind"] == "parse"));
+            Assert.AreEqual(57, cases.Count(c => (string)c["kind"] == "prose"), "an address found in prose (serial 123)");
             Assert.AreEqual(75, cases.Count(c => c["refuse"] != null), "20 format refusals and 55 parse refusals");
         }
 
@@ -140,6 +141,29 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                         Assert.IsTrue(JToken.DeepEquals(want, got),
                             $"parse/{name}: gave {got.ToString(Newtonsoft.Json.Formatting.None)}, the fixture says {want.ToString(Newtonsoft.Json.Formatting.None)}");
                     }
+                    break;
+                }
+                case "prose":
+                {
+                    // This SDK has no finder of an address in prose (the packages have one). What it can answer is the
+                    // half the whole-string parser owns: the slice the fixture says the address covers reads as the
+                    // fixture's reading. The finding itself is not run, so the case is ignored after that check.
+                    var text = (string)c["text"];
+                    var index = (int)c["index"];
+                    var want = (JObject)c["expect"];
+                    var address = (string)want["address"];
+                    if (address != null)
+                    {
+                        Assert.AreEqual(address, text.Substring(index, address.Length), $"prose/{name}: the slice at {index}");
+                        var ok = OWAddress.TryParseLink(address, out var reading, out var refusal);
+                        Assert.IsTrue(ok, $"prose/{name}: the found address {address} refused whole as {refusal}");
+                        var got = Reading(reading);
+                        Assert.IsTrue(JToken.DeepEquals(want["reading"], got),
+                            $"prose/{name}: gave {got.ToString(Newtonsoft.Json.Formatting.None)}, the fixture says {want["reading"].ToString(Newtonsoft.Json.Formatting.None)}");
+                    }
+
+                    Assert.Ignore("no finder of an address in prose in this SDK: the line is not searched"
+                        + (address != null ? "; the found address reads as the fixture says, whole" : "; the fixture finds no address here"));
                     break;
                 }
                 default:

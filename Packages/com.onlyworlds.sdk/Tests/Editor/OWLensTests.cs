@@ -28,13 +28,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </remarks>
     public class OWLensTests
     {
-        /// <summary>The fixture's sha256 as dist.122's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "bb5429a3a75b42719e17974ef6eba1a7cc3a6f49133e66409ebeb9c6fbed2e62";
+        /// <summary>The fixture's sha256 as dist.123's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "85128ef45125804848d834387fdbe0bcb7bd657e3d7386f8653e1a76688076c7";
 
-        /// <summary>The fixture's cases by kind, as dist.122 holds them (221 in all; the graph and degree kinds are the graph reader's).</summary>
+        /// <summary>The fixture's cases by kind, as dist.123 holds them (233 in all; the graph and degree kinds are the graph reader's).</summary>
         private static readonly Dictionary<string, int> Counts = new Dictionary<string, int>
         {
-            ["shape"] = 6, ["keys"] = 25, ["resolve"] = 122, ["invariant"] = 4, ["uses"] = 5, ["graph"] = 54, ["degree"] = 5,
+            ["shape"] = 6, ["keys"] = 25, ["resolve"] = 133, ["invariant"] = 4, ["uses"] = 5, ["graph"] = 55, ["degree"] = 5,
         };
 
         private static JObject _fixture;
@@ -85,7 +85,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.122's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.123's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
@@ -93,7 +93,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             Assert.IsNotNull(Fixture, "the vendored lens fixture was not found");
             var cases = Fixture["cases"].Cast<JObject>().ToList();
-            Assert.AreEqual(221, cases.Count, "dist.122's fixture holds 221 cases");
+            Assert.AreEqual(233, cases.Count, "dist.123's fixture holds 233 cases");
             var counts = cases.GroupBy(c => (string)c["kind"]).ToDictionary(g => g.Key, g => g.Count());
             CollectionAssert.AreEquivalent(Counts, counts);
         }

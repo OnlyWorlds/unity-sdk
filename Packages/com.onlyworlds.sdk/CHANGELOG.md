@@ -8,13 +8,26 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
+- **The schema pin moves to `v0.34.0-dist.123`** (canonical `00.34.00` unchanged; no schema file, `schema.json` or
+  `views.json` moved). The message page's read mark goes to the higher id among equal instants or when no time can be
+  read; the lens page reads one clock per element, the newest of its readable stamps, for the budget's order and
+  `changed_within` alike; the record page reads `played_at` by the message page's grammar (the three entries below
+  build each). The address page gains "An address in prose": how a reader that finds an address inside other text
+  reads where it ends; the report page's rule 8 finds a line's address so. This SDK has no finder of addresses in
+  prose (its parsers read a whole string, as before), so the address fixture's 57 new prose cases are ignored here
+  after checking that the address each finds reads, whole, as the fixture says. The checks page rules that `one_of`
+  over a list is `short` (no reader here). The fixtures gain cases: address 197, lens 233 (twelve), message 100
+  (seven read-mark cases), record 46 (three renamed, five new), strand 27 (a mark naming its story in upper case is no
+  strand), and the checks fixture two rules and two cases. The Hyperion example's world is now `public_read`. The
+  test copies of the five fixtures moved with their bytes; the generated models and the views table changed in their
+  serial stamp only.
 - **Read marks at the same instant, or with no time that can be read, go to the higher id.** `OWMessage.ReadMarkOf`
   reads the message profile's rule: a lone mark is the mark. Among several, the newest readable `updated_at` wins; one
   that cannot be read never beats one that can; among equal instants, or when none can be read, the higher id (by code
   point, as written) is the mark. Before, equal instants and marks none of whose times could be read kept the first in
   the list. An instant written two ways is one (`2026-10-20T10:00:00Z` and `2026-10-20T11:00:00+01:00`), so those two
   tie too. The answer no longer depends on the order the relations are given in. This follows the message profile's
-  ruling for schema-dist serial 123, which is not yet published; the schema pin stays at `v0.34.0-dist.122`.
+  read mark at schema-dist serial 123, whose fixture holds the seven cases (the pin entry above).
 - **A lens reads one clock per element: the newest of its readable stamps.** An element's clock is the newest of its
   `updated_at`, `server_updated_at` and `local_updated_at` that can be read (each read as the message profile reads a
   `created_at`; a folder element carries the last two), decided element by element; a value that cannot be read is
@@ -23,16 +36,17 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   before `updated_at`. So an element edited locally yesterday is ranked as newer than one the server stamped last week
   and the budget keeps it; a wire `updated_at` newer than both folder stamps is no longer passed over, so such an
   element is no longer cut `stale`; and an element is never judged by one clock for `stale` and ranked by another.
-  Wire elements, which carry no folder stamps, read as before; every case of the vendored lens fixture reads as before.
-  The lens profile's ruling for schema-dist serial 123, not yet published.
+  Wire elements, which carry no folder stamps, read as before. The lens profile's element clock at schema-dist serial
+  123, whose fixture holds the clock's cases.
 - **A record's `played_at` is read by the message profile's grammar**, the one grammar for a time in the standard,
   where it had a narrower grammar of its own. `OWRecord.MarkOf` and `OWRecord.Of` now read a lower-case `t` and `z`
   (`2026-11-01t00:30:00z`), an offset (`2026-11-01T00:30:00+01:00`, ordered as the instant it is), a time with no zone
   (read as UTC) and the year `0000`, and no longer read a time without its seconds (`2026-11-01T00:30Z` is no mark).
-  The value is carried as written and records still order newest first to the millisecond. Four cases of serial 122's
-  record fixture want the old grammar and move with it: `no-mark-played-offset`, `mark-leap-day-of-a-leap-year`,
-  `fluffington-two-games` and `order-by-the-instant-not-the-string`. The record profile's ruling for schema-dist serial
-  123, not yet published.
+  The value is carried as written and records still order newest first to the millisecond. The record profile's
+  `played_at` at schema-dist serial 123, whose fixture rewrites the old grammar's cases in the new one: the times that
+  were written without seconds now carry them, the offset run's `+0100` lost its colon, and three cases are renamed
+  (`no-mark-played-offset-without-its-colon`, `no-mark-year-0-without-seconds`,
+  `no-mark-played-lower-case-without-seconds`).
 
 ## [0.39.1] - 2026-11-13
 
