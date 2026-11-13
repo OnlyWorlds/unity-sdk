@@ -6,6 +6,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.39.0] - 2026-11-13
+
+Reports as threads and how an element is shown, on schema-dist serial 121. `OWReport.ThreadsOf` reads the report
+profile's rule 9 and `OWViews.ViewOf` the distribution's views table; a lens's short rows carry `supertype`, `subtype`
+and the first line that holds something; folders declare format 0.3.22. Parity with the TypeScript SDK 4.152.0
+(`review_by_another`) and 4.156.0 (a queue row's `evidence` and `expires`), their test vectors ported. A minor release
+because it adds public API (below).
+
 ### Added
 
 - **`OWReport.ThreadsOf(narratives)`: the report profile's rule 9, threads** (schema-dist `v0.34.0-dist.120`). Give it
