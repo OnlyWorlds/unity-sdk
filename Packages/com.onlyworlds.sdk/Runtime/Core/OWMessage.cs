@@ -295,8 +295,10 @@ namespace OnlyWorlds.Sdk
         /// served no <c>created_by</c> or <c>changed_by</c> on any body, so the hands were taken off, not missing.
         /// </summary>
         /// <remarks>
-        /// Of several that count, the one with the newest <c>updated_at</c> is the mark (equal times: the first in the
-        /// list; a readable time beats an unreadable one). A newer mark in another's hand is ignored, and the reader's
+        /// Of several that count, the one with the newest <c>updated_at</c> is the mark, wherever it stands in the list:
+        /// one whose time cannot be read never wins over one that can, and two at the same instant (an instant written
+        /// two ways is one) tie by the higher id, by code point as written. Of marks none of whose times can be read,
+        /// the first in the list. A newer mark in another's hand is ignored, and the reader's
         /// own older mark stands. Read another member's mark as a fact about them; never write it.
         /// </remarks>
         /// <param name="relations">Relations, the Read marks among them (a list filtered by supertype is enough).</param>
@@ -319,7 +321,9 @@ namespace OnlyWorlds.Sdk
                     && !(relation.TryGetValue("created_by", out var author) && SameHand(lastHand, author))) continue;
 
                 var key = TimeKey(relation["updated_at"]);
-                if (mark == null || (key != null && (markKey == null || key > markKey)))
+                if (mark == null || (key != null && (markKey == null || key > markKey
+                        || (key == markKey && OWCodePointComparer.Instance.Compare(StringOf(relation["id"]),
+                            StringOf(mark["id"])) > 0))))
                 {
                     mark = relation;
                     markKey = key;

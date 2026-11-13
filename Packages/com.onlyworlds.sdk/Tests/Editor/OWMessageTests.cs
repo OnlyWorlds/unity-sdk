@@ -350,7 +350,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public void TheNewestMarkWins_WhereverItStandsInTheList()
         {
             // The fixture lists the newer mark first; a reader that took the first it met would pass it. Here the newest
-            // stands last, a readable time beats an unreadable one, and equal times keep the first in the list.
+            // stands last, a readable time beats an unreadable one, and equal times tie by the higher id.
             JObject Mark(string id, string updatedAt) =>
                 J("{'id': '" + id + "', 'type': 'relation', 'supertype': 'Read', 'actor': '" + Ada + "', 'narratives': []" +
                   (updatedAt == null ? "" : ", 'updated_at': '" + updatedAt + "'") + "}");
@@ -362,7 +362,38 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual("new", (string)OWMessage.ReadMarkOf(new[] { older, newer }, Ada, null)["id"]);
             Assert.AreEqual("new", (string)OWMessage.ReadMarkOf(new[] { undated, older, newer }, Ada, null)["id"]);
             Assert.AreEqual("old", (string)OWMessage.ReadMarkOf(new[] { older, undated }, Ada, null)["id"]);
-            Assert.AreEqual("new", (string)OWMessage.ReadMarkOf(new[] { newer, twin }, Ada, null)["id"]);
+            Assert.AreEqual("twin", (string)OWMessage.ReadMarkOf(new[] { newer, twin }, Ada, null)["id"]);
+        }
+
+        [Test]
+        public void TwoMarksAtOneInstant_TieByTheHigherId_InEitherListOrder()
+        {
+            // The message page: of two marks, one whose updated_at cannot be read never wins; two that can be read and
+            // are the same instant tie by the higher id, by code point as written. An instant written two ways is one.
+            JObject Mark(string id, string updatedAt) =>
+                J("{'id': '" + id + "', 'type': 'relation', 'supertype': 'Read', 'actor': '" + Ada + "', 'narratives': []" +
+                  (updatedAt == null ? "" : ", 'updated_at': '" + updatedAt + "'") + "}");
+            string MarkOf(params JObject[] marks) => (string)OWMessage.ReadMarkOf(marks, Ada, null)["id"];
+
+            const string Low = "0b5f2d8e-0000-7000-8000-00000000000a", High = "0b5f2d8e-0000-7000-8000-00000000000b";
+            var a = Mark(Low, "2026-10-20T10:00:00Z");
+            var b = Mark(High, "2026-10-20T10:00:00Z");
+            Assert.AreEqual(High, MarkOf(a, b), "the same instant, the lower id listed first");
+            Assert.AreEqual(High, MarkOf(b, a), "the same instant, the higher id listed first");
+
+            var z = Mark(Low, "2026-10-20T10:00:00Z");
+            var plusOne = Mark(High, "2026-10-20T11:00:00+01:00");
+            Assert.AreEqual(High, MarkOf(z, plusOne), "10:00Z and 11:00+01:00 are one instant");
+            Assert.AreEqual(High, MarkOf(plusOne, z), "10:00Z and 11:00+01:00 are one instant, either order");
+
+            // A higher id with no readable time never wins over a readable one, in either order.
+            var unreadable = Mark(High, "2026-10-20");
+            Assert.AreEqual(Low, MarkOf(a, unreadable));
+            Assert.AreEqual(Low, MarkOf(unreadable, a));
+            // Code point as written: an upper-case letter sorts before every lower-case one.
+            var upper = Mark("0b5f2d8e-0000-7000-8000-00000000000B", "2026-10-20T10:00:00Z");
+            Assert.AreEqual(High, MarkOf(upper, b));
+            Assert.AreEqual(High, MarkOf(b, upper));
         }
 
         [Test]

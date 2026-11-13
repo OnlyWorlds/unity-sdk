@@ -6,6 +6,16 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Two read marks at the same instant tie by the higher id.** `OWMessage.ReadMarkOf` still takes the mark with the
+  newest `updated_at` wherever it stands in the list, and one whose time cannot be read still never wins over one that
+  can; but of two marks at the same instant it now takes the one with the higher id, by code point as written, where it
+  kept the first in the list. An instant written two ways is one (`2026-10-20T10:00:00Z` and
+  `2026-10-20T11:00:00+01:00`), so those two tie too. The answer no longer depends on the order the relations are
+  given in. This follows the message profile's ruling for schema-dist serial 123, which is not yet published; the
+  schema pin stays at `v0.34.0-dist.122`.
+
 ## [0.39.1] - 2026-11-13
 
 Ids as written, on schema-dist serial 122. A Charter's skill ids and the openers' check now compare an id held in
