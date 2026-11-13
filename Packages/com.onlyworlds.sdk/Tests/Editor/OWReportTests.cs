@@ -11,20 +11,21 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// The report profile's threads fixture (schema-dist <c>profiles/report.fixture.json</c>, rule 9, vendored byte for
-    /// byte in <c>Tests/Editor/Fixtures/report/</c> from dist.120), replayed case by case by name through
+    /// byte in <c>Tests/Editor/Fixtures/report/</c> from dist.121), replayed case by case by name through
     /// <see cref="OWReport.ThreadsOf"/>: each case's narratives as one reader is given them, and its <c>want</c> of three
     /// parts, <c>parents</c> exactly (in the order given), <c>groups</c> and <c>lints</c> each as a set, the order inside
     /// a group exactly. The TypeScript SDK's <c>reportThreadsOf</c> and the Python package's <c>report_threads_of</c>
-    /// replay the same cases. Then this SDK's own tests of the corners the fixture holds no case for. When the dist moves
-    /// the fixture, re-vendor it and update the hash and the count below.
+    /// replay the same cases. Then this SDK's own tests of the corners dist.120's fixture held no case for: dist.121's
+    /// holds one for each (named on each test), and the tests stay to pin the reader beside it. When the dist moves the
+    /// fixture, re-vendor it and update the hash and the count below.
     /// </summary>
     public class OWReportTests
     {
-        /// <summary>The fixture's sha256 as dist.120's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "5826bc58609ebc35862b4b9a364cad92822c2a6a50279dc5418dc674f5afd185";
+        /// <summary>The fixture's sha256 as dist.121's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "f0b6a370cca7ccf00e8c36f237a568c38784eb02bfe8a367428dbc68cc25cb1d";
 
-        /// <summary>The fixture's thread cases, as dist.120 holds them.</summary>
-        private const int CaseCount = 20;
+        /// <summary>The fixture's thread cases, as dist.121 holds them.</summary>
+        private const int CaseCount = 27;
 
         private const string Mark = "019a7120-0000-7000-8000-000000000000";
 
@@ -74,7 +75,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.120's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.121's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
@@ -83,7 +84,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsNotNull(Fixture, "the vendored report fixture was not found");
             Assert.AreEqual("report", (string)Fixture["profile"]);
             var names = Fixture["thread_cases"].Select(c => (string)c["name"]).ToList();
-            Assert.AreEqual(CaseCount, names.Count, "dist.120's fixture holds 20 thread cases");
+            Assert.AreEqual(CaseCount, names.Count, "dist.121's fixture holds 27 thread cases");
             Assert.AreEqual(names.Count, names.Distinct().Count(), "a case is found by its name, so each name is once");
 
             Assert.AreEqual(OWReport.Pair.type, (string)Fixture["pair"]["type"]);
@@ -149,12 +150,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsFalse(OWReport.IsReport(Board("y")));
         }
 
-        // -- The corners the fixture holds no case for (this SDK's own) --------------
+        // -- The corners dist.120's fixture held no case for (this SDK's own; dist.121's holds one for each) --
 
         /// <summary>
         /// A <c>created_at</c> with no offset is read as UTC, by the message profile's instant reader: 09:30 with no
         /// offset comes after 09:15Z (written as 11:15+02:00), which comes after 09:00Z. Compared as text the one with no
-        /// offset would come second, and read in a zone east of UTC first. The fixture's times all carry an offset.
+        /// offset would come second, and read in a zone east of UTC first. The fixture's case of it is
+        /// <c>thread-created-at-with-no-offset-is-read-as-utc</c>.
         /// </summary>
         [Test]
         public void ACreatedAtWithNoOffset_IsReadAsUtc()
@@ -169,7 +171,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
         /// <summary>
         /// Of two elements with one id the first is read, and the later copy is passed over whole: it is neither a report
-        /// nor a parent. The fixture holds no id twice.
+        /// nor a parent. The fixture's case of it is <c>one-id-given-twice-keeps-the-first</c>; this one also gives a
+        /// board entry and then a report under one id.
         /// </summary>
         [Test]
         public void OfTwoWithOneId_TheFirstIsRead_AndTheLaterCopyIsPassedOverWhole()
@@ -187,7 +190,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         /// <summary>
         /// A <c>parent_narrative</c> that is no string reads none and is never matched by its text: a number (beside an
         /// element whose id is that number's text), a boolean, a list, and an expanded object holding the parent's id.
-        /// The fixture's non-blank parents are all strings.
+        /// The fixture's case of it is <c>parent-that-is-not-a-string</c> (a number, a list, an object); this one also
+        /// holds a boolean and an element whose id is the number's text.
         /// </summary>
         [Test]
         public void AParentThatIsNoString_ReadsNone_NeverMatchedAsText()
@@ -214,7 +218,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         /// <summary>
         /// A parent with something left once trimmed is read as written, never trimmed before the lookup: <c>" r1 "</c>
         /// and <c>"r1\n"</c> name no <c>r1</c> and read missing. Only a parent that is White_Space alone (a tab, a
-        /// no-break space, an ideographic space) reads none. The fixture's padded parent is spaces alone.
+        /// no-break space, an ideographic space) reads none. The fixture's case of it is
+        /// <c>parent-is-a-held-id-with-a-space-at-each-end</c>; this one also holds a trailing line break and White_Space
+        /// beyond the space.
         /// </summary>
         [Test]
         public void AParentWithPadding_IsReadAsWritten_AndReadsMissing()

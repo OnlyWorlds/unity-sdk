@@ -6,7 +6,8 @@
 //
 // Written from the page and its fixture, profiles/report.fixture.json, which is this file's own test (OWReportTests),
 // as it is the TypeScript SDK's (reportThreadsOf, 4.159.0) and the Python package's (report_threads_of, 0.120.0). The
-// corners the fixture holds no case for are read as both packages read them, and pinned by tests of this SDK's own.
+// corners serial 120's fixture held no case for were read as both packages read them and pinned by tests of this SDK's
+// own; serial 121 ruled each the same way on the page, and its fixture holds a case for each.
 
 using System.Collections.Generic;
 using System.Linq;

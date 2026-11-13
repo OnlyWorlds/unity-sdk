@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.34.00";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 120;
+        public const int DistSerial = 121;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.34.0-dist.120";
+        public const string Tag = "v0.34.0-dist.121";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -347,9 +347,18 @@ namespace OnlyWorlds.Sdk
         /// thread cases. The views fixture's two cites of the report page moved down one line each. The generated
         /// models and the views table changed in their serial stamp only.
         /// </para>
+        /// <para>
+        /// <b>120 -> 121 (2026-11-13)</b>: canonical unchanged, no schema file, <c>schema.json</c> or walk reader moved,
+        /// and no reader's answer moves. The message page gives the one form a <c>created_at</c> is read in (a time with
+        /// no offset is UTC, every part in its range, a year any four digits, a fraction to its sixth digit), and its
+        /// fixture gains five <c>unread</c> cases (93 in all). The report page's rule 9 says a parent that is no string
+        /// is no parent, a padded one is read as written, one id given twice keeps the first, and reports that name each
+        /// other in a ring are each grouped and linted; its fixture gains seven thread cases (27 in all). The generated
+        /// models and the views table changed in their serial stamp only.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "e585dea71352d0d4ff6c71fa316a11510f0bf0c8fcf5801fbc30815d1bc0e6c3";
+            "35e1f6d73cb99ee3a4683f3e78e8996e1a8ccc7357d597de000fab4f5c8df460";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.

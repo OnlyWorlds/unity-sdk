@@ -99,6 +99,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   an export writes element rows as served, with no `world`. One change: **`OWFolderWriter.WriteWorld` now refuses a
   world whose `id` is not a non-empty string** (a number, a boolean, a list, a blank), the question the folder read
   asks, so it never writes a `world.json` its own reader refuses; before, only a missing or empty id was refused.
+- **The schema pin moves to `v0.34.0-dist.121`** (canonical `00.34.00` unchanged; no schema file, `schema.json` or
+  walk reader moved, and no answer of a reader here moves): the message page gives the one form a `created_at` is read
+  in (a time with no offset is UTC, every part in its range, a year any four digits, a fraction counted to its sixth
+  digit), and `profiles/message.fixture.json` gains five `unread` cases (93). The report page's rule 9 says a parent
+  that is no string is no parent, a padded one is read as written, one id given twice keeps the first, and reports
+  that name each other in a ring are each grouped and linted; `profiles/report.fixture.json` gains seven thread cases
+  (27). `OWMessage` and `OWReport.ThreadsOf` answer every new case as they stood; the test copies of both fixtures moved
+  with the new bytes. The generated models and the views table changed in their serial stamp only.
 - **The schema pin moves to `v0.34.0-dist.120`** (canonical `00.34.00` unchanged; no schema file, `schema.json` or
   walk reader moved, and no answer of a reader here moves): the report page names `parent_narrative` (the first
   report of the work a report continues, or the board entry a closed talk hangs on), says a report that continues
