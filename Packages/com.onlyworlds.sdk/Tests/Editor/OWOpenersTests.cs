@@ -20,7 +20,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     public class OWOpenersTests
     {
         /// <summary>The fixture's sha256, as both packages' suites hold it.</summary>
-        private const string FixtureSha256 = "ac14435bc287e92bd18e651871f39a0c66870bb041be0eb394d3eb868eb76978";
+        private const string FixtureSha256 = "8af6f6daded20444184303a66c73ce72b76a5aa111f639ffc4a9e9072fb07c74";
 
         private const int CaseCount = 111;
 
@@ -255,8 +255,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         /// <summary>
         /// The address profile's rule for the same id at the openers' check: the address's id is read in either case and
         /// taken in lowercase, the given element's own id is read as written. An element held in lowercase is the
-        /// address's element whatever the address's case; one held in upper case is not, whatever the address's case.
-        /// Kills: the element's id folded to meet the address's.
+        /// address's element whatever the address's case; one held in upper case is one no address can name, whatever the
+        /// address's case, so its menu has no rows (no refusal: it is no caller's mistake).
+        /// Kills: the element's id folded to meet the address's; the held-upper element refused as before.
         /// </summary>
         [TestCase(false, false, true)]
         [TestCase(false, true, true)]
@@ -273,15 +274,56 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var surface = new OWOpenerSurface { Audience = OWOpenerSurface.Member };
             var options = new OWOpenersOptions { Element = element };
             var id = addressUpper ? Element.ToUpperInvariant() : Element;
-            List<OWOpener> Open() => OWOpeners.For(OWTools.All, OWOpeners.Element, World, "character", id, surface, options);
-            if (same)
-            {
-                Assert.IsNotEmpty(Open());
-                return;
-            }
+            var rows = OWOpeners.For(OWTools.All, OWOpeners.Element, World, "character", id, surface, options);
+            if (same) Assert.IsNotEmpty(rows);
+            else Assert.IsEmpty(rows, "held in upper case: no address names it, so no rows");
+        }
 
-            var e = Assert.Throws<ArgumentException>(() => Open());
+        /// <summary>
+        /// Only a difference of case gives no rows: an element whose id differs from the address's by more than case is
+        /// another element, the caller's mistake, and still refused, whether held in lower or upper case.
+        /// Kills: the comparison loosened to "no rows" for any id that differs.
+        /// </summary>
+        [TestCase(false)]
+        [TestCase(true)]
+        public void AnElementWhoseIdDiffersByMoreThanCase_IsStillRefused(bool elementUpper)
+        {
+            var other = Element.Substring(0, Element.Length - 2) + "1b";
+            Assert.AreNotEqual(Element, other);
+            var element = new JObject
+            {
+                ["id"] = elementUpper ? other.ToUpperInvariant() : other,
+                ["type"] = "character",
+                ["name"] = "Another element",
+            };
+            var e = Assert.Throws<ArgumentException>(() => OWOpeners.For(OWTools.All, OWOpeners.Element, World, "character", Element,
+                new OWOpenerSurface { Audience = OWOpenerSurface.Member }, new OWOpenersOptions { Element = element }));
             StringAssert.Contains("its id differs", e.Message);
+        }
+
+        /// <summary>
+        /// The held-upper element's empty answer comes after every other check: a tools row that is not one is refused
+        /// for it as for any element, though it stands last in the list behind a good row (the rows are checked in the loop
+        /// that builds them, after the element's id is read).
+        /// Kills: an early return of no rows where the element's id is read.
+        /// </summary>
+        [Test]
+        public void AHeldUpperElement_GetsNoRowsOnlyAfterEveryOtherCheck()
+        {
+            var held = new JObject { ["id"] = Element.ToUpperInvariant(), ["type"] = "character", ["name"] = "Held upper" };
+            var options = new OWOpenersOptions { Element = held };
+            var member = new OWOpenerSurface { Audience = OWOpenerSurface.Member };
+            var good = new OWTool("wren", "Wren", "https://wren.example", null, OWTool.Listed,
+                new OWToolOpen("https://wren.example/{world}", "https://wren.example/{world}/{id}", null, null));
+            var bad = new OWTool("lark", "Lark", "https://lark.example", null, OWTool.Listed,
+                new OWToolOpen("https://lark.example/{world}", "https://lark.example/{world}/{id}", "nope", null));
+
+            // The control: with good rows only, no rows at all, the site's own included.
+            Assert.IsEmpty(OWOpeners.For(new[] { good }, OWOpeners.Element, World, "character", Element, member, options));
+
+            var e = Assert.Throws<ArgumentException>(() =>
+                OWOpeners.For(new[] { good, bad }, OWOpeners.Element, World, "character", Element, member, options));
+            StringAssert.Contains("tool lark: open.needs", e.Message);
         }
 
         [Test]

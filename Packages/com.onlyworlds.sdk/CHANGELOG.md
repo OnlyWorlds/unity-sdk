@@ -51,6 +51,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   the browser, read only. Its element door opens every element type (`element_types` null) but a map's own space (a
   Map, a Pin, a Marker: its `element_skips` is `map_space`); it needs an account and opens a public world with none, so a public page offers it live, on a
   world's menu and on every element's. Seven rows, where there were six (tools.json sha256 `2140d2b9…`).
+- **An element held in upper case gets an empty openers menu, not a refusal.** `OWOpeners.For` given an
+  `OWOpenersOptions` element whose own `id` is the address's id but held in upper case answered "its id differs";
+  no address can name such an element, so no door opens it, and that is no caller's mistake: the answer is now no rows
+  (the site's own included), and a surface still draws its mark. It is given only after every other check has run, so
+  a tools row that is not one is still refused for it. An id that differs by more than case is still refused. The
+  shared openers fixture is re-vendored at 111 cases (sha256 `8af6f6da…`, the bytes of the TypeScript SDK 4.161.0 and
+  the Python package 0.122.0): `skips-id-case-held-upper` now wants no rows.
 
 ## [0.39.1] - 2026-11-13
 

@@ -313,7 +313,9 @@ namespace OnlyWorlds.Sdk
         /// <summary>
         /// The element the menu is for, as the surface was served it (the API's body, the mark flat on it): a row whose
         /// door skips a mark it carries is not there. Null: every row, as before. Only for an element's menu, and only the
-        /// element the address names: its own <c>id</c>, read as written, is the address's id taken in lowercase.
+        /// element the address names: its own <c>id</c>, read as written, is the address's id taken in lowercase. One held
+        /// in upper case (the same id but for case) is one no address can name: the menu has no rows, not a refusal; one
+        /// that differs by more than case is refused.
         /// </summary>
         public JObject Element { get; set; }
 
@@ -439,7 +441,9 @@ namespace OnlyWorlds.Sdk
     /// <c>open.world</c> or <c>open.element</c> that does not begin with its scheme, or whose scheme is
     /// <c>javascript</c>, <c>data</c>, <c>vbscript</c>, <c>file</c>, <c>blob</c> or <c>about</c>, in any case, on any
     /// row and either kind of menu). <see cref="OWAddressException"/>
-    /// is an <see cref="ArgumentException"/> too: catch it first.
+    /// is an <see cref="ArgumentException"/> too: catch it first. An element given whose own id is the address's but held
+    /// in upper case is no refusal: no address can name it, so the answer is no rows, given after every check above has
+    /// run (a bad tools row is still refused for it).
     /// </para>
     /// </remarks>
     public static class OWOpeners
@@ -616,14 +620,18 @@ namespace OnlyWorlds.Sdk
 
             var element = options?.Element;
             var marks = new List<string>();
+            var unnamed = false;
             if (element != null)
             {
                 if (kind != Element) Fail("options element is for an element's menu; a world's menu takes none", nameof(options));
-                // The address profile's rule for the same id: the address's id is taken in lowercase, the element's own id
-                // is read as written, so an element held in upper case is not the element the address names.
-                if (!(element["id"] is JValue eid && eid.Type == JTokenType.String && (string)eid == values["id"]))
+                // The address is a door, so its id is read in either case and taken in lowercase; an element whose own id
+                // differs from it by more than case is another element, the caller's mistake, and refused.
+                if (!(element["id"] is JValue eid && eid.Type == JTokenType.String && ((string)eid).ToLowerInvariant() == values["id"]))
                     Fail("options element is the element the address names: its id differs", nameof(options));
-                marks = MarksOf(element);
+                // The address profile's rule for the same id reads the element's own id as written: held in upper case it is
+                // one no address can name, so no door opens it. That is no mistake and no refusal: the answer is no rows,
+                // given only after every other check has run (below), and a surface still draws its mark.
+                unnamed = (string)element["id"] != values["id"];                marks = MarksOf(element);
             }
 
             var site = kind == Element ? page : OWAddress.ElementAddress(OWAddress.Human, world);
@@ -681,7 +689,8 @@ namespace OnlyWorlds.Sdk
                 rows.Add(new OWOpener(r.Id, r.Name, href, state));
             }
 
-            return rows;
+            // An element held in upper case: no rows, now that every row of the list has been checked.
+            return unnamed ? new List<OWOpener>() : rows;
         }
 
         /// <summary>
