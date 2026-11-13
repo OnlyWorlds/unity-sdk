@@ -34,7 +34,8 @@ namespace OnlyWorlds.Sdk
         /// <summary>The game, in the tools list's id form (<c>[a-z0-9-]</c>, 1 to 32).</summary>
         public string Tool { get; }
 
-        /// <summary>When the run was played: RFC 3339 in UTC, real time (never world time), as written.</summary>
+        /// <summary>When the run was played: real time (never world time), read by the message profile's grammar, as
+        /// written.</summary>
         public string PlayedAt { get; }
 
         /// <summary>The engine's version; with <see cref="Seed"/>, the replay. Null when unset.</summary>
@@ -272,64 +273,20 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
-        /// <c>YYYY-MM-DDTHH:MM[:SS[.fraction]]Z</c> as a real calendar instant (month 1 to 12, the day within its month
-        /// with Gregorian leap years, hour 0 to 23, minute and second 0 to 59, year 0001 or later), in milliseconds from
-        /// 0001-01-01, a fraction truncated past three digits; null when it is not one. Checked by its parts, never by a
+        /// <c>played_at</c> as an instant in milliseconds from 0001-01-01 UTC, a fraction truncated past three digits; null
+        /// when it is not one. Read by the message profile's grammar (<see cref="OWMessage.TimeKey"/>), the one grammar
+        /// for a time in the standard: a date and a time with its seconds, a fraction, <c>Z</c> or an offset or no zone
+        /// (read as UTC), <c>T</c> and <c>Z</c> in either case, every part in its range. Checked by its parts, never by a
         /// date parser (one that rolls 02-30 into March or takes 24:00 would make a broken writer's run a record).
         /// </summary>
         internal static long? InstantMs(string s)
         {
             if (s == null) return null;
-            int i = 0;
-            if (!Digits(s, ref i, 4, out var y) || !Lit(s, ref i, '-') || !Digits(s, ref i, 2, out var mo) ||
-                !Lit(s, ref i, '-') || !Digits(s, ref i, 2, out var d) || !Lit(s, ref i, 'T') ||
-                !Digits(s, ref i, 2, out var h) || !Lit(s, ref i, ':') || !Digits(s, ref i, 2, out var mi))
-                return null;
-            int se = 0, ms = 0;
-            if (i < s.Length && s[i] == ':')
-            {
-                i++;
-                if (!Digits(s, ref i, 2, out se)) return null;
-                if (i < s.Length && s[i] == '.')
-                {
-                    i++;
-                    int start = i, scale = 100;
-                    while (i < s.Length && s[i] >= '0' && s[i] <= '9')
-                    {
-                        if (i - start < 3) { ms += (s[i] - '0') * scale; scale /= 10; }
-                        i++;
-                    }
-                    if (i == start) return null;
-                }
-            }
-            if (i != s.Length - 1 || s[i] != 'Z') return null;
-
-            if (y < 1 || mo < 1 || mo > 12 || h > 23 || mi > 59 || se > 59) return null;
-            var leap = (y % 4 == 0 && y % 100 != 0) || y % 400 == 0;
-            int[] days = { 31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
-            if (d < 1 || d > days[mo - 1]) return null;
-            return new DateTime(y, mo, d, h, mi, se, DateTimeKind.Utc).Ticks / TimeSpan.TicksPerMillisecond + ms;
-        }
-
-        private static bool Digits(string s, ref int i, int n, out int value)
-        {
-            value = 0;
-            if (i + n > s.Length) return false;
-            for (var k = 0; k < n; k++)
-            {
-                var c = s[i + k];
-                if (c < '0' || c > '9') return false;
-                value = value * 10 + (c - '0');
-            }
-            i += n;
-            return true;
-        }
-
-        private static bool Lit(string s, ref int i, char c)
-        {
-            if (i >= s.Length || s[i] != c) return false;
-            i++;
-            return true;
+            var micros = OWMessage.TimeKey(new JValue(s));
+            if (!micros.HasValue) return null;
+            // Floored, so an instant before 0001-01-01 (the year 0000 is a year) still truncates toward the past.
+            var m = micros.Value;
+            return m / 1000 - (m % 1000 < 0 ? 1 : 0);
         }
     }
 }

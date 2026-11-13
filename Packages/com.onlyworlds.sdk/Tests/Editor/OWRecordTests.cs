@@ -150,11 +150,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [Test]
         public void WhatCannotBeNamed_IsNeverRead()
         {
-            var nameless = Run("x", "2026-11-01T00:00Z");
+            var nameless = Run("x", "2026-11-01T00:00:00Z");
             nameless.Remove("id");
-            var numbered = Run("x", "2026-11-01T00:00Z");
+            var numbered = Run("x", "2026-11-01T00:00:00Z");
             numbered["id"] = 7;
-            var ev = Run("e", "2026-11-01T00:00Z");
+            var ev = Run("e", "2026-11-01T00:00:00Z");
             var story = new JObject { ["type"] = "narrative", ["events"] = new JArray("e"), ["narrator"] = "c", ["name"] = "S" };
             var got = OWRecord.Of("c", new JToken[] { nameless, numbered, ev, story });
             CollectionAssert.AreEqual(new[] { "e" }, got.Select(r => r.EventId).ToArray());
@@ -203,7 +203,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             var got = OWRecord.Of("c", new[]
             {
-                Run("a", "2026-11-01T00:30Z"), Run("b", "2026-11-01T00:30:00.500Z"), Run("c", "2026-11-01T00:29:59Z"),
+                Run("a", "2026-11-01T00:30:00Z"), Run("b", "2026-11-01T00:30:00.500Z"), Run("c", "2026-11-01T00:29:59Z"),
             });
             CollectionAssert.AreEqual(new[] { "b", "a", "c" }, got.Select(r => r.EventId).ToArray());
         }
@@ -220,14 +220,48 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             foreach (var at in new[]
                      {
-                         "2026-13-01T00:00Z", "2026-02-30T00:00Z", "2026-02-29T00:00Z", "2026-11-01T24:00Z", "2026-11-01T00:60Z",
-                         "2026-11-01T00:00:60Z", "0000-01-01T00:00Z", "2026-00-01T00:00Z", "2026-11-00T00:00Z",
+                         "2026-13-01T00:00:00Z", "2026-02-30T00:00:00Z", "2026-02-29T00:00:00Z", "2026-11-01T24:00:00Z",
+                         "2026-11-01T00:60:00Z", "2026-11-01T00:00:60Z", "2026-00-01T00:00:00Z", "2026-11-00T00:00:00Z",
                          // Beside npm's: a fraction with no seconds, an empty fraction, and digits that are not ASCII.
-                         "2026-11-01T00:00.5Z", "2026-11-01T00:00:00.Z", "２026-11-01T00:00Z",
+                         "2026-11-01T00:00.5Z", "2026-11-01T00:00:00.Z", "２026-11-01T00:00:00Z",
                      })
                 Assert.IsNull(OWRecord.MarkOf(Run("e", at)), at);
-            foreach (var at in new[] { "2028-02-29T00:00Z", "2000-02-29T23:59:59.999Z", "0001-01-01T00:00Z" })
+            foreach (var at in new[] { "2028-02-29T00:00:00Z", "2000-02-29T23:59:59.999Z", "0001-01-01T00:00:00Z" })
                 Assert.IsNotNull(OWRecord.MarkOf(Run("e", at)), at);
+        }
+
+        /// <summary>
+        /// One time grammar: a record's <c>played_at</c> is read by the message profile's grammar, as a message's
+        /// <c>created_at</c> is. A lower-case <c>t</c> and <c>z</c> and an offset are read; a time without its seconds is
+        /// not; a time with no zone is read as UTC; the year 0000 is a year. The value is carried as written.
+        /// </summary>
+        [Test]
+        public void PlayedAt_IsReadByTheMessageGrammar()
+        {
+            foreach (var at in new[]
+                     {
+                         "2026-11-01t00:30:00z", "2026-11-01T00:30:00+01:00", "2026-11-01T00:30:00-00:00",
+                         "2026-11-01T00:30:00", "0000-01-01T00:00:00Z", "2026-11-01T00:30:00.1234567Z",
+                     })
+                Assert.IsNotNull(OWRecord.MarkOf(Run("e", at)), at);
+            foreach (var at in new[]
+                     {
+                         "2026-11-01T00:30Z", "2026-11-01T00:30", "2028-02-29T00:00Z", "2026-11-01T00:30:00+0100",
+                         "2026-11-01 00:30:00Z", "2026-11-01", "2026-11-01T00:30:00Z\n", "2026-11-01T00:30:00+24:00",
+                     })
+                Assert.IsNull(OWRecord.MarkOf(Run("e", at)), at);
+
+            // Ordered as the instants they are, never as text: 00:30+01:00 is 23:30 the day before.
+            var got = OWRecord.Of("c", new[]
+            {
+                Run("a", "2026-11-01T00:30:00+01:00"), Run("b", "2026-10-31T23:45:00Z"), Run("c", "2026-11-01t00:00:00z"),
+            });
+            CollectionAssert.AreEqual(new[] { "c", "b", "a" }, got.Select(r => r.EventId).ToArray());
+            Assert.AreEqual("2026-11-01T00:30:00+01:00", got[2].PlayedAt, "carried as written");
+
+            // One instant written two ways ties, and the tie goes to the Event's id.
+            got = OWRecord.Of("c", new[] { Run("y", "2026-11-01T10:00:00Z"), Run("x", "2026-11-01T11:00:00+01:00") });
+            CollectionAssert.AreEqual(new[] { "x", "y" }, got.Select(r => r.EventId).ToArray());
         }
     }
 }

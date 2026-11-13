@@ -22,6 +22,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   keeps the newest, keeps it; and an element is never judged by one clock for `stale` and ranked by another. Wire
   elements, which carry no folder stamps, order as before; every case of the vendored lens fixture reads as before. The
   lens profile's ruling for schema-dist serial 123, not yet published.
+- **A record's `played_at` is read by the message profile's grammar**, the one grammar for a time in the standard,
+  where it had a narrower grammar of its own. `OWRecord.MarkOf` and `OWRecord.Of` now read a lower-case `t` and `z`
+  (`2026-11-01t00:30:00z`), an offset (`2026-11-01T00:30:00+01:00`, ordered as the instant it is), a time with no zone
+  (read as UTC) and the year `0000`, and no longer read a time without its seconds (`2026-11-01T00:30Z` is no mark).
+  The value is carried as written and records still order newest first to the millisecond. Four cases of serial 122's
+  record fixture want the old grammar and move with it: `no-mark-played-offset`, `mark-leap-day-of-a-leap-year`,
+  `fluffington-two-games` and `order-by-the-instant-not-the-string`. The record profile's ruling for schema-dist serial
+  123, not yet published.
 
 ## [0.39.1] - 2026-11-13
 
