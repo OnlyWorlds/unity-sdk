@@ -82,6 +82,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   an export writes element rows as served, with no `world`. One change: **`OWFolderWriter.WriteWorld` now refuses a
   world whose `id` is not a non-empty string** (a number, a boolean, a list, a blank), the question the folder read
   asks, so it never writes a `world.json` its own reader refuses; before, only a missing or empty id was refused.
+- **The schema pin moves to `v0.34.0-dist.120`** (canonical `00.34.00` unchanged; no schema file, `schema.json` or
+  walk reader moved, and no answer of a reader here moves): the report page names `parent_narrative` (the first
+  report of the work a report continues, or the board entry a closed talk hangs on), says a report that continues
+  earlier work names the first report of it, and gains reader rule 9, threads, with its first fixture,
+  `profiles/report.fixture.json` (20 thread cases). The views fixture's two cites of the report page moved down one
+  line each with the page; its test copy moved with the new bytes. The generated models and the views table changed in
+  their serial stamp only.
 - **The schema pin moves to `v0.34.0-dist.119`** (canonical `00.34.00` unchanged; no schema file, `schema.json` or
   walk reader moved, and no answer of a reader here moves): the map-space page gains rule 11 (a layout map is no
   candidate when a tool picks the Map that stands for the world's space, and a Pin or a Marker on one is a place in

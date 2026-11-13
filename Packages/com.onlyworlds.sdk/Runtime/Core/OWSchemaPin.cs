@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.34.00";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 119;
+        public const int DistSerial = 120;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.34.0-dist.119";
+        public const string Tag = "v0.34.0-dist.120";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -337,9 +337,19 @@ namespace OnlyWorlds.Sdk
         /// folder lint's version is 0.3.22 and it gains no check. The generated models and the views table changed in
         /// their serial stamp only.
         /// </para>
+        /// <para>
+        /// <b>119 -> 120 (2026-11-13)</b>: canonical unchanged, no schema file, <c>schema.json</c> or walk reader moved,
+        /// and no reader's answer moves. The report page gains a <c>parent_narrative</c> row, a paragraph on a report
+        /// that continues earlier work (it names the first report of that work), a sentence on a closed talk's report
+        /// that keeps its board entry, rule 9 (threads: a reader groups reports by <c>parent_narrative</c> as written,
+        /// a report's thread or a board entry's talks, in the message profile's <c>created_at</c> order, with a lint for
+        /// a chain and for a report that names itself) and its first fixture, <c>profiles/report.fixture.json</c>, 20
+        /// thread cases. The views fixture's two cites of the report page moved down one line each. The generated
+        /// models and the views table changed in their serial stamp only.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "7d00af2b9776f20ae5f1245a0f225e42d7425fc7c3e6f39df41d964da9ae60df";
+            "e585dea71352d0d4ff6c71fa316a11510f0bf0c8fcf5801fbc30815d1bc0e6c3";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.
@@ -353,7 +363,7 @@ namespace OnlyWorlds.Sdk
             "af84662c29628b6e90b923c9541f68f5924563adce397cebbadfdbf0f06e5f18";
 
         /// <summary>When these constants were last verified against the published dist.</summary>
-        public const string PinnedOn = "2026-11-12";
+        public const string PinnedOn = "2026-11-13";
 
         /// <summary>
         /// ⚑ Rulings that bind THIS SDK and any emitter generating into it. Read the row, not the key.
