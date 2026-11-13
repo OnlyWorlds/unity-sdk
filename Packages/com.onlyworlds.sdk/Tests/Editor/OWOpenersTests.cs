@@ -450,6 +450,45 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             }
         }
 
+        [Test]
+        public void TheBakedList_OffersTheMapper_OnAWorldAndOnEveryElementType_AndLiveToThePublic()
+        {
+            // The list at aa00969: the OnlyWorlds mapper, a world's maps in the browser, read only. Its element_types is
+            // null, so its element door opens every type; it skips only a map's own space (a Map, a Pin, a Marker).
+            var mapper = OWTools.All.Single(t => t.Id == "mapper");
+            Assert.AreEqual("OnlyWorlds mapper", mapper.Name);
+            Assert.AreEqual("https://maps.onlyworlds.com", mapper.Url);
+            Assert.AreEqual("mapper", mapper.Client);
+            Assert.AreEqual(OWTool.Listed, mapper.Rung);
+            Assert.IsNull(mapper.Open.ElementTypes, "element_types null: every type");
+            CollectionAssert.AreEqual(new[] { "map_space" }, mapper.Open.ElementSkips);
+            Assert.AreEqual(OWToolOpen.Account, mapper.Open.Needs);
+            Assert.IsTrue(mapper.Open.OpensPublic, "its links open a public world with no account");
+
+            var member = new OWOpenerSurface { Audience = OWOpenerSurface.Member, SignedIn = true };
+            var visitor = new OWOpenerSurface { Audience = OWOpenerSurface.Public };
+            foreach (var surface in new[] { member, visitor })
+            {
+                var world = OWOpeners.For(OWTools.All, OWOpeners.World, World, null, null, surface).Single(r => r.Id == "mapper");
+                Assert.AreEqual($"https://maps.onlyworlds.com/?world={World}", world.Href, surface.Audience);
+                Assert.IsNull(world.State, surface.Audience + ": a world's menu");
+                foreach (var type in OWElementTypes.Slugs)
+                {
+                    var row = OWOpeners.For(OWTools.All, OWOpeners.Element, World, type, Element, surface).Single(r => r.Id == "mapper");
+                    Assert.AreEqual($"https://maps.onlyworlds.com/?world={World}&type={type}&element={Element}", row.Href, surface.Audience + ": " + type);
+                    Assert.IsNull(row.State, surface.Audience + ": " + type);
+                }
+            }
+
+            // A map's own space is the one thing its element door leaves out: a Pin given as the element is not offered.
+            var pin = new JObject { ["id"] = Element, ["type"] = "pin", ["name"] = "A pin" };
+            Assert.IsFalse(OWOpeners.For(OWTools.All, OWOpeners.Element, World, "pin", Element, member,
+                new OWOpenersOptions { Element = pin }).Any(r => r.Id == "mapper"));
+            var location = new JObject { ["id"] = Element, ["type"] = "location", ["name"] = "A harbour" };
+            Assert.IsTrue(OWOpeners.For(OWTools.All, OWOpeners.Element, World, "location", Element, member,
+                new OWOpenersOptions { Element = location }).Any(r => r.Id == "mapper"));
+        }
+
         [TestCase("[\"character\", \"character\"]")]
         [TestCase("[\"Character\"]")]
         public void ARepeatOrAWordInAnotherCase_IsRefusedByName_EvenOnAWorldsMenu(string types)

@@ -47,6 +47,10 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   were written without seconds now carry them, the offset run's `+0100` lost its colon, and three cases are renamed
   (`no-mark-played-offset-without-its-colon`, `no-mark-year-0-without-seconds`,
   `no-mark-played-lower-case-without-seconds`).
+- **`OWTools` repinned at the tools list's `aa00969`: the OnlyWorlds mapper listed**, a world's maps and layouts in
+  the browser, read only. Its element door opens every element type (`element_types` null) but a map's own space (a
+  Map, a Pin, a Marker: its `element_skips` is `map_space`); it needs an account and opens a public world with none, so a public page offers it live, on a
+  world's menu and on every element's. Seven rows, where there were six (tools.json sha256 `2140d2b9…`).
 
 ## [0.39.1] - 2026-11-13
 
