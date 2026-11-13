@@ -15,6 +15,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   `2026-10-20T11:00:00+01:00`), so those two tie too. The answer no longer depends on the order the relations are
   given in. This follows the message profile's ruling for schema-dist serial 123, which is not yet published; the
   schema pin stays at `v0.34.0-dist.122`.
+- **A lens's budget orders by the clock `changed_within` reads.** Within a type, `OWLens.Resolve` ranks the newest
+  first by one clock: on the wire `updated_at`, and for a folder element the newer of `server_updated_at` and
+  `local_updated_at` (each read as the message profile reads a `created_at`), where the order read `updated_at` only.
+  So an element edited locally yesterday is ranked as newer than one the server stamped last week, and the budget, which
+  keeps the newest, keeps it; and an element is never judged by one clock for `stale` and ranked by another. Wire
+  elements, which carry no folder stamps, order as before; every case of the vendored lens fixture reads as before. The
+  lens profile's ruling for schema-dist serial 123, not yet published.
 
 ## [0.39.1] - 2026-11-13
 

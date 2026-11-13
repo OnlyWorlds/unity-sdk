@@ -992,6 +992,38 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 "an unreadable folder stamp is no stamp");
         }
 
+        // One clock per lens: rule 5's order reads the clock changed_within reads, on the wire updated_at, in a folder
+        // the newer of server_updated_at and local_updated_at. Kills: the budget ranking a folder element by its
+        // updated_at while changed_within judges it by its sync stamps.
+        [Test]
+        public void TheBudgetsOrder_ReadsTheClockChangedWithinReads()
+        {
+            var lens = JObject.Parse(@"{""id"":""L"",""type"":""construct"",""name"":""L"",""supertype"":""Lens"",""x_lens"":{""types"":[""object""],""budget"":1}}");
+            string KeptOf(string e1Stamps)
+            {
+                var world = new List<JObject>
+                {
+                    JObject.Parse(@"{""id"":""e1"",""type"":""object"",""name"":""One""" + e1Stamps + "}"),
+                    JObject.Parse(@"{""id"":""e2"",""type"":""object"",""name"":""Two"",""updated_at"":""2026-10-20T00:00:00Z""}"),
+                };
+                var r = OWLens.Resolve(world, lens, OWLensReader.Owner());
+                CollectionAssert.AreEquivalent(new Dictionary<string, int> { [OWLensCut.Budget] = 1 }, r.Cut, e1Stamps);
+                return r.Kept.Single();
+            }
+
+            Assert.AreEqual("e1", KeptOf(@",""updated_at"":""2026-10-25T00:00:00Z"""), "on the wire, updated_at");
+            Assert.AreEqual("e1", KeptOf(@",""server_updated_at"":""2026-10-25T00:00:00Z"""), "a folder's server stamp");
+            Assert.AreEqual("e1", KeptOf(@",""local_updated_at"":""2026-10-25T00:00:00Z"""), "a folder's local edit");
+            Assert.AreEqual("e1", KeptOf(@",""updated_at"":""2026-10-15T00:00:00Z"",""server_updated_at"":""2026-10-25T00:00:00Z"""),
+                "the newer folder stamp, over an older updated_at");
+            Assert.AreEqual("e1", KeptOf(@",""server_updated_at"":""2026-10-15T00:00:00Z"",""local_updated_at"":""2026-10-25T00:00:00Z"""),
+                "the newer of the two folder stamps");
+            Assert.AreEqual("e2", KeptOf(@",""updated_at"":""2026-10-25T00:00:00Z"",""server_updated_at"":""2026-10-15T00:00:00Z"""),
+                "a folder stamp, where one reads, is the clock, as for changed_within");
+            Assert.AreEqual("e1", KeptOf(@",""updated_at"":""2026-10-25T00:00:00Z"",""local_updated_at"":""soon"""),
+                "an unreadable folder stamp is no stamp");
+        }
+
         // -- The lens profile owner's rulings on readings no fixture case decided yet (each a case in its next serial) ---
         // Rulings 4 and 5 (an umbrella's children are not in its hop's known set; a cut lens id stays counted once
         // entered) were already this reader's: AnUmbrellasSiblingLens_ReachedByAChildsHop_IsKept_UnlessEnteredFirst.

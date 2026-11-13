@@ -874,8 +874,9 @@ namespace OnlyWorlds.Sdk
         private const long MicrosPerDay = 86_400_000_000L;
 
         /// <summary>
-        /// When an element last changed, for <c>changed_within</c>: the server's <c>updated_at</c>, or for a folder element
-        /// the newer of <c>server_updated_at</c> and <c>local_updated_at</c>. Null when it carries none.
+        /// When an element last changed, for <c>changed_within</c> and rule 5's order alike: the server's <c>updated_at</c>,
+        /// or for a folder element the newer of <c>server_updated_at</c> and <c>local_updated_at</c>. Null when it carries
+        /// none.
         /// </summary>
         private static long? ChangedAt(JObject e)
         {
@@ -902,14 +903,16 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
-        /// By type in the schema's order, then newest first (<c>updated_at</c>, read as the message profile reads a
-        /// <c>created_at</c>; one that cannot be read comes after every one that can), then by id by code point.
+        /// By type in the schema's order, then newest first by the clock <c>changed_within</c> reads (<see cref="ChangedAt"/>:
+        /// on the wire <c>updated_at</c>, in a folder the newer of <c>server_updated_at</c> and <c>local_updated_at</c>, each
+        /// read as the message profile reads a <c>created_at</c>; an element with no time that can be read comes after
+        /// every one that has one), then by id by code point. One clock per lens.
         /// </summary>
         private static IEnumerable<string> Ordered(View view, IEnumerable<string> ids)
         {
             return ids
                 .OrderBy(i => view.TypeRank(i))
-                .ThenByDescending(i => OWMessage.TimeKey(view.Els[i]["updated_at"]) ?? long.MinValue)
+                .ThenByDescending(i => ChangedAt(view.Els[i]) ?? long.MinValue)
                 .ThenBy(i => i, CodePointOrder)
                 .ToList();
         }
