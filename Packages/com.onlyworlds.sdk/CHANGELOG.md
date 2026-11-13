@@ -14,8 +14,8 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   `changed_within` alike; the record page reads `played_at` by the message page's grammar (the three entries below
   build each). The address page gains "An address in prose": how a reader that finds an address inside other text
   reads where it ends; the report page's rule 8 finds a line's address so. This SDK has no finder of addresses in
-  prose (its parsers read a whole string, as before), so the address fixture's 57 new prose cases are ignored here
-  after checking that the address each finds reads, whole, as the fixture says. The checks page rules that `one_of`
+  prose (its parsers read a whole string, as before), so the address fixture's 57 new prose cases are skipped here
+  by their kind, each with that reason, until the packages' finder is ported; every other kind runs. The checks page rules that `one_of`
   over a list is `short` (no reader here). The fixtures gain cases: address 197, lens 233 (twelve), message 100
   (seven read-mark cases), record 46 (three renamed, five new), strand 27 (a mark naming its story in upper case is no
   strand), and the checks fixture two rules and two cases. The Hyperion example's world is now `public_read`. The

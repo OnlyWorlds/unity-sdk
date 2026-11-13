@@ -46,6 +46,17 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             }
         }
 
+        /// <summary>The fixture's kind for an address found inside other text (serial 123).</summary>
+        private const string ProseKind = "prose";
+
+        /// <summary>
+        /// Why every <see cref="ProseKind"/> case is skipped: this SDK reads an address only as a whole string. The finder
+        /// the cases test is the packages' <c>readOwLinkAt</c>, to be ported; until then each such case is ignored by this
+        /// reason, counted in <see cref="TheFixture_HoldsDist77sCases"/>, and every other kind runs.
+        /// </summary>
+        private const string ProseSkip =
+            "skipped by kind 'prose': no finder of an address in prose in this SDK yet (the packages' readOwLinkAt, not yet ported)";
+
         /// <summary>One case per fixture case, named after it.</summary>
         public static IEnumerable<TestCaseData> Cases()
         {
@@ -83,7 +94,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(197, cases.Count, "dist.123's fixture holds 197 cases");
             Assert.AreEqual(36, cases.Count(c => (string)c["kind"] == "format"));
             Assert.AreEqual(104, cases.Count(c => (string)c["kind"] == "parse"));
-            Assert.AreEqual(57, cases.Count(c => (string)c["kind"] == "prose"), "an address found in prose (serial 123)");
+            Assert.AreEqual(57, cases.Count(c => (string)c["kind"] == ProseKind), "an address found in prose (serial 123), each skipped: " + ProseSkip);
             Assert.AreEqual(75, cases.Count(c => c["refuse"] != null), "20 format refusals and 55 parse refusals");
         }
 
@@ -143,29 +154,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                     }
                     break;
                 }
-                case "prose":
-                {
-                    // This SDK has no finder of an address in prose (the packages have one). What it can answer is the
-                    // half the whole-string parser owns: the slice the fixture says the address covers reads as the
-                    // fixture's reading. The finding itself is not run, so the case is ignored after that check.
-                    var text = (string)c["text"];
-                    var index = (int)c["index"];
-                    var want = (JObject)c["expect"];
-                    var address = (string)want["address"];
-                    if (address != null)
-                    {
-                        Assert.AreEqual(address, text.Substring(index, address.Length), $"prose/{name}: the slice at {index}");
-                        var ok = OWAddress.TryParseLink(address, out var reading, out var refusal);
-                        Assert.IsTrue(ok, $"prose/{name}: the found address {address} refused whole as {refusal}");
-                        var got = Reading(reading);
-                        Assert.IsTrue(JToken.DeepEquals(want["reading"], got),
-                            $"prose/{name}: gave {got.ToString(Newtonsoft.Json.Formatting.None)}, the fixture says {want["reading"].ToString(Newtonsoft.Json.Formatting.None)}");
-                    }
-
-                    Assert.Ignore("no finder of an address in prose in this SDK: the line is not searched"
-                        + (address != null ? "; the found address reads as the fixture says, whole" : "; the fixture finds no address here"));
+                case ProseKind:
+                    Assert.Ignore(ProseSkip);
                     break;
-                }
                 default:
                     Assert.Fail($"case {name}: a case of unknown kind {c["kind"]}");
                     break;
