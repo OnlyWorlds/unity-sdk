@@ -313,7 +313,7 @@ namespace OnlyWorlds.Sdk
         /// <summary>
         /// The element the menu is for, as the surface was served it (the API's body, the mark flat on it): a row whose
         /// door skips a mark it carries is not there. Null: every row, as before. Only for an element's menu, and only the
-        /// element the address names.
+        /// element the address names: its own <c>id</c>, read as written, is the address's id taken in lowercase.
         /// </summary>
         public JObject Element { get; set; }
 
@@ -619,7 +619,9 @@ namespace OnlyWorlds.Sdk
             if (element != null)
             {
                 if (kind != Element) Fail("options element is for an element's menu; a world's menu takes none", nameof(options));
-                if (!(element["id"] is JValue eid && eid.Type == JTokenType.String && ((string)eid).ToLowerInvariant() == values["id"]))
+                // The address profile's rule for the same id: the address's id is taken in lowercase, the element's own id
+                // is read as written, so an element held in upper case is not the element the address names.
+                if (!(element["id"] is JValue eid && eid.Type == JTokenType.String && (string)eid == values["id"]))
                     Fail("options element is the element the address names: its id differs", nameof(options));
                 marks = MarksOf(element);
             }

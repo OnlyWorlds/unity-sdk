@@ -20,9 +20,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     public class OWOpenersTests
     {
         /// <summary>The fixture's sha256, as both packages' suites hold it.</summary>
-        private const string FixtureSha256 = "9df2b52916223969f8b48284c770f933673cef308b2f5158cb2007715e80c17b";
+        private const string FixtureSha256 = "ac14435bc287e92bd18e651871f39a0c66870bb041be0eb394d3eb868eb76978";
 
-        private const int CaseCount = 110;
+        private const int CaseCount = 111;
 
         private const string World = "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e0f";
         private const string Element = "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e1a";
@@ -250,6 +250,38 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var e = Assert.Throws<ArgumentException>(() =>
                 OWOpenerSurface.FromJson(JObject.Parse("{\"audience\": \"member\", \"online\": " + value + "}")));
             StringAssert.Contains("surface online is a boolean", e.Message);
+        }
+
+        /// <summary>
+        /// The address profile's rule for the same id at the openers' check: the address's id is read in either case and
+        /// taken in lowercase, the given element's own id is read as written. An element held in lowercase is the
+        /// address's element whatever the address's case; one held in upper case is not, whatever the address's case.
+        /// Kills: the element's id folded to meet the address's.
+        /// </summary>
+        [TestCase(false, false, true)]
+        [TestCase(false, true, true)]
+        [TestCase(true, false, false)]
+        [TestCase(true, true, false)]
+        public void TheElementsOwnId_IsReadAsWritten_TheAddresssInEitherCase(bool elementUpper, bool addressUpper, bool same)
+        {
+            var element = new JObject
+            {
+                ["id"] = elementUpper ? Element.ToUpperInvariant() : Element,
+                ["type"] = "character",
+                ["name"] = "The element",
+            };
+            var surface = new OWOpenerSurface { Audience = OWOpenerSurface.Member };
+            var options = new OWOpenersOptions { Element = element };
+            var id = addressUpper ? Element.ToUpperInvariant() : Element;
+            List<OWOpener> Open() => OWOpeners.For(OWTools.All, OWOpeners.Element, World, "character", id, surface, options);
+            if (same)
+            {
+                Assert.IsNotEmpty(Open());
+                return;
+            }
+
+            var e = Assert.Throws<ArgumentException>(() => Open());
+            StringAssert.Contains("its id differs", e.Message);
         }
 
         [Test]
