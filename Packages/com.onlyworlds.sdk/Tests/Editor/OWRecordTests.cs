@@ -18,8 +18,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </summary>
     public class OWRecordTests
     {
-        /// <summary>The fixture's sha256 as dist.103's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "27cac893fff9afd3835ec6e105c4d9c18128319586cde8fb05c626db7cd3071d";
+        /// <summary>The fixture's sha256 as dist.122's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "2074962221bd23169b6ce331e2c79ba63e4e67d0ca8fcfe444562a821666376b";
 
         private static JObject _fixture;
 
@@ -67,7 +67,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.103's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.122's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
@@ -77,7 +77,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual("record", (string)Fixture["profile"]);
             Assert.AreEqual((string)Fixture["mark"]["field"], OWRecord.MarkField);
             CollectionAssert.AreEqual(Fixture["mark"]["members"].Select(m => (string)m).ToList(), OWRecord.Members.ToList());
-            Assert.AreEqual(40, Fixture["cases"].Count(), "dist.103's fixture holds 40 cases");
+            Assert.AreEqual(41, Fixture["cases"].Count(), "dist.122's fixture holds 41 cases");
         }
 
         [TestCaseSource(nameof(Cases))]

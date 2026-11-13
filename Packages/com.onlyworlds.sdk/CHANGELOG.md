@@ -8,6 +8,21 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
+- **The schema pin moves to `v0.34.0-dist.122`** (canonical `00.34.00` unchanged; no schema file or `schema.json`
+  moved): the address page's "The same id" rules that inside a world two ids are the same id when they are written the
+  same, that an id is read in either case, and taken in lowercase, only at an address and in a text a page says is
+  searched for ids (a Charter's `description`), and that what it is then matched against is read as written. The
+  Charter's skills and the openers' check now read a held id so (the two entries below). The charter page reads a
+  `created_at` as the message profile does; the lens page's budget reads `updated_at` so, and a note keyed otherwise
+  than a seen element's id is no note and not counted; the record page's `seats` keys and the report page's parents
+  are read as written. The fixtures gain cases: address 140 (three on the lens key), charter 38 (seven), lens 221
+  (one), record 41 (one), report 29 thread cases (two), and the checks fixture a tenth rule and two cases (no reader
+  here). Against the readers before the two entries below, one case moves: the charter's
+  `a-skill-object-whose-own-id-is-in-upper-case-is-not-kept` (it kept the upper-case Object); every other case reads as
+  before. `walk/lint_folder.py` warns on an id not lowercase in the hyphenated form (no test here runs it). The views
+  table's conversation layout says its order is the message profile's and the report row's `from` loses its serial,
+  baked into `OWViews.Table.cs`; the views fixture changed one description's words. The test copies of the six fixtures
+  moved with their bytes; the generated models changed in their serial stamp only.
 - **A Charter's skill ids match an Object's own id as written.** `OWCharter.CharterOf` still finds an id in the
   Charter's text in either case and takes it in lowercase, but now matches it against the ids of the Objects the
   reader sees as they are written, where it lowercased those too. So an Object whose own id is held in upper case is

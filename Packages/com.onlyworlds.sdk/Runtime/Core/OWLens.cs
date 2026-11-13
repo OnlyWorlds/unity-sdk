@@ -254,7 +254,7 @@ namespace OnlyWorlds.Sdk
         /// <summary>
         /// How many of <c>notes</c>' ids are not anchors of the lens (ignored, and counted), counting only ids the reader
         /// sees: a note on an anchor it cannot see went with the anchor, and one on an element it cannot see, or on an
-        /// id in no element, is no note of its.
+        /// id in no element (an anchor's id written in another case among them, compared as written), is no note of its.
         /// </summary>
         public int NotesIgnored { get; }
 
@@ -901,7 +901,10 @@ namespace OnlyWorlds.Sdk
             return Whole(view.Els[i][field], out date) ? DateKind.Dated : DateKind.Undated;
         }
 
-        /// <summary>By type in the schema's order, then newest first (<c>updated_at</c>), then by id by code point.</summary>
+        /// <summary>
+        /// By type in the schema's order, then newest first (<c>updated_at</c>, read as the message profile reads a
+        /// <c>created_at</c>; one that cannot be read comes after every one that can), then by id by code point.
+        /// </summary>
         private static IEnumerable<string> Ordered(View view, IEnumerable<string> ids)
         {
             return ids

@@ -21,11 +21,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </summary>
     public class OWReportTests
     {
-        /// <summary>The fixture's sha256 as dist.121's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "f0b6a370cca7ccf00e8c36f237a568c38784eb02bfe8a367428dbc68cc25cb1d";
+        /// <summary>The fixture's sha256 as dist.122's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "c87c6165829858b58126bc5ccab2391647e8e4971a46deee39dde9b5d1f3593e";
 
-        /// <summary>The fixture's thread cases, as dist.121 holds them.</summary>
-        private const int CaseCount = 27;
+        /// <summary>The fixture's thread cases, as dist.122 holds them.</summary>
+        private const int CaseCount = 29;
 
         private const string Mark = "019a7120-0000-7000-8000-000000000000";
 
@@ -75,7 +75,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.121's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.122's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
@@ -84,7 +84,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsNotNull(Fixture, "the vendored report fixture was not found");
             Assert.AreEqual("report", (string)Fixture["profile"]);
             var names = Fixture["thread_cases"].Select(c => (string)c["name"]).ToList();
-            Assert.AreEqual(CaseCount, names.Count, "dist.121's fixture holds 27 thread cases");
+            Assert.AreEqual(CaseCount, names.Count, "dist.122's fixture holds 29 thread cases");
             Assert.AreEqual(names.Count, names.Distinct().Count(), "a case is found by its name, so each name is once");
 
             Assert.AreEqual(OWReport.Pair.type, (string)Fixture["pair"]["type"]);

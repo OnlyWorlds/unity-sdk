@@ -43,7 +43,11 @@ namespace OnlyWorlds.Sdk
         /// <summary>The moment is not a step: a whole number in the 32-bit range, written plainly.</summary>
         public const string BadMoment = "bad_moment";
 
-        /// <summary>A <c>lens</c> that is not an id, is empty, appears twice, or whose key is not in lowercase.</summary>
+        /// <summary>
+        /// A <c>lens</c> key's value that is not an id or is empty, the key twice, or the key's four letters in another
+        /// case (<c>LENS</c>, <c>Lens</c>). A key is compared as written, nothing trimmed: one with a space in it is another
+        /// key, ignored like any other. The id the key holds is read in either case.
+        /// </summary>
         public const string BadLens = "bad_lens";
 
         /// <summary>A writer's: no world where one is needed (the human form, a world's own text form).</summary>

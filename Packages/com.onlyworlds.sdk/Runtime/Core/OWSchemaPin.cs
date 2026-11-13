@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.34.00";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 121;
+        public const int DistSerial = 122;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.34.0-dist.121";
+        public const string Tag = "v0.34.0-dist.122";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -356,9 +356,21 @@ namespace OnlyWorlds.Sdk
         /// other in a ring are each grouped and linted; its fixture gains seven thread cases (27 in all). The generated
         /// models and the views table changed in their serial stamp only.
         /// </para>
+        /// <para>
+        /// <b>121 -> 122 (2026-11-13)</b>: canonical unchanged, no schema file or <c>schema.json</c> moved. The address
+        /// page's "The same id": inside a world two ids are the same id when they are written the same; an id is read in
+        /// either case, and taken in lowercase, only at an address and in a text a page says is searched for ids (the
+        /// Charter's <c>description</c>), and what it is then matched against is read as written. The charter, lens,
+        /// record and report pages read their ids so; the checks page's <c>one_of</c> and the review mark's <c>by</c> keep
+        /// readings of their own; the identity and spine pages compare ids as written. Six fixtures gained cases: address
+        /// 140, charter 38, lens 221, record 41, report 29, and the checks fixture a tenth rule and two cases. <c>walk/lint_folder.py</c> warns on an id not
+        /// lowercase in the hyphenated form. The views table's conversation layout now says its order is the message
+        /// profile's, and the report row's <c>from</c> lost its serial; the views fixture changed one description's words.
+        /// The generated models changed in their serial stamp only.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "35e1f6d73cb99ee3a4683f3e78e8996e1a8ccc7357d597de000fab4f5c8df460";
+            "067eeba68bb30d36e8d20e58f5a0dd575e84ee8488018e81507b78cf32b24b45";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.

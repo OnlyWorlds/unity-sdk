@@ -268,7 +268,8 @@ namespace OnlyWorlds.Sdk
         /// <remarks>
         /// <para>
         /// <b>Which one, when there are several.</b> The Charter is the newest marked Charter the reader sees, newest by
-        /// <c>created_at</c> compared as instants (an element with none, or with one that is not a time, sorts as the
+        /// <c>created_at</c> read as the message profile reads one (<see cref="OWMessage.TimeKey"/>: the one form, as an
+        /// instant, a time with no offset as UTC; an element with none, or with one that cannot be read, sorts as the
         /// oldest) and then by the higher id by code point, so editing it never changes which one leads; the Guide the same
         /// among marked Guides. The Domains are every marked Domain the reader sees: first in the order the Guide's
         /// <c>constructs</c> names them as the reader is served the Guide (a Domain named twice keeps its first place; an
