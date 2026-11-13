@@ -631,7 +631,8 @@ namespace OnlyWorlds.Sdk
                 // The address profile's rule for the same id reads the element's own id as written: held in upper case it is
                 // one no address can name, so no door opens it. That is no mistake and no refusal: the answer is no rows,
                 // given only after every other check has run (below), and a surface still draws its mark.
-                unnamed = (string)element["id"] != values["id"];                marks = MarksOf(element);
+                unnamed = (string)element["id"] != values["id"];
+                marks = MarksOf(element);
             }
 
             var site = kind == Element ? page : OWAddress.ElementAddress(OWAddress.Human, world);

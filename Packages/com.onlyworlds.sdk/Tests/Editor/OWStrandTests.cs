@@ -259,7 +259,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 checkedWorlds++;
             }
 
-            Assert.AreEqual(23, checkedWorlds);
+            Assert.AreEqual(24, checkedWorlds); // dist.123 adds harbour-story-in-upper-case
         }
 
         /// <summary>The world's own hidden list hides as each element's own mark does, and the reading changes no body it is given.</summary>

@@ -28,7 +28,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     public class OWGraphTests
     {
         /// <summary>The fixture's graph cases, as dist.104 holds them (the 38th to the 42nd: the reading_aids flag, serial 104; the 43rd: one element of each of the 22 types; the 44th: an empty review mark, an object and a string).</summary>
-        private const int GraphCount = 54;
+        private const int GraphCount = 55; // dist.123 adds "then by id: ascending by code point, each id as written"
 
         private static JObject _fixture;
 
@@ -106,7 +106,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public void TheFixture_HoldsDist88sGraphCases()
         {
             Assert.IsNotNull(Fixture, "the vendored lens fixture was not found");
-            Assert.AreEqual(GraphCount, GraphCases.Count(), "dist.104's fixture holds 54 graph cases");
+            Assert.AreEqual(GraphCount, GraphCases.Count(), "dist.123's fixture holds 55 graph cases");
         }
 
         [TestCaseSource(nameof(Cases))]
