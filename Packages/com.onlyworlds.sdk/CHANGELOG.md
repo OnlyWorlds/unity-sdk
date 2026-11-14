@@ -6,6 +6,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.42.0] - 2026-11-14
+
+The default layout method: a world's default picture and one element's, the same points as the
+TypeScript SDK and the Python package. A minor release: it adds public API.
+
 ### Added
 
 - **`OWLayout.LayoutByKind(graph)`** and **`OWLayout.LayoutAround(graph, focus, steps = 1)`**: a world's default
@@ -23,7 +28,7 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   -0). The shared fixture (`test/fixtures/layout/by-kind.json`, sha256 `06a023ea…`, vendored in
   `Tests/Editor/Fixtures/layout/`) runs whole: its 12 by-kind cases bit for bit and its 7 around cases. Checked
   against the TypeScript SDK on 1,500 random graphs as well: 159,081 by-kind points equal to the bit and 705 around
-  runs within 1e-12. Public API, so the next release is a minor.
+  runs within 1e-12.
 
 ## [0.41.0] - 2026-11-14
 
