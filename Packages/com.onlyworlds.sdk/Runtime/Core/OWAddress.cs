@@ -124,6 +124,26 @@ namespace OnlyWorlds.Sdk
         public bool IsWorld => Id == null;
     }
 
+    /// <summary>What <see cref="OWAddress.ReadLinkAt"/> finds: the address read, and the index just past it in the text.</summary>
+    public sealed class OWAddressAt
+    {
+        internal OWAddressAt(OWAddressReading reading, int end)
+        {
+            Reading = reading;
+            End = end;
+        }
+
+        /// <summary>What <see cref="OWAddress.ParseLink"/> reads from <c>text.Substring(index, End - index)</c>.</summary>
+        public OWAddressReading Reading { get; }
+
+        /// <summary>
+        /// The index just past the address: the text's first character that is not part of it, or its length. A C#
+        /// string index, so it counts UTF-16 code units, as <see cref="string.Substring(int, int)"/> and
+        /// <see cref="string.IndexOf(string)"/> do.
+        /// </summary>
+        public int End { get; }
+    }
+
     /// <summary>
     /// The address of an element, or of a world, in the profile's three spellings, read and written alike by every
     /// package (schema-dist <c>profiles/address.md</c>).
@@ -143,7 +163,8 @@ namespace OnlyWorlds.Sdk
     /// </para>
     /// <para>
     /// Static, null for none, in the house style of <see cref="OWJoin.ParseLink"/>; <see cref="TryParseLink"/> also says
-    /// why. One string is read whole: a link inside other text (Markdown, a sentence) is the caller's to find first.
+    /// why. <see cref="ParseLink"/> reads one string whole; <see cref="ReadLinkAt"/> reads an address found inside other
+    /// text (a sentence, a line of a report) from the index where its prefix starts, and says where it ends.
     /// </para>
     /// </remarks>
     public static class OWAddress
@@ -239,6 +260,158 @@ namespace OnlyWorlds.Sdk
             var refusal = Write(form, world, type, id, lens, moment, out var written, momentRefusal);
             if (refusal != null) throw new OWAddressException(refusal);
             return written;
+        }
+
+        // -- An address in prose ----------------------------------------------------------------
+
+        /// <summary>The query that continues an address found in prose; no other key does.</summary>
+        private const string LensQuery = "?" + LensKey + "=";
+
+        /// <summary>An id is 36 characters: a lens found in prose ends where its id ends.</summary>
+        private const int IdLength = 36;
+
+        /// <summary>The longest type word.</summary>
+        private static readonly int TypeWordMax = OWElementTypes.Slugs.Max(t => t.Length);
+
+        /// <summary>No path the parser reads is longer: a world's id, the longest type word and an element's id, two slashes.</summary>
+        private static readonly int PathMax = IdLength + 1 + TypeWordMax + 1 + IdLength;
+
+        /// <summary>No element path after a world is longer: a slash, the longest type word, a slash and an element's id.</summary>
+        private static readonly int ElementPathMax = 1 + TypeWordMax + 1 + IdLength;
+
+        /// <summary>
+        /// The address that starts exactly at <paramref name="index"/> in a text, found in prose, and where it ends; null
+        /// when the text there is not an address (the address page's "An address in prose", serial 123; the TypeScript
+        /// SDK's <c>readOwLinkAt</c> and the Python package's <c>read_ow_link_at</c>).
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Both forms, <c>ow://</c> and <c>https://www.onlyworlds.com/w/</c>, the prefix as written (lowercase). In the
+        /// site's form the run after <c>/w/</c> is read whole, once: it ends at the first character outside the slug's
+        /// alphabet (lowercase letters, digits, hyphens) or the id's (hex in either case); exactly an id's form is the id,
+        /// any other run <see cref="ParseLink"/> reads as a slug is the slug, else there is no address. A run followed by
+        /// a letter of any script, a combining mark or an underscore is cut inside a word and is no address
+        /// (<c>/w/mopPetopia.</c>, <c>/w/hyper_ion.</c>); the character after it is read as a whole code point, so a
+        /// letter above U+FFFF (two UTF-16 units) cuts as any letter does.
+        /// </para>
+        /// <para>
+        /// After the world, or in the text form from the prefix, the path is the longest one <see cref="ParseLink"/>
+        /// reads. After it the address continues only with <c>@</c> and a moment (its whole run of an optional minus and
+        /// digits, taken only when it reads as a step) and then <c>?lens=</c> and a lens (an id, which ends where its 36
+        /// characters end). Any other query key or a fragment is not part of an address found in prose: the address ends
+        /// before its <c>?</c>, <c>&amp;</c> or <c>#</c>. What follows is prose, a full stop included.
+        /// <see cref="ParseLink"/> itself still reads a string whole: <c>ow://object/&lt;id&gt;.</c> handed to it is refused.
+        /// </para>
+        /// <para>
+        /// <paramref name="index"/> and <see cref="OWAddressAt.End"/> are C# string indexes (UTF-16 code units), so they
+        /// match <see cref="string.IndexOf(string)"/> and <see cref="string.Substring(int, int)"/>. An index past the end
+        /// reads nothing.
+        /// </para>
+        /// <code>
+        /// var line = "Built the gate: ow://object/01a1d4ef-0000-7000-8000-000000000084.";
+        /// var found = OWAddress.ReadLinkAt(line, 16);
+        /// // found.End == 64: line[64] is the full stop; found.Reading.Id == "01a1d4ef-0000-7000-8000-000000000084"
+        /// </code>
+        /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="text"/> is null.</exception>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="index"/> is below 0.</exception>
+        public static OWAddressAt ReadLinkAt(string text, int index = 0)
+        {
+            if (text == null) throw new ArgumentNullException(nameof(text));
+            if (index < 0) throw new ArgumentOutOfRangeException(nameof(index), index, "an index is a whole number from 0");
+
+            var human = StartsAt(text, index, HumanPrefix);
+            int start;
+            if (human) start = index + HumanPrefix.Length;
+            else if (StartsAt(text, index, TextPrefix)) start = index + TextPrefix.Length;
+            else return null;
+
+            var end = -1;
+            var floor = start;
+            var run = start;
+            if (human)
+            {
+                // The site's form: the run after /w/ is read whole, once, with no order between an id and a slug.
+                var w = start;
+                while (w < text.Length && IsWorldRunChar(text[w])) w++;
+                if (IsInAWord(text, w)) return null;
+                var world = text.Substring(start, w - start);
+                if (!IsUuid(world) && !IsSlug(world)) return null;
+                end = floor = run = w;
+                while (run < text.Length && run - w <= ElementPathMax && IsPathChar(text[run])) run++;
+            }
+            else
+            {
+                while (run < text.Length && run - start <= PathMax && IsPathChar(text[run])) run++;
+            }
+
+            for (var p = run; p > floor; p--)
+            {
+                if (Parses(text, index, p))
+                {
+                    end = p;
+                    break;
+                }
+            }
+
+            if (end == -1) return null;
+
+            // A moment: its whole run of an optional minus and digits, taken only when it reads as a step.
+            if (end < text.Length && text[end] == '@')
+            {
+                var stepEnd = end + 1;
+                if (stepEnd < text.Length && text[stepEnd] == '-') stepEnd++;
+                var digits = stepEnd;
+                while (stepEnd < text.Length && text[stepEnd] >= '0' && text[stepEnd] <= '9') stepEnd++;
+                if (stepEnd > digits && Parses(text, index, stepEnd)) end = stepEnd;
+            }
+
+            // A lens: an id, which ends where its 36 characters end.
+            if (StartsAt(text, end, LensQuery))
+            {
+                var lensEnd = end + LensQuery.Length + IdLength;
+                if (lensEnd <= text.Length && IsUuid(text.Substring(end + LensQuery.Length, IdLength)) && Parses(text, index, lensEnd))
+                    end = lensEnd;
+            }
+
+            return new OWAddressAt(ParseLink(text.Substring(index, end - index)), end);
+        }
+
+        /// <summary>Whether <paramref name="prefix"/> is written at <paramref name="index"/> of the text, ordinally.</summary>
+        private static bool StartsAt(string text, int index, string prefix)
+            => index <= text.Length - prefix.Length && string.CompareOrdinal(text, index, prefix, 0, prefix.Length) == 0;
+
+        /// <summary>Whether the text from <paramref name="index"/> to <paramref name="end"/> parses whole as an address.</summary>
+        private static bool Parses(string text, int index, int end) => Read(text.Substring(index, end - index), out _) != null;
+
+        /// <summary>The characters a path segment can hold (an id, a slug, a type word in any case) and the slash between them.</summary>
+        private static bool IsPathChar(char c) => c >= '0' && c <= '9' || c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c == '/' || c == '-';
+
+        /// <summary>The run after <c>/w/</c>: the slug's alphabet (lowercase letters, digits, hyphens) and the id's (hex in either case).</summary>
+        private static bool IsWorldRunChar(char c) => c >= '0' && c <= '9' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'F' || c == '-';
+
+        /// <summary>
+        /// Whether the code point that starts at <paramref name="i"/> glues a run into a word: a letter of any script, a
+        /// combining mark (Unicode categories L and M) or an underscore. A surrogate pair is read whole, as one code point.
+        /// </summary>
+        private static bool IsInAWord(string text, int i)
+        {
+            if (i < 0 || i >= text.Length) return false;
+            if (text[i] == '_') return true;
+            switch (CharUnicodeInfo.GetUnicodeCategory(text, i))
+            {
+                case UnicodeCategory.UppercaseLetter:
+                case UnicodeCategory.LowercaseLetter:
+                case UnicodeCategory.TitlecaseLetter:
+                case UnicodeCategory.ModifierLetter:
+                case UnicodeCategory.OtherLetter:
+                case UnicodeCategory.NonSpacingMark:
+                case UnicodeCategory.SpacingCombiningMark:
+                case UnicodeCategory.EnclosingMark:
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         // -- Reading ----------------------------------------------------------------------------

@@ -6,6 +6,24 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+An address found in prose. `OWAddress.ReadLinkAt` reads an address inside other text from the index where its
+prefix starts and says where it ends, as the address page's "An address in prose" rules (schema-dist serial 123), so
+the address fixture's 61 prose cases now run here instead of being ignored. A minor release: it adds public API.
+
+### Added
+
+- **`OWAddress.ReadLinkAt(text, index = 0)`** and its answer, **`OWAddressAt`** (`Reading`, `End`): the address that
+  starts exactly at `index` in a text, and the index just past it, or null when the text there is not an address. The
+  TypeScript SDK's `readOwLinkAt` and the Python package's `read_ow_link_at`. Both forms are found, the prefix as
+  written. Where the address ends is the grammar's, never the next space's: after the path it continues only with `@`
+  and a moment and then `?lens=` and a lens; any other query key, a fragment and a full stop are prose. In the site's
+  form the run after `/w/` is read whole: exactly an id's form is the id, any other legal slug is the slug, else there
+  is no address, and a run followed by a letter of any script, a combining mark or an underscore is cut inside a word
+  and is no address (the character after it read as a whole code point, so a letter above U+FFFF cuts as any letter
+  does). `index` and `End` are C# string indexes, UTF-16 code units, so they match `string.IndexOf` and
+  `string.Substring`. A null text is an `ArgumentNullException`, a negative index an `ArgumentOutOfRangeException`,
+  and an index past the end reads nothing. `OWAddress.ParseLink` is unchanged and still reads a string whole.
+
 ## [0.39.3] - 2026-11-14
 
 One presence for a mark, on schema-dist serial 126. A room or charter mark that is an empty list or an empty object

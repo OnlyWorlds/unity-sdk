@@ -11,9 +11,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// <summary>
     /// The address profile's conformance fixture (schema-dist <c>profiles/address.fixture.json</c>, vendored byte for
     /// byte in <c>Tests/Editor/Fixtures/address/</c> from dist.97), read case by case through
-    /// <see cref="OWAddress.ElementAddress(JObject)"/> (a format case) and <see cref="OWAddress.TryParseLink"/> (a parse
-    /// case), each refusal by the reason the fixture names. The TypeScript SDK and the Python package replay the same
-    /// cases through <c>elementAddress</c> and <c>parseOwLink</c>. When the dist moves the fixture, re-vendor it and
+    /// <see cref="OWAddress.ElementAddress(JObject)"/> (a format case), <see cref="OWAddress.TryParseLink"/> (a parse
+    /// case) and <see cref="OWAddress.ReadLinkAt"/> (a prose case, serial 123), each refusal by the reason the fixture
+    /// names. The TypeScript SDK and the Python package replay the same cases through <c>elementAddress</c>,
+    /// <c>parseOwLink</c> and <c>readOwLinkAt</c>. When the dist moves the fixture, re-vendor it and
     /// update the hash below.
     /// </summary>
     public class OWAddressTests
@@ -145,25 +146,26 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 }
                 case "prose":
                 {
-                    // This SDK has no finder of an address in prose (the packages have one). What it can answer is the
-                    // half the whole-string parser owns: the slice the fixture says the address covers reads as the
-                    // fixture's reading. The finding itself is not run, so the case is ignored after that check.
+                    // ReadLinkAt finds the address that starts at the case's index: the slice it covers, and the
+                    // whole-string parser's reading of that slice; or nothing, where the fixture finds nothing.
                     var text = (string)c["text"];
                     var index = (int)c["index"];
                     var want = (JObject)c["expect"];
                     var address = (string)want["address"];
-                    if (address != null)
+                    var found = OWAddress.ReadLinkAt(text, index);
+                    if (address == null)
                     {
-                        Assert.AreEqual(address, text.Substring(index, address.Length), $"prose/{name}: the slice at {index}");
-                        var ok = OWAddress.TryParseLink(address, out var reading, out var refusal);
-                        Assert.IsTrue(ok, $"prose/{name}: the found address {address} refused whole as {refusal}");
-                        var got = Reading(reading);
-                        Assert.IsTrue(JToken.DeepEquals(want["reading"], got),
-                            $"prose/{name}: gave {got.ToString(Newtonsoft.Json.Formatting.None)}, the fixture says {want["reading"].ToString(Newtonsoft.Json.Formatting.None)}");
+                        Assert.IsNull(found, $"prose/{name}: found {(found == null ? null : text.Substring(index, found.End - index))}, the fixture finds no address");
+                        Assert.IsTrue(want["reading"] == null || want["reading"].Type == JTokenType.Null, $"prose/{name}: no address, no reading");
+                        break;
                     }
 
-                    Assert.Ignore("no finder of an address in prose in this SDK: the line is not searched"
-                        + (address != null ? "; the found address reads as the fixture says, whole" : "; the fixture finds no address here"));
+                    Assert.IsNotNull(found, $"prose/{name}: found no address at {index}, the fixture finds {address}");
+                    Assert.AreEqual(index + address.Length, found.End, $"prose/{name}: the end");
+                    Assert.AreEqual(address, text.Substring(index, found.End - index), $"prose/{name}: the slice at {index}");
+                    var got = Reading(found.Reading);
+                    Assert.IsTrue(JToken.DeepEquals(want["reading"], got),
+                        $"prose/{name}: gave {got.ToString(Newtonsoft.Json.Formatting.None)}, the fixture says {want["reading"].ToString(Newtonsoft.Json.Formatting.None)}");
                     break;
                 }
                 default:
@@ -188,6 +190,62 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         private static JToken Str(string value) => value == null ? JValue.CreateNull() : new JValue(value);
 
         // -- Beside the fixture -------------------------------------------------------------------
+
+        [Test]
+        public void ReadLinkAt_TheIndexDefaultsTo0()
+        {
+            Assert.IsNotNull(Fixture, "the vendored address fixture was not found");
+            var read = 0;
+            foreach (var c in Fixture["cases"].Cast<JObject>().Where(x => (string)x["kind"] == "prose" && (int)x["index"] == 0))
+            {
+                var text = (string)c["text"];
+                var given = OWAddress.ReadLinkAt(text, 0);
+                var defaulted = OWAddress.ReadLinkAt(text);
+                Assert.AreEqual(given == null, defaulted == null, (string)c["name"]);
+                if (given != null) Assert.AreEqual(given.End, defaulted.End, (string)c["name"]);
+                read++;
+            }
+
+            Assert.Greater(read, 40);
+        }
+
+        [Test]
+        public void ReadLinkAt_CountsUtf16Units_SoAnEmojiBeforeTheAddressStillSlicesRight()
+        {
+            // The TypeScript SDK's own case: an emoji is two UTF-16 units, as a C# string counts them.
+            var address = $"ow://object/{Element}@4";
+            var text = "Built " + char.ConvertFromUtf32(0x1F6A2) + " the gate: " + address + ".";
+            var index = text.IndexOf("ow://", StringComparison.Ordinal);
+            Assert.AreEqual(19, index, "the emoji is two UTF-16 units: 18 code points come before the address");
+            var found = OWAddress.ReadLinkAt(text, index);
+            Assert.IsNotNull(found);
+            Assert.AreEqual(index + address.Length, found.End);
+            Assert.AreEqual(address, text.Substring(index, found.End - index));
+            Assert.AreEqual('.', text[found.End]);
+            Assert.AreEqual(Element, found.Reading.Id);
+            Assert.AreEqual(4, found.Reading.Moment);
+        }
+
+        [Test]
+        public void ReadLinkAt_ANullText_OrANegativeIndex_IsAnArgumentError_PastTheEndReadsNothing()
+        {
+            Assert.Throws<ArgumentNullException>(() => OWAddress.ReadLinkAt(null));
+            Assert.Throws<ArgumentOutOfRangeException>(() => OWAddress.ReadLinkAt("ow://x", -1));
+            Assert.IsNull(OWAddress.ReadLinkAt("ow://x", 99));
+            Assert.IsNull(OWAddress.ReadLinkAt(string.Empty, 0));
+            Assert.IsNull(OWAddress.ReadLinkAt("OW://object/" + Element), "the prefix as written, lowercase");
+        }
+
+        [Test]
+        public void ReadLinkAt_TheSitesForm_ARunCutInsideAWordByALetterAboveUFFFF_IsNoAddress()
+        {
+            // The character after the run is read as a whole code point: U+1D49C (two UTF-16 units) is a letter.
+            const string h = "https://www.onlyworlds.com/w/";
+            Assert.IsNull(OWAddress.ReadLinkAt(h + "hyperion" + char.ConvertFromUtf32(0x1D49C) + "."));
+            Assert.IsNull(OWAddress.ReadLinkAt(h + "café."), "a combining mark counts with the letters");
+            Assert.AreEqual((h + "hyperion").Length, OWAddress.ReadLinkAt(h + "hyperion" + char.ConvertFromUtf32(0x1F6A2)).End,
+                "an emoji is no letter: the run ends before it");
+        }
 
         [Test]
         public void EveryReading_WritesBackCanonical_AndThatStringReadsCanonical()
