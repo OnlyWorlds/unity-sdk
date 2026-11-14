@@ -6,6 +6,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.40.1] - 2026-11-14
+
+An address glued to a word is prose, on schema-dist serial 127. `OWAddress.ReadLinkAt` no longer finds an address
+that begins inside a word, as the address page's new start rule says, and the fixture's new prose cases run here. A
+patch release: no public API is added.
+
 ### Changed
 
 - **The schema pin moves to `v0.34.1-dist.127`** (canonical `00.34.01` unchanged; no schema file or `schema.json`
