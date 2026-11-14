@@ -6,6 +6,18 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The schema pin moves to `v0.34.1-dist.127`** (canonical `00.34.01` unchanged; no schema file or `schema.json`
+  moved). The address page adds a start rule for an address found in prose (the entry below builds it here), and two of
+  its prose cases, with a letter above U+FFFF before the address, carry `index_utf16` beside `index` for a reader that
+  counts UTF-16 units, as C# does. `views.json`'s banners sentence now defers to the room page's presence rule with no
+  paraphrase of its own, the reading this SDK already followed; its fixture gains ten cases of a row's own banner, on
+  a table of the fixture's own, which pass unchanged. The map-space page says what the layout mark `x_layout` means (a
+  Map that is a drawing of its elements, not a place) and who writes it; this SDK reads the mark and writes none, and
+  the three new layout cases pass unchanged. The fixtures gain cases: address 216 (76 prose), views 56, map-space 29
+  layout cases.
+
 ## [0.40.0] - 2026-11-14
 
 An address found in prose. `OWAddress.ReadLinkAt` reads an address inside other text from the index where its

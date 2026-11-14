@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.34.01";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 126;
+        public const int DistSerial = 127;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.34.1-dist.126";
+        public const string Tag = "v0.34.1-dist.127";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -401,9 +401,22 @@ namespace OnlyWorlds.Sdk
         /// Fixtures: address 201 (61 prose cases), charter 41, map-space 39 cases and 26 layout cases, room 38, checks
         /// one case. The generated models and the views table changed in their serial stamp only.
         /// </para>
+        /// <para>
+        /// <b>126 -> 127 (2026-11-14)</b>: canonical unchanged, no schema file or <c>schema.json</c> moved. The address
+        /// page's start rule: an address in prose begins only at the start of the text or after a character (one code
+        /// point back) that is not a letter of any script, a combining mark or an underscore. The two prose cases with a
+        /// letter above U+FFFF before the address carry <c>index_utf16</c> beside <c>index</c>, the key a reader that
+        /// indexes by UTF-16 units (C#) reads. <c>views.json</c>'s <c>banners</c> sentence now defers to the room page's
+        /// presence rule with no paraphrase of its own (the reading this SDK already followed); its fixture gains a
+        /// table and ten banner cases. The map-space page says what the layout mark means (the Map is a drawing of its
+        /// elements) and who writes it (rule 12, three layout cases; this SDK writes no <c>x_layout</c>). Fixtures:
+        /// address 216 (76 prose cases), views 56, map-space 29 layout cases; checks three cases and spine one, which
+        /// this SDK does not read. The generated models changed in their serial stamp only, the views table in its
+        /// serial stamp and the file's sha256.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "03858f0c11735658817dcb1fb8e7bd030505d84fdc3912cf02d745b2a58c104a";
+            "6530b1f3e2eb9e3a037810bb3565e71de48585109791c699da2569eead03838b";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.
