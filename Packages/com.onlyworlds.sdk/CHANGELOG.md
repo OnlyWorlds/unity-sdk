@@ -6,6 +6,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.39.2] - 2026-11-14
+
+Schema-dist serials 123 and 124. The pin moves to canonical `00.34.01`, where Map's `hierarchy` says which maps it
+orders; a message's read mark, a lens element's clock and a record's `played_at` are read as the standard now
+rules them; `OWTools` lists the OnlyWorlds mapper; an element held in upper case gets an empty openers menu, not a
+refusal. A patch release: no public API is added or changed.
+
 ### Changed
 
 - **The schema pin moves to `v0.34.1-dist.124`**, canonical `00.34.01` (`OWSchemaPin.CanonicalVersion`). Serial 124
