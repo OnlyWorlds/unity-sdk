@@ -6,11 +6,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.40.0] - 2026-11-14
+
 An address found in prose. `OWAddress.ReadLinkAt` reads an address inside other text from the index where its
 prefix starts and says where it ends, as the address page's "An address in prose" rules (schema-dist serial 123), so
 the address fixture's 61 prose cases now run here instead of being ignored. And a read-only sign-in: Sign in with
-OnlyWorlds can ask for a token that reads and never writes, for a tool that only reads. A minor release: it adds
-public API.
+OnlyWorlds can ask for a token that reads and never writes, for a tool that only reads. A `/changes` row also reads
+its `updated_at`, `deleted_at` and `reason`. A minor release: it adds public API.
 
 ### Added
 
