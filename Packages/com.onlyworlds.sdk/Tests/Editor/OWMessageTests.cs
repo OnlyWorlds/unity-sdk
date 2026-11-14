@@ -240,6 +240,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         private static JObject MessageTo(JToken characters) =>
             new JObject { ["type"] = "narrative", ["supertype"] = "Message", ["characters"] = characters };
 
+        /// <summary>A message (the pair) with no <c>characters</c> key.</summary>
+        private static JObject Pair() => new JObject { ["type"] = "narrative", ["supertype"] = "Message" };
+
+        /// <summary>The pair's keys, to open a body written with single quotes: only a message is addressed (serial 128).</summary>
+        private const string Msg = "'type': 'narrative', 'supertype': 'Message', ";
+
         [Test]
         public void RecipientsOf_GivesTheIdsAsWritten_AndEmptyIsEveryone()
         {
@@ -247,7 +253,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             CollectionAssert.IsEmpty(OWMessage.RecipientsOf(MessageTo(JValue.CreateNull())));
             CollectionAssert.IsEmpty(OWMessage.RecipientsOf(new JObject()));
             CollectionAssert.IsEmpty(OWMessage.RecipientsOf(null));
-            Assert.IsTrue(OWMessage.IsAddressedTo(To(new JArray()), Ada));
+            Assert.IsTrue(OWMessage.IsAddressedTo(MessageTo(new JArray()), Ada));
         }
 
         [Test]
@@ -259,11 +265,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             var malformed = new JToken[] { Ada, new JArray(""), new JArray(5), new JObject { ["0"] = Ada } };
             foreach (var characters in malformed)
-                Assert.IsFalse(OWMessage.IsAddressedTo(To(characters), Ada), characters.ToString());
+                Assert.IsFalse(OWMessage.IsAddressedTo(MessageTo(characters), Ada), characters.ToString());
             foreach (var characters in new JToken[] { new JArray(), JValue.CreateNull() })
-                Assert.IsTrue(OWMessage.IsAddressedTo(To(characters), Ada), characters.ToString());
-            Assert.IsTrue(OWMessage.IsAddressedTo(new JObject(), Ada));
-            Assert.IsFalse(OWMessage.IsAddressedTo(To(new JArray()), ""));
+                Assert.IsTrue(OWMessage.IsAddressedTo(MessageTo(characters), Ada), characters.ToString());
+            Assert.IsTrue(OWMessage.IsAddressedTo(Pair(), Ada));
+            Assert.IsFalse(OWMessage.IsAddressedTo(MessageTo(new JArray()), ""));
 
             Assert.IsTrue(OWMessage.IsSentBy(J("{'narrator': '" + Ada + "'}"), Ada));
             Assert.IsFalse(OWMessage.IsSentBy(J("{'narrator': '" + Ada + "'}"), Mara));
@@ -271,8 +277,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             // A list of no valid id is addressed to nobody: not everyone, though RecipientsOf gives none for it.
             foreach (var characters in new JToken[] { Ada, new JArray(""), new JArray(5), new JArray(Ada) })
-                Assert.IsFalse(OWMessage.IsToEveryone(To(characters)), characters.ToString());
-            foreach (var m in new[] { new JObject(), To(JValue.CreateNull()), To(new JArray()) })
+                Assert.IsFalse(OWMessage.IsToEveryone(MessageTo(characters)), characters.ToString());
+            foreach (var m in new[] { Pair(), MessageTo(JValue.CreateNull()), MessageTo(new JArray()) })
                 Assert.IsTrue(OWMessage.IsToEveryone(m), m.ToString());
             Assert.IsFalse(OWMessage.IsToEveryone(null));
         }
@@ -291,6 +297,38 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             CollectionAssert.IsEmpty(OWMessage.RecipientsOf(To(new JArray(Ada))));
             CollectionAssert.IsEmpty(OWMessage.RecipientsOf(J("{'type': 'narrative', 'supertype': 'Story', 'characters': ['" + Ada + "']}")));
             CollectionAssert.IsEmpty(OWMessage.RecipientsOf(J("{'type': 'narrative', 'characters': ['" + Ada + "']}")));
+        }
+
+        [Test]
+        public void TheAddressingReaders_AnswerOnlyForAMessage_AStoryBesideAMessage()
+        {
+            // The message page's own reader gates all four on the pair (serial 128): a body that is not a message has no
+            // recipients, is addressed to nobody, is never to everyone, and has no unseen recipients, keyless or not.
+            foreach (var characters in new JToken[] { new JArray(Ada), new JArray(), JValue.CreateNull() })
+            {
+                var message = MessageTo(characters);
+                var story = new JObject { ["type"] = "narrative", ["supertype"] = "Story", ["characters"] = characters.DeepClone() };
+                Assert.IsTrue(OWMessage.IsAddressedTo(message, Ada), "the message: " + characters);
+                Assert.IsFalse(OWMessage.IsAddressedTo(story, Ada), "a Story: " + characters);
+                Assert.IsFalse(OWMessage.IsToEveryone(story), "a Story is never to everyone: " + characters);
+                CollectionAssert.IsEmpty(OWMessage.RecipientsOf(story), "a Story has no recipients: " + characters);
+            }
+
+            Assert.IsTrue(OWMessage.IsToEveryone(MessageTo(new JArray())));
+            foreach (var bare in new[] { new JObject(), To(new JArray()), J("{'type': 'narrative', 'characters': []}") })
+            {
+                Assert.IsFalse(OWMessage.IsToEveryone(bare), "not a message: " + bare);
+                Assert.IsFalse(OWMessage.IsAddressedTo(bare, Ada), "not a message: " + bare);
+            }
+
+            var trimmedMessage = MessageTo(new JArray());
+            trimmedMessage["x_served_trimmed"] = new JArray("characters");
+            var trimmedStory = (JObject)trimmedMessage.DeepClone();
+            trimmedStory["supertype"] = "Story";
+            Assert.AreEqual(true, OWMessage.HasUnseenRecipients(trimmedMessage));
+            Assert.AreEqual(null, OWMessage.HasUnseenRecipients(trimmedMessage, keyless: true), "a message read keyless: unknown");
+            Assert.AreEqual(false, OWMessage.HasUnseenRecipients(trimmedStory), "a Story has no recipients to be unseen");
+            Assert.AreEqual(false, OWMessage.HasUnseenRecipients(trimmedStory, keyless: true), "keyless or not");
         }
 
         [Test]
@@ -447,8 +485,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [Test]
         public void OnTheWire_AReaderWithNoMembersList_ProvesNoneOfItsOwnMessages()
         {
-            var wire = J("{'id': 'w', 'narrator': '" + Ada + "', 'characters': [], 'created_by': null, 'created_at': '2026-10-26T09:00:00Z'}");
-            var folder = J("{'id': 'f', 'narrator': '" + Ada + "', 'characters': [], 'created_at': '2026-10-26T09:01:00Z'}");
+            var wire = J("{" + Msg + "'id': 'w', 'narrator': '" + Ada + "', 'characters': [], 'created_by': null, 'created_at': '2026-10-26T09:00:00Z'}");
+            var folder = J("{" + Msg + "'id': 'f', 'narrator': '" + Ada + "', 'characters': [], 'created_at': '2026-10-26T09:01:00Z'}");
             CollectionAssert.AreEqual(new[] { "w" }, IdList(OWMessage.UnreadFor(new[] { wire, folder }, Ada, null, null)),
                 "the wire's message is a claim nobody can check; the folder's narrator is trusted");
             CollectionAssert.IsEmpty(OWMessage.UnreadFor(new[] { wire, folder }, Ada, null, (JArray)Fixture["members"]));
@@ -476,7 +514,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             CollectionAssert.IsEmpty(OWMessage.ThreadOf(null, "r"));
 
             // A list of bodies as a JArray holds whatever the JSON held; entries that are not objects are no message.
-            var list = new JArray(5, JValue.CreateNull(), J("{'id': 'm', 'characters': [], 'created_at': '2026-10-26T09:00:00Z'}"));
+            var list = new JArray(5, JValue.CreateNull(), J("{" + Msg + "'id': 'm', 'characters': [], 'created_at': '2026-10-26T09:00:00Z'}"));
             CollectionAssert.AreEqual(new[] { "m" }, IdList(OWMessage.UnreadFor(list, Ada, null, null)));
             CollectionAssert.AreEqual(new[] { "m" }, IdList(OWMessage.ThreadOf(list, "m")));
         }
@@ -487,20 +525,20 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             // Only a list naming the field is the mark: a string, a list naming another field, or a folded spelling is not.
             foreach (var mark in new JToken[] { "characters", new JArray("narrator"), new JArray(" Characters"), new JArray(), JValue.CreateNull() })
             {
-                var m = To(new JArray());
+                var m = MessageTo(new JArray());
                 m[OWMessage.ServedTrimmedKey] = mark;
                 Assert.AreEqual(false, OWMessage.HasUnseenRecipients(m), mark.ToString());
                 Assert.IsTrue(OWMessage.IsToEveryone(m), mark.ToString());
             }
 
-            var trimmed = J("{'characters': null, 'x_served_trimmed': ['narrator', 'characters']}");
+            var trimmed = J("{" + Msg + "'characters': null, 'x_served_trimmed': ['narrator', 'characters']}");
             Assert.AreEqual(true, OWMessage.HasUnseenRecipients(trimmed));
             Assert.IsFalse(OWMessage.IsToEveryone(trimmed));
             Assert.IsFalse(OWMessage.IsAddressedTo(trimmed, Ada), "an empty trimmed list is to someone this reader cannot see");
             Assert.AreEqual(false, OWMessage.HasUnseenRecipients(null));
             Assert.AreEqual(false, OWMessage.HasUnseenRecipients(null, keyless: true));
             Assert.IsNull(OWMessage.HasUnseenRecipients(trimmed, keyless: true), "keyless: unknown");
-            Assert.IsFalse(OWMessage.IsToEveryone(new JObject(), keyless: true));
+            Assert.IsFalse(OWMessage.IsToEveryone(Pair(), keyless: true));
         }
 
         [Test]
@@ -603,12 +641,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public void ABodyParsedWithDates_OrdersAsItsText()
         {
             // JObject.Parse reads an ISO time as a Date token, not a string; the order is the same instant's.
-            var early = JObject.Parse("{\"id\": \"e\", \"characters\": [], \"created_at\": \"2026-10-26T09:00:00Z\"}");
-            var late = JObject.Parse("{\"id\": \"l\", \"characters\": [], \"created_at\": \"2026-10-26T10:00:00+00:00\"}");
+            var early = JObject.Parse("{\"type\": \"narrative\", \"supertype\": \"Message\", \"id\": \"e\", \"characters\": [], \"created_at\": \"2026-10-26T09:00:00Z\"}");
+            var late = JObject.Parse("{\"type\": \"narrative\", \"supertype\": \"Message\", \"id\": \"l\", \"characters\": [], \"created_at\": \"2026-10-26T10:00:00+00:00\"}");
             CollectionAssert.AreEqual(new[] { "e", "l" }, IdList(OWMessage.UnreadFor(new[] { late, early }, Ada, null, null)));
             // An unreadable time sorts after every readable one, and two unreadable keep the list's order.
-            var odd = J("{'id': 'x', 'characters': [], 'created_at': 'soon'}");
-            var none = J("{'id': 'y', 'characters': []}");
+            var odd = J("{" + Msg + "'id': 'x', 'characters': [], 'created_at': 'soon'}");
+            var none = J("{" + Msg + "'id': 'y', 'characters': []}");
             CollectionAssert.AreEqual(new[] { "e", "l", "x", "y" }, IdList(OWMessage.UnreadFor(new[] { odd, late, none, early }, Ada, null, null)));
         }
 
@@ -616,8 +654,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public void ADateToken_AndAString_OrderOnOneClock()
         {
             // A body read with dates as tokens and one read as text, in one list: one instant scale for both.
-            var token = JObject.Parse("{\"id\": \"t\", \"characters\": [], \"created_at\": \"2026-10-26T09:00:00Z\"}");
-            var text = J("{'id': 's', 'characters': [], 'created_at': '2026-10-26T10:00:00Z'}");
+            var token = JObject.Parse("{\"type\": \"narrative\", \"supertype\": \"Message\", \"id\": \"t\", \"characters\": [], \"created_at\": \"2026-10-26T09:00:00Z\"}");
+            var text = J("{" + Msg + "'id': 's', 'characters': [], 'created_at': '2026-10-26T10:00:00Z'}");
             Assert.AreEqual(JTokenType.Date, token["created_at"].Type, "the parse leaves a Date token");
             Assert.AreEqual(JTokenType.String, text["created_at"].Type, "the house parse leaves a string");
             CollectionAssert.AreEqual(new[] { "t", "s" }, IdList(OWMessage.UnreadFor(new[] { text, token }, Ada, null, null)));
@@ -641,7 +679,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             foreach (var (id, text, seconds) in times)
                 Assert.AreEqual((seconds + 62135596800L) * 1000000L, OWMessage.TimeKey(new JValue(text)), id + " " + text);
 
-            JObject Message(string id, string text) => J("{'id': '" + id + "', 'characters': [], 'created_at': '" + text + "'}");
+            JObject Message(string id, string text) => J("{" + Msg + "'id': '" + id + "', 'characters': [], 'created_at': '" + text + "'}");
             var given = times.Select(t => Message(t.id, t.text)).ToArray();
             var want = new[] { "E3", "E2", "L", "R", "E1" };
             CollectionAssert.AreEqual(want, IdList(OWMessage.UnreadFor(given, Ada, null, null)), "as given");
@@ -662,7 +700,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 ("E1", "9999-12-31T23:00:00-02:00"), ("E2", "0000-01-01T00:00:00Z"),
                 ("R", "2026-11-12T10:00:00Z"), ("E3", "0000-01-01T00:00:00+01:00"),
             };
-            var given = texts.Select(t => JObject.Parse("{\"id\": \"" + t.id + "\", \"characters\": [], \"created_at\": \"" + t.text + "\"}")).ToArray();
+            var given = texts.Select(t => JObject.Parse("{\"type\": \"narrative\", \"supertype\": \"Message\", \"id\": \"" + t.id + "\", \"characters\": [], \"created_at\": \"" + t.text + "\"}")).ToArray();
             var made = string.Join(", ", given.Select(m => m["id"] + " " + m["created_at"].Type + " " + OWMessage.TimeKey(m["created_at"])));
             var want = new[] { "E3", "E2", "R", "E1" };
             CollectionAssert.AreEqual(want, IdList(OWMessage.UnreadFor(given, Ada, null, null)), "as given: " + made);

@@ -180,7 +180,8 @@ namespace OnlyWorlds.Sdk
         /// server did not trim that list for this reader (<see cref="HasUnseenRecipients"/>), and the body came with a
         /// credential. A list that names no valid id (<c>[""]</c>) or a value that is not a list is addressed to nobody,
         /// so it is false here, though <see cref="RecipientsOf"/> gives none for both. An empty list with the trimmed
-        /// mark reads "to someone you cannot see". A Note is never to everyone.
+        /// mark reads "to someone you cannot see". Only a message is ever to everyone (<see cref="IsMessage"/>): a Note,
+        /// a Story or any other element never is (serial 128).
         /// </summary>
         /// <param name="message">The message's body.</param>
         /// <param name="keyless">
@@ -190,7 +191,7 @@ namespace OnlyWorlds.Sdk
         /// </param>
         public static bool IsToEveryone(JObject message, bool keyless = false)
         {
-            if (message == null || keyless || IsNote(message) || Trimmed(message, "characters")) return false;
+            if (message == null || keyless || !IsMessage(message) || Trimmed(message, "characters")) return false;
             if (!message.TryGetValue("characters", out var list)) return true;
             return list.Type == JTokenType.Null || (list is JArray array && array.Count == 0);
         }
@@ -198,8 +199,8 @@ namespace OnlyWorlds.Sdk
         /// <summary>
         /// Whether someone this reader cannot see is a recipient: true when the body's <c>x_served_trimmed</c> names
         /// <c>characters</c> (the server left their ids out), whatever is left in the list. It never says who or how
-        /// many. False for a body without the mark, for null, and for a Note (it has no recipients, so nobody is unseen,
-        /// keyless or not).
+        /// many. False for a body without the mark, for null, and for anything that is not a message (<see cref="IsMessage"/>:
+        /// a Note, a Story; it has no recipients, so nobody is unseen, keyless or not; serial 128).
         /// </summary>
         /// <param name="message">The message's body.</param>
         /// <param name="keyless">
@@ -207,7 +208,7 @@ namespace OnlyWorlds.Sdk
         /// </param>
         public static bool? HasUnseenRecipients(JObject message, bool keyless = false)
         {
-            if (message == null || IsNote(message)) return false;
+            if (message == null || !IsMessage(message)) return false;
             if (keyless) return null;
             return Trimmed(message, "characters");
         }
@@ -216,11 +217,12 @@ namespace OnlyWorlds.Sdk
         /// True when the message is addressed to the Character: its id is in <c>characters</c>, or the message is to
         /// everyone (<see cref="IsToEveryone"/>, which an empty list the server trimmed is not: it is addressed to no
         /// Character this reader is given). Not <c>narrator</c>, not a name or an id in the text, not
-        /// <c>protagonist</c> or any other link: a sender is not addressed by sending. A Note is addressed to nobody.
+        /// <c>protagonist</c> or any other link: a sender is not addressed by sending. Only a message is addressed
+        /// (<see cref="IsMessage"/>): a Note, a Story or any other element is addressed to nobody (serial 128).
         /// </summary>
         public static bool IsAddressedTo(JObject message, string characterId)
         {
-            if (message == null || string.IsNullOrEmpty(characterId) || IsNote(message)) return false;
+            if (message == null || string.IsNullOrEmpty(characterId) || !IsMessage(message)) return false;
             if (IsToEveryone(message)) return true;
             return message["characters"] is JArray list && list.Any(entry => StringOf(entry) == characterId);
         }
@@ -348,7 +350,8 @@ namespace OnlyWorlds.Sdk
         /// (<see cref="SenderStatus"/>), so a claim never makes a message read for the Character it names, and a
         /// mismatch or an author nobody can check stays unread. A Note is never unread.
         /// </summary>
-        /// <param name="messages">The messages (<see cref="IsMessage"/>); every object given but a Note is read as one.</param>
+        /// <param name="messages">The messages (<see cref="IsMessage"/>); an object that is not a message is addressed to
+        /// nobody (serial 128), so it is never unread.</param>
         /// <param name="characterId">The reader's Character id.</param>
         /// <param name="readMark">
         /// <see cref="ReadMarkOf"/>'s answer; null is a reader with no mark, so everything addressed to it is unread.

@@ -34,7 +34,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   `characters` list that names one Character twice gives that Character once, in its first place, ids compared as
   written. A body that is not a message (`OWMessage.IsMessage`: a Story, a Narrative with no supertype, a body with no
   `type`) now has no recipients, whatever its `characters` holds; before, any body but a Note gave its list. A Note
-  still has none. `IsAddressedTo`, `IsToEveryone` and `HasUnseenRecipients` are unchanged.
+  still has none.
+- **`OWMessage.IsAddressedTo`, `IsToEveryone` and `HasUnseenRecipients` answer only for a message** (serial 128, the
+  message page's own reader gating all four on the pair): a body that is not a message (a Story, a Narrative with no
+  supertype, a body with no `type`) is addressed to nobody, is never to everyone, and has no unseen recipients, `false`
+  keyless or not; before, any body but a Note was read as a message. So `UnreadFor` never counts one unread either. A
+  Note reads as before. Hand these readers bodies that carry `type` and `supertype`.
 - **An export declares folder format 0.3.24** (`OWFolderExport.FormatVersion`, was 0.3.22), the version the dist's
   folder check names. 0.3.23 reads the in-prose reference line as the address page does, and 0.3.24 says a multi-link
   names each element once; neither changes the bytes a writer writes, so only the `format_version` stamp in
