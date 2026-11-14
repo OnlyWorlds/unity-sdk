@@ -265,6 +265,14 @@ namespace OnlyWorlds.Sdk
         /// <summary>On an <c>mcp</c> token only: the host the client returns the person to.</summary>
         [JsonProperty("return_host")]
         public string ReturnHost;
+
+        /// <summary>
+        /// <see cref="OWSignIn.ReadScope"/> (<c>world:read</c>) only on a token a read-only sign-in minted
+        /// (<see cref="OWClient.SignInWithOnlyWorlds"/> with its scope): it reads, and every write but its own revoke is
+        /// refused with 403 <c>permission_error</c>. Null on every other token.
+        /// </summary>
+        [JsonProperty("scope")]
+        public string Scope;
     }
 
     /// <summary>

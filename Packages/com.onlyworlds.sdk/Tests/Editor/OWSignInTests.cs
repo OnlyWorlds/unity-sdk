@@ -792,5 +792,104 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(1, t.Calls.Count);
             Assert.IsFalse(p.Pending);
         }
+
+        // == A read-only sign-in (scope world:read) ===========================================================
+
+        private const string Maps = "https://maps.onlyworlds.com/signin/callback";
+
+        private static OWSignInBegun BegunReadOnly() => Client().SignInWithOnlyWorlds("maps", Maps, OWSignIn.ReadScope);
+
+        // The TypeScript SDK's 4.164.0 vector "signInWithOnlyWorlds sends scope=world:read on the authorize request when
+        // asked, and none when left out": the scope is the URL's last parameter, form-encoded, and the pending sign-in
+        // keeps it for the return. Kills: the scope not sent, sent unasked, misnamed, or not kept for the return.
+        [Test]
+        public void SignInWithOnlyWorlds_ReadOnly_AsksScopeWorldReadOnTheAuthorizeUrl_AndKeepsIt_NoneWhenLeftOut()
+        {
+            Assert.AreEqual("world:read", OWSignIn.ReadScope);
+
+            var t = new Script();
+            var p = Client(t).SignInWithOnlyWorlds("maps", Maps, OWSignIn.ReadScope);
+            Assert.IsEmpty(t.Calls, "no request is sent");
+            Assert.AreEqual("https://www.onlyworlds.com/signin/authorize?client_id=maps"
+                + "&redirect_uri=https%3A%2F%2Fmaps.onlyworlds.com%2Fsignin%2Fcallback&state=" + p.State
+                + "&code_challenge=" + OWSignIn.PkceChallenge(p.Verifier) + "&code_challenge_method=S256&scope=world%3Aread", p.Url);
+            Assert.AreEqual("world:read", p.Scope);
+
+            var plain = Client().SignInWithOnlyWorlds("maps", Maps);
+            StringAssert.DoesNotContain("scope", plain.Url);
+            Assert.IsNull(plain.Scope);
+            Assert.IsNull(Client().SignInWithOnlyWorlds("maps", Maps, null).Scope, "null is a scope left out");
+        }
+
+        // The vector "signInWithOnlyWorlds refuses any scope but world:read before anything is kept or sent". Kills: a
+        // scope keel would refuse at authorize sent anyway, or one matched loosely (case, spaces).
+        [Test]
+        public void SignInWithOnlyWorlds_AnyOtherScope_IsRefused_BeforeAnythingIsSent()
+        {
+            foreach (var scope in new[] { "read", "world:write", "World:Read", "", " world:read", "world:read ", "world:read world:write" })
+            {
+                var t = new Script();
+                var e = Assert.Throws<ArgumentException>(() => Client(t).SignInWithOnlyWorlds("maps", Maps, scope), $"'{scope}'");
+                Assert.AreEqual("scope", e.ParamName, scope);
+                StringAssert.Contains("world:read", e.Message, scope);
+                StringAssert.Contains("Nothing was sent", e.Message, scope);
+                Assert.IsEmpty(t.Calls, scope);
+            }
+        }
+
+        // The vector "completeSignIn answers the scope the server granted: world:read when the answer says so, else null;
+        // the exchange body carries no scope". Kills: the scope read from what was asked rather than what was served, a
+        // value keel does not serve passed through, or the scope added to the exchange's body.
+        [Test]
+        public async Task CompleteSignIn_AnswersTheScopeGranted_WorldReadWhenServed_ElseNull_AndTheExchangeSendsNoScope()
+        {
+            foreach (var (served, want) in new (string, string)[]
+            {
+                (@"""world:read""", "world:read"), (null, null), (@"""world:write""", null), (@"""""", null), ("null", null),
+                ("7", null), (@"""World:Read""", null), (@"[""world:read""]", null),
+            })
+            {
+                var p = BegunReadOnly();
+                var body = served == null ? Exchanged : Exchanged.Replace(@"""token_type""", @"""scope"":" + served + @",""token_type""");
+                var t = new Script(Json(200, body));
+                var got = await Client(t).CompleteSignInAsync(p, $"{Maps}?code=c2&state={p.State}");
+
+                Assert.AreEqual(want, got.Scope, served ?? "absent");
+                Assert.AreEqual("ow_a_new", got.Token, served ?? "absent");
+                CollectionAssert.AreEquivalent(new[] { "client_id", "code", "code_verifier", "grant_type", "redirect_uri" },
+                    JObject.Parse(t.Calls.Single().Body).Properties().Select(x => x.Name), served ?? "absent");
+            }
+
+            // A sign-in that asked no scope reads the answer the same way: the scope is the one served.
+            var plain = Begun();
+            Assert.IsNull((await Client(new Script(Json(200, Exchanged))).CompleteSignInAsync(plain, Callback(plain))).Scope);
+        }
+
+        // The vector "completeSignIn refuses aiUses beside a read-only sign-in before anything is spent, and the same
+        // return then completes without it": keel would spend the code refusing it (422, param ai_uses). Kills: the
+        // exchange sent with ai_uses on a read-only sign-in, or the pending sign-in spent by the refusal.
+        [Test]
+        public async Task CompleteSignIn_AiUsesBesideAReadOnlySignIn_IsRefusedBeforeAnythingIsSpent_AndTheSameReturnThenCompletesWithoutIt()
+        {
+            var p = BegunReadOnly();
+            var t = new Script(Json(200, Exchanged.Replace(@"""token_type""", @"""scope"":""world:read"",""token_type""")));
+            var back = $"{Maps}?code=c3&state={p.State}";
+
+            foreach (var minutes in new int?[] { null, 60 })
+            {
+                var e = Assert.Throws<ArgumentException>(() => Client(t).CompleteSignInAsync(p, back, aiUses: new[] { "ask" }, aiLifetimeMinutes: minutes));
+                Assert.AreEqual("aiUses", e.ParamName);
+                StringAssert.Contains("read-only", e.Message);
+                StringAssert.Contains("Nothing was sent", e.Message);
+                Assert.IsEmpty(t.Calls, "nothing sent");
+                Assert.IsTrue(p.Pending, "the sign-in is not spent");
+            }
+
+            var got = await Client(t).CompleteSignInAsync(p, back);
+            Assert.AreEqual("world:read", got.Scope);
+            Assert.IsNull(got.AiToken);
+            Assert.AreEqual(1, t.Calls.Count);
+            Assert.IsFalse(p.Pending);
+        }
     }
 }
