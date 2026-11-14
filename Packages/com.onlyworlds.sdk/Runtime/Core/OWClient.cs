@@ -2567,19 +2567,37 @@ namespace OnlyWorlds.Sdk
         /// (<c>obsidian://onlyworlds-signin</c>). <c>localhost</c>, a loopback without its port, userinfo, a query, a
         /// fragment, a dot segment and the reserved schemes are refused.
         /// </param>
-        /// <exception cref="ArgumentException">No client id, or a return address keel cannot match, saying why and what it takes.</exception>
+        /// <param name="scope">
+        /// <see cref="OWSignIn.ReadScope"/> (<c>world:read</c>) for a tool that only reads: the token the sign-in gives is
+        /// read-only. It reads everything the account reads, and every write (a world key minted, a world made, another
+        /// token minted, an AI call) is refused with 403 <c>permission_error</c>, except revoking the token itself.
+        /// Null: the token writes as the account does. The one value there is; any other is refused.
+        /// <see cref="OWSignInResult.Scope"/> answers the scope the server granted.
+        /// </param>
+        /// <exception cref="ArgumentException">
+        /// No client id, a scope other than <c>world:read</c>, or a return address keel cannot match, saying why and what it
+        /// takes.
+        /// </exception>
         /// <remarks>
         /// The URL carries <c>client_id</c>, <c>redirect_uri</c>, <c>state</c>, <c>code_challenge</c> (the verifier's
-        /// S256, <see cref="OWSignIn.PkceChallenge"/>) and <c>code_challenge_method=S256</c>, in that order, written as a
-        /// browser's <c>URLSearchParams</c> writes them; the verifier never goes in it. The site is <see cref="BaseUrl"/>'s
-        /// origin. The TypeScript SDK also keeps the record in a storage and sends the browser itself; here the answer is the
-        /// record, and opening the URL is the caller's (<c>Application.OpenURL</c>). Mirrors the TypeScript SDK's
-        /// <c>signInWithOnlyWorlds</c> (4.46.0).
+        /// S256, <see cref="OWSignIn.PkceChallenge"/>) and <c>code_challenge_method=S256</c>, in that order, then
+        /// <c>scope</c> when one was asked, written as a browser's <c>URLSearchParams</c> writes them; the verifier never
+        /// goes in it. The site is <see cref="BaseUrl"/>'s origin. The TypeScript SDK also keeps the record in a storage
+        /// and sends the browser itself; here the answer is the record (the scope asked included, as
+        /// <see cref="OWSignInBegun.Scope"/>), and opening the URL is the caller's (<c>Application.OpenURL</c>). Mirrors
+        /// the TypeScript SDK's <c>signInWithOnlyWorlds</c> (4.46.0; <c>scope</c> from 4.164.0).
         /// </remarks>
-        public OWSignInBegun SignInWithOnlyWorlds(string clientId, string redirectUri)
+        public OWSignInBegun SignInWithOnlyWorlds(string clientId, string redirectUri, string scope = null)
         {
             if (string.IsNullOrEmpty(clientId))
                 throw new ArgumentException("SignInWithOnlyWorlds needs clientId, the tool's id in keel's registry.", nameof(clientId));
+
+            if (scope != null && scope != OWSignIn.ReadScope)
+            {
+                throw new ArgumentException(
+                    $"SignInWithOnlyWorlds: scope is \"{OWSignIn.ReadScope}\" or null, got \"{scope}\". Nothing was sent.",
+                    nameof(scope));
+            }
 
             var why = OWSignIn.RedirectProblem(redirectUri);
             if (why != null)
@@ -2599,10 +2617,12 @@ namespace OnlyWorlds.Sdk
                 + "&state=" + OWSignIn.FormEncode(state)
                 + "&code_challenge=" + OWSignIn.FormEncode(OWSignIn.PkceChallenge(verifier))
                 + "&code_challenge_method=S256";
+            if (scope != null) url += "&scope=" + OWSignIn.FormEncode(scope);
 
             return new OWSignInBegun
             {
                 Url = url, State = state, ClientId = clientId, RedirectUri = redirectUri, Verifier = verifier, Pending = true,
+                Scope = scope,
             };
         }
 
@@ -2627,8 +2647,9 @@ namespace OnlyWorlds.Sdk
         /// <exception cref="ArgumentNullException"><paramref name="pending"/> is null; nothing was sent.</exception>
         /// <exception cref="ArgumentException">
         /// <paramref name="url"/> is null or empty, or the AI uses are a list the SDK can see is wrong (not 1 to 8 names, a
-        /// name that is not one path segment, a lifetime outside 1 to 1440 or without uses); nothing was sent, and the
-        /// sign-in stays pending.
+        /// name that is not one path segment, a lifetime outside 1 to 1440 or without uses), or are asked beside a
+        /// read-only sign-in (<see cref="OWSignInBegun.Scope"/> <c>world:read</c>, which gets no AI door token); nothing
+        /// was sent, and the sign-in stays pending.
         /// </exception>
         /// <exception cref="OWSignInError">
         /// <c>state_mismatch</c> (no sign-in pending, another state or none, or the wrong page; nothing sent),
@@ -2642,8 +2663,12 @@ namespace OnlyWorlds.Sdk
         /// forged one must not cancel a sign-in in flight. The body is <c>{grant_type, code, code_verifier, client_id,
         /// redirect_uri}</c>, with <c>Content-Type</c> and nothing else of this client's, on any client. The SDK keeps no
         /// token: the caller does. Mirrors the TypeScript SDK's <c>completeSignIn</c> (4.46.0; <c>expiresAt</c> from
-        /// 4.94.0; <c>aiUses</c> and <c>aiLifetimeMinutes</c> from 4.138.0), whose storage and address bar are the caller's
-        /// here.
+        /// 4.94.0; <c>aiUses</c> and <c>aiLifetimeMinutes</c> from 4.138.0; <c>scope</c> from 4.164.0), whose storage and
+        /// address bar are the caller's here.
+        /// </para>
+        /// <para>
+        /// <see cref="OWSignInResult.Scope"/> is the scope the server granted: <c>world:read</c> when its answer says so,
+        /// else null, whatever the sign-in asked. The exchange's body carries no scope: the code carries it.
         /// </para>
         /// <para>
         /// The exchange spends its code whatever it answers, so the AI uses are checked before anything is sent and before
@@ -2663,6 +2688,15 @@ namespace OnlyWorlds.Sdk
 
             // Checked before the pending sign-in is read or spent: a refusal here spends nothing.
             var ai = AiTokenParams(nameof(CompleteSignInAsync), aiUses, aiLifetimeMinutes, nameof(aiUses), nameof(aiLifetimeMinutes));
+
+            // A read-only sign-in gets no AI door token, and keel would spend the code refusing it (422, param ai_uses):
+            // refused here, so the same return can be completed without the AI uses.
+            if (ai.ContainsKey("ai_uses") && pending.Scope == OWSignIn.ReadScope)
+            {
+                throw new ArgumentException(
+                    "CompleteSignInAsync: this sign-in asked for a read-only token (scope world:read), which gets no AI door "
+                    + "token: leave aiUses out. Nothing was sent, and the sign-in is still pending.", nameof(aiUses));
+            }
 
             if (!pending.Pending || string.IsNullOrEmpty(pending.State) || string.IsNullOrEmpty(pending.Verifier)
                 || string.IsNullOrEmpty(pending.RedirectUri) || string.IsNullOrEmpty(pending.ClientId))
@@ -2766,6 +2800,7 @@ namespace OnlyWorlds.Sdk
                     Id = (string)account["id"],
                     Username = account["username"]?.Type == JTokenType.String ? (string)account["username"] : "",
                 },
+                Scope = answer["scope"]?.Type == JTokenType.String && (string)answer["scope"] == OWSignIn.ReadScope ? OWSignIn.ReadScope : null,
                 AiToken = ai.ContainsKey("ai_uses") ? ReadAiToken(answer["ai_token"]) : null,
             };
         }

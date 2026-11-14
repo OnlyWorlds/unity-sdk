@@ -8,7 +8,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 An address found in prose. `OWAddress.ReadLinkAt` reads an address inside other text from the index where its
 prefix starts and says where it ends, as the address page's "An address in prose" rules (schema-dist serial 123), so
-the address fixture's 61 prose cases now run here instead of being ignored. A minor release: it adds public API.
+the address fixture's 61 prose cases now run here instead of being ignored. And a read-only sign-in: Sign in with
+OnlyWorlds can ask for a token that reads and never writes, for a tool that only reads. A minor release: it adds
+public API.
 
 ### Added
 
@@ -23,6 +25,19 @@ the address fixture's 61 prose cases now run here instead of being ignored. A mi
   does). `index` and `End` are C# string indexes, UTF-16 code units, so they match `string.IndexOf` and
   `string.Substring`. A null text is an `ArgumentNullException`, a negative index an `ArgumentOutOfRangeException`,
   and an index past the end reads nothing. `OWAddress.ParseLink` is unchanged and still reads a string whole.
+- **`OWClient.SignInWithOnlyWorlds(clientId, redirectUri, scope)`**: a read-only sign-in, with `scope` set to
+  **`OWSignIn.ReadScope`** (`"world:read"`). The token it gives reads everything the account reads, and every write
+  (a world key minted, a world made, another token minted, an AI call) is refused with 403 `permission_error`, except
+  revoking the token itself. The authorize URL carries `scope=world%3Aread` after its other parameters, and the
+  pending sign-in keeps it as **`OWSignInBegun.Scope`**. Any other scope is an `ArgumentException` before anything is
+  made or sent; null, the default, signs in as before, with a token that writes as the account does. The TypeScript
+  SDK's `signInWithOnlyWorlds({ scope: 'world:read' })` (4.164.0).
+- **`OWSignInResult.Scope`**: `"world:read"` when the server granted a read-only token, null when its answer carries
+  no scope, so a tool that asked for read-only reads what it holds. A read-only sign-in gets no AI door token:
+  `CompleteSignInAsync` with `aiUses` beside one is an `ArgumentException` before the code is spent, and the same
+  return then completes without them.
+- **`OWAccountToken.Scope`** (and so `OWMintedAiToken.Scope`): `"world:read"` on a token a read-only sign-in minted,
+  as `ListAccountTokensAsync` lists it; null on every other token.
 
 ## [0.39.3] - 2026-11-14
 

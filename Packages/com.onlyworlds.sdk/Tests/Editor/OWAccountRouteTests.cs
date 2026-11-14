@@ -608,6 +608,30 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             CollectionAssert.IsEmpty(await Make(t).ListAccountTokensAsync(), "no data: no rows");
         }
 
+        // The TypeScript SDK's 4.164.0: OwAccountToken (and OwMintedAiToken) declare scope, served only on a token a
+        // read-only sign-in minted. Kills: the scope unread on a row, read on a row that serves none, or unread on the
+        // minted AI door token's row.
+        [Test]
+        public async Task ListAccountTokens_AReadOnlySignInsToken_AnswersItsScope_EveryOtherNone()
+        {
+            var t = new FakeTransport
+            {
+                ResponseBody = @"{""data"":[{""id"":""t1"",""name"":""maps"",""last4"":""abcd"",""last_used_at"":null,""revoked"":false,"
+                    + @"""expires_at"":null,""keys_minted"":0,""audience"":"""",""scope"":""world:read""},"
+                    + @"{""id"":""t2"",""name"":""atlas"",""last4"":""wxyz"",""last_used_at"":null,""revoked"":false,"
+                    + @"""expires_at"":null,""keys_minted"":1,""audience"":""""}]}",
+            };
+            var tokens = await Make(t).ListAccountTokensAsync();
+            Assert.AreEqual((OWSignIn.ReadScope, (string)null), (tokens[0].Scope, tokens[1].Scope));
+
+            t.ResponseBody = @"{""id"":""t3"",""name"":""maps (AI)"",""last4"":""narr"",""last_used_at"":null,""revoked"":false,"
+                + @"""expires_at"":null,""keys_minted"":0,""audience"":""ai"",""ai_uses"":[""ask""],""scope"":""world:read"","
+                + @"""token"":""ow_a_narrow""}";
+            t.Status = 201;
+            var minted = await Make(t).MintAiTokenAsync(new[] { "ask" });
+            Assert.AreEqual(("ow_a_narrow", OWSignIn.ReadScope), (minted.Token, minted.Scope));
+        }
+
         // The TypeScript SDK's revokeAccountToken() (4.122.0): DELETE /account/tokens/{token_id}, the id escaped, no body,
         // the Bearer alone even on an agent client, a 204. Kills: the wrong verb or path, the id unescaped, a body or a
         // write header sent.

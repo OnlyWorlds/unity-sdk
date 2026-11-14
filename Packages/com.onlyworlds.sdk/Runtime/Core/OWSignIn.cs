@@ -136,6 +136,12 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>True until a return carries this sign-in's state; a return with another state leaves it pending.</summary>
         public bool Pending = true;
+
+        /// <summary>
+        /// The scope the sign-in asked: <see cref="OWSignIn.ReadScope"/> for a read-only sign-in, null when it asked none.
+        /// <see cref="OWClient.CompleteSignInAsync"/> reads it to refuse AI uses beside a read-only sign-in.
+        /// </summary>
+        public string Scope;
     }
 
     /// <summary>
@@ -171,6 +177,15 @@ namespace OnlyWorlds.Sdk
         public OWSignInAccount Account;
 
         /// <summary>
+        /// <see cref="OWSignIn.ReadScope"/> (<c>world:read</c>) when the server granted a read-only token (the sign-in
+        /// asked it): every write but revoking the token itself is refused with 403 <c>permission_error</c>. Null when the
+        /// answer carries no scope: the token writes as the account does, which is also what a server that does not know
+        /// scopes answers, so a tool that asked for read-only reads here what it holds.
+        /// </summary>
+        [JsonProperty("scope")]
+        public string Scope;
+
+        /// <summary>
         /// The AI door token, when <see cref="OWClient.CompleteSignInAsync"/> asked for one with its AI uses; null when none
         /// was asked, and from a server that answered none or not in its documented shape (the account token above is good
         /// either way).
@@ -197,6 +212,12 @@ namespace OnlyWorlds.Sdk
     /// </summary>
     public static class OWSignIn
     {
+        /// <summary>
+        /// The one scope a sign-in may ask, <c>world:read</c> (<see cref="OWClient.SignInWithOnlyWorlds"/>'s
+        /// <c>scope</c>): a read-only token, for a tool that only reads.
+        /// </summary>
+        public const string ReadScope = "world:read";
+
         /// <summary>Base64url without padding (RFC 4648 §5), as PKCE wants it.</summary>
         public static string Base64Url(byte[] bytes)
         {
