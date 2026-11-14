@@ -35,6 +35,10 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   written. A body that is not a message (`OWMessage.IsMessage`: a Story, a Narrative with no supertype, a body with no
   `type`) now has no recipients, whatever its `characters` holds; before, any body but a Note gave its list. A Note
   still has none. `IsAddressedTo`, `IsToEveryone` and `HasUnseenRecipients` are unchanged.
+- **An export declares folder format 0.3.24** (`OWFolderExport.FormatVersion`, was 0.3.22), the version the dist's
+  folder check names. 0.3.23 reads the in-prose reference line as the address page does, and 0.3.24 says a multi-link
+  names each element once; neither changes the bytes a writer writes, so only the `format_version` stamp in
+  `world.json` moves. A list served with a repeat is still written back as it was served.
 
 ## [0.40.1] - 2026-11-14
 
