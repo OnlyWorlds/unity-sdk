@@ -19,6 +19,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   is not a node is counted once in `EdgesCut`. An edge's `Index` is still its place in the list as served, so the
   entries after a repeat keep their places. Ids are compared as written. `OWLanding.Of` reads the graph it is given,
   so a doubled target is now one edge there too, counted once at each end.
+- **`OWMessage.RecipientsOf` answers each recipient once, and only for a message** (schema-dist serial 128): a
+  `characters` list that names one Character twice gives that Character once, in its first place, ids compared as
+  written. A body that is not a message (`OWMessage.IsMessage`: a Story, a Narrative with no supertype, a body with no
+  `type`) now has no recipients, whatever its `characters` holds; before, any body but a Note gave its list. A Note
+  still has none. `IsAddressedTo`, `IsToEveryone` and `HasUnseenRecipients` are unchanged.
 
 ## [0.40.1] - 2026-11-14
 

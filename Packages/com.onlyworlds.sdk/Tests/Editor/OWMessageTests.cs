@@ -33,6 +33,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             ["pair"] = new[] { "is_message" },
             ["addressed"] = new[] { "addressed" },
+            ["recipients"] = new[] { "recipients" },
             ["unseen"] = new[] { "addressed", "unseen_recipients" },
             ["everyone"] = new[] { "to_everyone", "unseen_recipients" },
             ["sent_by"] = new[] { "sent_by" },
@@ -153,6 +154,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                     return new JObject { ["is_message"] = OWMessage.IsMessage((JObject)c["element"]) };
                 case "addressed":
                     return new JObject { ["addressed"] = OWMessage.IsAddressedTo((JObject)c["message"], (string)c["character"]) };
+                case "recipients":
+                    return new JObject { ["recipients"] = new JArray(OWMessage.RecipientsOf((JObject)c["message"])) };
                 case "unseen":
                     // A case without keyless has a credential.
                     return new JObject
@@ -233,11 +236,15 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         /// <summary>A body whose <c>characters</c> is the value given.</summary>
         private static JObject To(JToken characters) => new JObject { ["characters"] = characters };
 
+        /// <summary>A message (the pair) whose <c>characters</c> is the value given: only a message has recipients (serial 128).</summary>
+        private static JObject MessageTo(JToken characters) =>
+            new JObject { ["type"] = "narrative", ["supertype"] = "Message", ["characters"] = characters };
+
         [Test]
         public void RecipientsOf_GivesTheIdsAsWritten_AndEmptyIsEveryone()
         {
-            CollectionAssert.AreEqual(new[] { Ada }, OWMessage.RecipientsOf(To(new JArray(Ada))));
-            CollectionAssert.IsEmpty(OWMessage.RecipientsOf(To(JValue.CreateNull())));
+            CollectionAssert.AreEqual(new[] { Ada }, OWMessage.RecipientsOf(MessageTo(new JArray(Ada))));
+            CollectionAssert.IsEmpty(OWMessage.RecipientsOf(MessageTo(JValue.CreateNull())));
             CollectionAssert.IsEmpty(OWMessage.RecipientsOf(new JObject()));
             CollectionAssert.IsEmpty(OWMessage.RecipientsOf(null));
             Assert.IsTrue(OWMessage.IsAddressedTo(To(new JArray()), Ada));
@@ -246,9 +253,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [Test]
         public void Recipients_KeepTheirOrder_AndAMalformedListIsNotEveryone()
         {
-            CollectionAssert.AreEqual(new[] { Mara, Ada }, OWMessage.RecipientsOf(To(new JArray(Mara, Ada))));
+            CollectionAssert.AreEqual(new[] { Mara, Ada }, OWMessage.RecipientsOf(MessageTo(new JArray(Mara, Ada))));
             CollectionAssert.IsEmpty(OWMessage.RecipientsOf(new JObject()));
-            CollectionAssert.IsEmpty(OWMessage.RecipientsOf(To(Ada)));
+            CollectionAssert.IsEmpty(OWMessage.RecipientsOf(MessageTo(Ada)));
 
             var malformed = new JToken[] { Ada, new JArray(""), new JArray(5), new JObject { ["0"] = Ada } };
             foreach (var characters in malformed)
@@ -268,6 +275,22 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             foreach (var m in new[] { new JObject(), To(JValue.CreateNull()), To(new JArray()) })
                 Assert.IsTrue(OWMessage.IsToEveryone(m), m.ToString());
             Assert.IsFalse(OWMessage.IsToEveryone(null));
+        }
+
+        [Test]
+        public void Recipients_AreEachCharacterOnce_AndOnlyAMessageHasAny()
+        {
+            // Each once, in its first place; ids compared as written, so an id in another case is another entry.
+            CollectionAssert.AreEqual(new[] { Mara, Ada }, OWMessage.RecipientsOf(MessageTo(new JArray(Mara, Ada, Mara, Ada))));
+            CollectionAssert.AreEqual(new[] { Ada, Ada.ToUpperInvariant() },
+                OWMessage.RecipientsOf(MessageTo(new JArray(Ada, Ada.ToUpperInvariant(), Ada))));
+            // The pair is read as IsMessage reads it, trimmed and folded.
+            var folded = J("{'type': ' Narrative ', 'supertype': ' MESSAGE ', 'characters': ['" + Ada + "']}");
+            CollectionAssert.AreEqual(new[] { Ada }, OWMessage.RecipientsOf(folded));
+            // A body that is not a message has none: no pair, a Story, a Narrative with no supertype.
+            CollectionAssert.IsEmpty(OWMessage.RecipientsOf(To(new JArray(Ada))));
+            CollectionAssert.IsEmpty(OWMessage.RecipientsOf(J("{'type': 'narrative', 'supertype': 'Story', 'characters': ['" + Ada + "']}")));
+            CollectionAssert.IsEmpty(OWMessage.RecipientsOf(J("{'type': 'narrative', 'characters': ['" + Ada + "']}")));
         }
 
         [Test]

@@ -149,22 +149,26 @@ namespace OnlyWorlds.Sdk
         public static bool IsNote(JObject element) => Matches(element, NotePair);
 
         /// <summary>
-        /// The message's recipients: the Character ids in its <c>characters</c>, in the field's order, entries that are
-        /// not ids left out. An empty <c>characters</c> (absent, null or <c>[]</c>) is addressed to every member of the
-        /// world unless the server trimmed the list for this reader (<see cref="HasUnseenRecipients"/>); ask
-        /// <see cref="IsAddressedTo"/> whether it is for one Character, and <see cref="IsToEveryone"/> whether it is for
-        /// all. No other field addresses a message. A Note has none.
+        /// The message's recipients: the Character ids in its <c>characters</c>, each once, in the order of its first
+        /// place (a list served with one Character twice is read once: schema-dist serial 128), entries that are not ids
+        /// left out and ids compared as written. An empty <c>characters</c> (absent, null or <c>[]</c>) is addressed to
+        /// every member of the world unless the server trimmed the list for this reader
+        /// (<see cref="HasUnseenRecipients"/>); ask <see cref="IsAddressedTo"/> whether it is for one Character, and
+        /// <see cref="IsToEveryone"/> whether it is for all. No other field addresses a message. Only a message has
+        /// recipients (<see cref="IsMessage"/>): a Note, a Story or any other element has none, whatever its
+        /// <c>characters</c> holds (serial 128).
         /// </summary>
         public static IReadOnlyList<string> RecipientsOf(JObject message)
         {
             var list = new List<string>();
-            if (IsNote(message)) return list;
-            if (message?["characters"] is JArray characters)
+            if (!IsMessage(message)) return list;
+            if (message["characters"] is JArray characters)
             {
+                var met = new HashSet<string>(StringComparer.Ordinal);
                 foreach (var entry in characters)
                 {
                     var id = StringOf(entry);
-                    if (!string.IsNullOrEmpty(id)) list.Add(id);
+                    if (!string.IsNullOrEmpty(id) && met.Add(id)) list.Add(id);
                 }
             }
 
