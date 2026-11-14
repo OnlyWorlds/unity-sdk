@@ -20,10 +20,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </summary>
     public class OWLandingTests
     {
-        /// <summary>The fixture's sha256 as dist.104's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "0a5377fb5f5032951eb513d6ce71d236ff6f8290615eba3ed64c1753474d9696";
+        /// <summary>The fixture's sha256 as dist.128's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "6a754b8f143f3ea1f0d9e50ab80bb80f859cf9b26538c4759d2bb3cfebf5be7a";
 
-        /// <summary>The fixture's cases, as dist.104 holds them (serial 104 added three: a self link, a doubled target, a heads past the integer range).</summary>
+        /// <summary>The fixture's cases, as dist.128 holds them (serial 104 added three: a self link, a doubled target, a heads past the integer range; serial 128 reads the doubled target as one edge).</summary>
         private const int CaseCount = 33;
 
         private static JObject _fixture;
@@ -70,7 +70,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.104's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.128's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]

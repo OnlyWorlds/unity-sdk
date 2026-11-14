@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.34.01";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 127;
+        public const int DistSerial = 128;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.34.1-dist.127";
+        public const string Tag = "v0.34.1-dist.128";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -414,9 +414,20 @@ namespace OnlyWorlds.Sdk
         /// this SDK does not read. The generated models changed in their serial stamp only, the views table in its
         /// serial stamp and the file's sha256.
         /// </para>
+        /// <para>
+        /// <b>127 -> 128 (2026-11-14)</b>: canonical unchanged, no schema file, <c>schema.json</c> or <c>views.json</c>
+        /// moved. A multi-link names each element once: a reader served a list that names one element twice reads it
+        /// once, in its first place (the graph reader draws one edge per target per source and field and cuts a
+        /// repeat to a hidden target once; a lens anchor is met once). A message's recipients are each Character once,
+        /// in the order of the first place, and only a message has any. The address page gains the find-all
+        /// (<c>prose-all</c>: every address in a text, in order). The folder spec's version is 0.3.24 (0.3.23 and
+        /// 0.3.24 change no writer's bytes). Fixtures: address 218 (two <c>prose-all</c> cases), landing one case,
+        /// lens 235 (resolve 134, graph 56), message 102 (two <c>recipients</c> cases); spine one case, which this SDK
+        /// does not read. The generated models and the views table changed in their serial stamp only.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "6530b1f3e2eb9e3a037810bb3565e71de48585109791c699da2569eead03838b";
+            "b23105d518aac8035339a81165e5973512df2a7538920b1e7ccf4c783b600428";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.

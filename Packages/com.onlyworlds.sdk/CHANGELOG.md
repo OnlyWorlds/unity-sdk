@@ -6,6 +6,15 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The schema pin moves to `v0.34.1-dist.128`** (canonical `00.34.01` unchanged; no schema file, `schema.json` or
+  `views.json` moved). A multi-link names each element once: a reader served a list that names one element twice reads
+  it once, in its first place, on the lens, landing and message pages (the entries below build it here). The address
+  page adds a find-all, every address in a text in order, with a new kind of case, `prose-all`. The folder spec's
+  version is 0.3.24. The fixtures gain cases: address 218 (two `prose-all`), lens 235 (resolve 134, graph 56),
+  message 102 (two `recipients`); landing's doubled-target case now wants one edge.
+
 ## [0.40.1] - 2026-11-14
 
 An address glued to a word is prose, on schema-dist serial 127. `OWAddress.ReadLinkAt` no longer finds an address
