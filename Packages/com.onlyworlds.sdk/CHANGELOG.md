@@ -14,6 +14,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   page adds a find-all, every address in a text in order, with a new kind of case, `prose-all`. The folder spec's
   version is 0.3.24. The fixtures gain cases: address 218 (two `prose-all`), lens 235 (resolve 134, graph 56),
   message 102 (two `recipients`); landing's doubled-target case now wants one edge.
+- **`OWGraph.Read` reads each element of a list once** (schema-dist serial 128): a schema multi-link, `x_lens_leads_to`
+  or `x_spine_depends_on` that names one target twice is one edge, in its first place, and a repeat to a target that
+  is not a node is counted once in `EdgesCut`. An edge's `Index` is still its place in the list as served, so the
+  entries after a repeat keep their places. Ids are compared as written. `OWLanding.Of` reads the graph it is given,
+  so a doubled target is now one edge there too, counted once at each end.
 
 ## [0.40.1] - 2026-11-14
 

@@ -359,7 +359,9 @@ namespace OnlyWorlds.Sdk
         /// <para>
         /// Each schema link field, and each declared extension link (<see cref="DeclaredLinks"/>), gives one edge per
         /// target that is a node, both ends as stored (a mirror pair is two edges, never merged; a Relation is a node with
-        /// one edge per party). A known-of node has no edges out. A schema link names only an element of its field's
+        /// one edge per party). A list names each element once: one that names a target twice is one edge, or one link
+        /// counted, in its first place, and its index stays that place in the list as served (schema-dist serial 128). A
+        /// known-of node has no edges out. A schema link names only an element of its field's
         /// target type; one of another type is a dangling link (the lens profile's ruling 1). A link to an element that
         /// is not a node is counted in <see cref="OWWorldGraph.EdgesCut"/> by its target's reason: the lens's cut reason
         /// (which wins over <c>not_visible</c>), else with a lens <c>outside_lens</c> for one the reader sees, else without
@@ -459,11 +461,14 @@ namespace OnlyWorlds.Sdk
             var edges = new List<OWGraphEdge>();
             var cutEdges = new Dictionary<string, int>();
 
-            void Visit(string source, string field, JToken entry, int index)
+            void Visit(string source, string field, JToken entry, int index, HashSet<string> met)
             {
                 var target = StringOf(entry);
                 // A link to an id that is not in the world is a dangling link: left out, never counted.
                 if (target == null || !view.Els.ContainsKey(target)) return;
+                // A multi-link names each element once: a repeat is read once, in its first place, an edge or a cut
+                // alike (schema-dist serial 128). Ids are compared as written.
+                if (!met.Add(target)) return;
 
                 if (nodeIds.Contains(target))
                 {
@@ -492,23 +497,27 @@ namespace OnlyWorlds.Sdk
                         ? (value is JArray array ? array.ToList() : new List<JToken>())
                         : new List<JToken> { value };
                     var served = 0;
+                    var met = new HashSet<string>(StringComparer.Ordinal);
                     for (var i = 0; i < entries.Count; i++)
                     {
                         var t = StringOf(entries[i]);
                         var inServed = seenOwner || view.ServedAs(t, linkTarget);
                         // An id of another type than the field's target names nothing, as the lens reader keys a link
-                        // (the profile's ruling 1): a dangling link, neither an edge nor counted.
+                        // (the profile's ruling 1): a dangling link, neither an edge nor counted. A repeat still counts
+                        // in the served list, so an index points into the list as served.
                         if (t != null && view.Els.ContainsKey(t) && view.TypeOf(t) == linkTarget)
-                            Visit(source, field, entries[i], asGiven ? i : served);
+                            Visit(source, field, entries[i], asGiven ? i : served, met);
                         if (inServed) served++;
                     }
                 }
 
-                // A declared extension link is served as stored to every reader.
+                // A declared extension link is served as stored to every reader, and names each element once as a
+                // multi-link does.
                 foreach (var field in DeclaredLinks)
                 {
                     if (!(body[field] is JArray list)) continue;
-                    for (var i = 0; i < list.Count; i++) Visit(source, field, list[i], i);
+                    var met = new HashSet<string>(StringComparer.Ordinal);
+                    for (var i = 0; i < list.Count; i++) Visit(source, field, list[i], i, met);
                 }
             }
 

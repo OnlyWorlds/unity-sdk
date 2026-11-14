@@ -650,6 +650,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             });
             var inWorld = new HashSet<string>(world.Select(e => (string)e["id"]));
             int Linked(JToken v) => v is JValue s && s.Type == JTokenType.String && inWorld.Contains((string)s) ? 1 : 0;
+            // A list names each element once (serial 128): a target it names twice is one link, in its first place.
+            int Once(JArray list, Func<JToken, int> counts) =>
+                list.Where(v => counts(v) == 1).Select(v => (string)v).Distinct(StringComparer.Ordinal).Count();
             var links = 0;
             foreach (var n in go.Nodes.Where(n => !n.KnownOf))
             {
@@ -657,12 +660,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 foreach (var (field, many) in OWLens.LinkFieldsOf(n.Type))
                 {
                     if (!many) links += Linked(el[field]);
-                    else if (el[field] is JArray list) links += list.Sum(Linked);
+                    else if (el[field] is JArray list) links += Once(list, Linked);
                 }
 
                 foreach (var field in new[] { "x_lens_leads_to", "x_spine_depends_on" })
                 {
-                    if (el[field] is JArray list) links += list.Sum(Linked);
+                    if (el[field] is JArray list) links += Once(list, Linked);
                 }
             }
 
@@ -681,12 +684,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 foreach (var (field, many) in OWLens.LinkFieldsOf(n.Type))
                 {
                     if (!many) inView += Seen(el[field]);
-                    else if (el[field] is JArray list) inView += list.Sum(Seen);
+                    else if (el[field] is JArray list) inView += Once(list, Seen);
                 }
 
                 foreach (var field in new[] { "x_lens_leads_to", "x_spine_depends_on" })
                 {
-                    if (el[field] is JArray list) inView += list.Sum(Seen);
+                    if (el[field] is JArray list) inView += Once(list, Seen);
                 }
             }
 
