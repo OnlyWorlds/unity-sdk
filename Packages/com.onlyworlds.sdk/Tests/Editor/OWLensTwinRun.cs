@@ -24,6 +24,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// names being the flags its message names (the TypeScript SDK's TypeError). Any other exception answers
     /// <c>{threw: "error", names, msg}</c>. The reader and the options are read as the fixture tests read them; the
     /// world's <c>hidden</c> list rides in <c>HiddenIds</c>, as the TypeScript SDK reads it off the world.
+    /// The layout twin's cases ride in the same file shape: <c>{i, kind: "by-kind", graph}</c> or <c>{i, kind: "around",
+    /// graph, focus, steps}</c>, answered <c>{points}</c> through <see cref="OWLayout"/>, each point
+    /// <c>[id, x, y]</c> or <c>[id, depth, x, y]</c> with every coordinate as its float64 bits in 16 hex digits (so no
+    /// decimal is parsed or printed on either side), or <c>{threw: "refused", msg}</c> for a graph it cannot read.
     /// </remarks>
     public class OWLensTwinRun
     {
@@ -61,6 +65,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
         private static JObject Answer(JObject c)
         {
+            var kind = (string)c["kind"];
+            if (kind == "by-kind" || kind == "around") return Layout(c, kind);
             var world = (JObject)c["world"];
             var elements = ((JArray)world["elements"]).Cast<JToken>().ToList();
             var hidden = world["hidden"] is JArray list ? list.Select(t => (string)t).ToList() : null;
@@ -92,6 +98,27 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             catch (Exception ex)
             {
                 return Threw("error", ex.GetType().Name + ": " + ex.Message);
+            }
+        }
+
+        private static string Hex(double v) => ((ulong)BitConverter.DoubleToInt64Bits(v)).ToString("x16");
+
+        private static JObject Layout(JObject c, string kind)
+        {
+            try
+            {
+                if (kind == "by-kind")
+                {
+                    var r = OWLayout.LayoutByKind(c["graph"] as JObject);
+                    return new JObject { ["points"] = new JArray(r.Points.Select(p => new JArray(p.Id, Hex(p.X), Hex(p.Y)))) };
+                }
+
+                var a = OWLayout.LayoutAround(c["graph"] as JObject, (string)c["focus"], (int)c["steps"]);
+                return new JObject { ["points"] = new JArray(a.Points.Select(p => new JArray(p.Id, p.Depth, Hex(p.X), Hex(p.Y)))) };
+            }
+            catch (ArgumentException ex)
+            {
+                return new JObject { ["threw"] = "refused", ["msg"] = ex.Message };
             }
         }
 
