@@ -195,7 +195,8 @@ namespace OnlyWorlds.Sdk
         /// profile's rules 1, 4 and 5); <c>x_served_trimmed</c> only when it names a field (a list holding a string with
         /// something left after trimming White_Space). Then the row's own <see cref="OWViewRow.Banner"/> marks the
         /// element carries, each read as the table's are when it is one of them, otherwise by presence as the room
-        /// profile reads its mark (present, not null, a string only when something is left after trimming).
+        /// profile reads its mark (present, not null, a string only when something is left after trimming, a list or an
+        /// object only when it holds something).
         /// </para>
         /// <para>
         /// The order (the file's <c>document</c> layout): the row's lead, then the type's section fields in the schema's

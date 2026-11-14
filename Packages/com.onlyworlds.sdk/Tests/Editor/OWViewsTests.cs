@@ -296,14 +296,19 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         /// <summary>
         /// The file's words (version 2's <c>banners</c> sentence): a row's own <c>banner</c> marks are "each read by
         /// presence as the room profile reads a mark: not null, a string only when something is left after trimming,
-        /// any other value counts". Version 1 left it open; the TypeScript SDK read it so from 4.147.0.
+        /// any other value counts". Version 1 left it open; the TypeScript SDK read it so from 4.147.0. Serial 126 moved
+        /// the room profile's reading under it (an empty list or object is no mark) and left the file's words as they
+        /// were: the mark is read as the room profile reads one, as the TypeScript SDK's <c>carries</c> reads it through
+        /// <c>hasMark</c>, so an empty object is no banner.
         /// </summary>
         [TestCase("\"" + World + "\"", true)]
         [TestCase("\"  \"", false)]
         [TestCase("\"\"", false)]
         [TestCase("7", true)]
         [TestCase("false", true)]
-        [TestCase("{}", true)]
+        [TestCase("{}", false)]
+        [TestCase("[]", false)]
+        [TestCase("{\"by\":\"x\"}", true)]
         [TestCase("null", false)]
         public void ARowsOwnBannerMark_IsReadByPresence_TheFilesWords(string json, bool shown)
         {

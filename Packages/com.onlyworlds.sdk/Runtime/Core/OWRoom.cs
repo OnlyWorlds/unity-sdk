@@ -40,7 +40,8 @@ namespace OnlyWorlds.Sdk
         /// without regard to case, match one of <see cref="Pairs"/>, and it carries <see cref="MarkField"/>, present and
         /// not null. Both, always. The mark is read as the API reads it and as <see cref="IsCharterElement"/> reads its
         /// own: a string mark counts only when something is left after trimming White_Space (so <c>"  "</c> is no mark),
-        /// any other JSON value but null counts (so <c>7</c> is one), and the value is never compared.
+        /// an empty list or an empty object is no mark (serial 126), any other JSON value but null counts (so <c>7</c>
+        /// and <c>false</c> are one), and the value is never compared.
         /// </summary>
         /// <param name="element">An element body that names its <c>type</c> (a slug); null is no element.</param>
         /// <remarks>
@@ -100,15 +101,15 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// A mark (<see cref="MarkField"/> or <see cref="ReadingAidMarkField"/>) as the API reads it: present and not
-        /// null; a string only when something is left after trimming White_Space. Any other JSON value (a number, a
-        /// boolean, an object, a list) is a mark. The value is never compared.
+        /// null; a string only when something is left after trimming White_Space; a list or an object only when it holds
+        /// something. Any other JSON value (a number, a boolean) is a mark. The value is never compared.
         /// </summary>
-        internal static bool HasMark(JObject element, string field)
-        {
-            var m = element?[field];
-            if (m == null || m.Type == JTokenType.Null || m.Type == JTokenType.Undefined) return false;
-            return m.Type != JTokenType.String || OWProfileText.TrimWhiteSpace((string)m).Length > 0;
-        }
+        /// <remarks>
+        /// One presence for every mark read by presence (schema-dist serial 126): the review mark's own
+        /// (<see cref="OWPayload.IsEmptyMark"/>), so an empty list or object is no mark, since a compact reader leaves
+        /// both out and the same element must read the same in either served form.
+        /// </remarks>
+        internal static bool HasMark(JObject element, string field) => !OWPayload.IsEmptyMark(element?[field]);
 
         /// <summary>
         /// True when the element is a room element of one pair: <see cref="IsRoomElement"/>'s test (the pair trimmed and

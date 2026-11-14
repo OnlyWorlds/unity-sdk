@@ -618,7 +618,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         /// <summary>
-        /// The room mark's five shapes (<see cref="OWRoomTests.MarkShapes"/>) through every place the reader asks whether
+        /// The room mark's nine shapes (<see cref="OWRoomTests.MarkShapes"/>) through every place the reader asks whether
         /// an element is a room element: the public reader's view, <c>types</c> (a room element kept only by its pair), a
         /// Relation that is no edge to its parties, no hop out of a room element, and <c>hops_not_served</c>. Kills: a
         /// path of the lens that reads the mark apart from <see cref="OWRoom.IsRoomElement"/>.

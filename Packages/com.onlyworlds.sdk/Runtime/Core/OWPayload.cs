@@ -158,9 +158,9 @@ namespace OnlyWorlds.Sdk
         /// </summary>
         /// <remarks>
         /// The review profile's rule 1 (schema-dist serial 87): the mark is read by presence as the room and charter
-        /// profiles read theirs (<see cref="OWRoom.IsRoomElement"/>), the value never compared, and for this mark an
-        /// empty list or object is absent too, since a compact reader leaves both out. keel's <c>empty</c>
-        /// (<c>proposals/marked.py</c>).
+        /// profiles read theirs (<see cref="OWRoom.IsRoomElement"/>), the value never compared, and an empty list or
+        /// object is absent too, since a compact reader leaves both out. keel's <c>empty</c>
+        /// (<c>proposals/marked.py</c>). Since serial 126 the room and charter marks read this same rule.
         /// </remarks>
         internal static bool IsEmptyMark(JToken mark)
         {

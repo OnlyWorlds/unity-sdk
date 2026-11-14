@@ -399,7 +399,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         /// <summary>
-        /// The room mark's five shapes (<see cref="OWRoomTests.MarkShapes"/>) through the unlensed graph: the owner's
+        /// The room mark's nine shapes (<see cref="OWRoomTests.MarkShapes"/>) through the unlensed graph: the owner's
         /// graph leaves a room element out and its <c>rooms</c> flag brings it back marked, and the public reader's view
         /// never holds it. Kills: a reader of the graph that reads the mark apart from <see cref="OWRoom.IsRoomElement"/>.
         /// </summary>

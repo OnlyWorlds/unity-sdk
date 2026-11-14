@@ -11,7 +11,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// <summary>
     /// The room profile's conformance fixture (schema-dist <c>profiles/room.fixture.json</c>, vendored byte for byte in
     /// <c>Tests/Editor/Fixtures/room/</c> from dist.112: the ninth pair's two cases at serial 66, the three trim cases at
-    /// 71, the four mark shapes at 83, the tenth pair's three at 112), read case by case through
+    /// 71, the four mark shapes at 83, the tenth pair's three at 112, an empty list, an empty object and <c>false</c> as a
+    /// mark at 126), read case by case through
     /// <see cref="OWRoom.IsRoomElement"/>, and its pairs held equal to <see cref="OWRoom.Pairs"/>. The TypeScript SDK
     /// and the Python package run the same cases; the tests beside the fixture are the TypeScript SDK's (test/room.test.mjs,
     /// 4.57.2). When the dist moves the fixture, re-vendor it and update the hash below.
@@ -120,9 +121,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         /// <summary>
-        /// The mark's five shapes (the schema steward's ruling for serial 83; four of them are the fixture's own cases since dist.83): a mark
-        /// counts by presence, as the API reads it. Any JSON value but null counts, and a string only when something is
-        /// left after trimming White_Space; the value is never compared. Each case is the mark as JSON and whether it
+        /// The mark's nine shapes (the schema steward's ruling for serial 83; four of them are the fixture's own cases since dist.83,
+        /// the empty list and object since dist.126): a mark counts by presence, as the API reads it. Any JSON value but
+        /// null counts, a string only when something is left after trimming White_Space and a list or an object only when
+        /// it holds something; the value is never compared. Each case is the mark as JSON and whether it
         /// marks. Shared by every reader of the room mark (<see cref="OWGraphTests"/>, <see cref="OWLensTests"/>).
         /// </summary>
         public static IEnumerable<TestCaseData> MarkShapes()
@@ -132,12 +134,17 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             yield return new TestCaseData("\"  \"", false); // White_Space only
             yield return new TestCaseData("\"\\u001f\"", true); // U+001F is not White_Space
             yield return new TestCaseData("\"  " + World + "\\t\"", true); // an id padded, never compared
+            yield return new TestCaseData("[]", false); // an empty list (serial 126: a compact reader leaves it out)
+            yield return new TestCaseData("{}", false); // an empty object (serial 126)
+            yield return new TestCaseData("[\"" + World + "\"]", true); // a list with something in it
+            yield return new TestCaseData("{\"of\":\"" + World + "\"}", true); // an object with something in it
         }
 
         /// <summary>
         /// One rule for both marks: <c>x_room_of</c> read as <c>x_charter_of</c> is. Kills: a number read as no room mark,
         /// a blank string read as one, a language's own trim (Python's <c>strip()</c> takes U+001F) for White_Space, the
-        /// padded value compared or trimmed away.
+        /// padded value compared or trimmed away, an empty list or object read as a mark (serial 126) or a full one read
+        /// as none.
         /// </summary>
         [TestCaseSource(nameof(MarkShapes))]
         public void BothMarks_CountByPresence(string markJson, bool marks)

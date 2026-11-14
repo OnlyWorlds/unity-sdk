@@ -15,6 +15,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   fixture's seven new cases pass unchanged. The address page gains four prose cases, ignored here as serial 123's
   were (this SDK has no finder of addresses in prose) after checking that the address each finds reads, whole, as the
   fixture says. The fixtures gain cases: address 201, charter 41, map-space 39 and 26 layout cases, room 38.
+- **A room or charter mark that is an empty list or an empty object is no mark** (serial 126). `OWRoom.IsRoomElement`,
+  `OWRoom.IsCharterElement` and everything that reads them (the lens and the graph leaving room elements and reading
+  aids out, the charter packet, the openers' marks, a report or board entry, the views' row match and the
+  `x_room_of` banner) now read `x_room_of: []`, `x_room_of: {}` and the same values of `x_charter_of` as absent, as
+  the review mark (`OWPayload.IsProposed`) already did: an element carrying one is lore, where it used to be a room
+  element or a reading aid. A compact reader leaves an empty list or object out, so the same element now reads the
+  same in either served form. A list or an object with something in it, a number and `false` are still marks; null
+  and a blank string are still none.
 
 ## [0.39.2] - 2026-11-14
 
