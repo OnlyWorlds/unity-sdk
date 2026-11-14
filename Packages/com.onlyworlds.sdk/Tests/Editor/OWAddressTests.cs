@@ -148,8 +148,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 {
                     // ReadLinkAt finds the address that starts at the case's index: the slice it covers, and the
                     // whole-string parser's reading of that slice; or nothing, where the fixture finds nothing.
+                    // A C# string counts UTF-16 units: where a letter above U+FFFF stands before the address the case
+                    // gives index_utf16 beside index (code points), and this reads it (serial 127).
                     var text = (string)c["text"];
-                    var index = (int)c["index"];
+                    var index = (int)(c["index_utf16"] ?? c["index"]);
                     var want = (JObject)c["expect"];
                     var address = (string)want["address"];
                     var found = OWAddress.ReadLinkAt(text, index);
@@ -196,7 +198,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             Assert.IsNotNull(Fixture, "the vendored address fixture was not found");
             var read = 0;
-            foreach (var c in Fixture["cases"].Cast<JObject>().Where(x => (string)x["kind"] == "prose" && (int)x["index"] == 0))
+            foreach (var c in Fixture["cases"].Cast<JObject>().Where(x => (string)x["kind"] == "prose" && (int)(x["index_utf16"] ?? x["index"]) == 0))
             {
                 var text = (string)c["text"];
                 var given = OWAddress.ReadLinkAt(text, 0);
@@ -207,6 +209,25 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             }
 
             Assert.Greater(read, 40);
+        }
+
+        [Test]
+        public void TheProseIndex_ThisSdkReads_IsTheCodePointIndexInUtf16Units()
+        {
+            // index counts code points; a C# string counts UTF-16 units. Where the two differ the case must give
+            // index_utf16 (serial 127: two cases), or the loop above would read the wrong unit.
+            Assert.IsNotNull(Fixture, "the vendored address fixture was not found");
+            var differ = new List<string>();
+            foreach (var c in Fixture["cases"].Cast<JObject>().Where(x => (string)x["kind"] == "prose"))
+            {
+                var text = (string)c["text"];
+                var units = 0;
+                for (var n = 0; n < (int)c["index"]; n++) units += char.IsSurrogatePair(text, units) ? 2 : 1;
+                Assert.AreEqual(units, (int)(c["index_utf16"] ?? c["index"]), (string)c["name"] + ": the index this SDK reads");
+                if (units != (int)c["index"]) differ.Add((string)c["name"]);
+            }
+
+            CollectionAssert.AreEqual(new[] { "prose-start-glued-astral-letter", "prose-start-astral-letter-then-space" }, differ);
         }
 
         [Test]
@@ -245,6 +266,43 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsNull(OWAddress.ReadLinkAt(h + "café."), "a combining mark counts with the letters");
             Assert.AreEqual((h + "hyperion").Length, OWAddress.ReadLinkAt(h + "hyperion" + char.ConvertFromUtf32(0x1F6A2)).End,
                 "an emoji is no letter: the run ends before it");
+        }
+
+        // -- Where an address in prose begins (schema-dist serial 127) -------------------------------------------------
+        // The mirror of the cut after a run: a letter of any script, a combining mark or an underscore before the
+        // prefix glues it into a word, and the text there is prose; anything else, or the start of the text, does not.
+        // The character before is read as a whole code point: a letter above U+FFFF is two UTF-16 units. These were
+        // written ahead of the fixture and ran red on the finder before the rule; the fixture's prose cases now carry
+        // the rule, and these stay as this SDK's own vectors (each found at the prefix by string.IndexOf, in UTF-16
+        // units, and its end checked).
+
+        private const string StartId = "01a1d4ef-0000-7000-8000-000000000084";
+
+        [TestCase("Built the gate: elbow://object/" + StartId + ".", "ow://", false, TestName = "Start_GluedLetter")]
+        [TestCase("tag_ow://object/" + StartId + " here", "ow://", false, TestName = "Start_GluedUnderscore")]
+        [TestCase("caféow://object/" + StartId, "ow://", false, TestName = "Start_GluedNonAsciiLetter")]
+        [TestCase("éow://object/" + StartId, "ow://", false, TestName = "Start_GluedCombiningMark")]
+        [TestCase("\U0001D49Cow://object/" + StartId, "ow://", false, TestName = "Start_GluedAstralLetter")]
+        [TestCase("x-ow://object/" + StartId, "ow://", true, TestName = "Start_AfterHyphen")]
+        [TestCase("3ow://object/" + StartId, "ow://", true, TestName = "Start_AfterDigit")]
+        [TestCase("Built the gate: ow://object/" + StartId + ".", "ow://", true, TestName = "Start_AfterSpace")]
+        [TestCase("Built the gate (ow://object/" + StartId + ").", "ow://", true, TestName = "Start_AfterOpeningBracket")]
+        [TestCase("Built the gate \"ow://object/" + StartId + "\".", "ow://", true, TestName = "Start_AfterQuote")]
+        [TestCase("ow://object/" + StartId + " was built.", "ow://", true, TestName = "Start_OfText")]
+        [TestCase("seehttps://www.onlyworlds.com/w/hyperion/object/" + StartId, "https://", false, TestName = "Start_GluedLetterSiteForm")]
+        public void ReadLinkAt_AStartGluedToAWord_IsProse(string text, string prefix, bool found)
+        {
+            var index = text.IndexOf(prefix, StringComparison.Ordinal);
+            var got = OWAddress.ReadLinkAt(text, index);
+            if (!found)
+            {
+                Assert.IsNull(got, $"found {(got == null ? null : text.Substring(index, got.End - index))} at {index}: the start is glued to a word");
+                return;
+            }
+
+            Assert.IsNotNull(got, $"found no address at {index}");
+            Assert.AreEqual(StartId, got.Reading.Id);
+            Assert.AreEqual(index + ("ow://object/" + StartId).Length, got.End, "the address ends where its id ends");
         }
 
         [Test]

@@ -17,6 +17,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   Map that is a drawing of its elements, not a place) and who writes it; this SDK reads the mark and writes none, and
   the three new layout cases pass unchanged. The fixtures gain cases: address 216 (76 prose), views 56, map-space 29
   layout cases.
+- **`OWAddress.ReadLinkAt` answers null when the address would begin inside a word** (schema-dist serial 127): after
+  a letter of any script, a combining mark or an underscore (`elbow://object/<id>` and `_ow://…` are prose), the same
+  set that cuts a slug's run after it; a hyphen, a digit, white space, punctuation or the start of the text before the
+  prefix does not glue (`x-ow://…`, `3ow://…`, `(ow://…`). The character before the index is read as a whole code
+  point, so a letter above U+FFFF glues as any letter does. Two addresses written back to back are read as two after
+  an id that ends in a digit and as one after an id that ends in a hex letter. The address fixture's fifteen new prose
+  cases run here.
 
 ## [0.40.0] - 2026-11-14
 
