@@ -6,6 +6,17 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **`OWAddress.FindLinks(text)`** and its answer, **`OWAddressFound`** (`Start`, `End`, `Reading`): every address in a
+  text, in order, as the address page's find-all says (schema-dist serial 128). The TypeScript SDK's `findOwLinks` and
+  the Python package's `find_ow_links`. Each is what `OWAddress.ReadLinkAt` reads at a place where either prefix
+  starts, so a start glued to a word is prose. The search goes on from the end of each address found, so no two
+  overlap and a prefix inside an address is no start (`https://www.onlyworlds.com/w/abc3ow://object/<id>` is one
+  address, the world's own), and two addresses written back to back are found as two where `ReadLinkAt` ends the
+  first. `Start` and `End` are C# string indexes, UTF-16 code units. A null text is an `ArgumentNullException`. The
+  address fixture's two `prose-all` cases run here. Public API, so the next release is a minor.
+
 ### Changed
 
 - **The schema pin moves to `v0.34.1-dist.128`** (canonical `00.34.01` unchanged; no schema file, `schema.json` or

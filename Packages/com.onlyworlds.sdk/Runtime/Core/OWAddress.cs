@@ -145,6 +145,29 @@ namespace OnlyWorlds.Sdk
     }
 
     /// <summary>
+    /// One address <see cref="OWAddress.FindLinks"/> found in a text: where it starts and ends, and what it reads. The
+    /// TypeScript SDK's <c>OwAddressFound</c> and the Python package's <c>AddressFound</c>.
+    /// </summary>
+    public sealed class OWAddressFound
+    {
+        internal OWAddressFound(int start, int end, OWAddressReading reading)
+        {
+            Start = start;
+            End = end;
+            Reading = reading;
+        }
+
+        /// <summary>The index of the address's first character in the text, a C# string index (UTF-16 code units).</summary>
+        public int Start { get; }
+
+        /// <summary>The index just past the address, as <see cref="OWAddress.ReadLinkAt"/> answers it.</summary>
+        public int End { get; }
+
+        /// <summary>What <see cref="OWAddress.ParseLink"/> reads from <c>text.Substring(Start, End - Start)</c>.</summary>
+        public OWAddressReading Reading { get; }
+    }
+
+    /// <summary>
     /// The address of an element, or of a world, in the profile's three spellings, read and written alike by every
     /// package (schema-dist <c>profiles/address.md</c>).
     /// </summary>
@@ -386,6 +409,49 @@ namespace OnlyWorlds.Sdk
             }
 
             return new OWAddressAt(ParseLink(text.Substring(index, end - index)), end);
+        }
+
+        /// <summary>
+        /// Every address in a text, in order: each one <see cref="ReadLinkAt"/> reads at a place where either prefix
+        /// (<c>ow://</c>, <c>https://www.onlyworlds.com/w/</c>) starts, so a start glued to a word is prose and what
+        /// follows an address is prose as <see cref="ReadLinkAt"/> says (the address page's find-all, schema-dist serial
+        /// 128; the TypeScript SDK's <c>findOwLinks</c> and the Python package's <c>find_ow_links</c>).
+        /// </summary>
+        /// <remarks>
+        /// The search goes on from the end of each address found, so no two overlap and a prefix inside an address found
+        /// is no start, and from just past a start that reads nothing. Linear in the text: each prefix's next place is
+        /// searched once, and a start reads a bounded stretch. <see cref="OWAddressFound.Start"/> and
+        /// <see cref="OWAddressFound.End"/> are C# string indexes (UTF-16 code units), as <see cref="ReadLinkAt"/>'s are.
+        /// <code>
+        /// var found = OWAddress.FindLinks("See ow://object/01a1d4ef-0000-7000-8000-000000000084, not elbow://object/01a1d4ef-0000-7000-8000-000000000084.");
+        /// // one address: found[0].Start == 4, found[0].End == 52, found[0].Reading.Type == "object"
+        /// </code>
+        /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="text"/> is null.</exception>
+        public static IReadOnlyList<OWAddressFound> FindLinks(string text)
+        {
+            if (text == null) throw new ArgumentNullException(nameof(text));
+            var found = new List<OWAddressFound>();
+            var nextText = text.IndexOf(TextPrefix, StringComparison.Ordinal);
+            var nextHuman = text.IndexOf(HumanPrefix, StringComparison.Ordinal);
+            var at = 0;
+            while (true)
+            {
+                if (nextText != -1 && nextText < at) nextText = text.IndexOf(TextPrefix, at, StringComparison.Ordinal);
+                if (nextHuman != -1 && nextHuman < at) nextHuman = text.IndexOf(HumanPrefix, at, StringComparison.Ordinal);
+                var start = nextText == -1 ? nextHuman : nextHuman == -1 ? nextText : Math.Min(nextText, nextHuman);
+                if (start == -1) return found;
+                var got = ReadLinkAt(text, start);
+                if (got == null)
+                {
+                    at = start + 1;
+                }
+                else
+                {
+                    found.Add(new OWAddressFound(start, got.End, got.Reading));
+                    at = got.End;
+                }
+            }
         }
 
         /// <summary>Where the code point holding the unit at <paramref name="i"/> starts: one unit back when it is the low half of a pair.</summary>

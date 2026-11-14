@@ -171,6 +171,21 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                         $"prose/{name}: gave {got.ToString(Newtonsoft.Json.Formatting.None)}, the fixture says {want["reading"].ToString(Newtonsoft.Json.Formatting.None)}");
                     break;
                 }
+                case "prose-all":
+                {
+                    // FindLinks finds every address in the text, in order; found is each one's slice of the text, never
+                    // an index, so it reads the same in every language (serial 128). Each reading is the parser's of its
+                    // slice.
+                    var text = (string)c["text"];
+                    var all = OWAddress.FindLinks(text);
+                    var got = new JArray(all.Select(f => text.Substring(f.Start, f.End - f.Start)));
+                    Assert.IsTrue(JToken.DeepEquals(c["found"], got),
+                        $"prose-all/{name}: found {got.ToString(Newtonsoft.Json.Formatting.None)}, the fixture finds {c["found"].ToString(Newtonsoft.Json.Formatting.None)}");
+                    foreach (var f in all)
+                        Assert.IsTrue(JToken.DeepEquals(Reading(OWAddress.ParseLink(text.Substring(f.Start, f.End - f.Start))), Reading(f.Reading)),
+                            $"prose-all/{name}: the reading at {f.Start}");
+                    break;
+                }
                 default:
                     Assert.Fail($"case {name}: a case of unknown kind {c["kind"]}");
                     break;
@@ -256,6 +271,37 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsNull(OWAddress.ReadLinkAt("ow://x", 99));
             Assert.IsNull(OWAddress.ReadLinkAt(string.Empty, 0));
             Assert.IsNull(OWAddress.ReadLinkAt("OW://object/" + Element), "the prefix as written, lowercase");
+        }
+
+        [Test]
+        public void FindLinks_FindsEveryAddressInOrder_ByReadLinkAtAtEachPrefix()
+        {
+            // The TypeScript SDK's doc example: a start glued to a word is prose.
+            var id = "01a1d4ef-0000-7000-8000-000000000084";
+            var one = OWAddress.FindLinks($"See ow://object/{id}, not elbow://object/{id}.");
+            Assert.AreEqual(1, one.Count);
+            Assert.AreEqual(4, one[0].Start);
+            Assert.AreEqual(52, one[0].End);
+            Assert.AreEqual("object", one[0].Reading.Type);
+            Assert.AreEqual(id, one[0].Reading.Id);
+
+            // Both forms, in the text's order, whichever prefix comes first; a start that reads nothing is passed by.
+            var text = $"Go to https://www.onlyworlds.com/w/{World}/object/{Element} then ow://nothing, then ow://object/{Element}@3.";
+            var all = OWAddress.FindLinks(text);
+            CollectionAssert.AreEqual(new[] { OWAddress.Human, OWAddress.Text }, all.Select(f => f.Reading.Form).ToArray());
+            Assert.AreEqual($"https://www.onlyworlds.com/w/{World}/object/{Element}", text.Substring(all[0].Start, all[0].End - all[0].Start));
+            Assert.AreEqual($"ow://object/{Element}@3", text.Substring(all[1].Start, all[1].End - all[1].Start));
+            Assert.AreEqual(3, all[1].Reading.Moment);
+
+            // Each address found is ReadLinkAt's at its start, and its Start is a C# string index (an emoji is two units).
+            var emoji = "Built " + char.ConvertFromUtf32(0x1F6A2) + " ow://object/" + Element + ".";
+            var e = OWAddress.FindLinks(emoji).Single();
+            Assert.AreEqual(emoji.IndexOf("ow://", StringComparison.Ordinal), e.Start);
+            Assert.AreEqual(OWAddress.ReadLinkAt(emoji, e.Start).End, e.End);
+
+            CollectionAssert.IsEmpty(OWAddress.FindLinks(string.Empty));
+            CollectionAssert.IsEmpty(OWAddress.FindLinks("no address here, OW://object/" + Element));
+            Assert.Throws<ArgumentNullException>(() => OWAddress.FindLinks(null));
         }
 
         [Test]
