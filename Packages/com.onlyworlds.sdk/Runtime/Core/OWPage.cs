@@ -140,6 +140,27 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("element")]
         public JObject Element;
 
+        /// <summary>On an upsert: the element's <c>updated_at</c> (ISO 8601), or null. Null on a delete.</summary>
+        [JsonProperty("updated_at")]
+        public string UpdatedAt;
+
+        /// <summary>
+        /// On a delete: when it was deleted, or on a <c>hidden</c> row when it was hidden (ISO 8601); null when none
+        /// was recorded. Null on an upsert.
+        /// </summary>
+        [JsonProperty("deleted_at")]
+        public string DeletedAt;
+
+        /// <summary>
+        /// On a delete: why the element left this reader's view. <c>deleted</c>: it is gone, and a GET answers 410.
+        /// <c>hidden</c>: the world's owner or a co-builder hid it from this reader; it still exists, a GET answers
+        /// 404, and an unhide brings it back through a 409 <c>resync_required</c>. <c>out_of_view</c>: declared by
+        /// keel, sent by nothing yet. Remove the element from the local copy in every case. Null on an upsert, and
+        /// when the row carries none.
+        /// </summary>
+        [JsonProperty("reason")]
+        public string Reason;
+
         /// <summary>On a delete: the membership whose write deleted it; null for the owner.</summary>
         [JsonProperty("deleted_by")]
         public string DeletedBy;

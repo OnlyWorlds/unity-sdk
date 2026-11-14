@@ -23,6 +23,12 @@ the address fixture's 61 prose cases now run here instead of being ignored. A mi
   does). `index` and `End` are C# string indexes, UTF-16 code units, so they match `string.IndexOf` and
   `string.Substring`. A null text is an `ArgumentNullException`, a negative index an `ArgumentOutOfRangeException`,
   and an index past the end reads nothing. `OWAddress.ParseLink` is unchanged and still reads a string whole.
+- **`OWChange.UpdatedAt`, `OWChange.DeletedAt` and `OWChange.Reason`**: the three fields of a `/changes` row the
+  client did not map, as the TypeScript SDK's `OwChangeUpsert` and `OwChangeDelete` read them. An upsert's
+  `updated_at`; a delete's `deleted_at` (on a `hidden` row, when it was hidden); and a delete's `reason`: `deleted`
+  (gone, a GET answers 410), `hidden` (hidden from this reader by the world's owner or a co-builder; it still exists
+  and a GET answers 404) or `out_of_view` (declared, sent by nothing yet). Each is null on the other kind of row.
+  Remove the element from the local copy whatever the reason.
 
 ## [0.39.3] - 2026-11-14
 

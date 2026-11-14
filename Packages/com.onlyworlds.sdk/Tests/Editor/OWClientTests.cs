@@ -734,6 +734,31 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public void ChangeFeed_ReadsAnUpsertsUpdatedAt_AndADeletesWhenAndWhy()
+        {
+            // keel's /changes answer declares updated_at on an upsert row, deleted_at and reason on a delete row
+            // (the wire fixture's changes[].updated_at, changes[].deleted_at, changes[].reason); npm's
+            // OwChangeUpsert and OwChangeDelete carry them.
+            var page = OWJson.Deserialize<OWChangesPage>(
+                @"{""changes"":[
+                    {""op"":""upsert"",""type"":""character"",""id"":""c1"",""change_seq"":9,
+                     ""element"":{""id"":""c1"",""name"":""Ada""},""updated_at"":""2026-11-14T07:00:00Z""},
+                    {""op"":""delete"",""type"":""character"",""id"":""c2"",""change_seq"":10,
+                     ""deleted_at"":""2026-11-14T07:01:00Z"",""reason"":""hidden""},
+                    {""op"":""delete"",""type"":""character"",""id"":""c3"",""change_seq"":11,""deleted_at"":null}],
+                  ""has_more"":false,""head"":11}");
+
+            Assert.AreEqual("2026-11-14T07:00:00Z", page.Changes[0].UpdatedAt);
+            Assert.IsNull(page.Changes[0].DeletedAt);
+            Assert.IsNull(page.Changes[0].Reason);
+            Assert.AreEqual("2026-11-14T07:01:00Z", page.Changes[1].DeletedAt);
+            Assert.AreEqual("hidden", page.Changes[1].Reason);
+            Assert.IsNull(page.Changes[1].UpdatedAt);
+            Assert.IsNull(page.Changes[2].DeletedAt, "an old delete row may carry none");
+            Assert.IsNull(page.Changes[2].Reason, "a row with no reason reads null");
+        }
+
+        [Test]
         public void ChangeFeed_ReadsAHidesWhenWhoAndDoor_AndLeavesThemNullElsewhere()
         {
             // A hide's upsert row, as the readers who still see the element get it (TypeScript SDK 4.74.0's
