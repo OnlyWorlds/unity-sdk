@@ -1,8 +1,8 @@
 // GENERATED from the OnlyWorlds schema distribution -- DO NOT EDIT.
 // Regenerate: python codegen/generate_models.py   (drift guard: codegen/check_drift.py)
 //
-// canonical: 00.34.00
-// serial: 123
+// canonical: 00.34.01
+// serial: 124
 // published: 2026-11-13
 
 using System;

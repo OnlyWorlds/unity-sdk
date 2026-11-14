@@ -1,8 +1,8 @@
 // GENERATED from the OnlyWorlds schema distribution -- DO NOT EDIT.
 // Regenerate: python codegen/generate_models.py   (drift guard: codegen/check_drift.py)
 //
-// canonical: 00.34.00
-// serial: 123
+// canonical: 00.34.01
+// serial: 124
 // published: 2026-11-13
 
 using System;
@@ -39,7 +39,7 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("background_color")]
         [SerializeField] private string _backgroundColor = "";
 
-        /// <summary>An integer to order or group the maps that share a parent; how a tool reads it is the tool's own</summary>
+        /// <summary>Orders the maps that stand side by side (floors, decks, layers): the maps with the same parent_map; without one, the maps of the same location; without either, the maps of the world itself. Lower is deeper or earlier. Nesting is said by parent_map and location, not by this number</summary>
         [JsonProperty("hierarchy")]
         [SerializeField] private SerializableNullable<int> _hierarchy;
 

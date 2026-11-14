@@ -8,8 +8,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
-- **The schema pin moves to `v0.34.0-dist.123`** (canonical `00.34.00` unchanged; no schema file, `schema.json` or
-  `views.json` moved). The message page's read mark goes to the higher id among equal instants or when no time can be
+- **The schema pin moves to `v0.34.1-dist.124`**, canonical `00.34.01` (`OWSchemaPin.CanonicalVersion`). Serial 124
+  is a patch of the canonical: Map's `hierarchy` gains a description that says which maps it orders (the maps with
+  the same `parent_map`; without one, those of the same `location`; without either, the world's own; lower is
+  deeper or earlier), carried into `OWMap.Hierarchy`'s doc comment. No field, kind or reader moved, and the example
+  export's `schema_version` moved with the canonical. Serial 123 before it (no schema file, `schema.json` or
+  `views.json` moved): the message page's read mark goes to the higher id among equal instants or when no time can be
   read; the lens page reads one clock per element, the newest of its readable stamps, for the budget's order and
   `changed_within` alike; the record page reads `played_at` by the message page's grammar (the three entries below
   build each). The address page gains "An address in prose": how a reader that finds an address inside other text

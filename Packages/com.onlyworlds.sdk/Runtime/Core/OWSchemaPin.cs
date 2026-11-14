@@ -29,13 +29,13 @@ namespace OnlyWorlds.Sdk
         public const string Repository = "https://github.com/OnlyWorlds/schema-dist";
 
         /// <summary>Canonical schema version, as the dist's own VERSION file reports it.</summary>
-        public const string CanonicalVersion = "00.34.00";
+        public const string CanonicalVersion = "00.34.01";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 123;
+        public const int DistSerial = 124;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.34.0-dist.123";
+        public const string Tag = "v0.34.1-dist.124";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -383,9 +383,17 @@ namespace OnlyWorlds.Sdk
         /// <c>public_read</c> and a format version. The generated models and the views table changed in their serial
         /// stamp only.
         /// </para>
+        /// <para>
+        /// <b>123 -> 124 (2026-11-13)</b>: canonical <c>00.34.01</c>, a PATCH step: Map's <c>hierarchy</c> gains a
+        /// description that says which maps it orders (those with the same <c>parent_map</c>; without one, those of the
+        /// same <c>location</c>; without either, the world's own; lower is deeper or earlier). No field, kind or reader
+        /// moved. The example export's <c>schema_version</c> moved with the canonical (the envelope test's copy stays
+        /// dist.103's, pinned by its own sha256). The generated models changed in their version stamp and
+        /// <c>OWMap.Hierarchy</c>'s doc comment only, the views table in its serial stamp.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "47f8a02d9647daf75fd66cfe17a0be73a0d1502c1907640155118a01ddf8063f";
+            "9db0444a22a4a56ec08a8e78e429983b8e66cb2085de0f7e45410cd66ae16568";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.
@@ -399,7 +407,7 @@ namespace OnlyWorlds.Sdk
             "af84662c29628b6e90b923c9541f68f5924563adce397cebbadfdbf0f06e5f18";
 
         /// <summary>When these constants were last verified against the published dist.</summary>
-        public const string PinnedOn = "2026-11-13";
+        public const string PinnedOn = "2026-11-14";
 
         /// <summary>
         /// ⚑ Rulings that bind THIS SDK and any emitter generating into it. Read the row, not the key.
