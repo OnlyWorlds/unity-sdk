@@ -6,6 +6,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.39.3] - 2026-11-14
+
+One presence for a mark, on schema-dist serial 126. A room or charter mark that is an empty list or an empty object
+is no mark, as the review mark already read them, so an element marked `[]` or `{}` is no longer a room or charter
+element and no longer shows a view's banner. Empty-string ids and links in map space were already read as none here.
+A patch release: no public API is added or changed.
+
 ### Changed
 
 - **The schema pin moves to `v0.34.1-dist.126`** (canonical `00.34.01` unchanged; no schema file, `schema.json` or
