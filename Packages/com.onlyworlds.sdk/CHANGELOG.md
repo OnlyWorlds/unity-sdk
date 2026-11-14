@@ -6,6 +6,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.41.0] - 2026-11-14
+
+Each element once, on schema-dist serial 128. A link list that names one element twice is read as one link, in its
+first place; only a message has recipients; and `OWAddress.FindLinks` finds every address in a text. The folder
+writer stamps format 0.3.24. A minor release: it adds public API.
+
 ### Added
 
 - **`OWAddress.FindLinks(text)`** and its answer, **`OWAddressFound`** (`Start`, `End`, `Reading`): every address in a
