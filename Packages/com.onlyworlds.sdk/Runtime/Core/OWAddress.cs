@@ -303,6 +303,13 @@ namespace OnlyWorlds.Sdk
         /// <see cref="ParseLink"/> itself still reads a string whole: <c>ow://object/&lt;id&gt;.</c> handed to it is refused.
         /// </para>
         /// <para>
+        /// An address begins at the start of the text or after a character that does not glue it to a word: after a
+        /// letter of any script, a combining mark or an underscore the start is inside a word and this answers null
+        /// (<c>elbow://object/&lt;id&gt;</c>); a hyphen, a digit, white space or punctuation before it does not glue
+        /// (<c>x-ow://</c>, <c>3ow://</c>, <c>(ow://</c>). The same set read from both ends; the character before is read
+        /// as a whole code point (staged: ruled 2026-11-14, publishes with a later serial).
+        /// </para>
+        /// <para>
         /// <paramref name="index"/> and <see cref="OWAddressAt.End"/> are C# string indexes (UTF-16 code units), so they
         /// match <see cref="string.IndexOf(string)"/> and <see cref="string.Substring(int, int)"/>. An index past the end
         /// reads nothing.
@@ -319,6 +326,10 @@ namespace OnlyWorlds.Sdk
         {
             if (text == null) throw new ArgumentNullException(nameof(text));
             if (index < 0) throw new ArgumentOutOfRangeException(nameof(index), index, "an index is a whole number from 0");
+
+            // A start glued to a word is prose, the mirror of the cut after a run (staged: ruled 2026-11-14, publishes
+            // with a later serial). The character before is read whole: a letter above U+FFFF is two UTF-16 units.
+            if (index > 0 && index <= text.Length && IsInAWord(text, CodePointStart(text, index - 1))) return null;
 
             var human = StartsAt(text, index, HumanPrefix);
             int start;
@@ -376,6 +387,10 @@ namespace OnlyWorlds.Sdk
 
             return new OWAddressAt(ParseLink(text.Substring(index, end - index)), end);
         }
+
+        /// <summary>Where the code point holding the unit at <paramref name="i"/> starts: one unit back when it is the low half of a pair.</summary>
+        private static int CodePointStart(string text, int i)
+            => i > 0 && char.IsLowSurrogate(text[i]) && char.IsHighSurrogate(text[i - 1]) ? i - 1 : i;
 
         /// <summary>Whether <paramref name="prefix"/> is written at <paramref name="index"/> of the text, ordinally.</summary>
         private static bool StartsAt(string text, int index, string prefix)

@@ -247,6 +247,40 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 "an emoji is no letter: the run ends before it");
         }
 
+        // -- Where an address in prose begins (staged: ruled 2026-11-14, publishes with a later serial) --------------
+        // The mirror of the cut after a run: a letter of any script, a combining mark or an underscore before the
+        // prefix glues it into a word, and the text there is prose; anything else, or the start of the text, does not.
+        // The character before is read as a whole code point: a letter above U+FFFF is two UTF-16 units.
+
+        private const string StartId = "01a1d4ef-0000-7000-8000-000000000084";
+
+        [TestCase("Built the gate: elbow://object/" + StartId + ".", "ow://", false, TestName = "Start_GluedLetter")]
+        [TestCase("tag_ow://object/" + StartId + " here", "ow://", false, TestName = "Start_GluedUnderscore")]
+        [TestCase("caféow://object/" + StartId, "ow://", false, TestName = "Start_GluedNonAsciiLetter")]
+        [TestCase("éow://object/" + StartId, "ow://", false, TestName = "Start_GluedCombiningMark")]
+        [TestCase("\U0001D49Cow://object/" + StartId, "ow://", false, TestName = "Start_GluedAstralLetter")]
+        [TestCase("x-ow://object/" + StartId, "ow://", true, TestName = "Start_AfterHyphen")]
+        [TestCase("3ow://object/" + StartId, "ow://", true, TestName = "Start_AfterDigit")]
+        [TestCase("Built the gate: ow://object/" + StartId + ".", "ow://", true, TestName = "Start_AfterSpace")]
+        [TestCase("Built the gate (ow://object/" + StartId + ").", "ow://", true, TestName = "Start_AfterOpeningBracket")]
+        [TestCase("Built the gate \"ow://object/" + StartId + "\".", "ow://", true, TestName = "Start_AfterQuote")]
+        [TestCase("ow://object/" + StartId + " was built.", "ow://", true, TestName = "Start_OfText")]
+        [TestCase("seehttps://www.onlyworlds.com/w/hyperion/object/" + StartId, "https://", false, TestName = "Start_GluedLetterSiteForm")]
+        public void ReadLinkAt_AStartGluedToAWord_IsProse(string text, string prefix, bool found)
+        {
+            var index = text.IndexOf(prefix, StringComparison.Ordinal);
+            var got = OWAddress.ReadLinkAt(text, index);
+            if (!found)
+            {
+                Assert.IsNull(got, $"found {(got == null ? null : text.Substring(index, got.End - index))} at {index}: the start is glued to a word");
+                return;
+            }
+
+            Assert.IsNotNull(got, $"found no address at {index}");
+            Assert.AreEqual(StartId, got.Reading.Id);
+            Assert.AreEqual(index + ("ow://object/" + StartId).Length, got.End, "the address ends where its id ends");
+        }
+
         [Test]
         public void EveryReading_WritesBackCanonical_AndThatStringReadsCanonical()
         {

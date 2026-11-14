@@ -23,6 +23,11 @@ the address fixture's 61 prose cases now run here instead of being ignored. A mi
   does). `index` and `End` are C# string indexes, UTF-16 code units, so they match `string.IndexOf` and
   `string.Substring`. A null text is an `ArgumentNullException`, a negative index an `ArgumentOutOfRangeException`,
   and an index past the end reads nothing. `OWAddress.ParseLink` is unchanged and still reads a string whole.
+- (staged: ruled 2026-11-14, publishes with a later serial) **`OWAddress.ReadLinkAt` answers null when the address
+  would begin inside a word**: after a letter of any script, a combining mark or an underscore (`elbow://object/<id>`
+  is prose), the same set that cuts a run after it; a hyphen, a digit, white space or punctuation before the prefix
+  does not glue. The character before the index is read as a whole code point, so a letter above U+FFFF glues as any
+  letter does.
 
 ## [0.39.3] - 2026-11-14
 
