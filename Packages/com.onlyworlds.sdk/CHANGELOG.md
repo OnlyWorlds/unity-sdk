@@ -6,6 +6,16 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The schema pin moves to `v0.34.1-dist.126`** (canonical `00.34.01` unchanged; no schema file, `schema.json` or
+  `views.json` moved). The room, charter, review and checks pages read a mark by one presence: null, a blank string,
+  an empty list and an empty object are absent (the entry below builds it here). The map-space page reads a link whose
+  value is an empty string as no link, as an empty id is no id: this SDK already read every link and id so, and the
+  fixture's seven new cases pass unchanged. The address page gains four prose cases, ignored here as serial 123's
+  were (this SDK has no finder of addresses in prose) after checking that the address each finds reads, whole, as the
+  fixture says. The fixtures gain cases: address 201, charter 41, map-space 39 and 26 layout cases, room 38.
+
 ## [0.39.2] - 2026-11-14
 
 Schema-dist serials 123 and 124. The pin moves to canonical `00.34.01`, where Map's `hierarchy` says which maps it

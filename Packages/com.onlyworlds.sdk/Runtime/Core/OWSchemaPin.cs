@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.34.01";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 124;
+        public const int DistSerial = 126;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.34.1-dist.124";
+        public const string Tag = "v0.34.1-dist.126";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -391,9 +391,19 @@ namespace OnlyWorlds.Sdk
         /// dist.103's, pinned by its own sha256). The generated models changed in their version stamp and
         /// <c>OWMap.Hierarchy</c>'s doc comment only, the views table in its serial stamp.
         /// </para>
+        /// <para>
+        /// <b>124 -> 126 (2026-11-14)</b>: canonical unchanged, no schema file, <c>schema.json</c> or <c>views.json</c>
+        /// moved. One presence: a mark read by presence (the room mark <c>x_room_of</c>, the charter mark
+        /// <c>x_charter_of</c>, the review mark, the checks page's <c>present</c>) reads null, a blank string, an empty
+        /// list and an empty object as absent, since a compact reader leaves the last two out (<see cref="OWRoom"/>'s
+        /// mark reads them so; the review mark already did). The map-space page reads an empty-string link as no link, as an empty id is no id (a pin: this
+        /// SDK already read so). The address page gains prose cases (this SDK has no finder of addresses in prose).
+        /// Fixtures: address 201 (61 prose cases), charter 41, map-space 39 cases and 26 layout cases, room 38, checks
+        /// one case. The generated models and the views table changed in their serial stamp only.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "9db0444a22a4a56ec08a8e78e429983b8e66cb2085de0f7e45410cd66ae16568";
+            "03858f0c11735658817dcb1fb8e7bd030505d84fdc3912cf02d745b2a58c104a";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.
