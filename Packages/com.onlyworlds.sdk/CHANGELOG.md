@@ -6,6 +6,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.43.0] - 2026-11-15
+
+A report's consequences, line by line: the line reader every reader shares (schema-dist serial 129), the same
+lines, addresses and words as the TypeScript SDK and the Python package. A minor release: it adds public API.
+
 ### Added
 
 - **`OWReport.ReadLine(line, world = null)`** and **`OWReport.ReadLines(text, world = null)`**: a line of a report's
@@ -19,7 +24,7 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   writer wrote is lost: it is canonical, has no moment and no lens, and stands apart, alone or in a matched pair, and
   then a colon before it goes too (`Renamed the Consul's Steinway: ow://object/<id>.` shows `Renamed the Consul's
   Steinway.`). Otherwise the whole line is shown, still naming its element. The profile's lines fixture (101 lines and
-  16 texts) runs whole in `OWReportLinesTests`. Public API, so the next release is a minor.
+  16 texts) runs whole in `OWReportLinesTests`.
 
 ### Changed
 
