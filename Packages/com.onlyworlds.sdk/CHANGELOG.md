@@ -6,6 +6,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The schema pin moves to `v0.34.1-dist.129`** (canonical `00.34.01` unchanged; no schema file, `schema.json` or
+  `views.json` moved). The report page gains rule 10: a line of a report's `consequences` reads the same in every
+  reader, where a text breaks into lines and how a line is trimmed, which address is the line's when several stand in
+  it, and which words are shown with it taken out. Its second fixture, `report-lines.fixture.json` (101 cases and 16
+  texts), is vendored beside the first in `Tests/Editor/Fixtures/report/`.
+
 ## [0.42.0] - 2026-11-14
 
 The default layout method: a world's default picture and one element's, the same points as the

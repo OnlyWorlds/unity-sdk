@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.34.01";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 128;
+        public const int DistSerial = 129;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.34.1-dist.128";
+        public const string Tag = "v0.34.1-dist.129";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -425,9 +425,16 @@ namespace OnlyWorlds.Sdk
         /// lens 235 (resolve 134, graph 56), message 102 (two <c>recipients</c> cases); spine one case, which this SDK
         /// does not read. The generated models and the views table changed in their serial stamp only.
         /// </para>
+        /// <para>
+        /// <b>128 -> 129 (2026-11-15)</b>: canonical unchanged, no schema file, <c>schema.json</c> or <c>views.json</c>
+        /// moved. The report page gains rule 10: a line of a report's <c>consequences</c> reads the same in every
+        /// reader (where a text breaks into lines and how a line is trimmed, which address is the line's, and which
+        /// words are shown with it taken out), and its second fixture, <c>report-lines.fixture.json</c> (101 cases and
+        /// 16 texts). The generated models and the views table changed in their serial stamp only.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "b23105d518aac8035339a81165e5973512df2a7538920b1e7ccf4c783b600428";
+            "6c1ac5d18e6d62dcf5c294fb8f9ad33a733eee7b6fa011e121e0855472c54705";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.
@@ -441,7 +448,7 @@ namespace OnlyWorlds.Sdk
             "af84662c29628b6e90b923c9541f68f5924563adce397cebbadfdbf0f06e5f18";
 
         /// <summary>When these constants were last verified against the published dist.</summary>
-        public const string PinnedOn = "2026-11-14";
+        public const string PinnedOn = "2026-11-15";
 
         /// <summary>
         /// ⚑ Rulings that bind THIS SDK and any emitter generating into it. Read the row, not the key.
