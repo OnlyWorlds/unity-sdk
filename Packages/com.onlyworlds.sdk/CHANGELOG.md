@@ -6,6 +6,21 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **`OWReport.ReadLine(line, world = null)`** and **`OWReport.ReadLines(text, world = null)`**: a line of a report's
+  `consequences` read as every reader reads it (the report profile's rule 10, schema-dist serial 129), the TypeScript
+  SDK's `readReportLine` and `readReportLines` (4.169.0) and the Python package's twins. `ReadLines` splits a text at
+  every carriage return and line feed, trims each piece of White_Space and drops the empty ones. `ReadLine` answers an
+  `OWReportLine`: the line, the element it names (`Address`, written `ow://<type>/<id>` with the id in lowercase, or
+  null), the address as read (`Reading`, `Start`, `End`) and the words a reader shows (`Words`). The line's address is
+  the last one in it that names an element of this world, found by `OWAddress.FindLinks`; an address of another world,
+  a slug, a world alone or a lens with no element stays prose. The address leaves the words only when nothing the
+  writer wrote is lost: it is canonical, has no moment and no lens, and stands apart, alone or in a matched pair, and
+  then a colon before it goes too (`Renamed the Consul's Steinway: ow://object/<id>.` shows `Renamed the Consul's
+  Steinway.`). Otherwise the whole line is shown, still naming its element. The profile's lines fixture (101 lines and
+  16 texts) runs whole in `OWReportLinesTests`. Public API, so the next release is a minor.
+
 ### Changed
 
 - **The schema pin moves to `v0.34.1-dist.129`** (canonical `00.34.01` unchanged; no schema file, `schema.json` or
