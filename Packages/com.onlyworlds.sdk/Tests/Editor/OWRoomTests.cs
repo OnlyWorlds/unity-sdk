@@ -92,7 +92,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsNotNull(Fixture, "the vendored room fixture was not found");
             var c = Fixture["cases"].Cast<JObject>().Single(x => (string)x["name"] == name);
 
-            Assert.AreEqual((bool)c["in_room"], OWRoom.IsRoomElement((JObject)c["element"]), $"case {name}: {c["element"]}");
+            // The reader takes a JObject, so a body that is no object (a JSON null, a list, a string) reaches it as null:
+            // what such a value is to a reader typed so. A cast would throw before the reader ran.
+            Assert.AreEqual((bool)c["in_room"], OWRoom.IsRoomElement(c["element"] as JObject), $"case {name}: {c["element"]}");
         }
 
         // -- Beside the fixture (the TypeScript SDK's own tests) -------------------

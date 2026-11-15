@@ -151,30 +151,30 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             switch ((string)c["kind"])
             {
                 case "pair":
-                    return new JObject { ["is_message"] = OWMessage.IsMessage((JObject)c["element"]) };
+                    return new JObject { ["is_message"] = OWMessage.IsMessage(Body(c["element"])) };
                 case "addressed":
-                    return new JObject { ["addressed"] = OWMessage.IsAddressedTo((JObject)c["message"], (string)c["character"]) };
+                    return new JObject { ["addressed"] = OWMessage.IsAddressedTo(Body(c["message"]), (string)c["character"]) };
                 case "recipients":
-                    return new JObject { ["recipients"] = new JArray(OWMessage.RecipientsOf((JObject)c["message"])) };
+                    return new JObject { ["recipients"] = new JArray(OWMessage.RecipientsOf(Body(c["message"]))) };
                 case "unseen":
                     // A case without keyless has a credential.
                     return new JObject
                     {
-                        ["addressed"] = OWMessage.IsAddressedTo((JObject)c["message"], (string)c["character"]),
-                        ["unseen_recipients"] = Maybe(OWMessage.HasUnseenRecipients((JObject)c["message"])),
+                        ["addressed"] = OWMessage.IsAddressedTo(Body(c["message"]), (string)c["character"]),
+                        ["unseen_recipients"] = Maybe(OWMessage.HasUnseenRecipients(Body(c["message"]))),
                     };
                 case "everyone":
                 {
                     var keyless = (bool)c["keyless"];
                     return new JObject
                     {
-                        ["to_everyone"] = OWMessage.IsToEveryone((JObject)c["message"], keyless),
-                        ["unseen_recipients"] = Maybe(OWMessage.HasUnseenRecipients((JObject)c["message"], keyless)),
+                        ["to_everyone"] = OWMessage.IsToEveryone(Body(c["message"]), keyless),
+                        ["unseen_recipients"] = Maybe(OWMessage.HasUnseenRecipients(Body(c["message"]), keyless)),
                     };
                 }
                 case "edited":
                 {
-                    var e = OWMessage.EditedBy((JObject)c["message"], members);
+                    var e = OWMessage.EditedBy(Body(c["message"]), members);
                     return new JObject { ["edited"] = e.Edited, ["edited_by"] = Str(e.By) };
                 }
                 case "note":
@@ -184,10 +184,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 }
                 case "sent_by":
                     // Sent by X is the claim: narrator, which SenderStatus hands back as Claimed.
-                    return new JObject { ["sent_by"] = OWMessage.IsSentBy((JObject)c["message"], (string)c["character"]) };
+                    return new JObject { ["sent_by"] = OWMessage.IsSentBy(Body(c["message"]), (string)c["character"]) };
                 case "sender":
                 {
-                    var s = OWMessage.SenderStatus((JObject)c["message"], members);
+                    var s = OWMessage.SenderStatus(Body(c["message"]), members);
                     // A null string converts to a string-typed JValue, which a JSON null does not equal: write null as null.
                     var got = new JObject
                     {
@@ -215,6 +215,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                     throw new InvalidOperationException("a case of unknown kind " + c["kind"]);
             }
         }
+
+        /// <summary>
+        /// A case's body as the readers take it. They take a <see cref="JObject"/>, so a value that is no object (a JSON
+        /// null, a list, a string, a number, a boolean) reaches them as null, which is what such a value is to a reader
+        /// typed so; the page says each answers for it as for a body that is not a message. A cast would throw first.
+        /// </summary>
+        private static JObject Body(JToken value) => value as JObject;
 
         private static string Word(OWSenderStatus status) => status.ToString().ToLowerInvariant();
 
