@@ -6,6 +6,15 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The schema pin moves to `v0.34.1-dist.130`** (canonical `00.34.01` unchanged; no schema file, `schema.json` or
+  `views.json` moved). The message page says the order a reader asks in: whether a body is a message first, and only
+  then whether it was served without a credential, so a body that is not a message (a Story, a Note) answers false from
+  `OWMessage.HasUnseenRecipients` whatever the key. The message fixture gains that case,
+  `keyless-non-message-is-not-unseen` (103 in all), which `OWMessage` already answered as the page says; no reader
+  changes. The report page names its readers of lines.
+
 ## [0.43.0] - 2026-11-15
 
 A report's consequences, line by line: the line reader every reader shares (schema-dist serial 129), the same

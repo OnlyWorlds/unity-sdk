@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.34.01";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 129;
+        public const int DistSerial = 130;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.34.1-dist.129";
+        public const string Tag = "v0.34.1-dist.130";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -432,9 +432,17 @@ namespace OnlyWorlds.Sdk
         /// words are shown with it taken out), and its second fixture, <c>report-lines.fixture.json</c> (101 cases and
         /// 16 texts). The generated models and the views table changed in their serial stamp only.
         /// </para>
+        /// <para>
+        /// <b>129 -> 130 (2026-11-15)</b>: canonical unchanged, no schema file, <c>schema.json</c> or <c>views.json</c>
+        /// moved. The message page: a body that is not a message answers false from the unseen-recipients reading
+        /// whatever the key, since a reader asks whether a body is a message before it asks for the key; one more case
+        /// in its fixture (<c>keyless-non-message-is-not-unseen</c>, 103 in all), which <see cref="OWMessage"/> already
+        /// answered. The report page names its readers of lines. The generated models and the views table changed in
+        /// their serial stamp only.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "6c1ac5d18e6d62dcf5c294fb8f9ad33a733eee7b6fa011e121e0855472c54705";
+            "06d2b87d8725cb1e85f731df6c3eafe3edad2e8f050bab89ba52f0fcf5880363";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.
