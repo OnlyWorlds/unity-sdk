@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.34.01";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 130;
+        public const int DistSerial = 131;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.34.1-dist.130";
+        public const string Tag = "v0.34.1-dist.131";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -440,9 +440,18 @@ namespace OnlyWorlds.Sdk
         /// answered. The report page names its readers of lines. The generated models and the views table changed in
         /// their serial stamp only.
         /// </para>
+        /// <para>
+        /// <b>130 -> 131 (2026-11-15)</b>: canonical unchanged, no schema file, <c>schema.json</c> or <c>views.json</c>
+        /// moved. The room page defines its fold exactly: simple case folding by the C and S rows of CaseFolding.txt at
+        /// Unicode 15.1, never a language's lower-casing or full folding (which <see cref="OWCaseFold"/> already does),
+        /// and a value that is not an object is no room element, read as false without failing. The message page says
+        /// the same of every reader. The import-map page reads the room page's fold instead of copying it. The fixtures
+        /// gain cases: room 10 (48 in all), message 17 (120), lens 7 (242), calendar 1 (78). The generated models and
+        /// the views table changed in their serial stamp only.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "06d2b87d8725cb1e85f731df6c3eafe3edad2e8f050bab89ba52f0fcf5880363";
+            "e03d650359c877a9fe9127b186e44a7926e03046bc56c33bfabf8ed737fd767e";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.

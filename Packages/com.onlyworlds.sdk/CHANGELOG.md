@@ -8,6 +8,15 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
+- **The schema pin moves to `v0.34.1-dist.131`** (canonical `00.34.01` unchanged; no schema file, `schema.json` or
+  `views.json` moved). The room page defines its fold exactly: simple case folding by the C and S rows of Unicode
+  15.1's CaseFolding.txt, never a language's lower-casing or full folding, so `MEſſAGE` (the long s) is a message and
+  `Meßage` (the sharp s) is not; the package's readers already fold that way. The room and message pages say that a
+  value that is not an object (`null`, a list, a string, a number, a boolean) is no element: every reader answers for
+  it as for a body that is not a message, and none fails. The fixtures gain cases: room 10 (48 in all), message 17
+  (120), lens 7 (242: a description's first line beside a paragraph or line separator, a next line, a
+  line tab or a form feed) and calendar 1 (78: `except` on a leap day that is not
+  the year's last). No reader changes. The import-map page now reads the room page's fold instead of copying it.
 - **The schema pin moves to `v0.34.1-dist.130`** (canonical `00.34.01` unchanged; no schema file, `schema.json` or
   `views.json` moved). The message page says the order a reader asks in: whether a body is a message first, and only
   then whether it was served without a credential, so a body that is not a message (a Story, a Note) answers false from

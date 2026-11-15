@@ -18,14 +18,14 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </summary>
     public class OWMessageTests
     {
-        /// <summary>The fixture's sha256 as dist.130's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "04a2ebf2c5efa66365a93b389e41f58c190aa0af250cbe87c86173872667a307";
+        /// <summary>The fixture's sha256 as dist.131's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "418964e564db054c8e969a157f6e29e82499c04180d10bea8c55ac9f5bf5e279";
 
-        /// <summary>The fixture's cases by kind, as dist.130 holds them (103 in all).</summary>
+        /// <summary>The fixture's cases by kind, as dist.131 holds them (120 in all).</summary>
         private static readonly Dictionary<string, int> Counts = new Dictionary<string, int>
         {
-            ["pair"] = 10, ["addressed"] = 11, ["recipients"] = 2, ["unseen"] = 3, ["everyone"] = 4, ["sent_by"] = 3,
-            ["sender"] = 14, ["unread"] = 22, ["mark"] = 18, ["thread"] = 4, ["edited"] = 4, ["note"] = 8,
+            ["pair"] = 15, ["addressed"] = 12, ["recipients"] = 3, ["unseen"] = 4, ["everyone"] = 5, ["sent_by"] = 4,
+            ["sender"] = 15, ["unread"] = 24, ["mark"] = 19, ["thread"] = 5, ["edited"] = 5, ["note"] = 9,
         };
 
         /// <summary>The keys of a case that hold its answer, by kind.</summary>
@@ -95,7 +95,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.130's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.131's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
@@ -120,7 +120,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             Assert.IsNotNull(Fixture, "the vendored message fixture was not found");
             var cases = Fixture["cases"].Cast<JObject>().ToList();
-            Assert.AreEqual(103, cases.Count, "dist.130's fixture holds 103 cases");
+            Assert.AreEqual(120, cases.Count, "dist.131's fixture holds 120 cases");
             var counts = cases.GroupBy(c => (string)c["kind"]).ToDictionary(g => g.Key, g => g.Count());
             CollectionAssert.AreEquivalent(Counts, counts);
         }
