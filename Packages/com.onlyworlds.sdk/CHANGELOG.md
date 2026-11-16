@@ -17,12 +17,20 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 ### Changed
 
 - **The reading aids and the strand say what type each of their elements is** (the charter and strand profiles,
-  serial 134): `OWReadingAidsCharter.Type` (`law`), `OWReadingAidsGuide.Type` and `OWReadingAidsDomain.Type`
+  serial 133): `OWReadingAidsCharter.Type` (`law`), `OWReadingAidsGuide.Type` and `OWReadingAidsDomain.Type`
   (`construct`), and `OWStrandSlot.Type` (the kind the slot holds, `location` for `Now`), each the element's own type in
   the standard's lowercase word, written beside `id` by every `ToJson` (`{id, type, name, rules, skill}`,
   `{id, type, name}`, `{id, type, name, sentence, hubs}`, each filled slot `{id, type, name}`). A reader handed the
-  packet alone fetches an id by its type. A packet served without `type` (a keel from before serial 134) reads each
-  entry's fixed type. The charter and strand fixtures are serial 134's, every case passing.
+  packet alone fetches an id by its type. A packet served without `type` (a keel from before serial 133) reads each
+  entry's fixed type. The charter and strand fixtures are serial 133's, every case passing.
+- **The schema pin moves to `v0.34.1-dist.133`** (canonical `00.34.01` unchanged; no schema file, `schema.json` or
+  `views.json` moved). The charter and strand pages say what type each element of their packets is: the Charter, the
+  Guide, each Domain, each hub and each filled strand slot carry `type` beside `id`, the kind's own word whatever
+  spelling the element's type is stored in; a hub is an element of the kind its link field links to, so an id of
+  another kind, or of no element, names no hub; and every type compared to a kind is trimmed and folded as the room
+  profile defines it. The charter fixture holds 47 cases (six more) and the strand fixture 29 (two more); the
+  vendored copies in `Tests/Editor/Fixtures/charter/` and `strand/` are the distribution's bytes, and every case
+  passes.
 - **The schema pin moves to `v0.34.1-dist.132`** (canonical `00.34.01` unchanged; no schema file, `schema.json` or
   `views.json` moved). The distribution now carries the default layouts page, `profiles/layout.md`, and its fixture,
   `layout.fixture.json`: the `by-kind` and `around` methods `OWLayout` implements, written out step by step, with 17
