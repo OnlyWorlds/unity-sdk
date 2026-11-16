@@ -27,12 +27,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     public class OWCharterTests
     {
         /// <summary>The fixture's sha256 as serial 134 stages it (each packet entry carries <c>type</c>).</summary>
-        private const string DistSha256 = "86806c9812b33b9e0fcf2c826879341995004bf91ba4248ac8c14ede6ae66c0e";
+        private const string DistSha256 = "ba80d4e276ed81a7c185dcd66c3d6ea7af9c9e49fb947bacde2d52136acb2cd5";
 
-        /// <summary>The fixture's cases by kind, as serial 134 stages them (46 in all).</summary>
+        /// <summary>The fixture's cases by kind, as serial 134 stages them (47 in all).</summary>
         private static readonly Dictionary<string, int> Counts = new Dictionary<string, int>
         {
-            ["element"] = 6, ["charter"] = 40,
+            ["element"] = 6, ["charter"] = 41,
         };
 
         private static JObject _fixture;
@@ -89,7 +89,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             Assert.IsNotNull(Fixture, "the vendored charter fixture was not found");
             var cases = Fixture["cases"].Cast<JObject>().ToList();
-            Assert.AreEqual(46, cases.Count, "serial 134's fixture holds 46 cases");
+            Assert.AreEqual(47, cases.Count, "serial 134's fixture holds 47 cases");
             var counts = cases.GroupBy(c => (string)c["kind"]).ToDictionary(g => g.Key, g => g.Count());
             CollectionAssert.AreEquivalent(Counts, counts);
         }

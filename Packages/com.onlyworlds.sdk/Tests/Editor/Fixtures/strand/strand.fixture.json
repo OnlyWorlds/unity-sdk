@@ -1733,6 +1733,90 @@
           "character": null
         }
       }
+    },
+    "harbour-story-type-ideographic-space": {
+      "id": "019a7f00-0000-7000-8000-00000000f226",
+      "name": "Grey Harbour, the story's type padded with an ideographic space",
+      "x_strand": {
+        "narrative": "019a7f00-0000-7000-8000-000000000301",
+        "event": "019a7f00-0000-7000-8000-000000000311",
+        "location": "019a7f00-0000-7000-8000-000000000321"
+      },
+      "elements": [
+        {
+          "id": "019a7f00-0000-7000-8000-000000000301",
+          "type": "　Narrative",
+          "name": "The Night the Lighthouse Went Dark",
+          "protagonist": "019a7f00-0000-7000-8000-000000000331",
+          "events": [
+            "019a7f00-0000-7000-8000-000000000312",
+            "019a7f00-0000-7000-8000-000000000311"
+          ],
+          "locations": []
+        },
+        {
+          "id": "019a7f00-0000-7000-8000-000000000311",
+          "type": "event",
+          "name": "The lamp fails",
+          "locations": [
+            "019a7f00-0000-7000-8000-000000000321"
+          ],
+          "characters": []
+        },
+        {
+          "id": "019a7f00-0000-7000-8000-000000000312",
+          "type": "event",
+          "name": "The fleet sails",
+          "locations": [
+            "019a7f00-0000-7000-8000-000000000322"
+          ],
+          "characters": []
+        },
+        {
+          "id": "019a7f00-0000-7000-8000-000000000321",
+          "type": "location",
+          "name": "The Lighthouse"
+        },
+        {
+          "id": "019a7f00-0000-7000-8000-000000000322",
+          "type": "location",
+          "name": "The Docks"
+        },
+        {
+          "id": "019a7f00-0000-7000-8000-000000000331",
+          "type": "character",
+          "name": "Ilse the Keeper",
+          "location": "019a7f00-0000-7000-8000-000000000322"
+        }
+      ],
+      "hidden": [],
+      "readers": {
+        "owner": {
+          "rung": "owner",
+          "character": null
+        },
+        "contributor": {
+          "rung": "contributor",
+          "character": null
+        },
+        "guest": {
+          "rung": "guest",
+          "character": null,
+          "whole": [
+            "019a7f00-0000-7000-8000-000000000301",
+            "019a7f00-0000-7000-8000-000000000311",
+            "019a7f00-0000-7000-8000-000000000312",
+            "019a7f00-0000-7000-8000-000000000321",
+            "019a7f00-0000-7000-8000-000000000322",
+            "019a7f00-0000-7000-8000-000000000331"
+          ],
+          "known_of": []
+        },
+        "public": {
+          "rung": "public",
+          "character": null
+        }
+      }
     }
   },
   "cases": [
@@ -2414,6 +2498,41 @@
       "claim": "the story's type is stored as ' Narrative ': matched to the slot's kind trimmed and folded it is the story, so all five slots fill as for the harbour, and the slot's type is narrative, never the spelling stored",
       "kind": "strand",
       "world": "harbour-story-type-stored-otherwise",
+      "reader": "owner",
+      "want": {
+        "narrative": {
+          "id": "019a7f00-0000-7000-8000-000000000301",
+          "type": "narrative",
+          "name": "The Night the Lighthouse Went Dark"
+        },
+        "event": {
+          "id": "019a7f00-0000-7000-8000-000000000311",
+          "type": "event",
+          "name": "The lamp fails"
+        },
+        "location": {
+          "id": "019a7f00-0000-7000-8000-000000000321",
+          "type": "location",
+          "name": "The Lighthouse"
+        },
+        "character": {
+          "id": "019a7f00-0000-7000-8000-000000000331",
+          "type": "character",
+          "name": "Ilse the Keeper"
+        },
+        "now": {
+          "id": "019a7f00-0000-7000-8000-000000000322",
+          "type": "location",
+          "name": "The Docks"
+        },
+        "same": false
+      }
+    },
+    {
+      "name": "a-story-typed-with-an-ideographic-space-before-narrative-is-the-story",
+      "claim": "the story's type is stored as an ideographic space, U+3000, before Narrative: the room profile's trim (the White_Space set) takes it and its fold matches the word, so the strand fills as for the harbour, the slot typed narrative; the answer is the room profile's, so an ASCII-only trim is wrong here",
+      "kind": "strand",
+      "world": "harbour-story-type-ideographic-space",
       "reader": "owner",
       "want": {
         "narrative": {

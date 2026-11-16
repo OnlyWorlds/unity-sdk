@@ -2942,6 +2942,100 @@
         "domains": []
       },
       "note": "The Runbook's type is stored as Object: compared to object trimmed and folded, as the room profile defines it, it is an Object of this world, so the Charter keeps it in skill."
+    },
+    {
+      "name": "types-are-trimmed-and-folded-by-the-room-profile-not-by-a-language",
+      "kind": "charter",
+      "world": {
+        "id": "019a7f00-0000-7000-8000-00000000f139",
+        "name": "One case 134f",
+        "hidden": [],
+        "readers": {
+          "owner": {
+            "rung": "owner",
+            "character": null
+          }
+        },
+        "elements": [
+          {
+            "id": "019a7f00-0000-7000-8000-000000000501",
+            "type": "　construct　",
+            "name": "Alder Quay",
+            "supertype": "Domain",
+            "x_charter_of": "019a7f00-0000-7000-8000-00000000f139",
+            "created_at": "2026-10-01T12:00:00Z",
+            "description": "Where the ferries land.",
+            "locations": [
+              "019a7f00-0000-7000-8000-000000000511",
+              "019a7f00-0000-7000-8000-000000000512",
+              "019a7f00-0000-7000-8000-000000000513"
+            ]
+          },
+          {
+            "id": "019a7f00-0000-7000-8000-000000000502",
+            "type": "conﬆruct",
+            "name": "Birch Row",
+            "supertype": "Domain",
+            "x_charter_of": "019a7f00-0000-7000-8000-00000000f139",
+            "created_at": "2026-10-01T12:00:00Z",
+            "description": "A row of sheds."
+          },
+          {
+            "id": "019a7f00-0000-7000-8000-000000000503",
+            "type": "CONſTRUCT",
+            "name": "Cinder Point",
+            "supertype": "Domain",
+            "x_charter_of": "019a7f00-0000-7000-8000-00000000f139",
+            "created_at": "2026-10-01T12:00:00Z",
+            "description": "The old furnace."
+          },
+          {
+            "id": "019a7f00-0000-7000-8000-000000000511",
+            "type": "﻿Location",
+            "name": "The Customs House",
+            "created_at": "2026-10-01T12:00:00Z"
+          },
+          {
+            "id": "019a7f00-0000-7000-8000-000000000512",
+            "type": "location\u001f",
+            "name": "The Ferry Slip",
+            "created_at": "2026-10-01T12:00:00Z"
+          },
+          {
+            "id": "019a7f00-0000-7000-8000-000000000513",
+            "type": " LOCATION",
+            "name": "The Ticket Hall",
+            "created_at": "2026-10-01T12:00:00Z"
+          }
+        ]
+      },
+      "reader": "owner",
+      "want": {
+        "charter": null,
+        "guide": null,
+        "domains": [
+          {
+            "id": "019a7f00-0000-7000-8000-000000000501",
+            "type": "construct",
+            "name": "Alder Quay",
+            "sentence": "Where the ferries land.",
+            "hubs": [
+              {
+                "type": "location",
+                "id": "019a7f00-0000-7000-8000-000000000513"
+              }
+            ]
+          },
+          {
+            "id": "019a7f00-0000-7000-8000-000000000503",
+            "type": "construct",
+            "name": "Cinder Point",
+            "sentence": "The old furnace.",
+            "hubs": []
+          }
+        ]
+      },
+      "note": "The answer is the room profile's (its trim, the White_Space set, and its fold, simple case folding by the C and S rows), never a language's own. Domains: an ideographic space each side of construct is trimmed (a Domain); con + U+FB06 + ruct is not construct, since the ligature has no simple folding (no Domain; a full fold would make one); CON + U+017F + TRUCT folds to construct, the long s to s (a Domain; lower-casing leaves it). Hubs: U+FEFF before Location is no White_Space, so the type is not location (no hub; a trim that takes a byte order mark would make one); location + U+001F likewise (no hub; a trim that takes the unit separator would make one); an em space, U+2003, before LOCATION is trimmed and the word folds (a hub). Birch Row is no Domain, so the order is Alder Quay, Cinder Point."
     }
   ]
 }
