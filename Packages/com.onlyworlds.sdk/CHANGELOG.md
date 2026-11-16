@@ -6,6 +6,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **`OWSeat` reads whether a seat may change the Character it plays**: `MayChangeCharacter`, `MayChangeCharacterNote`
+  (keel's sentence for why not, or null) and `FollowsSponsor` (a seat its member made to play their own Character,
+  whose right moves with theirs). Keel's OpenAPI document now lists them on GET /account/worlds/{world_id}/seats
+  (document 2dd72338aa30); before, `ListSeatsAsync` dropped them. Parity with the TypeScript SDK 4.172.0's `OwSeat`.
+  `Sponsor`'s comment now says a seat made by a link for an email address answers to the link's maker.
+
 ### Changed
 
 - **The schema pin moves to `v0.34.1-dist.132`** (canonical `00.34.01` unchanged; no schema file, `schema.json` or

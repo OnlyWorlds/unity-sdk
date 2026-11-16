@@ -724,9 +724,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var t = new FakeTransport
             {
                 ResponseBody = @"{""data"":[{""id"":""s1"",""name"":""Scout"",""role"":""contributor"",""kind"":""agent"",""character"":""c9"","
-                    + @"""sponsor"":""ada"",""joined_at"":""2026-10-30T09:00:00+00:00"",""last_active"":null},"
+                    + @"""sponsor"":""ada"",""joined_at"":""2026-10-30T09:00:00+00:00"",""last_active"":null,"
+                    + @"""may_change_character"":false,""may_change_character_note"":""plays it; cannot change it, since ada cannot"","
+                    + @"""follows_sponsor"":true},"
                     + @"{""id"":""s2"",""name"":""Tally"",""role"":""guest"",""kind"":""agent"",""character"":null,""sponsor"":null,"
-                    + @"""joined_at"":null,""last_active"":""2026-10-31T00:30:00+00:00""}]}",
+                    + @"""joined_at"":null,""last_active"":""2026-10-31T00:30:00+00:00"",""may_change_character"":true,"
+                    + @"""may_change_character_note"":null,""follows_sponsor"":false}]}",
             };
             var seats = await Make(t).ListSeatsAsync("w1");
 
@@ -741,6 +744,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(("2026-10-30T09:00:00+00:00", (string)null), (seats[0].JoinedAt, seats[0].LastActive));
             Assert.AreEqual(("s2", (string)null, (string)null, "2026-10-31T00:30:00+00:00"),
                 (seats[1].Id, seats[1].Character, seats[1].Sponsor, seats[1].LastActive));
+            Assert.AreEqual((false, "plays it; cannot change it, since ada cannot", true),
+                (seats[0].MayChangeCharacter, seats[0].MayChangeCharacterNote, seats[0].FollowsSponsor));
+            Assert.AreEqual((true, (string)null, false),
+                (seats[1].MayChangeCharacter, seats[1].MayChangeCharacterNote, seats[1].FollowsSponsor), "both bools read, not left at default");
 
             t.ResponseBody = "{}";
             CollectionAssert.IsEmpty(await Make(t).ListSeatsAsync("w1"), "no data: no rows");

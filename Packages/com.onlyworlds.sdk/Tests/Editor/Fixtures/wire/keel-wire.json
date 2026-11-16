@@ -5,7 +5,7 @@
     "X-Session-Token",
     "Authorization"
   ],
-  "document_sha256": "595ebe0d4db14c6b7101574178164be753ecddb290e71a5e41cc3d15bf8c723e",
+  "document_sha256": "2dd72338aa307aae6a9cd84bdaa0905dc426a80007d07d62c8bb2300472719ed",
   "error_codes": {
     "already_member": 409,
     "already_reported": 409,
@@ -95,7 +95,7 @@
     "write_failed": 502,
     "wrong_audience": 401
   },
-  "fetched": "2026-11-16T08:18+01:00",
+  "fetched": "2026-11-16T16:58+01:00",
   "openapi_version": "2.0",
   "paths": {
     "/api/v2/ability": {
@@ -1670,10 +1670,13 @@
         "response": [
           "data",
           "data[].character",
+          "data[].follows_sponsor",
           "data[].id",
           "data[].joined_at",
           "data[].kind",
           "data[].last_active",
+          "data[].may_change_character",
+          "data[].may_change_character_note",
           "data[].name",
           "data[].role",
           "data[].sponsor"

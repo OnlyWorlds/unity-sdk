@@ -30,8 +30,9 @@ namespace OnlyWorlds.Sdk
         public string Character;
 
         /// <summary>
-        /// Who answers for the seat: a username when they are the world's owner or a member; null for a seat from an email
-        /// invite, or a sponsor who left.
+        /// Who answers for the seat: a username when they are the world's owner or a member; null for a sponsor who left. A
+        /// seat made by a link for an email address answers to the person who made the link (for a link an AI made, the
+        /// person who answers for that AI); the address is only a label.
         /// </summary>
         [JsonProperty("sponsor")]
         public string Sponsor;
@@ -43,6 +44,31 @@ namespace OnlyWorlds.Sdk
         /// <summary>The latest use of the seat's key, as served, or null.</summary>
         [JsonProperty("last_active")]
         public string LastActive;
+
+        /// <summary>
+        /// True when the seat may change, never delete, the Character it plays: the owner gave it that Character, or its
+        /// sponsor could change it. False says only that no such grant is held: a co-builder seat changes everything and a
+        /// seat changes what it made. On a seat a member answers for, it holds only while that member could change the
+        /// Character. False when the seat has no Character, and when its Character is kept from you (<see cref="Character"/>
+        /// null).
+        /// </summary>
+        [JsonProperty("may_change_character")]
+        public bool MayChangeCharacter;
+
+        /// <summary>
+        /// Why the seat may not change the Character it plays, as keel's sentence (for example "plays it; cannot change it,
+        /// since alice cannot"); null when it may, and when its Character is kept from you.
+        /// </summary>
+        [JsonProperty("may_change_character_note")]
+        public string MayChangeCharacterNote;
+
+        /// <summary>
+        /// True when its member made it for their own AI to play their own Character (<c>mine</c>): it plays what its
+        /// sponsor plays, and its <see cref="MayChangeCharacter"/> is its sponsor's, both moving with theirs, until it is
+        /// handed to someone else.
+        /// </summary>
+        [JsonProperty("follows_sponsor")]
+        public bool FollowsSponsor;
     }
 
     /// <summary>
