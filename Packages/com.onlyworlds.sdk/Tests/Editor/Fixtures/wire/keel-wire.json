@@ -5,7 +5,7 @@
     "X-Session-Token",
     "Authorization"
   ],
-  "document_sha256": "591762dc2b308558cc44f680ded4f6ebee6ac2f40087fe9340d5b626810eb8aa",
+  "document_sha256": "595ebe0d4db14c6b7101574178164be753ecddb290e71a5e41cc3d15bf8c723e",
   "error_codes": {
     "already_member": 409,
     "already_reported": 409,
@@ -95,7 +95,7 @@
     "write_failed": 502,
     "wrong_audience": 401
   },
-  "fetched": "2026-11-15T18:24+01:00",
+  "fetched": "2026-11-16T08:18+01:00",
   "openapi_version": "2.0",
   "paths": {
     "/api/v2/ability": {
@@ -1497,6 +1497,7 @@
           "members[].lenses",
           "members[].lenses_from",
           "members[].may_change_character",
+          "members[].may_change_character_note",
           "members[].name",
           "members[].role",
           "members[].roster_character",
@@ -1531,6 +1532,7 @@
           "lenses",
           "lenses_from",
           "may_change_character",
+          "may_change_character_note",
           "name",
           "role",
           "roster_character",
