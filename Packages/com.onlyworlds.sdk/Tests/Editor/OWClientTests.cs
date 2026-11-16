@@ -1001,11 +1001,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
         // -- The reading aids beside it -------------------------------------
 
-        private const string ReadingAids = @"{""charter"":{""id"":""law-1"",""name"":""House rules"",""rules"":[{""rule"":""no-orphans""}],""skill"":[""obj-1""]},
-            ""guide"":{""id"":""con-g"",""name"":""Start here""},
-            ""domains"":[{""id"":""con-d1"",""name"":""The Harbour"",""sentence"":""Where the ships come in."",
+        private const string ReadingAids = @"{""charter"":{""id"":""law-1"",""type"":""law"",""name"":""House rules"",""rules"":[{""rule"":""no-orphans""}],""skill"":[""obj-1""]},
+            ""guide"":{""id"":""con-g"",""type"":""construct"",""name"":""Start here""},
+            ""domains"":[{""id"":""con-d1"",""type"":""construct"",""name"":""The Harbour"",""sentence"":""Where the ships come in."",
                 ""hubs"":[{""type"":""location"",""id"":""loc-1""},{""type"":""character"",""id"":""c-1""}]},
-                {""id"":""con-d2"",""name"":""The Hills"",""sentence"":"""",""hubs"":[]}]}";
+                {""id"":""con-d2"",""type"":""construct"",""name"":""The Hills"",""sentence"":"""",""hubs"":[]}]}";
 
         [Test]
         public async Task Me_ReadsTheReadingAids()
@@ -1057,6 +1057,22 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(JTokenType.Array, aids.Charter.Rules.Type);
             Assert.IsEmpty((JArray)aids.Charter.Rules);
             Assert.IsEmpty(aids.Charter.Skill);
+        }
+
+        [Test]
+        public void Me_AidsServedWithoutAType_ReadTheirPairsType()
+        {
+            // A keel from before serial 134 serves no `type` on the aids: each aid's type is fixed by its pair.
+            var aids = OWReadingAids.Of(JObject.Parse(
+                @"{""reading_aids"":{""charter"":{""id"":""law-1"",""name"":""House rules"",""rules"":[],""skill"":[]},
+                    ""guide"":{""id"":""con-g"",""name"":""Start here""},
+                    ""domains"":[{""id"":""con-d1"",""name"":""The Harbour"",""sentence"":"""",""hubs"":[]}]}}"));
+
+            Assert.AreEqual("law", aids.Charter.Type);
+            Assert.AreEqual("construct", aids.Guide.Type);
+            Assert.AreEqual("construct", aids.Domains[0].Type);
+            CollectionAssert.AreEqual(new[] { "id", "type", "name", "rules", "skill" },
+                aids.Charter.ToJson().Properties().Select(p => p.Name).ToArray(), "written back in the page's order");
         }
 
         [Test]

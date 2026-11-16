@@ -22,8 +22,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </remarks>
     public class OWStrandTests
     {
-        /// <summary>The fixture's sha256 as dist.123's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "d0f9bb23e9f538c99165b3e590d4da33dc329fa9ee565e0875d2fa4a09e2979d";
+        /// <summary>The fixture's sha256 as serial 134 stages it (each filled slot carries <c>type</c>).</summary>
+        private const string DistSha256 = "c8586c1745c9d8ec6532c2283a64886fcb7910ad825c281eb7d5181d6e5f16ee";
 
         private const string Story = "019a7f00-0000-7000-8000-000000000301";
 
@@ -73,7 +73,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.123's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not serial 134's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
@@ -235,7 +235,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 if (name == null) docks.Remove("name");
                 else docks["name"] = name;
                 var now = OWStrand.Of(world, elements, OWLensReader.Owner()).ToJson()["now"];
-                Assert.AreEqual(@"{""id"":""019a7f00-0000-7000-8000-000000000322"",""name"":""""}", now.ToString(Formatting.None));
+                Assert.AreEqual(@"{""id"":""019a7f00-0000-7000-8000-000000000322"",""type"":""location"",""name"":""""}",
+                    now.ToString(Formatting.None));
             }
         }
 

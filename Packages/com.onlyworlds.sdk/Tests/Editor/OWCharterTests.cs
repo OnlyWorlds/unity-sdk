@@ -26,8 +26,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </remarks>
     public class OWCharterTests
     {
-        /// <summary>The fixture's sha256 as dist.126's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "459991acf33e1b829d5fa3ff4d262485a632f1f7cbc67d847e8bbdb6d78122a7";
+        /// <summary>The fixture's sha256 as serial 134 stages it (each packet entry carries <c>type</c>).</summary>
+        private const string DistSha256 = "b87b5e88e81d60e971b0620a1d9fb0367d8b5d03bcd5671777208dfb078f8f01";
 
         /// <summary>The fixture's cases by kind, as dist.126 holds them (41 in all).</summary>
         private static readonly Dictionary<string, int> Counts = new Dictionary<string, int>
@@ -81,7 +81,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.126's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not serial 134's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]

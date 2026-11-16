@@ -6,7 +6,7 @@
     "element: isCharterElement(element), in the room profile's matcher-case shape: element gives type, supertype and the mark as a body might carry them; is_charter_element is what the reader must answer, the pair AND the mark. A mark counts when its value is not null: a string only when something is left after the White_Space trim, an empty list or an empty object as absent, any other value (a number, a list or an object with something in it) as present; the value is never compared.",
     "worlds: each world's elements as its owner is served them, the ids its hidden mark keeps from every reader but the owner, and its readers, in the lens fixture's shape. A reader's rung is owner (the whole world), contributor (the world less the hidden), guest (exactly the whole and known_of ids it lists; known_of is a stub: a name, its description and its dates, no link and no extension field) or public (the world less the hidden and the room elements, and nothing at all unless the world carries open: true, a world open to anyone). A case's world is a name in worlds or, as a graph case's is, a world of its own.",
     "a stub's standing: a stub serves no extension field, so whether an element the reader holds only as a stub is a reading aid is read from the element as the owner is served it; what the reading shows of it is what the stub serves.",
-    "charter: want is charterOf(world, reader). charter is {id, name, rules, skill} or null: the newest marked Charter the reader sees, by created_at compared as instants (none sorts oldest), then the higher id by code point; rules the rules_field list as stored, [] when absent or null; skill the ids its description names (any id written as 8-4-4-4-12 hex, so every ow:// form, a site address and a bare id), in lowercase, each once in the order written, kept when it is an Object of this world the reader sees (served whole to every reader who reads the Charter; a hidden one is not seen and not kept), the first skill_max of those kept. guide is {id, name} or null, chosen the same way among marked Guides. domains is every marked Domain the reader sees, each {id, name, sentence, hubs}: in the order of the Guide's constructs as the reader is served them first (an id named twice keeps its first place, an entry that is no marked Domain is skipped), then the rest by folded name and then id; with no Guide seen, by folded name and id alone.",
+    "charter: want is charterOf(world, reader). charter is {id, type, name, rules, skill} or null, type law: the newest marked Charter the reader sees, by created_at compared as instants (none sorts oldest), then the higher id by code point; rules the rules_field list as stored, [] when absent or null; skill the ids its description names (any id written as 8-4-4-4-12 hex, so every ow:// form, a site address and a bare id), in lowercase, each once in the order written, kept when it is an Object of this world the reader sees (served whole to every reader who reads the Charter; a hidden one is not seen and not kept), the first skill_max of those kept. guide is {id, type, name} or null, type construct, chosen the same way among marked Guides. domains is every marked Domain the reader sees, each {id, type, name, sentence, hubs}, type construct: in the order of the Guide's constructs as the reader is served them first (an id named twice keeps its first place, an entry that is no marked Domain is skipped), then the rest by folded name and then id; with no Guide seen, by folded name and id alone.",
     "sentence: the description as served, trimmed of White_Space at both ends, cut at its first line break (a line feed or a carriage return) and trimmed again, so its first line that holds something; an empty string when there is none. hubs: the distinct {type, id} the Domain's served link fields name, in hub_fields' order (the Construct's link fields, the schema's order) and each list's own order, the Domain itself excluded; a stub serves no links, so a stub Domain's hubs are []."
   ],
   "pairs": [
@@ -927,6 +927,7 @@
       "want": {
         "charter": {
           "id": "019a7f00-0000-7000-8000-000000000200",
+          "type": "law",
           "name": "House Rules",
           "rules": [
             {
@@ -948,11 +949,13 @@
         },
         "guide": {
           "id": "019a7f00-0000-7000-8000-000000000203",
+          "type": "construct",
           "name": "Start here"
         },
         "domains": [
           {
             "id": "019a7f00-0000-7000-8000-000000000205",
+            "type": "construct",
             "name": "the Archive",
             "sentence": "Ledgers and letters.",
             "hubs": [
@@ -972,6 +975,7 @@
           },
           {
             "id": "019a7f00-0000-7000-8000-000000000204",
+            "type": "construct",
             "name": "The Docks",
             "sentence": "Where the ships come in.",
             "hubs": [
@@ -987,6 +991,7 @@
           },
           {
             "id": "019a7f00-0000-7000-8000-000000000207",
+            "type": "construct",
             "name": "The Vault",
             "sentence": "",
             "hubs": [
@@ -998,6 +1003,7 @@
           },
           {
             "id": "019a7f00-0000-7000-8000-000000000209",
+            "type": "construct",
             "name": "The Lighthouse",
             "sentence": "The light on the point.",
             "hubs": [
@@ -1009,6 +1015,7 @@
           },
           {
             "id": "019a7f00-0000-7000-8000-000000000206",
+            "type": "construct",
             "name": "ash row",
             "sentence": "",
             "hubs": [
@@ -1020,6 +1027,7 @@
           },
           {
             "id": "019a7f00-0000-7000-8000-000000000213",
+            "type": "construct",
             "name": "Zephyr Quay",
             "sentence": "The far quay.",
             "hubs": [
@@ -1041,6 +1049,7 @@
       "want": {
         "charter": {
           "id": "019a7f00-0000-7000-8000-000000000200",
+          "type": "law",
           "name": "House Rules",
           "rules": [
             {
@@ -1061,11 +1070,13 @@
         },
         "guide": {
           "id": "019a7f00-0000-7000-8000-000000000203",
+          "type": "construct",
           "name": "Start here"
         },
         "domains": [
           {
             "id": "019a7f00-0000-7000-8000-000000000205",
+            "type": "construct",
             "name": "the Archive",
             "sentence": "Ledgers and letters.",
             "hubs": [
@@ -1081,6 +1092,7 @@
           },
           {
             "id": "019a7f00-0000-7000-8000-000000000204",
+            "type": "construct",
             "name": "The Docks",
             "sentence": "Where the ships come in.",
             "hubs": [
@@ -1096,6 +1108,7 @@
           },
           {
             "id": "019a7f00-0000-7000-8000-000000000209",
+            "type": "construct",
             "name": "The Lighthouse",
             "sentence": "The light on the point.",
             "hubs": [
@@ -1107,6 +1120,7 @@
           },
           {
             "id": "019a7f00-0000-7000-8000-000000000206",
+            "type": "construct",
             "name": "ash row",
             "sentence": "",
             "hubs": [
@@ -1118,6 +1132,7 @@
           },
           {
             "id": "019a7f00-0000-7000-8000-000000000213",
+            "type": "construct",
             "name": "Zephyr Quay",
             "sentence": "The far quay.",
             "hubs": [
@@ -1139,6 +1154,7 @@
       "want": {
         "charter": {
           "id": "019a7f00-0000-7000-8000-000000000200",
+          "type": "law",
           "name": "House Rules",
           "rules": [
             {
@@ -1159,11 +1175,13 @@
         },
         "guide": {
           "id": "019a7f00-0000-7000-8000-000000000203",
+          "type": "construct",
           "name": "Start here"
         },
         "domains": [
           {
             "id": "019a7f00-0000-7000-8000-000000000205",
+            "type": "construct",
             "name": "the Archive",
             "sentence": "Ledgers and letters.",
             "hubs": [
@@ -1175,6 +1193,7 @@
           },
           {
             "id": "019a7f00-0000-7000-8000-000000000204",
+            "type": "construct",
             "name": "The Docks",
             "sentence": "Where the ships come in.",
             "hubs": [
@@ -1186,12 +1205,14 @@
           },
           {
             "id": "019a7f00-0000-7000-8000-000000000209",
+            "type": "construct",
             "name": "The Lighthouse",
             "sentence": "The light on the point.",
             "hubs": []
           },
           {
             "id": "019a7f00-0000-7000-8000-000000000206",
+            "type": "construct",
             "name": "ash row",
             "sentence": "",
             "hubs": [
@@ -1225,12 +1246,14 @@
       "want": {
         "charter": {
           "id": "019a7f00-0000-7000-8000-000000000221",
+          "type": "law",
           "name": "Rules A",
           "rules": [],
           "skill": []
         },
         "guide": {
           "id": "019a7f00-0000-7000-8000-000000000222",
+          "type": "construct",
           "name": "Guide, dated"
         },
         "domains": []
@@ -1257,12 +1280,14 @@
       "want": {
         "charter": {
           "id": "019a7f00-0000-7000-8000-000000000240",
+          "type": "law",
           "name": "Copied Rules",
           "rules": [],
           "skill": []
         },
         "guide": {
           "id": "019a7f00-0000-7000-8000-000000000242",
+          "type": "construct",
           "name": "Start"
         },
         "domains": []
@@ -1278,23 +1303,27 @@
         "charter": null,
         "guide": {
           "id": "019a7f00-0000-7000-8000-000000000250",
+          "type": "construct",
           "name": "Guide"
         },
         "domains": [
           {
             "id": "019a7f00-0000-7000-8000-000000000253",
+            "type": "construct",
             "name": " North ",
             "sentence": "",
             "hubs": []
           },
           {
             "id": "019a7f00-0000-7000-8000-000000000252",
+            "type": "construct",
             "name": "north",
             "sentence": "",
             "hubs": []
           },
           {
             "id": "019a7f00-0000-7000-8000-000000000251",
+            "type": "construct",
             "name": "Zed",
             "sentence": "",
             "hubs": []
@@ -1314,18 +1343,21 @@
         "domains": [
           {
             "id": "019a7f00-0000-7000-8000-000000000252",
+            "type": "construct",
             "name": "north",
             "sentence": "",
             "hubs": []
           },
           {
             "id": "019a7f00-0000-7000-8000-000000000253",
+            "type": "construct",
             "name": " North ",
             "sentence": "",
             "hubs": []
           },
           {
             "id": "019a7f00-0000-7000-8000-000000000251",
+            "type": "construct",
             "name": "Zed",
             "sentence": "",
             "hubs": []
@@ -1342,6 +1374,7 @@
       "want": {
         "charter": {
           "id": "019a7f00-0000-7000-8000-000000000260",
+          "type": "law",
           "name": "Open Rules",
           "rules": [],
           "skill": [
@@ -1350,11 +1383,13 @@
         },
         "guide": {
           "id": "019a7f00-0000-7000-8000-000000000261",
+          "type": "construct",
           "name": "Welcome"
         },
         "domains": [
           {
             "id": "019a7f00-0000-7000-8000-000000000262",
+            "type": "construct",
             "name": "The Square",
             "sentence": "Where everyone meets.",
             "hubs": [
@@ -1376,6 +1411,7 @@
       "want": {
         "charter": {
           "id": "019a7f00-0000-7000-8000-000000000260",
+          "type": "law",
           "name": "Open Rules",
           "rules": [],
           "skill": [
@@ -1385,11 +1421,13 @@
         },
         "guide": {
           "id": "019a7f00-0000-7000-8000-000000000261",
+          "type": "construct",
           "name": "Welcome"
         },
         "domains": [
           {
             "id": "019a7f00-0000-7000-8000-000000000262",
+            "type": "construct",
             "name": "The Square",
             "sentence": "Where everyone meets.",
             "hubs": [
@@ -1409,6 +1447,7 @@
           },
           {
             "id": "019a7f00-0000-7000-8000-000000000266",
+            "type": "construct",
             "name": "Back Rooms",
             "sentence": "",
             "hubs": []
@@ -1425,6 +1464,7 @@
       "want": {
         "charter": {
           "id": "019a7f00-0000-7000-8000-000000000270",
+          "type": "law",
           "name": "Workshop Rules",
           "rules": [],
           "skill": [
@@ -1448,6 +1488,7 @@
       "want": {
         "charter": {
           "id": "019a7f00-0000-7000-8000-000000000270",
+          "type": "law",
           "name": "Workshop Rules",
           "rules": [],
           "skill": [
@@ -1497,6 +1538,7 @@
       "want": {
         "charter": {
           "id": "019a7f00-0000-7000-8000-000000000280",
+          "type": "law",
           "name": "Rules",
           "rules": [],
           "skill": [
@@ -1542,6 +1584,7 @@
       "want": {
         "charter": {
           "id": "019a7f00-0000-7000-8000-000000000282",
+          "type": "law",
           "name": "Rules",
           "rules": [],
           "skill": [
@@ -1587,6 +1630,7 @@
       "want": {
         "charter": {
           "id": "019a7f00-0000-7000-8000-000000000284",
+          "type": "law",
           "name": "Rules",
           "rules": [],
           "skill": [
@@ -1632,6 +1676,7 @@
       "want": {
         "charter": {
           "id": "019a7f00-0000-7000-8000-000000000286",
+          "type": "law",
           "name": "Rules",
           "rules": [],
           "skill": [
@@ -1784,6 +1829,7 @@
       "want": {
         "charter": {
           "id": "019a7f00-0000-7000-8000-000000000200",
+          "type": "law",
           "name": "House Rules",
           "rules": [
             {
@@ -1804,11 +1850,13 @@
         },
         "guide": {
           "id": "019a7f00-0000-7000-8000-000000000203",
+          "type": "construct",
           "name": "Start here"
         },
         "domains": [
           {
             "id": "019a7f00-0000-7000-8000-000000000206",
+            "type": "construct",
             "name": "ash row",
             "sentence": "",
             "hubs": [
@@ -1820,6 +1868,7 @@
           },
           {
             "id": "019a7f00-0000-7000-8000-000000000205",
+            "type": "construct",
             "name": "the Archive",
             "sentence": "Ledgers and letters.",
             "hubs": [
@@ -1831,6 +1880,7 @@
           },
           {
             "id": "019a7f00-0000-7000-8000-000000000204",
+            "type": "construct",
             "name": "The Docks",
             "sentence": "Where the ships come in.",
             "hubs": [
@@ -1856,6 +1906,7 @@
       "want": {
         "charter": {
           "id": "019a7f00-0000-7000-8000-000000000300",
+          "type": "law",
           "name": "House Rules",
           "rules": [],
           "skill": [
@@ -1864,11 +1915,13 @@
         },
         "guide": {
           "id": "019a7f00-0000-7000-8000-000000000302",
+          "type": "construct",
           "name": "Start here"
         },
         "domains": [
           {
             "id": "019a7f00-0000-7000-8000-000000000306",
+            "type": "construct",
             "name": "The Hall",
             "sentence": "Where the house meets.",
             "hubs": [
@@ -1890,6 +1943,7 @@
       "want": {
         "charter": {
           "id": "019a7f00-0000-7000-8000-000000000310",
+          "type": "law",
           "name": "House Rules",
           "rules": [
             {
@@ -1946,6 +2000,7 @@
       "want": {
         "charter": {
           "id": "019a7f00-0000-7000-8000-000000000320",
+          "type": "law",
           "name": "Rules",
           "rules": [],
           "skill": [
@@ -1991,6 +2046,7 @@
       "want": {
         "charter": {
           "id": "019a7f00-0000-7000-8000-000000000321",
+          "type": "law",
           "name": "Rules",
           "rules": [],
           "skill": [
@@ -2041,6 +2097,7 @@
       "want": {
         "charter": {
           "id": "019a7f00-0000-7000-8000-000000000331",
+          "type": "law",
           "name": "Rules, newer",
           "rules": [],
           "skill": []
@@ -2089,6 +2146,7 @@
       "want": {
         "charter": {
           "id": "019a7f00-0000-7000-8000-000000000333",
+          "type": "law",
           "name": "Rules, newer",
           "rules": [],
           "skill": []
@@ -2130,6 +2188,7 @@
         "domains": [
           {
             "id": "019a7f00-0000-7000-8000-000000000334",
+            "type": "construct",
             "name": "The Docks",
             "sentence": "Where the ferries tie up.",
             "hubs": []
@@ -2170,6 +2229,7 @@
         "domains": [
           {
             "id": "019a7f00-0000-7000-8000-000000000335",
+            "type": "construct",
             "name": "The Docks",
             "sentence": "",
             "hubs": []
@@ -2217,6 +2277,7 @@
       "want": {
         "charter": {
           "id": "019a7f00-0000-7000-8000-000000000340",
+          "type": "law",
           "name": "Rules",
           "rules": [],
           "skill": [
@@ -2282,6 +2343,7 @@
       "want": {
         "charter": {
           "id": "019a7f00-0000-7000-8000-000000000350",
+          "type": "law",
           "name": "Rules",
           "rules": [],
           "skill": [
@@ -2336,6 +2398,7 @@
       "want": {
         "charter": {
           "id": "019a7f00-0000-7000-8000-0000000003c0",
+          "type": "law",
           "name": "Rules",
           "rules": [],
           "skill": [
@@ -2381,6 +2444,7 @@
       "want": {
         "charter": {
           "id": "019a7f00-0000-7000-8000-0000000003c0",
+          "type": "law",
           "name": "Rules",
           "rules": [],
           "skill": []
@@ -2428,6 +2492,7 @@
       "want": {
         "charter": {
           "id": "019a7f00-0000-7000-8000-000000000361",
+          "type": "law",
           "name": "Rules A",
           "rules": [],
           "skill": []
@@ -2475,6 +2540,7 @@
       "want": {
         "charter": {
           "id": "019a7f00-0000-7000-8000-000000000370",
+          "type": "law",
           "name": "Rules A",
           "rules": [],
           "skill": []
@@ -2522,6 +2588,7 @@
       "want": {
         "charter": {
           "id": "019a7f00-0000-7000-8000-000000000380",
+          "type": "law",
           "name": "Rules",
           "rules": [],
           "skill": []
@@ -2569,6 +2636,7 @@
       "want": {
         "charter": {
           "id": "019a7f00-0000-7000-8000-000000000390",
+          "type": "law",
           "name": "Rules",
           "rules": [],
           "skill": []
@@ -2616,6 +2684,7 @@
       "want": {
         "charter": {
           "id": "019a7f00-0000-7000-8000-000000000392",
+          "type": "law",
           "name": "Rules",
           "rules": [],
           "skill": []

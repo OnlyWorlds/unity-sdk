@@ -16,6 +16,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
+- **The reading aids and the strand say what type each of their elements is** (the charter and strand profiles,
+  serial 134): `OWReadingAidsCharter.Type` (`law`), `OWReadingAidsGuide.Type` and `OWReadingAidsDomain.Type`
+  (`construct`), and `OWStrandSlot.Type` (the kind the slot holds, `location` for `Now`), each the element's own type in
+  the standard's lowercase word, written beside `id` by every `ToJson` (`{id, type, name, rules, skill}`,
+  `{id, type, name}`, `{id, type, name, sentence, hubs}`, each filled slot `{id, type, name}`). A reader handed the
+  packet alone fetches an id by its type. A packet served without `type` (a keel from before serial 134) reads each
+  entry's fixed type. The charter and strand fixtures are serial 134's, every case passing.
 - **The schema pin moves to `v0.34.1-dist.132`** (canonical `00.34.01` unchanged; no schema file, `schema.json` or
   `views.json` moved). The distribution now carries the default layouts page, `profiles/layout.md`, and its fixture,
   `layout.fixture.json`: the `by-kind` and `around` methods `OWLayout` implements, written out step by step, with 17

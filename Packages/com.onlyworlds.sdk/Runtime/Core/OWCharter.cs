@@ -21,9 +21,10 @@ namespace OnlyWorlds.Sdk
     /// <summary>The Charter as one reader sees it: the rules a person or an AI follows here.</summary>
     public sealed class OWReadingAidsCharter
     {
-        internal OWReadingAidsCharter(string id, string name, JToken rules, IReadOnlyList<string> skill)
+        internal OWReadingAidsCharter(string id, string type, string name, JToken rules, IReadOnlyList<string> skill)
         {
             Id = id;
+            Type = type;
             Name = name;
             Rules = rules;
             Skill = skill;
@@ -31,6 +32,12 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>The Law's id.</summary>
         public string Id { get; }
+
+        /// <summary>
+        /// Its type in the standard's lowercase word, <c>law</c> (serial 134): a reader handed the packet alone fetches the
+        /// id by its type.
+        /// </summary>
+        public string Type { get; }
 
         /// <summary>Its name as served; empty when it has none.</summary>
         public string Name { get; }
@@ -48,38 +55,44 @@ namespace OnlyWorlds.Sdk
         /// </summary>
         public IReadOnlyList<string> Skill { get; }
 
-        /// <summary>The profile's <c>{id, name, rules, skill}</c>.</summary>
+        /// <summary>The profile's <c>{id, type, name, rules, skill}</c>.</summary>
         public JObject ToJson() => new JObject
         {
-            ["id"] = Id, ["name"] = Name, ["rules"] = Rules.DeepClone(), ["skill"] = new JArray(Skill),
+            ["id"] = Id, ["type"] = Type, ["name"] = Name, ["rules"] = Rules.DeepClone(), ["skill"] = new JArray(Skill),
         };
     }
 
     /// <summary>The Guide as one reader sees it: where a stranger starts.</summary>
     public sealed class OWReadingAidsGuide
     {
-        internal OWReadingAidsGuide(string id, string name)
+        internal OWReadingAidsGuide(string id, string type, string name)
         {
             Id = id;
+            Type = type;
             Name = name;
         }
 
         /// <summary>The Construct's id.</summary>
         public string Id { get; }
 
+        /// <summary>Its type in the standard's lowercase word, <c>construct</c> (serial 134).</summary>
+        public string Type { get; }
+
         /// <summary>Its name as served; empty when it has none.</summary>
         public string Name { get; }
 
-        /// <summary>The profile's <c>{id, name}</c>.</summary>
-        public JObject ToJson() => new JObject { ["id"] = Id, ["name"] = Name };
+        /// <summary>The profile's <c>{id, type, name}</c>.</summary>
+        public JObject ToJson() => new JObject { ["id"] = Id, ["type"] = Type, ["name"] = Name };
     }
 
     /// <summary>One Domain as one reader sees it: a place in the world, its sentence and its hubs.</summary>
     public sealed class OWReadingAidsDomain
     {
-        internal OWReadingAidsDomain(string id, string name, string sentence, IReadOnlyList<(string type, string id)> hubs)
+        internal OWReadingAidsDomain(string id, string type, string name, string sentence,
+            IReadOnlyList<(string type, string id)> hubs)
         {
             Id = id;
+            Type = type;
             Name = name;
             Sentence = sentence;
             Hubs = hubs;
@@ -87,6 +100,9 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>The Construct's id.</summary>
         public string Id { get; }
+
+        /// <summary>Its type in the standard's lowercase word, <c>construct</c> (serial 134), as a hub writes one.</summary>
+        public string Type { get; }
 
         /// <summary>Its name as served, untrimmed; empty when it has none.</summary>
         public string Name { get; }
@@ -104,10 +120,11 @@ namespace OnlyWorlds.Sdk
         /// </summary>
         public IReadOnlyList<(string type, string id)> Hubs { get; }
 
-        /// <summary>The profile's <c>{id, name, sentence, hubs}</c>, each hub <c>{type, id}</c>.</summary>
+        /// <summary>The profile's <c>{id, type, name, sentence, hubs}</c>, each hub <c>{type, id}</c>.</summary>
         public JObject ToJson() => new JObject
         {
             ["id"] = Id,
+            ["type"] = Type,
             ["name"] = Name,
             ["sentence"] = Sentence,
             ["hubs"] = new JArray(Hubs.Select(h => new JObject { ["type"] = h.type, ["id"] = h.id })),
@@ -177,13 +194,17 @@ namespace OnlyWorlds.Sdk
             if (aids["charter"] is JObject c)
             {
                 var rules = c["rules"] == null || c["rules"].Type == JTokenType.Null ? new JArray() : c["rules"].DeepClone();
-                charter = new OWReadingAidsCharter(Text(c, "id"), Text(c, "name"), rules, Strings(c["skill"]));
+                charter = new OWReadingAidsCharter(Text(c, "id"), TypeOf(c, "law"), Text(c, "name"), rules,
+                    Strings(c["skill"]));
             }
 
-            var guide = aids["guide"] is JObject g ? new OWReadingAidsGuide(Text(g, "id"), Text(g, "name")) : null;
+            var guide = aids["guide"] is JObject g
+                ? new OWReadingAidsGuide(Text(g, "id"), TypeOf(g, "construct"), Text(g, "name"))
+                : null;
 
             var domains = (aids["domains"] as JArray)?.OfType<JObject>()
-                .Select(d => new OWReadingAidsDomain(Text(d, "id"), Text(d, "name"), Text(d, "sentence"),
+                .Select(d => new OWReadingAidsDomain(Text(d, "id"), TypeOf(d, "construct"), Text(d, "name"),
+                    Text(d, "sentence"),
                     (d["hubs"] as JArray)?.OfType<JObject>().Select(h => (Text(h, "type"), Text(h, "id"))).ToList()
                     ?? new List<(string, string)>()))
                 .ToList() ?? new List<OWReadingAidsDomain>();
@@ -193,6 +214,13 @@ namespace OnlyWorlds.Sdk
 
         private static string Text(JObject body, string key) =>
             body[key]?.Type == JTokenType.String ? (string)body[key] : "";
+
+        /// <summary>
+        /// An entry's <c>type</c> as served; the profile's word for the aid when the entry carries none (a keel from before
+        /// serial 134), since each aid's type is fixed by its pair.
+        /// </summary>
+        internal static string TypeOf(JObject body, string aidType) =>
+            body["type"]?.Type == JTokenType.String ? (string)body["type"] : aidType;
 
         private static IReadOnlyList<string> Strings(JToken list) =>
             (list as JArray)?.Where(v => v.Type == JTokenType.String).Select(v => (string)v).ToList() ?? new List<string>();
@@ -310,7 +338,7 @@ namespace OnlyWorlds.Sdk
                 var objects = new HashSet<string>(view.Order
                     .Where(i => view.Sees(i) && view.TypeOf(i) == "object"), StringComparer.Ordinal);
                 var skill = IdsIn(StringOf(body["description"])).Where(objects.Contains).Take(SkillMax).ToList();
-                charter = new OWReadingAidsCharter(law, NameOf(body),
+                charter = new OWReadingAidsCharter(law, view.TypeOf(law), NameOf(body),
                     rules == null || rules.Type == JTokenType.Null ? new JArray() : rules.DeepClone(), skill);
             }
 
@@ -320,7 +348,7 @@ namespace OnlyWorlds.Sdk
             if (guideId != null)
             {
                 guideBody = view.Served(guideId);
-                guide = new OWReadingAidsGuide(guideId, NameOf(guideBody));
+                guide = new OWReadingAidsGuide(guideId, view.TypeOf(guideId), NameOf(guideBody));
             }
 
             var domainIds = Seen("domain");
@@ -340,7 +368,8 @@ namespace OnlyWorlds.Sdk
                 .OrderBy(i => OWProfileText.Fold(NameOf(bodies[i])), OWCodePointComparer.Instance)
                 .ThenBy(i => i, OWCodePointComparer.Instance);
             var domains = order.Concat(rest)
-                .Select(i => new OWReadingAidsDomain(i, NameOf(bodies[i]), SentenceOf(bodies[i]), HubsOf(view, i, bodies[i])))
+                .Select(i => new OWReadingAidsDomain(i, view.TypeOf(i), NameOf(bodies[i]), SentenceOf(bodies[i]),
+                    HubsOf(view, i, bodies[i])))
                 .ToList();
             return new OWReadingAids(charter, guide, domains);
         }

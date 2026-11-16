@@ -17,18 +17,18 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         private const string Base = "https://example.test/api/v2";
         private const string Code = "ow_j_EoEUrAfQ9xumy-lbBJqXix3q1xl49-P4";
 
-        private const string FullStrand = @"{""narrative"":{""id"":""019a7f00-0000-7000-8000-000000000301"",""name"":""The Night the Lighthouse Went Dark""},
-            ""event"":{""id"":""019a7f00-0000-7000-8000-000000000311"",""name"":""The lamp fails""},
-            ""location"":{""id"":""019a7f00-0000-7000-8000-000000000321"",""name"":""The Lighthouse""},
-            ""character"":{""id"":""019a7f00-0000-7000-8000-000000000331"",""name"":""Ilse the Keeper""},
-            ""now"":{""id"":""019a7f00-0000-7000-8000-000000000322"",""name"":""The Docks""},
+        private const string FullStrand = @"{""narrative"":{""id"":""019a7f00-0000-7000-8000-000000000301"",""type"":""narrative"",""name"":""The Night the Lighthouse Went Dark""},
+            ""event"":{""id"":""019a7f00-0000-7000-8000-000000000311"",""type"":""event"",""name"":""The lamp fails""},
+            ""location"":{""id"":""019a7f00-0000-7000-8000-000000000321"",""type"":""location"",""name"":""The Lighthouse""},
+            ""character"":{""id"":""019a7f00-0000-7000-8000-000000000331"",""type"":""character"",""name"":""Ilse the Keeper""},
+            ""now"":{""id"":""019a7f00-0000-7000-8000-000000000322"",""type"":""location"",""name"":""The Docks""},
             ""same"":false}";
 
         private const string NoStrand =
             @"{""narrative"":null,""event"":null,""location"":null,""character"":null,""now"":null,""same"":null}";
 
-        private const string Aids = @"{""charter"":{""id"":""law-1"",""name"":""House rules"",""rules"":[],""skill"":[]},
-            ""guide"":{""id"":""con-g"",""name"":""Start here""},""domains"":[],""strand"":";
+        private const string Aids = @"{""charter"":{""id"":""law-1"",""type"":""law"",""name"":""House rules"",""rules"":[],""skill"":[]},
+            ""guide"":{""id"":""con-g"",""type"":""construct"",""name"":""Start here""},""domains"":[],""strand"":";
 
         private static string Me(string strand) =>
             @"{""world"":{""id"":""w1"",""name"":""W""},""scope"":""read"",""kind"":""owner"",
@@ -123,11 +123,27 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public void Me_ASlotServedWithoutAType_ReadsTheKindItsSlotHolds()
+        {
+            // A keel from before serial 134 serves {id, name}: each slot's type is fixed by its slot, `now` a location.
+            var strand = OWReadingAids.Of(JObject.Parse(Me(
+                @"{""narrative"":{""id"":""n-1"",""name"":""N""},""event"":{""id"":""e-1"",""name"":""E""},
+                    ""location"":{""id"":""loc-1"",""name"":""L""},""character"":{""id"":""c-1"",""name"":""C""},
+                    ""now"":{""id"":""loc-2"",""name"":""M""},""same"":false}"))).Strand;
+
+            CollectionAssert.AreEqual(new[] { "narrative", "event", "location", "character", "location" },
+                new[] { strand.Narrative.Type, strand.Event.Type, strand.Location.Type, strand.Character.Type, strand.Now.Type });
+            CollectionAssert.AreEqual(new[] { "id", "type", "name" },
+                strand.Now.ToJson().Properties().Select(p => p.Name).ToArray(), "written back in the page's order");
+        }
+
+        [Test]
         public async Task AnAgentsJoinAnswer_CarriesTheStrand_AsItsMeDoes()
         {
             // keel's test: the hero hidden from the new seat, so the hero's two slots and `same` are null.
-            const string partial = @"{""narrative"":{""id"":""n-1"",""name"":""The Gang""},""event"":{""id"":""e-1"",""name"":""The Crossing""},
-                ""location"":{""id"":""loc-1"",""name"":""The River""},""character"":null,""now"":null,""same"":null}";
+            const string partial = @"{""narrative"":{""id"":""n-1"",""type"":""narrative"",""name"":""The Gang""},
+                ""event"":{""id"":""e-1"",""type"":""event"",""name"":""The Crossing""},
+                ""location"":{""id"":""loc-1"",""type"":""location"",""name"":""The River""},""character"":null,""now"":null,""same"":null}";
             var t = new FakeTransport
             {
                 Status = 201,

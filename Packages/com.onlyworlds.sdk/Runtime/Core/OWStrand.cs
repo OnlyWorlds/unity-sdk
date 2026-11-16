@@ -15,23 +15,31 @@ using Newtonsoft.Json.Linq;
 
 namespace OnlyWorlds.Sdk
 {
-    /// <summary>A filled strand slot: the element's id and its name as the reader is served it.</summary>
+    /// <summary>A filled strand slot: the element's id, its type and its name as the reader is served it.</summary>
     public sealed class OWStrandSlot
     {
-        internal OWStrandSlot(string id, string name)
+        internal OWStrandSlot(string id, string type, string name)
         {
             Id = id;
+            Type = type;
             Name = name;
         }
 
         /// <summary>The element's id.</summary>
         public string Id { get; }
 
+        /// <summary>
+        /// The kind the slot holds, in the standard's lowercase word (serial 134): <c>narrative</c>, <c>event</c>,
+        /// <c>location</c>, <c>character</c>, and <c>location</c> for <see cref="OWStrand.Now"/>. A reader handed the
+        /// strand alone fetches the id by its type.
+        /// </summary>
+        public string Type { get; }
+
         /// <summary>Its name as served; empty when it has none.</summary>
         public string Name { get; }
 
-        /// <summary>The profile's <c>{id, name}</c>.</summary>
-        public JObject ToJson() => new JObject { ["id"] = Id, ["name"] = Name };
+        /// <summary>The profile's <c>{id, type, name}</c>.</summary>
+        public JObject ToJson() => new JObject { ["id"] = Id, ["type"] = Type, ["name"] = Name };
     }
 
     /// <summary>
@@ -160,7 +168,8 @@ namespace OnlyWorlds.Sdk
 
             var view = new OWLens.View(elements, reader, hiddenIds);
             bool Seen(string id, string kind) => id != null && view.Els.ContainsKey(id) && view.Sees(id) && view.TypeOf(id) == kind;
-            OWStrandSlot SlotOf(string id) => new OWStrandSlot(id, StringOf(view.Served(id)["name"]) ?? string.Empty);
+            OWStrandSlot SlotOf(string id) =>
+                new OWStrandSlot(id, view.TypeOf(id), StringOf(view.Served(id)["name"]) ?? string.Empty);
             bool Listed(string holder, string field, string id) =>
                 view.Served(holder)[field] is JArray list && list.Any(entry => StringOf(entry) == id);
 
@@ -198,19 +207,20 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// The six slots as a server serves them (<c>reading_aids.strand</c> on <c>GET /me</c> and an agent's join reply,
-        /// <see cref="OWReadingAids.Strand"/>), read as served, never recomputed: a slot is <c>{id, name}</c> or null (one
-        /// that is not an object with a string id reads empty, a name that is not a string an empty string), and
+        /// <see cref="OWReadingAids.Strand"/>), read as served, never recomputed: a slot is <c>{id, type, name}</c> or null
+        /// (one that is not an object with a string id reads empty, a name that is not a string an empty string, and a slot
+        /// served with no string <c>type</c>, as a keel from before serial 134 serves it, the kind the slot holds), and
         /// <c>same</c> a boolean or null. Null for null.
         /// </summary>
         internal static OWStrand Read(JObject served)
         {
             if (served == null) return null;
-            OWStrandSlot Served(string slot) => served[slot] is JObject body && StringOf(body["id"]) is string id
-                ? new OWStrandSlot(id, StringOf(body["name"]) ?? string.Empty)
+            OWStrandSlot Served(string slot, string kind) => served[slot] is JObject body && StringOf(body["id"]) is string id
+                ? new OWStrandSlot(id, StringOf(body["type"]) ?? kind, StringOf(body["name"]) ?? string.Empty)
                 : null;
             var same = served["same"]?.Type == JTokenType.Boolean ? (bool)served["same"] : (bool?)null;
-            return new OWStrand(Served("narrative"), Served("event"), Served("location"), Served("character"), Served("now"),
-                same);
+            return new OWStrand(Served("narrative", "narrative"), Served("event", "event"), Served("location", "location"),
+                Served("character", "character"), Served("now", "location"), same);
         }
 
         private static JToken Slot(OWStrandSlot slot) => slot?.ToJson() ?? (JToken)JValue.CreateNull();
