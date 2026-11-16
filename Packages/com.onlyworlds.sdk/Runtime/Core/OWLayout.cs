@@ -5,8 +5,9 @@
 // number of seeded steps; the answer is fitted into a square. around: one element at the centre, its neighbours on rings
 // round it, and at two steps their neighbours further out, near the element that reached them.
 //
-// Written from the shared fixture (Tests/Editor/Fixtures/layout/by-kind.json, byte for byte the two packages' copy),
-// which is this file's own test (OWLayoutTests): by-kind's points equal to the last bit, around's within 1e-12.
+// Written from the shared fixture, now the schema distribution's (profiles/layout.fixture.json, with the method page
+// profiles/layout.md, serial 132; vendored as Tests/Editor/Fixtures/layout/layout.fixture.json), which is this file's
+// own test (OWLayoutTests): by-kind's points equal to the last bit, around's within 1e-12.
 
 using System;
 using System.Collections.Generic;

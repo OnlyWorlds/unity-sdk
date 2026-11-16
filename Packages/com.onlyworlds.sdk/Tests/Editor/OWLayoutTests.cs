@@ -10,19 +10,20 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// <see cref="OWLayout.LayoutByKind(JObject)"/> and <see cref="OWLayout.LayoutAround(JObject, string, int)"/> on the
-    /// shared fixture: the TypeScript SDK's <c>test/fixtures/layout/by-kind.json</c> at commit 556bd93 (release 4.167.0's
-    /// cases, edges numbered within each source's field list), the same bytes the Python package (onlyworlds 0.127.0)
-    /// holds, vendored in <c>Tests/Editor/Fixtures/layout/by-kind.json</c>. Read through <see cref="OWJson"/>, which reads
-    /// every double exactly. by-kind compares exactly, every x and y with <c>==</c>: the method is chaotic, so two runtimes
-    /// agree bit for bit or not at all. around compares within 1e-12: each of its points is one cosine and one sine,
-    /// and runtimes' cosines may differ in the last place. Then the TypeScript SDK's other vectors
-    /// (<c>test/layout-by-kind.test.mjs</c>). When the file moves, re-vendor it (<c>tools/layout-pin/vendor.py</c> in the
-    /// maintainer's tree), regenerate the table (<c>codegen/generate_layout_anchors.py</c>), and update the hash.
+    /// pinned schema distribution's fixture, <c>profiles/layout.fixture.json</c> (the default layouts page,
+    /// <c>profiles/layout.md</c>, serial 132), vendored byte for byte in <c>Tests/Editor/Fixtures/layout/layout.fixture.json</c>.
+    /// Read through <see cref="OWJson"/>, which reads every double exactly. by-kind compares exactly, every x and y with
+    /// <c>==</c>: the method is chaotic, so two runtimes agree bit for bit or not at all. around compares within 1e-12:
+    /// each of its points is one cosine and one sine, and runtimes' cosines may differ in the last place. The fixture's
+    /// third suite, <c>unplaced</c>, is not read: this package does not implement that reading. Then the TypeScript SDK's
+    /// other vectors (<c>test/layout-by-kind.test.mjs</c>). When the pin moves, copy the dist's file over the vendored one,
+    /// regenerate the table (<c>codegen/generate_layout_anchors.py</c>), and update the hash; <c>codegen/check_drift.py</c>
+    /// names a stale copy.
     /// </summary>
     public class OWLayoutTests
     {
-        /// <summary>The fixture's sha256: <c>test/fixtures/layout/by-kind.json</c> in the TypeScript SDK at 556bd93.</summary>
-        private const string FixtureSha256 = "06a023eace0f906e50737932d6f1bd83178e64acc72c6668d75c56540b36ff57";
+        /// <summary>The fixture's sha256: <c>profiles/layout.fixture.json</c> in schema-dist <c>v0.34.1-dist.132</c>.</summary>
+        private const string FixtureSha256 = "6860a7654f1a92e31269cbbdd2a08049035bd19caebc2f9083b320be4872000e";
 
         private const double AroundTolerance = 1e-12;
 
@@ -33,7 +34,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             get
             {
                 var root = TestPackage.Root();
-                return root == null ? null : Path.Combine(root, "Tests", "Editor", "Fixtures", "layout", "by-kind.json");
+                return root == null ? null : Path.Combine(root, "Tests", "Editor", "Fixtures", "layout", "layout.fixture.json");
             }
         }
 
@@ -82,8 +83,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
-        public void TheFixture_IsTheTypeScriptSdksBytes_WithTwelveExactCasesAndSevenRings()
+        public void TheFixture_IsThePinnedDistsBytes_WithSeventeenExactCasesAndTenRings()
         {
+            // The file also holds `unplaced` (15 cases), which no test here reads: the package has no unplaced reader.
             var path = FixturePath;
             Assert.That(path != null && File.Exists(path), Is.True, "the fixture is vendored");
             using (var sha = SHA256.Create())
@@ -92,9 +94,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 Assert.That(hex, Is.EqualTo(FixtureSha256));
             }
 
-            Assert.That(((JObject)Fixture["compare"]).Properties().Select(p => p.Name), Is.EqualTo(new[] { "cases", "around" }));
-            Assert.That(Fixture["cases"].Count(), Is.EqualTo(12));
-            Assert.That(Fixture["around"].Count(), Is.EqualTo(7));
+            Assert.That(((JObject)Fixture["compare"]).Properties().Select(p => p.Name), Is.EqualTo(new[] { "cases", "around", "unplaced" }));
+            Assert.That(Fixture["cases"].Count(), Is.EqualTo(17));
+            Assert.That(Fixture["around"].Count(), Is.EqualTo(10));
         }
 
         [Test]
@@ -399,7 +401,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public void Around_NamesOrderByCodePoint_NotByUtf16CodeUnit()
         {
             // U+FF5A (one code unit, 0xFF5A) sorts before U+1D400 (a surrogate pair, 0xD835 0xDC00) by code point, after it
-            // by UTF-16 code unit. The fixture's names never set the two orders apart; this pair does.
+            // by UTF-16 code unit. The fixture's names-by-code-point-not-utf-16 case sets the two orders apart as well
+            // (serial 132); this pair is the smallest that does.
             var nodes = new JArray(N("f", "character"), new JObject { ["id"] = "p", ["type"] = "character", ["name"] = "\U0001D400" },
                 new JObject { ["id"] = "q", ["type"] = "character", ["name"] = "ｚ" });
             var edges = new JArray(new JObject { ["source"] = "f", ["target"] = "p", ["field"] = "friends", ["index"] = 0 },
