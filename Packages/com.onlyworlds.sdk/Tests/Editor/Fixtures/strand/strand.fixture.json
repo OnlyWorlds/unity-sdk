@@ -10,7 +10,7 @@
     "order: the reading never depends on a multi-link's order; the event must be IN the narrative's events and the location IN the event's locations, position ignored.",
     "no fallback: character comes from protagonist only, never from the event's characters; location from the mark only, never from the character's location; now from the character's location only.",
     "same: true when now and location are both set and the same id; false when both set and different; null when either is null.",
-    "kind: a slot holds only its own kind; an id of another kind in the mark or in a parent's list leaves the slot empty. same compares ids, never names.",
+    "kind: a slot holds only its own kind, an element's type compared to it trimmed and folded as the room profile defines it; an id of another kind in the mark or in a parent's list leaves the slot empty. same compares ids, never names.",
     "shapes: a multi-link that is not a list reads as empty (a bare string in events or locations puts nothing in the list); a filled slot's name is the element's name as served, an empty string when it has none, never null.",
     "compare: objects are compared as values; the order of keys carries no meaning, so a reader that writes {type, id} or {id, type, name} in another order answers the same."
   ],

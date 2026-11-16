@@ -23,7 +23,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     public class OWStrandTests
     {
         /// <summary>The fixture's sha256 as serial 134 stages it (each filled slot carries <c>type</c>).</summary>
-        private const string DistSha256 = "16e5685403053cb9142dc1dd1aa84c3366421e90b08146f2b7049cf89fb619e2";
+        private const string DistSha256 = "97dd478b14338177be747e0c02b8e6740227bfd0a2f72161a4d45375c7c18082";
 
         private const string Story = "019a7f00-0000-7000-8000-000000000301";
 
