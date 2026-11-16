@@ -168,8 +168,9 @@ namespace OnlyWorlds.Sdk
 
             var view = new OWLens.View(elements, reader, hiddenIds);
             bool Seen(string id, string kind) => id != null && view.Els.ContainsKey(id) && view.Sees(id) && view.TypeOf(id) == kind;
-            OWStrandSlot SlotOf(string id) =>
-                new OWStrandSlot(id, view.TypeOf(id), StringOf(view.Served(id)["name"]) ?? string.Empty);
+            // The slot's type is its kind word, never the stored spelling (serial 134): Seen matched the type folded.
+            OWStrandSlot SlotOf(string id, string kind) =>
+                new OWStrandSlot(id, kind, StringOf(view.Served(id)["name"]) ?? string.Empty);
             bool Listed(string holder, string field, string id) =>
                 view.Served(holder)[field] is JArray list && list.Any(entry => StringOf(entry) == id);
 
@@ -178,19 +179,19 @@ namespace OnlyWorlds.Sdk
             OWStrandSlot @event = null, location = null, character = null, now = null;
             if (Seen(happening, "event") && Listed(story, "events", happening))
             {
-                @event = SlotOf(happening);
-                if (Seen(then, "location") && Listed(happening, "locations", then)) location = SlotOf(then);
+                @event = SlotOf(happening, "event");
+                if (Seen(then, "location") && Listed(happening, "locations", then)) location = SlotOf(then, "location");
             }
 
             var hero = StringOf(view.Served(story)["protagonist"]);
             if (Seen(hero, "character"))
             {
-                character = SlotOf(hero);
+                character = SlotOf(hero, "character");
                 var where = StringOf(view.Served(hero)["location"]);
-                if (Seen(where, "location")) now = SlotOf(where);
+                if (Seen(where, "location")) now = SlotOf(where, "location");
             }
 
-            return new OWStrand(SlotOf(story), @event, location, character, now);
+            return new OWStrand(SlotOf(story, "narrative"), @event, location, character, now);
         }
 
         /// <summary>

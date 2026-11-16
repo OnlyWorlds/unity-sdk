@@ -296,6 +296,26 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(@"{""charter"":null,""guide"":null,""domains"":[]}", got.ToJson().ToString(Formatting.None));
         }
 
+        /// <summary>
+        /// The packet says the pair's own word (serial 134, amendment 1): a Charter stored as <c> Law </c> and a Domain
+        /// stored as <c>CONSTRUCT</c> are aids, written <c>law</c> and <c>construct</c>. Kills: the stored spelling.
+        /// </summary>
+        [Test]
+        public void ATypeStoredInAnotherSpelling_IsWrittenAsThePairsWord()
+        {
+            var elements = new List<JObject>
+            {
+                JObject.Parse(@"{""id"":""019a7f00-0000-7000-8000-0000000002c0"",""type"":"" Law "",""name"":""Rules"",
+                    ""supertype"":""Charter"",""x_charter_of"":""w""}"),
+                JObject.Parse(@"{""id"":""019a7f00-0000-7000-8000-0000000002c1"",""type"":""CONSTRUCT"",""name"":""Docks"",
+                    ""supertype"":""Domain"",""x_charter_of"":""w""}"),
+            };
+            var got = OWCharter.CharterOf(elements, OWLensReader.Owner());
+            Assert.AreEqual("law", got.Charter?.Type);
+            Assert.AreEqual(1, got.Domains.Count, "the Domain is an aid");
+            Assert.AreEqual("construct", got.Domains[0].Type);
+        }
+
         /// <summary>A null reader is refused before anything is read.</summary>
         [Test]
         public void ANullReader_IsRefused()

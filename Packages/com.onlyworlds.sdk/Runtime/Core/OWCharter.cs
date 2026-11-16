@@ -338,7 +338,7 @@ namespace OnlyWorlds.Sdk
                 var objects = new HashSet<string>(view.Order
                     .Where(i => view.Sees(i) && view.TypeOf(i) == "object"), StringComparer.Ordinal);
                 var skill = IdsIn(StringOf(body["description"])).Where(objects.Contains).Take(SkillMax).ToList();
-                charter = new OWReadingAidsCharter(law, view.TypeOf(law), NameOf(body),
+                charter = new OWReadingAidsCharter(law, PairType("charter"), NameOf(body),
                     rules == null || rules.Type == JTokenType.Null ? new JArray() : rules.DeepClone(), skill);
             }
 
@@ -348,7 +348,7 @@ namespace OnlyWorlds.Sdk
             if (guideId != null)
             {
                 guideBody = view.Served(guideId);
-                guide = new OWReadingAidsGuide(guideId, view.TypeOf(guideId), NameOf(guideBody));
+                guide = new OWReadingAidsGuide(guideId, PairType("guide"), NameOf(guideBody));
             }
 
             var domainIds = Seen("domain");
@@ -368,7 +368,7 @@ namespace OnlyWorlds.Sdk
                 .OrderBy(i => OWProfileText.Fold(NameOf(bodies[i])), OWCodePointComparer.Instance)
                 .ThenBy(i => i, OWCodePointComparer.Instance);
             var domains = order.Concat(rest)
-                .Select(i => new OWReadingAidsDomain(i, view.TypeOf(i), NameOf(bodies[i]), SentenceOf(bodies[i]),
+                .Select(i => new OWReadingAidsDomain(i, PairType("domain"), NameOf(bodies[i]), SentenceOf(bodies[i]),
                     HubsOf(view, i, bodies[i])))
                 .ToList();
             return new OWReadingAids(charter, guide, domains);
@@ -390,6 +390,13 @@ namespace OnlyWorlds.Sdk
             CharterOf(world, reader, open, hiddenIds).Domains;
 
         // -- The parts --------------------------------------------------------------------
+
+        /// <summary>
+        /// The packet's <c>type</c> for an aid: its pair's own word as the page's table writes it (<c>law</c>,
+        /// <c>construct</c>), whatever spelling the element's type is stored in (serial 134).
+        /// </summary>
+        private static string PairType(string aid) =>
+            OWRoom.ReadingAidPairs.First(p => OWProfileText.Fold(p.supertype) == aid).type;
 
         /// <summary>The aid's folded supertype word (<c>charter</c>, <c>guide</c>, <c>domain</c>) on its own type; null for none.</summary>
         private static string AidWord(JObject element)

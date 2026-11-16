@@ -223,6 +223,23 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual("019a7f00-0000-7000-8000-000000000331", got.Character?.Id);
         }
 
+        /// <summary>
+        /// A type is matched to a slot trimmed and folded, and the slot says its kind word (serial 134, amendment 1): the
+        /// story stored as <c> Narrative </c> fills the slot as <c>narrative</c>. Kills: the stored spelling written.
+        /// </summary>
+        [Test]
+        public void AStoryStoredInAnotherSpelling_FillsItsSlotAsNarrative()
+        {
+            var world = World("harbour");
+            var elements = ElementsOf(world);
+            elements.Single(e => (string)e["id"] == Story)["type"] = " Narrative ";
+            var got = OWStrand.Of(world, elements, OWLensReader.Owner());
+            Assert.AreEqual(Story, got.Narrative?.Id);
+            Assert.AreEqual("narrative", got.Narrative?.Type);
+            Assert.IsTrue(JToken.DeepEquals(OWStrand.Of(World("harbour"), ElementsOf(World("harbour")), OWLensReader.Owner()).ToJson(),
+                got.ToJson()), "the strand as for narrative");
+        }
+
         /// <summary>A slot whose element has no name, a null one or one that is not text reads an empty string, never null (serial 99).</summary>
         [Test]
         public void ASlotWithoutAName_ReadsAnEmptyString()
