@@ -1062,7 +1062,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [Test]
         public void Me_AidsServedWithoutAType_ReadTheirPairsType()
         {
-            // A keel from before serial 134 serves no `type` on the aids: each aid's type is fixed by its pair.
+            // A keel from before serial 133 serves no `type` on the aids: each aid's type is fixed by its pair.
             var aids = OWReadingAids.Of(JObject.Parse(
                 @"{""reading_aids"":{""charter"":{""id"":""law-1"",""name"":""House rules"",""rules"":[],""skill"":[]},
                     ""guide"":{""id"":""con-g"",""name"":""Start here""},

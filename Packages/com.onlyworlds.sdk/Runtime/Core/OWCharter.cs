@@ -34,7 +34,7 @@ namespace OnlyWorlds.Sdk
         public string Id { get; }
 
         /// <summary>
-        /// Its type in the standard's lowercase word, <c>law</c> (serial 134): a reader handed the packet alone fetches the
+        /// Its type in the standard's lowercase word, <c>law</c> (serial 133): a reader handed the packet alone fetches the
         /// id by its type.
         /// </summary>
         public string Type { get; }
@@ -75,7 +75,7 @@ namespace OnlyWorlds.Sdk
         /// <summary>The Construct's id.</summary>
         public string Id { get; }
 
-        /// <summary>Its type in the standard's lowercase word, <c>construct</c> (serial 134).</summary>
+        /// <summary>Its type in the standard's lowercase word, <c>construct</c> (serial 133).</summary>
         public string Type { get; }
 
         /// <summary>Its name as served; empty when it has none.</summary>
@@ -101,7 +101,7 @@ namespace OnlyWorlds.Sdk
         /// <summary>The Construct's id.</summary>
         public string Id { get; }
 
-        /// <summary>Its type in the standard's lowercase word, <c>construct</c> (serial 134), as a hub writes one.</summary>
+        /// <summary>Its type in the standard's lowercase word, <c>construct</c> (serial 133), as a hub writes one.</summary>
         public string Type { get; }
 
         /// <summary>Its name as served, untrimmed; empty when it has none.</summary>
@@ -217,7 +217,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// An entry's <c>type</c> as served; the profile's word for the aid when the entry carries none (a keel from before
-        /// serial 134), since each aid's type is fixed by its pair.
+        /// serial 133), since each aid's type is fixed by its pair.
         /// </summary>
         internal static string TypeOf(JObject body, string aidType) =>
             body["type"]?.Type == JTokenType.String ? (string)body["type"] : aidType;
@@ -393,7 +393,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// The packet's <c>type</c> for an aid: its pair's own word as the page's table writes it (<c>law</c>,
-        /// <c>construct</c>), whatever spelling the element's type is stored in (serial 134).
+        /// <c>construct</c>), whatever spelling the element's type is stored in (serial 133).
         /// </summary>
         private static string PairType(string aid) =>
             OWRoom.ReadingAidPairs.First(p => OWProfileText.Fold(p.supertype) == aid).type;

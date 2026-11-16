@@ -125,7 +125,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [Test]
         public void Me_ASlotServedWithoutAType_ReadsTheKindItsSlotHolds()
         {
-            // A keel from before serial 134 serves {id, name}: each slot's type is fixed by its slot, `now` a location.
+            // A keel from before serial 133 serves {id, name}: each slot's type is fixed by its slot, `now` a location.
             var strand = OWReadingAids.Of(JObject.Parse(Me(
                 @"{""narrative"":{""id"":""n-1"",""name"":""N""},""event"":{""id"":""e-1"",""name"":""E""},
                     ""location"":{""id"":""loc-1"",""name"":""L""},""character"":{""id"":""c-1"",""name"":""C""},

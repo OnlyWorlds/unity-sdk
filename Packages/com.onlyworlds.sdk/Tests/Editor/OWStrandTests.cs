@@ -22,7 +22,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </remarks>
     public class OWStrandTests
     {
-        /// <summary>The fixture's sha256 as serial 134 stages it (each filled slot carries <c>type</c>).</summary>
+        /// <summary>The fixture's sha256 as serial 133 publishes it (each filled slot carries <c>type</c>).</summary>
         private const string DistSha256 = "2b1221f1c611e94ac5851669330ab75ba62332c51764786105bcdba23b5be7e6";
 
         private const string Story = "019a7f00-0000-7000-8000-000000000301";
@@ -73,7 +73,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not serial 134's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not serial 133's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
@@ -81,7 +81,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             Assert.IsNotNull(Fixture, "the vendored strand fixture was not found");
             var cases = Fixture["cases"].Cast<JObject>().ToList();
-            Assert.AreEqual(29, cases.Count, "serial 134's fixture holds 29 cases");
+            Assert.AreEqual(29, cases.Count, "serial 133's fixture holds 29 cases");
             CollectionAssert.AreEqual(new[] { "strand" }, cases.Select(c => (string)c["kind"]).Distinct().ToArray());
             Assert.AreEqual("strand", (string)Fixture["profile"]);
             Assert.AreEqual((string)Fixture["mark"]["field"], OWStrand.MarkField);
@@ -224,7 +224,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         /// <summary>
-        /// A type is matched to a slot trimmed and folded, and the slot says its kind word (serial 134, amendment 1): the
+        /// A type is matched to a slot trimmed and folded, and the slot says its kind word (serial 133, amendment 1): the
         /// story stored as <c> Narrative </c> fills the slot as <c>narrative</c>. Kills: the stored spelling written.
         /// </summary>
         [Test]
@@ -277,7 +277,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 checkedWorlds++;
             }
 
-            Assert.AreEqual(26, checkedWorlds); // serial 134 adds two harbour worlds whose story type is stored otherwise
+            Assert.AreEqual(26, checkedWorlds); // serial 133 adds two harbour worlds whose story type is stored otherwise
         }
 
         /// <summary>The world's own hidden list hides as each element's own mark does, and the reading changes no body it is given.</summary>

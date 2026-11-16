@@ -26,10 +26,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </remarks>
     public class OWCharterTests
     {
-        /// <summary>The fixture's sha256 as serial 134 stages it (each packet entry carries <c>type</c>).</summary>
+        /// <summary>The fixture's sha256 as serial 133 publishes it (each packet entry carries <c>type</c>).</summary>
         private const string DistSha256 = "ba80d4e276ed81a7c185dcd66c3d6ea7af9c9e49fb947bacde2d52136acb2cd5";
 
-        /// <summary>The fixture's cases by kind, as serial 134 stages them (47 in all).</summary>
+        /// <summary>The fixture's cases by kind, as serial 133 publishes them (47 in all).</summary>
         private static readonly Dictionary<string, int> Counts = new Dictionary<string, int>
         {
             ["element"] = 6, ["charter"] = 41,
@@ -81,7 +81,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not serial 134's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not serial 133's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
@@ -89,7 +89,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             Assert.IsNotNull(Fixture, "the vendored charter fixture was not found");
             var cases = Fixture["cases"].Cast<JObject>().ToList();
-            Assert.AreEqual(47, cases.Count, "serial 134's fixture holds 47 cases");
+            Assert.AreEqual(47, cases.Count, "serial 133's fixture holds 47 cases");
             var counts = cases.GroupBy(c => (string)c["kind"]).ToDictionary(g => g.Key, g => g.Count());
             CollectionAssert.AreEquivalent(Counts, counts);
         }
@@ -297,7 +297,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         /// <summary>
-        /// The packet says the pair's own word (serial 134, amendment 1): a Charter stored as <c> Law </c> and a Domain
+        /// The packet says the pair's own word (serial 133, amendment 1): a Charter stored as <c> Law </c> and a Domain
         /// stored as <c>CONSTRUCT</c> are aids, written <c>law</c> and <c>construct</c>. Kills: the stored spelling.
         /// </summary>
         [Test]

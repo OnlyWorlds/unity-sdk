@@ -29,7 +29,7 @@ namespace OnlyWorlds.Sdk
         public string Id { get; }
 
         /// <summary>
-        /// The kind the slot holds, in the standard's lowercase word (serial 134): <c>narrative</c>, <c>event</c>,
+        /// The kind the slot holds, in the standard's lowercase word (serial 133): <c>narrative</c>, <c>event</c>,
         /// <c>location</c>, <c>character</c>, and <c>location</c> for <see cref="OWStrand.Now"/>. A reader handed the
         /// strand alone fetches the id by its type.
         /// </summary>
@@ -168,7 +168,7 @@ namespace OnlyWorlds.Sdk
 
             var view = new OWLens.View(elements, reader, hiddenIds);
             bool Seen(string id, string kind) => id != null && view.Els.ContainsKey(id) && view.Sees(id) && view.TypeOf(id) == kind;
-            // The slot's type is its kind word, never the stored spelling (serial 134): Seen matched the type folded.
+            // The slot's type is its kind word, never the stored spelling (serial 133): Seen matched the type folded.
             OWStrandSlot SlotOf(string id, string kind) =>
                 new OWStrandSlot(id, kind, StringOf(view.Served(id)["name"]) ?? string.Empty);
             bool Listed(string holder, string field, string id) =>
@@ -210,7 +210,7 @@ namespace OnlyWorlds.Sdk
         /// The six slots as a server serves them (<c>reading_aids.strand</c> on <c>GET /me</c> and an agent's join reply,
         /// <see cref="OWReadingAids.Strand"/>), read as served, never recomputed: a slot is <c>{id, type, name}</c> or null
         /// (one that is not an object with a string id reads empty, a name that is not a string an empty string, and a slot
-        /// served with no string <c>type</c>, as a keel from before serial 134 serves it, the kind the slot holds), and
+        /// served with no string <c>type</c>, as a keel from before serial 133 serves it, the kind the slot holds), and
         /// <c>same</c> a boolean or null. Null for null.
         /// </summary>
         internal static OWStrand Read(JObject served)
