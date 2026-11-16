@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.34.01";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 131;
+        public const int DistSerial = 132;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.34.1-dist.131";
+        public const string Tag = "v0.34.1-dist.132";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -449,9 +449,20 @@ namespace OnlyWorlds.Sdk
         /// gain cases: room 10 (48 in all), message 17 (120), lens 7 (242), calendar 1 (78). The generated models and
         /// the views table changed in their serial stamp only.
         /// </para>
+        /// <para>
+        /// <b>131 -> 132 (2026-11-16)</b>: canonical unchanged, no schema file, <c>schema.json</c> or <c>views.json</c>
+        /// moved. The default layouts page, <c>profiles/layout.md</c>, and its fixture, <c>layout.fixture.json</c>, are
+        /// new: the <c>by-kind</c> and <c>around</c> methods <see cref="OWLayout"/> implements, written out step by step,
+        /// and <c>unplaced</c>, the reading of which elements a saved layout map does not place, which this SDK does not
+        /// implement. The fixture holds the methods' cases (17 <c>by-kind</c>, 10 <c>around</c>, 15 <c>unplaced</c>); the
+        /// layout tests now read it in place of the TypeScript SDK's copy, and every <c>by-kind</c> and <c>around</c> case
+        /// passes unchanged. Map-space rule 8 names the page, says a method word is read whole, and says that reading or
+        /// drawing a layout map never writes to it. The generated models and the views table changed in their serial
+        /// stamp only.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "e03d650359c877a9fe9127b186e44a7926e03046bc56c33bfabf8ed737fd767e";
+            "263b287bcce91eda6c76c7b82746ddad378a44d79caa1ed8a14cf506d9898be2";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.
@@ -465,7 +476,7 @@ namespace OnlyWorlds.Sdk
             "af84662c29628b6e90b923c9541f68f5924563adce397cebbadfdbf0f06e5f18";
 
         /// <summary>When these constants were last verified against the published dist.</summary>
-        public const string PinnedOn = "2026-11-15";
+        public const string PinnedOn = "2026-11-16";
 
         /// <summary>
         /// ⚑ Rulings that bind THIS SDK and any emitter generating into it. Read the row, not the key.

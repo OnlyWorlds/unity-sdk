@@ -14,6 +14,15 @@ API changes.
 
 ### Changed
 
+- **The schema pin moves to `v0.34.1-dist.132`** (canonical `00.34.01` unchanged; no schema file, `schema.json` or
+  `views.json` moved). The distribution now carries the default layouts page, `profiles/layout.md`, and its fixture,
+  `layout.fixture.json`: the `by-kind` and `around` methods `OWLayout` implements, written out step by step, with 17
+  `by-kind` cases and 10 `around` cases (five and three more than before), and `unplaced`, the reading of which
+  elements a saved layout map does not place (15 cases; not implemented here). The layout tests now read the
+  distribution's fixture, vendored in `Tests/Editor/Fixtures/layout/layout.fixture.json`, in place of the TypeScript
+  SDK's `by-kind.json`; every case passes and no method changes. The map-space page's rule 8 names the layouts page as
+  the page of the method words `by-kind` and `around`, says a method word is read whole, and says reading or drawing
+  a layout map never writes to it; no map-space case moves.
 - **The schema pin moves to `v0.34.1-dist.131`** (canonical `00.34.01` unchanged; no schema file, `schema.json` or
   `views.json` moved). The room page defines its fold exactly: simple case folding by the C and S rows of Unicode
   15.1's CaseFolding.txt, never a language's lower-casing or full folding, so `MEſſAGE` (the long s) is a message and
