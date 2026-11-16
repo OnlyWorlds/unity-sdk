@@ -23,7 +23,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     public class OWStrandTests
     {
         /// <summary>The fixture's sha256 as serial 134 stages it (each filled slot carries <c>type</c>).</summary>
-        private const string DistSha256 = "c8586c1745c9d8ec6532c2283a64886fcb7910ad825c281eb7d5181d6e5f16ee";
+        private const string DistSha256 = "16e5685403053cb9142dc1dd1aa84c3366421e90b08146f2b7049cf89fb619e2";
 
         private const string Story = "019a7f00-0000-7000-8000-000000000301";
 
@@ -81,7 +81,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             Assert.IsNotNull(Fixture, "the vendored strand fixture was not found");
             var cases = Fixture["cases"].Cast<JObject>().ToList();
-            Assert.AreEqual(27, cases.Count, "dist.123's fixture holds 27 cases");
+            Assert.AreEqual(28, cases.Count, "serial 134's fixture holds 28 cases");
             CollectionAssert.AreEqual(new[] { "strand" }, cases.Select(c => (string)c["kind"]).Distinct().ToArray());
             Assert.AreEqual("strand", (string)Fixture["profile"]);
             Assert.AreEqual((string)Fixture["mark"]["field"], OWStrand.MarkField);
@@ -277,7 +277,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 checkedWorlds++;
             }
 
-            Assert.AreEqual(24, checkedWorlds); // dist.123 adds harbour-story-in-upper-case
+            Assert.AreEqual(25, checkedWorlds); // serial 134 adds harbour-story-type-stored-otherwise
         }
 
         /// <summary>The world's own hidden list hides as each element's own mark does, and the reading changes no body it is given.</summary>
