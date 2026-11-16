@@ -6,6 +6,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.43.1] - 2026-11-16
+
+One fold for every reader of a pair, and a value that is no object is no element (schema-dist serials 130 and 131):
+the readers already answered as the pages now say, so only the pin and the fixtures move. A patch release: no public
+API changes.
+
 ### Changed
 
 - **The schema pin moves to `v0.34.1-dist.131`** (canonical `00.34.01` unchanged; no schema file, `schema.json` or
