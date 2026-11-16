@@ -6,12 +6,6 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
-## [0.43.1] - 2026-11-16
-
-One fold for every reader of a pair, and a value that is no object is no element (schema-dist serials 130 and 131):
-the readers already answered as the pages now say, so only the pin and the fixtures move. A patch release: no public
-API changes.
-
 ### Changed
 
 - **The schema pin moves to `v0.34.1-dist.132`** (canonical `00.34.01` unchanged; no schema file, `schema.json` or
@@ -23,6 +17,15 @@ API changes.
   SDK's `by-kind.json`; every case passes and no method changes. The map-space page's rule 8 names the layouts page as
   the page of the method words `by-kind` and `around`, says a method word is read whole, and says reading or drawing
   a layout map never writes to it; no map-space case moves.
+
+## [0.43.1] - 2026-11-16
+
+One fold for every reader of a pair, and a value that is no object is no element (schema-dist serials 130 and 131):
+the readers already answered as the pages now say, so only the pin and the fixtures move. A patch release: no public
+API changes.
+
+### Changed
+
 - **The schema pin moves to `v0.34.1-dist.131`** (canonical `00.34.01` unchanged; no schema file, `schema.json` or
   `views.json` moved). The room page defines its fold exactly: simple case folding by the C and S rows of Unicode
   15.1's CaseFolding.txt, never a language's lower-casing or full folding, so `MEſſAGE` (the long s) is a message and
