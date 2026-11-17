@@ -6,6 +6,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.44.0] - 2026-11-17
+
+The reading aids and the strand say what type each of their elements is (schema-dist serials 132 and 133), the front
+door types its Charter and the Charter's skills as elements, `OWSeat` reads whether a seat may change its Character,
+and a write the host in front of onlyworlds.com refused now says so in words a person can act on. A minor release
+because it adds public API (below).
+
 ### Added
 
 - **`OWSeat` reads whether a seat may change the Character it plays**: `MayChangeCharacter`, `MayChangeCharacterNote`
