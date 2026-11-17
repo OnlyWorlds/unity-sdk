@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.34.01";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 133;
+        public const int DistSerial = 134;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.34.1-dist.133";
+        public const string Tag = "v0.34.1-dist.134";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -469,9 +469,18 @@ namespace OnlyWorlds.Sdk
         /// and folded the room profile's way. The fixtures gain cases: charter 6 (47 in all), strand 2 (29, on 26
         /// worlds). The generated models and the views table changed in their serial stamp only.
         /// </para>
+        /// <para>
+        /// <b>133 -> 134 (2026-11-17)</b>: canonical unchanged, no schema file, <c>schema.json</c> or <c>views.json</c>
+        /// moved. No reader trims a strand member: one of white space alone is a string that names no element, so its
+        /// slot is empty, and the empty string in any of the three members, <c>narrative</c> too, is no mark. The strand
+        /// fixture gains 13 cases (42 in all, on 39 worlds). The checks page's specimen is one world's own house rules,
+        /// a specimen of the form and not a set to adopt (no rule or case moved); the lens page says a lens is read for
+        /// its reader, never for the Character whose draught it is read beside. The generated models and the views
+        /// table changed in their serial and published stamps only.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "b0fe3a48684d2e90261f74b5c5b2382689e071a0af1709f359a174d45cc5324a";
+            "199b4c9af2fcccaeeaa6ed2a27e41e76cb7dd2e491cdbd367741011982fdf174";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.

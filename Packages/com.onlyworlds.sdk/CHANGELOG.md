@@ -6,6 +6,18 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The schema pin moves to `v0.34.1-dist.134`** (canonical `00.34.01` unchanged; no schema file, `schema.json` or
+  `views.json` moved). The strand page says no reader trims a member: one of white space alone is a string that names
+  no element, so its slot is empty, and the empty string in any of the three members, `narrative` too, is no mark.
+  The strand fixture holds 42 cases on 39 worlds (thirteen more: members of white space, ids padded with a space, an
+  empty or spaced `narrative`, an object member, a mark with no `narrative` and one whose `narrative` is not a
+  string); the vendored copy in `Tests/Editor/Fixtures/strand/` is the distribution's bytes, and every case passes
+  with no change to `OWStrand`. The checks page's specimen is one world's own house rules, a specimen of the form
+  and not a set to adopt (no rule or case moved), and the lens page says a lens is read for its reader, never for the
+  Character whose draught it is read beside.
+
 ## [0.44.0] - 2026-11-17
 
 The reading aids and the strand say what type each of their elements is (schema-dist serials 132 and 133), the front
