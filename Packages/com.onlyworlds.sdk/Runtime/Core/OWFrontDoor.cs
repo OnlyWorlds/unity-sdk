@@ -48,6 +48,23 @@ namespace OnlyWorlds.Sdk
     }
 
     /// <summary>
+    /// An element named by its type and id, from <see cref="OWFrontDoor.CharterElement"/> (a <c>law</c>) and
+    /// <see cref="OWFrontDoor.CharterSkillElements"/> (each an <c>object</c>); npm's <c>OwFrontDoorCharter</c> and
+    /// <c>OwFrontDoorSkill</c>.
+    /// </summary>
+    [Serializable]
+    public class OWFrontDoorElement
+    {
+        /// <summary>The element's type, the standard's lowercase word.</summary>
+        [JsonProperty("type")]
+        public string Type;
+
+        /// <summary>The element's id.</summary>
+        [JsonProperty("id")]
+        public string Id;
+    }
+
+    /// <summary>
     /// A world's front door for one key: who you are here, who answers for you, and the house
     /// rules. On <c>GET /me</c> (<see cref="Of"/> reads it from <see cref="OWClient.GetMeAsync"/>'s answer) and on an
     /// agent's join answer (<see cref="OWJoined.FrontDoor"/>); npm's <c>OwFrontDoor</c>.
@@ -92,6 +109,20 @@ namespace OnlyWorlds.Sdk
         /// <summary>The Objects the Charter's description names (by <c>ow://</c> link or id), in the order written, at most five; empty when none.</summary>
         [JsonProperty("charter_skill")]
         public List<string> CharterSkill = new List<string>();
+
+        /// <summary>
+        /// <see cref="Charter"/> typed as an element: the Charter is a Law, read with <c>GetAsync&lt;Law&gt;</c> by its
+        /// id. Null where <see cref="Charter"/> is, and on a keel from before it.
+        /// </summary>
+        [JsonProperty("charter_element")]
+        public OWFrontDoorElement CharterElement;
+
+        /// <summary>
+        /// <see cref="CharterSkill"/> typed as elements, in the same order: each an Object. Empty where
+        /// <see cref="CharterSkill"/> is, and on a keel from before it.
+        /// </summary>
+        [JsonProperty("charter_skill_elements")]
+        public List<OWFrontDoorElement> CharterSkillElements = new List<OWFrontDoorElement>();
 
         /// <summary>
         /// The front door in a <c>GET /me</c> answer (<see cref="OWClient.GetMeAsync"/>), or null when it carries

@@ -3724,6 +3724,12 @@ namespace OnlyWorlds.Sdk
             var status = (HttpStatusCode)response.Status;
             var retryAfter = OWApiError.ParseRetryAfter(ReadHeader(response, "Retry-After"), DateTimeOffset.UtcNow);
 
+            // The host in front of onlyworlds.com refused it before the API saw it: say so in words a person can act on.
+            if (OWApiError.IsHostBlockedPage(response.Status, response.Body))
+            {
+                return new OWApiError(status, OWApiError.HostBlockedMessage, rawBody: response.Body, retryAfter: retryAfter);
+            }
+
             // A non-2xx is not guaranteed to carry the envelope -- a proxy or gateway can return
             // HTML. Parse defensively so a 502 surfaces as a clean error rather than a JSON
             // exception thrown from the error path itself.

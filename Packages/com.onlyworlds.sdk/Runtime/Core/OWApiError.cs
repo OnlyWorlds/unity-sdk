@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Net;
+using System.Text.RegularExpressions;
 using Newtonsoft.Json.Linq;
 
 namespace OnlyWorlds.Sdk
@@ -55,6 +56,46 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>404 <c>not_found</c>: no such element or route. A 404 without the code (a proxy's) is not this.</summary>
         public bool IsNotFound => StatusCode == 404 && Code == "not_found";
+
+        /// <summary>
+        /// The host in front of onlyworlds.com refused the request before the API saw it: a 403 whose body is an HTML
+        /// page titled "Blocked", not the API's JSON envelope. Nothing was written. The host refuses text that holds a
+        /// shell command such as <c>python -m</c>, <c>python -c</c>, <c>perl -e</c>, or <c>curl</c> or <c>wget</c> with
+        /// an address right after a backtick, a semicolon or a pipe; such a command passes in a fenced code block whose
+        /// first line names a language, or with none of the three directly before it. <see cref="Code"/> is null (it is
+        /// no API code) and <see cref="RawBody"/> keeps the page. npm's <c>isHostBlocked</c>.
+        /// </summary>
+        public bool IsHostBlocked => IsHostBlockedPage(StatusCode, RawBody);
+
+        /// <summary>The message a person reads when the host refuses a write (<see cref="IsHostBlocked"/>), npm's words.</summary>
+        internal const string HostBlockedMessage =
+            "The host in front of onlyworlds.com refused this request before the API saw it (a 403 page titled \"Blocked\"), "
+            + "and nothing was written. It refuses text that holds a shell command such as python -m, python -c, perl -e, "
+            + "or curl or wget with an address, right after a backtick, a semicolon or a pipe. Put such a command in a fenced "
+            + "code block whose first line names a language, or write it with none of the three directly before it.";
+
+        /// <summary>
+        /// A 403 whose body is not a JSON object or array and holds an HTML title "Blocked" (any case, spacing or
+        /// attributes): the host's refusal, not the API's. A body that is a JSON string is read as its text, as npm reads it.
+        /// </summary>
+        internal static bool IsHostBlockedPage(int status, string body)
+        {
+            if (status != 403 || body == null) return false;
+
+            var text = body;
+            try
+            {
+                var token = JToken.Parse(body);
+                if (token.Type != JTokenType.String) return false;
+                text = (string)token;
+            }
+            catch (Exception)
+            {
+                // not JSON: the page itself
+            }
+
+            return Regex.IsMatch(text, @"<title[^>]*>\s*Blocked\s*</title>", RegexOptions.IgnoreCase);
+        }
 
         /// <summary>
         /// A party link's pick is played already (422 <c>character_taken</c>, param <c>character</c>): read the

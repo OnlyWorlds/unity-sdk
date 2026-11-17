@@ -13,6 +13,18 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   whose right moves with theirs). Keel's OpenAPI document now lists them on GET /account/worlds/{world_id}/seats
   (document 2dd72338aa30); before, `ListSeatsAsync` dropped them. Parity with the TypeScript SDK 4.172.0's `OwSeat`.
   `Sponsor`'s comment now says a seat made by a link for an email address answers to the link's maker.
+- **The front door types its Charter and the Charter's skills as elements**: `OWFrontDoor.CharterElement` (the
+  Charter as `{type: "law", id}`, null where `Charter` is) and `OWFrontDoor.CharterSkillElements` (each skill as
+  `{type: "object", id}`, in `CharterSkill`'s order), read into the new `OWFrontDoorElement`, on `GET /me` and an
+  agent's join answer. Keel's OpenAPI document lists them (document c2705043ee53). A keel from before them leaves
+  them null and empty. Parity with the TypeScript SDK 4.176.0's `charter_element` and `charter_skill_elements`.
+- **`OWApiError.IsHostBlocked`**: a write the host in front of onlyworlds.com refused before the API saw it (a 403
+  whose body is an HTML page titled "Blocked", not the API's envelope) now throws an error that says so and how to
+  write the text so it passes (a shell command such as `python -m` or `curl` with an address, right after a
+  backtick, a semicolon or a pipe, passes in a fenced code block whose first line names a language, or with none of
+  the three directly before it), in place of `OnlyWorlds API 403` followed by the page. `Code` is null and
+  `RawBody` keeps the page; the API's own 403s read as before. Parity with the TypeScript SDK 4.175.0 and 4.178.0,
+  their test vector ported.
 
 ### Changed
 

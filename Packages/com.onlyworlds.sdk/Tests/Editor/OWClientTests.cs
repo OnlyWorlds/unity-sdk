@@ -997,6 +997,33 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsEmpty(older.MySeats, "a keel from before my_seats lists none");
         }
 
+        [Test]
+        public void Me_TypesTheCharterAndItsSkills_AsElements_AndAnOlderKeelTypesNone()
+        {
+            var door = OWFrontDoor.Of(JObject.Parse(
+                @"{""front_door"":{""sponsor"":null,""sponsor_character"":null,""my_character"":null,""charter"":""law-1"",""charter_skill"":[""o1"",""o2""],
+                    ""charter_element"":{""type"":""law"",""id"":""law-1""},
+                    ""charter_skill_elements"":[{""type"":""object"",""id"":""o1""},{""type"":""object"",""id"":""o2""}]}}"));
+
+            Assert.AreEqual("law", door.CharterElement.Type, "the Charter is a Law");
+            Assert.AreEqual("law-1", door.CharterElement.Id, "the same id as charter");
+            Assert.AreEqual(2, door.CharterSkillElements.Count);
+            Assert.AreEqual("object", door.CharterSkillElements[0].Type, "each skill is an Object");
+            Assert.AreEqual("o1", door.CharterSkillElements[0].Id, "in charter_skill's order");
+            Assert.AreEqual("o2", door.CharterSkillElements[1].Id);
+
+            var none = OWFrontDoor.Of(JObject.Parse(
+                @"{""front_door"":{""sponsor"":null,""sponsor_character"":null,""my_character"":null,""charter"":null,""charter_skill"":[],
+                    ""charter_element"":null,""charter_skill_elements"":[]}}"));
+            Assert.IsNull(none.CharterElement, "null where charter is");
+            Assert.IsEmpty(none.CharterSkillElements);
+
+            var older = OWFrontDoor.Of(JObject.Parse(
+                @"{""front_door"":{""sponsor"":null,""sponsor_character"":null,""my_character"":null,""charter"":""law-1"",""charter_skill"":[""o1""]}}"));
+            Assert.IsNull(older.CharterElement, "a keel from before charter_element types none");
+            Assert.IsEmpty(older.CharterSkillElements);
+        }
+
         // -- Errors -----------------------------------------------------------
 
         // -- The reading aids beside it -------------------------------------
@@ -1108,6 +1135,72 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             Assert.AreEqual(502, ex.StatusCode);
             Assert.IsTrue(ex.IsRetryable, "5xx is worth retrying.");
+        }
+
+        // -- The host's refusal: parity with the TypeScript SDK 4.175.0 and 4.178.0 (test/host-blocked.test.mjs) ----
+
+        // The head of the page the host in front of onlyworlds.com served, as npm's test measured it.
+        private const string BlockedPage = "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"utf-8\" />\n"
+            + "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n    <title>Blocked</title>\n"
+            + "    <style>body{}</style>\n  </head>\n  <body><h1>Blocked</h1></body>\n</html>\n";
+
+        private OWApiError Refusal(int status, string body)
+        {
+            var t = new FakeTransport { Status = status, ResponseBody = body };
+            return Assert.ThrowsAsync<OWApiError>(async () => await Make(t).CreateAsync<JObject>("character",
+                new JObject { ["name"] = "x", ["description"] = "Run `python -m http.server`." }));
+        }
+
+        [Test]
+        public void A403HtmlPageTitledBlocked_IsTheHostsRefusal_WithAMessageToActOn()
+        {
+            var err = Refusal(403, BlockedPage);
+
+            Assert.IsTrue(err.IsHostBlocked);
+            Assert.AreEqual(403, err.StatusCode);
+            Assert.IsNull(err.Code, "no API code");
+            Assert.IsNull(err.DocUrl);
+            Assert.AreEqual(BlockedPage, err.RawBody, "the page is kept");
+            StringAssert.Contains("The host in front of onlyworlds.com refused this request before the API saw it", err.Message);
+            StringAssert.Contains("nothing was written", err.Message);
+            StringAssert.Contains("a backtick, a semicolon or a pipe", err.Message);
+            StringAssert.Contains("fenced code block whose first line names a language", err.Message);
+            StringAssert.Contains("with none of the three directly before it", err.Message, "4.178.0's whole way out");
+            StringAssert.DoesNotContain("<", err.Message, "no HTML in the message");
+            Assert.IsFalse(err.IsAuthError);
+            Assert.IsFalse(err.IsNotAuthor);
+            Assert.IsFalse(err.IsRetryable, "the same text is refused again");
+        }
+
+        [Test]
+        public void TheBlockedTitle_IsReadWhateverItsCaseAndSpacing_AndWithAttributes()
+        {
+            foreach (var title in new[] { "<title>blocked</title>", "<title>  Blocked\n</title>", "<TITLE lang=\"en\">Blocked</TITLE>" })
+            {
+                Assert.IsTrue(Refusal(403, $"<html><head>{title}</head></html>").IsHostBlocked, title);
+            }
+        }
+
+        [Test]
+        public void TheApisOwn403Envelope_ReadsAsBefore_AMessageNamingBlockedIncluded()
+        {
+            var err = Refusal(403, @"{""error"":{""type"":""permission_error"",""code"":""not_author"",""message"":""Blocked: you did not create it."",""param"":null,""doc_url"":null}}");
+
+            Assert.IsFalse(err.IsHostBlocked);
+            Assert.IsTrue(err.IsNotAuthor);
+            StringAssert.EndsWith("Blocked: you did not create it.", err.Message);
+        }
+
+        [Test]
+        public void AnotherTitle_AnotherStatus_AJsonAnswer_OrNoTitle_IsNotTheHostsRefusal()
+        {
+            Assert.IsFalse(Refusal(403, BlockedPage.Replace("<title>Blocked</title>", "<title>Forbidden</title>")).IsHostBlocked);
+            Assert.IsFalse(Refusal(502, BlockedPage).IsHostBlocked);
+            Assert.IsFalse(Refusal(429, BlockedPage).IsHostBlocked);
+            Assert.IsFalse(Refusal(403, @"{""title"":""<title>Blocked</title>""}").IsHostBlocked, "a JSON object is never the page");
+            Assert.IsFalse(Refusal(403, @"[""<title>Blocked</title>""]").IsHostBlocked, "a JSON array is never the page");
+            Assert.IsTrue(Refusal(403, @"""<title>Blocked</title>""").IsHostBlocked, "a JSON string is read as its text, as npm reads it");
+            Assert.IsFalse(Refusal(403, "<html><body><h1>Blocked</h1></body></html>").IsHostBlocked, "no title element");
         }
 
         [Test]

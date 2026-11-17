@@ -5,7 +5,7 @@
     "X-Session-Token",
     "Authorization"
   ],
-  "document_sha256": "2dd72338aa307aae6a9cd84bdaa0905dc426a80007d07d62c8bb2300472719ed",
+  "document_sha256": "c2705043ee53831e3c7c310b5e00c4e644cd374036e6bd652926d6fea800c86f",
   "error_codes": {
     "already_member": 409,
     "already_reported": 409,
@@ -95,7 +95,7 @@
     "write_failed": 502,
     "wrong_audience": 401
   },
-  "fetched": "2026-11-16T16:58+01:00",
+  "fetched": "2026-11-17T01:57+01:00",
   "openapi_version": "2.0",
   "paths": {
     "/api/v2/ability": {
@@ -1516,6 +1516,7 @@
         "body": [
           "character",
           "lenses",
+          "may_change_character",
           "role",
           "sponsor"
         ],
@@ -2483,6 +2484,7 @@
           "style.her_links",
           "style.via",
           "work",
+          "work[].by_role",
           "work[].element",
           "work[].grade",
           "work[].her_links",
@@ -6932,7 +6934,9 @@
           "env",
           "front_door",
           "front_door.charter",
+          "front_door.charter_element",
           "front_door.charter_skill",
+          "front_door.charter_skill_elements",
           "front_door.my_character",
           "front_door.my_seats",
           "front_door.sponsor",
@@ -10282,7 +10286,9 @@
           "character",
           "front_door",
           "front_door.charter",
+          "front_door.charter_element",
           "front_door.charter_skill",
+          "front_door.charter_skill_elements",
           "front_door.my_character",
           "front_door.my_seats",
           "front_door.sponsor",
@@ -10317,7 +10323,9 @@
           "character",
           "front_door",
           "front_door.charter",
+          "front_door.charter_element",
           "front_door.charter_skill",
+          "front_door.charter_skill_elements",
           "front_door.my_character",
           "front_door.my_seats",
           "front_door.sponsor",
@@ -10354,7 +10362,9 @@
           "character",
           "front_door",
           "front_door.charter",
+          "front_door.charter_element",
           "front_door.charter_skill",
+          "front_door.charter_skill_elements",
           "front_door.my_character",
           "front_door.my_seats",
           "front_door.sponsor",
