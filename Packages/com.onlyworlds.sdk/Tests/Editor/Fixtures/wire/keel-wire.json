@@ -5,7 +5,7 @@
     "X-Session-Token",
     "Authorization"
   ],
-  "document_sha256": "c2705043ee53831e3c7c310b5e00c4e644cd374036e6bd652926d6fea800c86f",
+  "document_sha256": "514ea1d77c856999d495d4386779ca1ebdf2c87ddaeff5cd8cae7d87104b68f9",
   "error_codes": {
     "already_member": 409,
     "already_reported": 409,
@@ -95,7 +95,7 @@
     "write_failed": 502,
     "wrong_audience": 401
   },
-  "fetched": "2026-11-17T01:57+01:00",
+  "fetched": "2026-11-18T21:28+01:00",
   "openapi_version": "2.0",
   "paths": {
     "/api/v2/ability": {
@@ -1547,9 +1547,12 @@
       "POST": {
         "body": [
           "characters",
+          "constructs",
           "description",
           "name",
+          "objects",
           "parent_narrative",
+          "relations",
           "story",
           "subtype",
           "supertype"
