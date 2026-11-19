@@ -21,8 +21,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </summary>
     public class OWReportTests
     {
-        /// <summary>The fixture's sha256 as dist.136's MANIFEST.json records it (serial 135 added <c>talk_cases</c>).</summary>
-        private const string DistSha256 = "0d83ce1ee76f93c79b786bb10e1e97bfb94c6983a8b3b00d1867e65f03722e94";
+        /// <summary>The fixture's sha256 as dist.139's MANIFEST.json records it (serial 135 added <c>talk_cases</c>, serial 138 three more).</summary>
+        private const string DistSha256 = "06d550f9e9e83de62aaccd2400859507350a514d3c3513a41a1fbed54b857934";
 
         /// <summary>The fixture's thread cases, as dist.122 holds them.</summary>
         private const int CaseCount = 29;
@@ -75,7 +75,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.136's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.139's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
@@ -120,7 +120,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             Assert.IsNotNull(Fixture, "the vendored report fixture was not found");
             var names = Fixture["talk_cases"].Select(c => (string)c["name"]).ToList();
-            Assert.AreEqual(6, names.Count, "serial 135's fixture holds 6 talk cases");
+            Assert.AreEqual(9, names.Count, "serial 138's fixture holds 9 talk cases (6 from serial 135)");
             Assert.AreEqual(names.Count, names.Distinct().Count(), "a case is found by its name, so each name is once");
         }
 

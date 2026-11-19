@@ -18,14 +18,16 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </summary>
     public class OWMapSpaceTests
     {
-        /// <summary>The fixture's sha256 as dist.127's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "253b45e091fdf4b1d54f012faf4717c53881fcd310b8ded85854731e9e7395ff";
+        /// <summary>The fixture's sha256 as dist.139's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "f1d832d63b9b0d071bd1bc1c2d16a97b3b9db405a9e01a63451ca74ef0cec657";
 
         /// <summary>
-        /// The fixture's cases, as dist.127 holds them (34 from dist.106; dist.119 adds a layout map read as any Map,
-        /// dist.126 four cases of an empty-string link read as no link; dist.127 moves none).
+        /// The fixture's cases, as dist.139 holds them (34 from dist.106; dist.119 adds a layout map read as any Map,
+        /// dist.126 four cases of an empty-string link read as no link; dist.127 moves none; dist.137 adds four, a
+        /// size as written, a size not whole, a link not a string and a measured slot with no point; dist.139's
+        /// <c>frame_cases</c> are another list, not read here).
         /// </summary>
-        private const int CaseCount = 39;
+        private const int CaseCount = 43;
 
         private static JObject _fixture;
 
@@ -71,7 +73,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.127's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.139's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
@@ -80,7 +82,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsNotNull(Fixture, "the vendored map-space fixture was not found");
             Assert.AreEqual("map-space", (string)Fixture["profile"]);
             var names = Fixture["cases"].Select(c => (string)c["name"]).ToList();
-            Assert.AreEqual(CaseCount, names.Count, "dist.127's fixture holds 39 cases");
+            Assert.AreEqual(CaseCount, names.Count, "dist.139's fixture holds 43 cases");
             CollectionAssert.Contains(names, "layout-map-read-as-before", "dist.119's case: a layout map read as any Map (rule 11)");
             Assert.AreEqual(names.Count, names.Distinct().Count(), "a case is found by its name, so each name is once");
         }

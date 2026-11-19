@@ -26,8 +26,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </remarks>
     public class OWCharterTests
     {
-        /// <summary>The fixture's sha256 as serial 136 publishes it (serial 135 added <c>design_cases</c>).</summary>
-        private const string DistSha256 = "972eda71e3538310df7ccd4166a2e7f2807eb55b6f512a03ced28c9220ea668a";
+        /// <summary>The fixture's sha256 as serial 139 publishes it (serial 135 added <c>design_cases</c>, serial 138 three more).</summary>
+        private const string DistSha256 = "429a110c6e02ca981574dec042f141f54c0d652c4b4fa1eda2d2a55ef03150b2";
 
         /// <summary>The fixture's cases by kind, as serial 133 publishes them (47 in all).</summary>
         private static readonly Dictionary<string, int> Counts = new Dictionary<string, int>
@@ -81,7 +81,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not serial 136's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not serial 139's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
@@ -169,7 +169,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             Assert.IsNotNull(Fixture, "the vendored charter fixture was not found");
             var names = Fixture["design_cases"].Select(c => (string)c["name"]).ToList();
-            Assert.AreEqual(13, names.Count, "serial 135's fixture holds 13 design cases");
+            Assert.AreEqual(16, names.Count, "serial 138's fixture holds 16 design cases (13 from serial 135)");
             Assert.AreEqual(names.Count, names.Distinct().Count(), "a case is found by its name, so each name is once");
             CollectionAssert.AreEqual(new[] { "in design", "locked" }, OWCharter.DesignStates.ToList());
         }

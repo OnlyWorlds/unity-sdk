@@ -22,8 +22,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </summary>
     public class OWLayoutTests
     {
-        /// <summary>The fixture's sha256: <c>profiles/layout.fixture.json</c> in schema-dist <c>v0.34.1-dist.132</c>.</summary>
-        private const string FixtureSha256 = "6860a7654f1a92e31269cbbdd2a08049035bd19caebc2f9083b320be4872000e";
+        /// <summary>The fixture's sha256: <c>profiles/layout.fixture.json</c> in schema-dist <c>v0.34.1-dist.139</c> (dist.137 added two <c>unplaced</c> cases, which this SDK does not read).</summary>
+        private const string FixtureSha256 = "392b5b19b21d5beb1994692f51a8d8df3ef431f93bc279a7fc42ab0b0db508a5";
 
         private const double AroundTolerance = 1e-12;
 

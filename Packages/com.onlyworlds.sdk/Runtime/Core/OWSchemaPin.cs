@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.34.01";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 136;
+        public const int DistSerial = 139;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.34.1-dist.136";
+        public const string Tag = "v0.34.1-dist.139";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -490,9 +490,22 @@ namespace OnlyWorlds.Sdk
         /// read. No existing case or answer moved. The generated models and the views table changed in their serial
         /// and published stamps only.
         /// </para>
+        /// <para>
+        /// <b>136 -> 139 (2026-11-19)</b>: canonical unchanged, no schema file, <c>schema.json</c> or <c>views.json</c>
+        /// moved. Serial 137: a third default layout, <c>by-links-3d</c>, with its own fixture and directions table,
+        /// which this SDK does not lay out; a member of <c>placed</c> that is no non-empty string names no element
+        /// (layout <c>unplaced</c> 17); map-space reads a whole-number width, height or depth as written (cases 43,
+        /// <c>layout_cases</c> 32). Serial 138: the hidden mark keeps an element from every reader but a keeper (the
+        /// owner or a co-builder) and the one who made it, so a contributor reads its own hidden creation whole, and a
+        /// new reader rung, <c>co-builder</c>, reads the whole world as the owner does with none of the owner's counts
+        /// (lens 246 cases, report <c>talk_cases</c> 9, charter <c>design_cases</c> 16). Serial 139: a child Map's
+        /// frame on its parent, <c>x_parent_frame</c>, and how a point is carried up the chain (map-space
+        /// <c>frame_cases</c> 66), which this SDK does not read yet. No answer on an existing case moved. The generated
+        /// models and the views table changed in their serial stamp only.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "9a1f31d1135a17ffa0facca587ba354a90821bdb28dc46a4a7335cbfe7acfa91";
+            "65a3ded94dfce624e823c664c7bcfc317530a872213a217d8e3a63215fe9f4e5";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.
