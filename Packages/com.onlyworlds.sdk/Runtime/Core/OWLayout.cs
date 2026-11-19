@@ -364,40 +364,7 @@ namespace OnlyWorlds.Sdk
                 throw new ArgumentException($"LayoutAround: the focus {focus ?? "null"} is not a node of the graph");
 
             var n = nodes.Length;
-            var adj = new List<int>[n];
-            for (var i = 0; i < n; i++) adj[i] = new List<int>();
-            foreach (var e in g.Edges)
-            {
-                if (!g.Index.TryGetValue(e.Source, out var a) || !g.Index.TryGetValue(e.Target, out var b)) continue;
-                adj[a].Add(b);
-                if (a != b) adj[b].Add(a);
-            }
-
-            var depth = new int[n];
-            for (var i = 0; i < n; i++) depth[i] = -1;
-            depth[centre] = 0;
-            var via = new int[n];
-            // Each step's newly reached elements in the order they were reached: the order the TypeScript SDK's depth
-            // map holds them in, which orders each neighbour's fan.
-            var reached = new List<int>[steps + 1];
-            var frontier = new List<int> { centre };
-            for (var s = 1; s <= steps; s++)
-            {
-                var next = new List<int>();
-                foreach (var a in frontier)
-                {
-                    foreach (var to in adj[a])
-                    {
-                        if (depth[to] >= 0) continue;
-                        depth[to] = s;
-                        via[to] = a;
-                        next.Add(to);
-                    }
-                }
-
-                reached[s] = next;
-                frontier = next;
-            }
+            var depth = Reach(g, centre, steps, out var via, out var reached);
 
             var ring1 = new List<int>(reached[1]);
             ring1.Sort((a, b) =>
@@ -476,6 +443,154 @@ namespace OnlyWorlds.Sdk
             }
 
             return new OWLayoutAround(points);
+        }
+
+        /// <summary>What a saved <c>by-kind</c> layout map does not place: <see cref="UnplacedByKind(JObject, System.Collections.IEnumerable)"/> on the graph's own words (<see cref="OWWorldGraph.ToJson"/>).</summary>
+        /// <exception cref="ArgumentException">The graph cannot be read, or <paramref name="placed"/> is not a list or a set.</exception>
+        public static IReadOnlyList<string> UnplacedByKind(OWWorldGraph graph, System.Collections.IEnumerable placed) => UnplacedByKind(graph?.ToJson(), placed);
+
+        /// <summary>
+        /// What a saved <c>by-kind</c> layout map does not place (the default layouts' page, <c>unplaced</c>): the ids of
+        /// the graph's nodes that are not in <paramref name="placed"/>, by id in code point order. <c>by-kind</c> places
+        /// every node, so every node counts.
+        /// </summary>
+        /// <remarks>
+        /// <paramref name="placed"/> is the ids of the elements the Map's Pins stand for (from <see cref="OWMapSpace"/>,
+        /// the <c>ElementId</c> of each pin on this Map), a list or a set: strings, or a <see cref="JArray"/>. A member
+        /// that is not a non-empty string names no element and is passed over (the number 7 is not the id "7"), and an
+        /// id that is no node is no part of the answer. The answer's length is the count a tool shows; it does not say
+        /// why an element has no Pin.
+        /// </remarks>
+        /// <exception cref="ArgumentException">The graph cannot be read (as <see cref="LayoutByKind(JObject)"/>), or <paramref name="placed"/> is null or a single string.</exception>
+        public static IReadOnlyList<string> UnplacedByKind(JObject graph, System.Collections.IEnumerable placed)
+        {
+            var ids = PlacedIds("UnplacedByKind", placed);
+            var g = ReadGraph("UnplacedByKind", graph);
+            var answer = new List<string>();
+            foreach (var x in g.Nodes)
+                if (!ids.Contains(x.Id)) answer.Add(x.Id);
+            return answer;
+        }
+
+        /// <summary>What a saved <c>around</c> layout map does not place: <see cref="UnplacedAround(JObject, string, System.Collections.IEnumerable, int)"/> on the graph's own words (<see cref="OWWorldGraph.ToJson"/>).</summary>
+        /// <exception cref="ArgumentException">As <see cref="LayoutAround(JObject, string, int)"/>, or <paramref name="placed"/> is not a list or a set.</exception>
+        public static IReadOnlyList<string> UnplacedAround(OWWorldGraph graph, string focus, System.Collections.IEnumerable placed, int steps = 1)
+        {
+            CheckSteps(steps);
+            return UnplacedAround(graph?.ToJson(), focus, placed, steps);
+        }
+
+        /// <summary>
+        /// What a saved <c>around</c> layout map does not place: the ids of the focus and every node within
+        /// <paramref name="steps"/> of it that are not in <paramref name="placed"/>, by id in code point order.
+        /// </summary>
+        /// <remarks>
+        /// <paramref name="placed"/> is read as <see cref="UnplacedByKind(JObject, System.Collections.IEnumerable)"/> reads
+        /// it; an id that <c>around</c> would not place (no node, or a node further out than the steps) is no part of the
+        /// answer. Only a tool that holds the Map's focus and steps can make this reading.
+        /// </remarks>
+        /// <exception cref="ArgumentException">As <see cref="LayoutAround(JObject, string, int)"/> (steps, graph, focus), or <paramref name="placed"/> is null or a single string.</exception>
+        public static IReadOnlyList<string> UnplacedAround(JObject graph, string focus, System.Collections.IEnumerable placed, int steps = 1)
+        {
+            CheckSteps(steps);
+            var g = ReadGraph("UnplacedAround", graph);
+            if (focus == null || !g.Index.TryGetValue(focus, out var centre))
+                throw new ArgumentException($"UnplacedAround: the focus {focus ?? "null"} is not a node of the graph");
+            var ids = PlacedIds("UnplacedAround", placed);
+            var depth = Reach(g, centre, steps, out _, out _);
+            var answer = new List<string>();
+            for (var j = 0; j < g.Nodes.Length; j++)
+                if (depth[j] >= 0 && !ids.Contains(g.Nodes[j].Id)) answer.Add(g.Nodes[j].Id);
+            return answer;
+        }
+
+        /// <summary>What a saved <c>by-links-3d</c> layout map does not place: <see cref="UnplacedByLinks3d(JObject, System.Collections.IEnumerable)"/> on the graph's own words (<see cref="OWWorldGraph.ToJson"/>).</summary>
+        /// <exception cref="ArgumentException">The graph is not <c>{nodes, edges}</c>, two nodes share an id, or <paramref name="placed"/> is not a list or a set.</exception>
+        public static IReadOnlyList<string> UnplacedByLinks3d(OWWorldGraph graph, System.Collections.IEnumerable placed) => UnplacedByLinks3d(graph?.ToJson(), placed);
+
+        /// <summary>
+        /// What a saved <c>by-links-3d</c> layout map does not place: the ids of the graph's nodes that are not in
+        /// <paramref name="placed"/>, by id in code point order. Every node counts, of any type, also one the method would
+        /// not place (linked to no other and pinned on no map), so for the Map an answer makes this is that answer's own
+        /// <c>unplaced</c>. The method's Maps, Pins and held points are not read.
+        /// </summary>
+        /// <remarks><paramref name="placed"/> is read as <see cref="UnplacedByKind(JObject, System.Collections.IEnumerable)"/> reads it.</remarks>
+        /// <exception cref="ArgumentException">The graph is not <c>{nodes, edges}</c>, a node has no text id, two nodes share an id, or <paramref name="placed"/> is null or a single string.</exception>
+        public static IReadOnlyList<string> UnplacedByLinks3d(JObject graph, System.Collections.IEnumerable placed)
+        {
+            if (graph == null || !(graph["nodes"] is JArray nodes) || !(graph["edges"] is JArray))
+                throw new ArgumentException("UnplacedByLinks3d: the graph is { nodes, edges }, as WorldGraph answers it");
+            var taken = PlacedIds("UnplacedByLinks3d", placed);
+            var ids = new List<string>(nodes.Count);
+            for (var i = 0; i < nodes.Count; i++)
+            {
+                var id = (nodes[i] as JObject)?["id"];
+                if (id == null || id.Type != JTokenType.String) throw new ArgumentException($"UnplacedByLinks3d: node {i} has no id");
+                ids.Add((string)id);
+            }
+
+            ids.Sort(OWCodePointComparer.Instance);
+            for (var i = 1; i < ids.Count; i++)
+                if (ids[i] == ids[i - 1]) throw new ArgumentException($"UnplacedByLinks3d: two nodes share the id {ids[i]}");
+            return ids.FindAll(id => !taken.Contains(id));
+        }
+
+        /// <summary><c>placed</c> as a set of ids: a member that is not a non-empty string (a string, or a <see cref="JValue"/> holding one) is passed over.</summary>
+        private static HashSet<string> PlacedIds(string fn, System.Collections.IEnumerable placed)
+        {
+            if (placed == null || placed is string)
+                throw new ArgumentException($"{fn}: placed is a list or a set of element ids");
+            var ids = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var v in placed)
+            {
+                var s = v is string text ? text : v is JValue j && j.Type == JTokenType.String ? (string)j : null;
+                if (!string.IsNullOrEmpty(s)) ids.Add(s);
+            }
+
+            return ids;
+        }
+
+        /// <summary>
+        /// <c>around</c>'s reach (its steps 1 and 2): each node's depth from the focus, -1 past the steps; the node whose
+        /// list each was met in; and each depth's nodes in the order they were found, which orders each neighbour's fan.
+        /// </summary>
+        private static int[] Reach(Ordered g, int centre, int steps, out int[] via, out List<int>[] reached)
+        {
+            var n = g.Nodes.Length;
+            var adj = new List<int>[n];
+            for (var i = 0; i < n; i++) adj[i] = new List<int>();
+            foreach (var e in g.Edges)
+            {
+                if (!g.Index.TryGetValue(e.Source, out var a) || !g.Index.TryGetValue(e.Target, out var b)) continue;
+                adj[a].Add(b);
+                if (a != b) adj[b].Add(a);
+            }
+
+            var depth = new int[n];
+            for (var i = 0; i < n; i++) depth[i] = -1;
+            depth[centre] = 0;
+            via = new int[n];
+            reached = new List<int>[steps + 1];
+            var frontier = new List<int> { centre };
+            for (var s = 1; s <= steps; s++)
+            {
+                var next = new List<int>();
+                foreach (var a in frontier)
+                {
+                    foreach (var to in adj[a])
+                    {
+                        if (depth[to] >= 0) continue;
+                        depth[to] = s;
+                        via[to] = a;
+                        next.Add(to);
+                    }
+                }
+
+                reached[s] = next;
+                frontier = next;
+            }
+
+            return depth;
         }
 
         private static void CheckSteps(int steps)

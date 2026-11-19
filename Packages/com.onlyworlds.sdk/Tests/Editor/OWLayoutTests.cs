@@ -15,14 +15,16 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// Read through <see cref="OWJson"/>, which reads every double exactly. by-kind compares exactly, every x and y with
     /// <c>==</c>: the method is chaotic, so two runtimes agree bit for bit or not at all. around compares within 1e-12:
     /// each of its points is one cosine and one sine, and runtimes' cosines may differ in the last place. The fixture's
-    /// third suite, <c>unplaced</c>, is not read: this package does not implement that reading. Then the TypeScript SDK's
+    /// third suite, <c>unplaced</c>, is read whole by <see cref="OWLayout.UnplacedByKind(JObject, System.Collections.IEnumerable)"/>
+    /// and <see cref="OWLayout.UnplacedAround(JObject, string, System.Collections.IEnumerable, int)"/>, by each case's method word,
+    /// the ids compared exactly and in order. Then the TypeScript SDK's
     /// other vectors (<c>test/layout-by-kind.test.mjs</c>). When the pin moves, copy the dist's file over the vendored one,
     /// regenerate the table (<c>codegen/generate_layout_anchors.py</c>), and update the hash; <c>codegen/check_drift.py</c>
     /// names a stale copy.
     /// </summary>
     public class OWLayoutTests
     {
-        /// <summary>The fixture's sha256: <c>profiles/layout.fixture.json</c> in schema-dist <c>v0.34.1-dist.139</c> (dist.137 added two <c>unplaced</c> cases, which this SDK does not read).</summary>
+        /// <summary>The fixture's sha256: <c>profiles/layout.fixture.json</c> in schema-dist <c>v0.34.1-dist.139</c> (dist.137 added two <c>unplaced</c> cases, 17 in all).</summary>
         private const string FixtureSha256 = "392b5b19b21d5beb1994692f51a8d8df3ef431f93bc279a7fc42ab0b0db508a5";
 
         private const double AroundTolerance = 1e-12;
@@ -85,7 +87,6 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [Test]
         public void TheFixture_IsThePinnedDistsBytes_WithSeventeenExactCasesAndTenRings()
         {
-            // The file also holds `unplaced` (15 cases), which no test here reads: the package has no unplaced reader.
             var path = FixturePath;
             Assert.That(path != null && File.Exists(path), Is.True, "the fixture is vendored");
             using (var sha = SHA256.Create())
@@ -147,6 +148,53 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             }
 
             Assert.That(off, Is.EqualTo(0), $"{off} of {want.Count} points differ from the fixture");
+        }
+
+        /// <summary>One test per <c>unplaced</c> case, named after it: the fixture's whole list, read by its method word.</summary>
+        public static IEnumerable<TestCaseData> UnplacedCases()
+        {
+            var fx = Fixture;
+            if (fx == null)
+            {
+                yield return new TestCaseData(string.Empty).SetName("Unplaced_FixtureNotFound");
+                yield break;
+            }
+
+            foreach (var c in fx["unplaced"].Cast<JObject>())
+                yield return new TestCaseData((string)c["name"]).SetName("Unplaced_" + ((string)c["name"]).Replace('-', '_'));
+        }
+
+        [TestCaseSource(nameof(UnplacedCases))]
+        public void Unplaced_GivesTheFixturesIds_InIdOrder(string name)
+        {
+            Assert.That(Fixture, Is.Not.Null, "the fixture is vendored");
+            var c = (JObject)Fixture["unplaced"].First(x => (string)x["name"] == name);
+            var placed = (JArray)c["placed"].DeepClone();
+            var method = (string)c["method"];
+            IReadOnlyList<string> got;
+            if (method == "by-kind") got = OWLayout.UnplacedByKind(Graph(c), placed);
+            else if (method == "around") got = OWLayout.UnplacedAround(Graph(c), (string)c["focus"], placed, (int)c["steps"]);
+            else throw new AssertionException($"{name}: a method word this suite does not hold, {method}");
+            Assert.That(got, Is.EqualTo(c["want"].Select(t => (string)t).ToArray()));
+        }
+
+        [Test]
+        public void TheUnplacedSuite_IsSeventeenCases_ByKindAndAroundOnly()
+        {
+            var methods = Fixture["unplaced"].Select(c => (string)c["method"]).ToList();
+            Assert.That(methods.Count, Is.EqualTo(17));
+            Assert.That(methods.Distinct().OrderBy(m => m, StringComparer.Ordinal), Is.EqualTo(new[] { "around", "by-kind" }));
+        }
+
+        [Test]
+        public void Unplaced_RefusesAPlacedThatIsNoList_AndReadsAPlainListOfStrings()
+        {
+            var g = OWJson.ParseObject("{\"nodes\":[{\"id\":\"b\",\"type\":\"character\"},{\"id\":\"a\",\"type\":\"location\"}],\"edges\":[]}");
+            Assert.Throws<ArgumentException>(() => OWLayout.UnplacedByKind(g, null));
+            Assert.Throws<ArgumentException>(() => OWLayout.UnplacedByKind(g, "a"));
+            Assert.That(OWLayout.UnplacedByKind(g, new[] { "b", "", null, "z" }), Is.EqualTo(new[] { "a" }));
+            Assert.That(OWLayout.UnplacedByKind(g, new HashSet<string>()), Is.EqualTo(new[] { "a", "b" }));
+            Assert.That(OWLayout.UnplacedByKind(g, new object[] { 7, "a" }), Is.EqualTo(new[] { "b" }));
         }
 
         [TestCaseSource(nameof(AroundCases))]
