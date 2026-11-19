@@ -76,7 +76,11 @@ namespace OnlyWorlds.Sdk
         /// <summary>The whole world but what is proposed.</summary>
         Owner,
 
-        /// <summary>The world less what is hidden (<see cref="OWPayload.IsHidden"/>) and what is proposed.</summary>
+        /// <summary>
+        /// The world less what is hidden (<see cref="OWPayload.IsHidden"/>) and what is proposed, plus the hidden
+        /// elements it made, listed in <see cref="OWLensReader.Whole"/> (serial 138: the hidden mark keeps an element
+        /// from every reader but a keeper and the one who made it).
+        /// </summary>
         Contributor,
 
         /// <summary>Exactly the ids it is given whole, and the ids it knows of as stubs; never what is proposed.</summary>
@@ -91,6 +95,13 @@ namespace OnlyWorlds.Sdk
         /// which is in no view. Nothing is hidden on top of what the server already left out.
         /// </summary>
         Served,
+
+        /// <summary>
+        /// A co-builder, a keeper beside the owner (serial 138): the whole world as the owner reads it, hidden elements
+        /// included and bodies as stored, but none of the owner's two counts (<see cref="OWLensCut.OwnerOnly"/>).
+        /// Last in the list so no earlier rung's value moves.
+        /// </summary>
+        CoBuilder,
     }
 
     /// <summary>Who reads a lens: the view it reads through, its Character (for the mail rule), and whose counts it sees.</summary>
@@ -112,7 +123,10 @@ namespace OnlyWorlds.Sdk
         /// <summary>The reader's Character, whose mail the mail rule reads; null for a reader with none (no mail).</summary>
         public string Character { get; }
 
-        /// <summary>A guest's ids it is given whole; null for every other rung.</summary>
+        /// <summary>
+        /// A guest's ids it is given whole; a contributor's hidden elements it made (null when it names none); null for
+        /// every other rung.
+        /// </summary>
         public IReadOnlyCollection<string> Whole { get; }
 
         /// <summary>A guest's ids it knows of as stubs; null for every other rung.</summary>
@@ -128,9 +142,19 @@ namespace OnlyWorlds.Sdk
         public static OWLensReader Owner(string character = null) =>
             new OWLensReader(OWLensRung.Owner, character, null, null, true);
 
-        /// <summary>A contributor: the world less the hidden and the proposed.</summary>
-        public static OWLensReader Contributor(string character = null) =>
-            new OWLensReader(OWLensRung.Contributor, character, null, null, false);
+        /// <summary>
+        /// A co-builder: the whole world as the owner reads it, hidden elements included, and none of the owner's
+        /// counts.
+        /// </summary>
+        public static OWLensReader CoBuilder(string character = null) =>
+            new OWLensReader(OWLensRung.CoBuilder, character, null, null, false);
+
+        /// <summary>
+        /// A contributor: the world less the hidden and the proposed, plus the hidden elements it made, given in
+        /// <paramref name="whole"/> (keel serves a contributor its own hidden creations whole).
+        /// </summary>
+        public static OWLensReader Contributor(string character = null, IEnumerable<string> whole = null) =>
+            new OWLensReader(OWLensRung.Contributor, character, whole, null, false);
 
         /// <summary>A guest: exactly the ids it is served whole, and those it knows of as stubs.</summary>
         public static OWLensReader Guest(IEnumerable<string> whole, IEnumerable<string> knownOf = null, string character = null) =>
@@ -1124,10 +1148,13 @@ namespace OnlyWorlds.Sdk
                     switch (reader.Rung)
                     {
                         case OWLensRung.Owner:
+                        case OWLensRung.CoBuilder:
                             whole = true;
                             break;
                         case OWLensRung.Contributor:
-                            whole = !Hidden.Contains(id);
+                            // The hidden mark keeps an element from every reader but a keeper and the one who made it:
+                            // a contributor's own hidden creations, listed in its whole, come in whole (serial 138).
+                            whole = !Hidden.Contains(id) || (reader.Whole != null && reader.Whole.Contains(id));
                             break;
                         case OWLensRung.Public:
                             whole = !Hidden.Contains(id) && !IsRoom(id);
@@ -1287,13 +1314,14 @@ namespace OnlyWorlds.Sdk
                 // x_served_trimmed is the server's key, never a stored one: a body that stores it serves none of it, to
                 // any reader (keel pops it before the trim). Only a key's served bodies carry the server's own mark.
                 if (Rung != OWLensRung.Served) body.Remove(OWMessage.ServedTrimmedKey);
-                // The owner reading as itself is served what it stored, a link to a proposed element too: nothing is
-                // trimmed and nothing marked (keel's reader with no view). Reading as another reader, it gets theirs.
-                if (Rung != OWLensRung.Owner) Trim(body, TypeOf(i));
+                // A keeper (the owner reading as itself, or a co-builder) is served what is stored, a link to a
+                // proposed element too: nothing is trimmed and nothing marked (keel's reader with no view). The owner
+                // reading as another reader gets theirs.
+                if (Rung != OWLensRung.Owner && Rung != OWLensRung.CoBuilder) Trim(body, TypeOf(i));
                 var served = KnownOf.Contains(i) ? ToKnownOf(body, TypeOf(i)) : body;
                 // A body served of an element under the hidden mark (the world's list or its own key, one mark) carries
                 // hidden: true, and no other body a hidden key, a stored false included (keel's serialize.py). Below
-                // the owner only a guest's own creation carries it, a body it sees whole.
+                // a keeper only a contributor's or a guest's own creation carries it, a body it sees whole.
                 if (Hidden.Contains(i)) served[OWPayload.Hidden] = true;
                 else served.Remove(OWPayload.Hidden);
                 return served;

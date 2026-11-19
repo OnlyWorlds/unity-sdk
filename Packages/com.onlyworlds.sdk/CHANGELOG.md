@@ -8,6 +8,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Added
 
+- **`OWLensReader.CoBuilder` and a contributor's own hidden creations** (the lens page, serial 138): the hidden mark
+  keeps an element from every reader but a keeper (the owner or a co-builder) and the one who made it. A new rung,
+  `OWLensRung.CoBuilder` (last in the enum, so no earlier value moves), reads the whole world as the owner does, hidden
+  elements included and bodies as stored, with none of the owner's two counts. `OWLensReader.Contributor` takes an
+  optional `whole`, the hidden elements that contributor made: each is in its view and its body carries `hidden: true`.
+  The lens readers, the graph, the charter's `CharterOf` and `DesignPartsOf` and the strand reader read both through
+  the view; the graph's `hidden` and `proposed` flags stay the owner's alone, as the page says today.
 - **`OWRoom.TalksOf`, the talks on an Object or a Construct a line is in** (the room page, serial 135): each
   `(type, id)` a line in the room names in its `objects` (`object`) or `constructs` (`construct`), read from the line
   alone; an entry that is not a string or is empty once trimmed of White_Space names nothing, a field that is not a

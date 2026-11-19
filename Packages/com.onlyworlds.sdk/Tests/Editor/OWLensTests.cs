@@ -1184,6 +1184,44 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         /// <summary>
+        /// Serial 138: the hidden mark keeps an element from every reader but a keeper and the one who made it. A
+        /// co-builder is served the bodies as stored, the hidden one marked, and none of the owner's counts; a contributor
+        /// sees its own hidden creation, listed in its whole, and no other. Kills: a co-builder trimmed like a member, or
+        /// counted like the owner; a contributor's whole read as a guest's (only the listed ids).
+        /// </summary>
+        [Test]
+        public void Serial138_AKeeperAndAMakerReadTheHidden()
+        {
+            var world = new List<JObject>
+            {
+                Lens("L", @"{""depth"":0}", @"""characters"":[""a"",""ghost""]"),
+                JObject.Parse(@"{""id"":""a"",""type"":""character"",""name"":""A"",""friends"":[""p"",""h"",""k""]}"),
+                JObject.Parse(@"{""id"":""p"",""type"":""character"",""name"":""P"",""x_review_proposed"":{""by"":null,""at"":""2026-10-03T12:00:00Z""}}"),
+                JObject.Parse(@"{""id"":""h"",""type"":""character"",""name"":""H"",""hidden"":true}"),
+                JObject.Parse(@"{""id"":""k"",""type"":""character"",""name"":""K"",""hidden"":true}"),
+            };
+
+            var keeper = OWLens.ServedView(world, OWLensReader.CoBuilder()).ToDictionary(e => (string)e["id"]);
+            CollectionAssert.AreEquivalent(new[] { "L", "a", "h", "k" }, keeper.Keys, "the whole world but the proposed");
+            CollectionAssert.AreEqual(new[] { "p", "h", "k" }, keeper["a"]["friends"].Select(t => (string)t).ToList(),
+                "a keeper's body as stored, nothing trimmed");
+            Assert.IsNull(keeper["a"][OWMessage.ServedTrimmedKey], "nothing trimmed, nothing marked");
+            Assert.AreEqual(true, (bool)keeper["h"][OWPayload.Hidden]);
+            CollectionAssert.IsEmpty(OWLens.Resolve(world, "L", OWLensReader.CoBuilder()).Cut, "a co-builder is not the owner");
+            CollectionAssert.IsNotEmpty(OWLens.Resolve(world, "L", OWLensReader.Owner()).Cut, "the owner counts the dangling anchor");
+
+            var maker = OWLens.ServedView(world, OWLensReader.Contributor(whole: new[] { "h" })).ToDictionary(e => (string)e["id"]);
+            CollectionAssert.AreEquivalent(new[] { "L", "a", "h" }, maker.Keys, "its own hidden creation, and not another's");
+            CollectionAssert.AreEqual(new[] { "p", "h" }, maker["a"]["friends"].Select(t => (string)t).ToList(),
+                "a link to its own hidden creation kept, to another's left out");
+            Assert.AreEqual(true, (bool)maker["h"][OWPayload.Hidden], "its body of its own hidden creation carries the mark");
+            Assert.IsNull(maker["a"][OWPayload.Hidden]);
+
+            var other = OWLens.ServedView(world, OWLensReader.Contributor()).ToDictionary(e => (string)e["id"]);
+            CollectionAssert.AreEquivalent(new[] { "L", "a" }, other.Keys, "no hidden element for a contributor that made none");
+        }
+
+        /// <summary>
         /// Ruling 7: a known-of stub is shaped as keel serves it: the base and public fields kept (a public link redacted to
         /// what the reader sees), every other field at its unset value, extension keys dropped, <c>known_of</c> true.
         /// Kills: a stub that drops its unset fields, its public link, or <c>change_seq</c>.
@@ -1551,7 +1589,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             switch ((string)r["rung"])
             {
                 case "owner": return OWLensReader.Owner(character);
-                case "contributor": return OWLensReader.Contributor(character);
+                case "co-builder": return OWLensReader.CoBuilder(character);
+                case "contributor": return OWLensReader.Contributor(character, Strings(r["whole"]));
                 case "public": return OWLensReader.Public();
                 case "guest": return OWLensReader.Guest(Strings(r["whole"]), Strings(r["known_of"]), character);
                 default: throw new ArgumentException("a fixture reader of unknown rung: " + r["rung"]);

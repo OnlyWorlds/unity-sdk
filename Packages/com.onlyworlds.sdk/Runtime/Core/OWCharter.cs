@@ -340,7 +340,8 @@ namespace OnlyWorlds.Sdk
         /// hub the reader cannot see is not listed. The Charter is every member rung's to read whole on the platform, the
         /// public's only on a world open to anyone, so its name, rules and skill text are read from its body whole, a stub
         /// the reader holds or not, but the hidden mark wins over that (serial 135): a Charter the hidden mark keeps from a
-        /// reader is not that reader's, whole or as a stub; a skill id found in the text is taken in lowercase and matched as written against the
+        /// reader is not that reader's, whole or as a stub; the mark keeps nothing from a keeper (the owner or a
+        /// co-builder) or from the one who made it, a contributor's own hidden Charter listed in its whole (serial 138); a skill id found in the text is taken in lowercase and matched as written against the
         /// ids of the Objects the reader sees (the address profile's rule for the same id), so a kept skill is the Object's own id. A
         /// superseded Charter or Guide is never in the packet.
         /// </para>

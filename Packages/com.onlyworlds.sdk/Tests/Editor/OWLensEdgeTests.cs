@@ -136,7 +136,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             switch ((string)r["rung"])
             {
                 case "owner": return OWLensReader.Owner(character);
-                case "contributor": return OWLensReader.Contributor(character);
+                case "co-builder": return OWLensReader.CoBuilder(character);
+                case "contributor": return OWLensReader.Contributor(character, Strings(r["whole"]));
                 case "public": return OWLensReader.Public();
                 case "guest": return OWLensReader.Guest(Strings(r["whole"]), Strings(r["known_of"]), character);
                 case "served": return OWLensReader.Served(character);
