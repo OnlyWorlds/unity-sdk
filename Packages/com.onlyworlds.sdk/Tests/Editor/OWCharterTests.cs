@@ -146,6 +146,51 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             }
         }
 
+        /// <summary>One case per <c>design_cases</c> case (serial 135), named after it.</summary>
+        public static IEnumerable<TestCaseData> DesignCases()
+        {
+            var fixture = Fixture;
+            if (fixture == null)
+            {
+                yield return new TestCaseData(string.Empty).SetName("CharterDesign_FixtureNotFound");
+                yield break;
+            }
+
+            foreach (var c in fixture["design_cases"].Cast<JObject>())
+            {
+                var name = (string)c["name"];
+                yield return new TestCaseData(name).SetName("CharterDesign_" + name.Replace('-', '_'));
+            }
+        }
+
+        /// <summary>The design list is read whole: a case added later must not pass unseen.</summary>
+        [Test]
+        public void TheDesignCases_AreSerial135s_EachNamedOnce_AndTheStatesAreTheReaders()
+        {
+            Assert.IsNotNull(Fixture, "the vendored charter fixture was not found");
+            var names = Fixture["design_cases"].Select(c => (string)c["name"]).ToList();
+            Assert.AreEqual(13, names.Count, "serial 135's fixture holds 13 design cases");
+            Assert.AreEqual(names.Count, names.Distinct().Count(), "a case is found by its name, so each name is once");
+            CollectionAssert.AreEqual(new[] { "in design", "locked" }, OWCharter.DesignStates.ToList());
+        }
+
+        [TestCaseSource(nameof(DesignCases))]
+        public void EveryDesignCase_IsAnsweredAsTheProfileSays(string name)
+        {
+            Assert.IsNotNull(Fixture, "the vendored charter fixture was not found");
+            var c = Fixture["design_cases"].Cast<JObject>().Single(x => (string)x["name"] == name);
+            var fixtureWorld = WorldNamed(c["world"]);
+            var reader = ReaderOf(fixtureWorld, (string)c["reader"]);
+            var open = fixtureWorld["open"]?.Type == JTokenType.Boolean && (bool)fixtureWorld["open"];
+            var got = OWCharter.DesignPartsOf(WorldOf(fixtureWorld), reader, open)
+                .Select(p => p.ToJson().ToString(Formatting.None)).ToList();
+            var want = c["want"].Cast<JObject>()
+                .Select(p => new JObject { ["type"] = p["type"], ["id"] = p["id"], ["state"] = p["state"] }.ToString(Formatting.None))
+                .ToList();
+            Assert.AreEqual(got.Count, got.Distinct().Count(), name + ": each part once");
+            CollectionAssert.AreEquivalent(want, got, $"{name}: got [{string.Join(", ", got)}]");
+        }
+
         // -- Beside the fixture ----------------------------------------------------------
 
         /// <summary>

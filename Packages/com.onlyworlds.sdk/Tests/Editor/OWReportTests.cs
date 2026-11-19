@@ -97,6 +97,44 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(Mark, (string)Fixture["mark"]["value"]);
         }
 
+        /// <summary>One case per <c>talk_cases</c> case (serial 135), named after it.</summary>
+        public static IEnumerable<TestCaseData> TalkCases()
+        {
+            var fixture = Fixture;
+            if (fixture == null)
+            {
+                yield return new TestCaseData(string.Empty).SetName("ReportTalk_FixtureNotFound");
+                yield break;
+            }
+
+            foreach (var c in fixture["talk_cases"].Cast<JObject>())
+            {
+                var name = (string)c["name"];
+                yield return new TestCaseData(name).SetName("ReportTalk_" + name.Replace('-', '_'));
+            }
+        }
+
+        /// <summary>The talk list is read whole: a case added later must not pass unseen.</summary>
+        [Test]
+        public void TheTalkCases_AreSerial135s_EachNamedOnce()
+        {
+            Assert.IsNotNull(Fixture, "the vendored report fixture was not found");
+            var names = Fixture["talk_cases"].Select(c => (string)c["name"]).ToList();
+            Assert.AreEqual(6, names.Count, "serial 135's fixture holds 6 talk cases");
+            Assert.AreEqual(names.Count, names.Distinct().Count(), "a case is found by its name, so each name is once");
+        }
+
+        [TestCaseSource(nameof(TalkCases))]
+        public void EveryTalkCase_IsAnsweredAsTheProfileSays(string name)
+        {
+            Assert.IsNotNull(Fixture, "the vendored report fixture was not found");
+            var c = Fixture["talk_cases"].Cast<JObject>().Single(x => (string)x["name"] == name);
+            var got = OWReport.TalksOf(c["report"] as JObject).Select(t => t.type + " " + t.id).ToList();
+            var want = c["talks"].Cast<JObject>().Select(t => (string)t["type"] + " " + (string)t["id"]).ToList();
+            Assert.AreEqual(got.Count, got.Distinct().Count(), name + ": each talk once");
+            CollectionAssert.AreEquivalent(want, got, $"{name}: got [{string.Join(", ", got)}]");
+        }
+
         [TestCaseSource(nameof(Cases))]
         public void EveryCase_IsAnsweredAsTheProfileSays(string name)
         {

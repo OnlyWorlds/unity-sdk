@@ -97,6 +97,46 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual((bool)c["in_room"], OWRoom.IsRoomElement(c["element"] as JObject), $"case {name}: {c["element"]}");
         }
 
+        /// <summary>One case per <c>talk_cases</c> case (serial 135), named after it.</summary>
+        public static IEnumerable<TestCaseData> TalkCases()
+        {
+            var fixture = Fixture;
+            if (fixture == null)
+            {
+                yield return new TestCaseData(string.Empty).SetName("RoomTalk_FixtureNotFound");
+                yield break;
+            }
+
+            foreach (var c in fixture["talk_cases"].Cast<JObject>())
+            {
+                var name = (string)c["name"];
+                yield return new TestCaseData(name).SetName("RoomTalk_" + name.Replace('-', '_'));
+            }
+        }
+
+        /// <summary>The talk list is read whole: a case added later must not pass unseen.</summary>
+        [Test]
+        public void TheTalkCases_AreSerial135s_EachNamedOnce_AndTheirFieldsAreTheReaders()
+        {
+            Assert.IsNotNull(Fixture, "the vendored room fixture was not found");
+            var names = Fixture["talk_cases"].Select(c => (string)c["name"]).ToList();
+            Assert.AreEqual(13, names.Count, "serial 135's fixture holds 13 talk cases");
+            Assert.AreEqual(names.Count, names.Distinct().Count(), "a case is found by its name, so each name is once");
+            CollectionAssert.AreEqual(new[] { ("objects", "object"), ("constructs", "construct") }, OWRoom.TalkFields.ToList());
+            CollectionAssert.Contains(OWRoom.Pairs.ToList(), OWRoom.LinePair, "a line is a room pair");
+        }
+
+        [TestCaseSource(nameof(TalkCases))]
+        public void EveryTalkCase_IsAnsweredAsTheProfileSays(string name)
+        {
+            Assert.IsNotNull(Fixture, "the vendored room fixture was not found");
+            var c = Fixture["talk_cases"].Cast<JObject>().Single(x => (string)x["name"] == name);
+            var got = OWRoom.TalksOf(c["element"] as JObject).Select(t => t.type + " " + t.id).ToList();
+            var want = c["talks"].Cast<JObject>().Select(t => (string)t["type"] + " " + (string)t["id"]).ToList();
+            Assert.AreEqual(got.Count, got.Distinct().Count(), name + ": each talk once");
+            CollectionAssert.AreEquivalent(want, got, $"{name}: got [{string.Join(", ", got)}]");
+        }
+
         // -- Beside the fixture (the TypeScript SDK's own tests) -------------------
 
         private static JObject El(object type, object supertype, object mark)

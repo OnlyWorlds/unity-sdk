@@ -6,6 +6,23 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **`OWRoom.TalksOf`, the talks on an Object or a Construct a line is in** (the room page, serial 135): each
+  `(type, id)` a line in the room names in its `objects` (`object`) or `constructs` (`construct`), read from the line
+  alone; an entry that is not a string or is empty once trimmed of White_Space names nothing, a field that is not a
+  list names none, and every other entry is an id read as written. Empty for anything that is no line (a Message
+  without the mark, a board entry, a report). `OWRoom.LinePair` and `OWRoom.TalkFields` name the pair and the two
+  fields. Every case of the room fixture's `talk_cases` passes.
+- **`OWReport.TalksOf`, the talks a report is shown with** (the report page, serial 135): the same reading of a
+  report's `objects` and `constructs`, empty for anything that is no report; it never says which talk, if any, the
+  report closed. Every case of the report fixture's `talk_cases` passes.
+- **`OWCharter.DesignPartsOf`, the design parts a reader reads** (the charter page, serial 135): each Object or
+  Construct the reader is served whole whose subtype, trimmed and folded, is `in design` or `locked`
+  (`OWCharter.DesignStates`), only in a world where `CharterOf` finds a Charter for that reader, as `OWDesignPart`
+  `{type, id, state}`. A known-of stub has no design state, and a reader the hidden mark keeps the Charter from reads
+  none. Every case of the charter fixture's `design_cases` passes.
+
 ### Changed
 
 - **The schema pin moves to `v0.34.1-dist.136`** (canonical `00.34.01` unchanged; no schema file, `schema.json` or

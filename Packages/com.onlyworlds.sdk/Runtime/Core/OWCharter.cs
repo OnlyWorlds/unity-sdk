@@ -8,7 +8,8 @@
 // (OWCharterTests); keel's reader (elements/charter.py, reading_aids; charter_skill in accounts/front_door.py) serves the
 // same packet as reading_aids beside front_door on GET /me and the join reply. The packages' readers are charterOf and
 // domainsOf (the Python package's charter_of, domains_of): here OWCharter.CharterOf and OWCharter.DomainsOf. Who sees
-// what is the lens reader's own reading (OWLens's view), never a second copy.
+// what is the lens reader's own reading (OWLens's view), never a second copy. Serial 135: the design state of an Object or
+// a Construct, gated by the Charter charterOf finds for the reader (OWCharter.DesignPartsOf), the fixture's design_cases.
 
 using System;
 using System.Collections.Generic;
@@ -129,6 +130,35 @@ namespace OnlyWorlds.Sdk
             ["sentence"] = Sentence,
             ["hubs"] = new JArray(Hubs.Select(h => new JObject { ["type"] = h.type, ["id"] = h.id })),
         };
+    }
+
+    /// <summary>
+    /// A design part as one reader reads it (the charter profile's design state, serial 135): an Object or a Construct
+    /// whose subtype is a design state, in a world where <see cref="OWCharter.CharterOf"/> finds a Charter for that reader.
+    /// </summary>
+    public sealed class OWDesignPart
+    {
+        internal OWDesignPart(string type, string id, string state)
+        {
+            Type = type;
+            Id = id;
+            State = state;
+        }
+
+        /// <summary><c>object</c> or <c>construct</c>, the packet's word, whatever spelling the element's type is stored in.</summary>
+        public string Type { get; }
+
+        /// <summary>The element's id.</summary>
+        public string Id { get; }
+
+        /// <summary>
+        /// The page's word, one of <see cref="OWCharter.DesignStates"/> (<c>in design</c>, <c>locked</c>), whatever
+        /// spelling the subtype is stored in (<c>In Design </c> is <c>in design</c>).
+        /// </summary>
+        public string State { get; }
+
+        /// <summary>The fixture's <c>{type, id, state}</c>.</summary>
+        public JObject ToJson() => new JObject { ["type"] = Type, ["id"] = Id, ["state"] = State };
     }
 
     /// <summary>A world's reading aids as one reader sees it: the packet a front door shows first, in this order.</summary>
@@ -309,7 +339,8 @@ namespace OnlyWorlds.Sdk
         /// a stub is its name and served sentence with no hubs, a hidden one is not there and nothing marks the gap, and a
         /// hub the reader cannot see is not listed. The Charter is every member rung's to read whole on the platform, the
         /// public's only on a world open to anyone, so its name, rules and skill text are read from its body whole, a stub
-        /// the reader holds or not; a skill id found in the text is taken in lowercase and matched as written against the
+        /// the reader holds or not, but the hidden mark wins over that (serial 135): a Charter the hidden mark keeps from a
+        /// reader is not that reader's, whole or as a stub; a skill id found in the text is taken in lowercase and matched as written against the
         /// ids of the Objects the reader sees (the address profile's rule for the same id), so a kept skill is the Object's own id. A
         /// superseded Charter or Guide is never in the packet.
         /// </para>
@@ -388,6 +419,61 @@ namespace OnlyWorlds.Sdk
         public static IReadOnlyList<OWReadingAidsDomain> DomainsOf(IEnumerable<JToken> world, OWLensReader reader,
             bool open = false, IEnumerable<string> hiddenIds = null) =>
             CharterOf(world, reader, open, hiddenIds).Domains;
+
+        /// <summary>The two design states (serial 135), the page's words: a subtype, trimmed and folded, that is one of them.</summary>
+        public static readonly IReadOnlyList<string> DesignStates = new[] { "in design", "locked" };
+
+        /// <summary>The two types that carry a design state, the packet's words.</summary>
+        private static readonly string[] DesignTypes = { "object", "construct" };
+
+        /// <summary>
+        /// Every design part <paramref name="reader"/> reads in the world (the charter profile's design state, serial 135):
+        /// each Object or Construct the reader is served whole whose <c>subtype</c>, trimmed and folded as the room profile
+        /// defines it, is one of <see cref="DesignStates"/>, in a world where <see cref="CharterOf"/> finds a Charter for
+        /// this reader. In the world's order; the profile compares the answer as a set.
+        /// </summary>
+        /// <param name="world">The world's elements as its holder has them, as for <see cref="CharterOf"/>.</param>
+        /// <param name="reader">Who reads (<see cref="OWLensReader"/>).</param>
+        /// <param name="open">The World's <c>public_read</c>, as for <see cref="CharterOf"/>.</param>
+        /// <param name="hiddenIds">The world's own hidden list, beside each element's own mark; null for none.</param>
+        /// <remarks>
+        /// <para>
+        /// The Charter alone opens the gate, read for each reader: where <see cref="CharterOf"/> finds none for this
+        /// reader (no marked Charter, only a proposed one, or one the hidden mark keeps from it) no element has a design
+        /// state, and <c>locked</c> is an ordinary subtype, even where another reader of the same world reads design
+        /// parts. A world that keeps a marked Charter has design states whatever kind of world it is, so a story's locked
+        /// chest is a design part there.
+        /// </para>
+        /// <para>
+        /// The state is read only from a body served whole: a known-of stub is served its subtype and has no design state.
+        /// The state alone makes a part, whatever the supertype: no list of kinds decides it, a room element (a
+        /// workshop's spec) included. No other subtype is a design state (<c>deprecated</c> is a world's own word) and no
+        /// other type has one. A design state takes an element out of no view, and the page orders no parts: a tool may
+        /// show an Object part under its <c>parent_object</c>; nothing is under a Construct. Pure: no body is changed.
+        /// </para>
+        /// </remarks>
+        public static IReadOnlyList<OWDesignPart> DesignPartsOf(IEnumerable<JToken> world, OWLensReader reader,
+            bool open = false, IEnumerable<string> hiddenIds = null)
+        {
+            if (reader == null) throw new ArgumentNullException(nameof(reader));
+            var parts = new List<OWDesignPart>();
+            var list = world as IList<JToken> ?? world?.ToList();
+            if (CharterOf(list, reader, open, hiddenIds).Charter == null) return parts;
+
+            var view = new OWLens.View(list, reader, hiddenIds);
+            foreach (var i in view.Order)
+            {
+                if (!view.Whole.Contains(i)) continue;
+                var type = view.TypeOf(i);
+                if (Array.IndexOf(DesignTypes, type) < 0) continue;
+                var subtype = StringOf(view.Els[i]["subtype"]);
+                if (subtype == null) continue;
+                var state = OWProfileText.Fold(subtype);
+                if (DesignStates.Contains(state)) parts.Add(new OWDesignPart(type, i, state));
+            }
+
+            return parts;
+        }
 
         // -- The parts --------------------------------------------------------------------
 

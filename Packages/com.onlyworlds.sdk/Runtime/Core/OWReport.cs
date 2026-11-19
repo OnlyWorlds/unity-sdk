@@ -7,7 +7,8 @@
 // Written from the page and its fixture, profiles/report.fixture.json, which is this file's own test (OWReportTests),
 // as it is the TypeScript SDK's (reportThreadsOf, 4.159.0) and the Python package's (report_threads_of, 0.120.0). The
 // corners serial 120's fixture held no case for were read as both packages read them and pinned by tests of this SDK's
-// own; serial 121 ruled each the same way on the page, and its fixture holds a case for each.
+// own; serial 121 ruled each the same way on the page, and its fixture holds a case for each. Serial 135: the talk on
+// each Object or Construct a report links (OWReport.TalksOf), the fixture's talk_cases.
 
 using System;
 using System.Collections.Generic;
@@ -207,6 +208,25 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>True when the element is a board entry: <see cref="BoardPair"/> and the room's mark, read as <see cref="IsReport"/> reads them.</summary>
         public static bool IsBoardEntry(JObject element) => OWRoom.IsRoomElementOf(element, BoardPair);
+
+        /// <summary>
+        /// The talks on an element a reader shows a report with (serial 135): each <c>(type, id)</c> its <c>objects</c>
+        /// (<c>object</c>) and <c>constructs</c> (<c>construct</c>) name, read entry by entry as the room profile reads a
+        /// line's (<see cref="OWRoom.TalksOf"/>: an entry that is not a string or is empty once trimmed of White_Space
+        /// names nothing, a field that is not a list names none, every other entry an id read as written). Empty when
+        /// the element is no report (<see cref="IsReport"/>: the pair and the mark, both), so a line in the room or a
+        /// Report without the mark is shown with no talk.
+        /// </summary>
+        /// <param name="element">An element body as served; null is no element.</param>
+        /// <remarks>
+        /// A report's <c>objects</c> and <c>constructs</c> hold every Object and Construct it touched or changed, so a
+        /// report is shown with the talk on each, whenever it was written and whether or not it names a sitting in
+        /// <c>events</c>. From the report alone no reader can tell which of them, if any, was the talk it closed, and
+        /// this names none: a report shown with a talk is never, by that alone, the report that closed it. A thread
+        /// (<see cref="ThreadsOf"/>) takes nothing from it.
+        /// </remarks>
+        public static IReadOnlyList<(string type, string id)> TalksOf(JObject element) =>
+            IsReport(element) ? OWRoom.TalkElementsOf(element) : Array.Empty<(string, string)>();
 
         /// <summary>
         /// The reports among the narratives grouped into threads (the report profile's rule 9). Give it the Narratives

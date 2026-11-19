@@ -1,7 +1,7 @@
 // The room profile: which elements a parlor or a workshop puts in a world, told apart by type and supertype together
 // with the mark x_room_of (schema-dist profiles/room.md, serial 45; "trimmed and without regard to case" defined once
 // at serial 47; the ninth pair, relation/Take, at serial 66; the tenth, narrative/Report, at serial 112, the report
-// profile's). The reading aids beside them (the charter, its guide and its domains, by their pair and the mark
+// profile's; a talk on an Object or a Construct, the lines that name it, at serial 135). The reading aids beside them (the charter, its guide and its domains, by their pair and the mark
 // x_charter_of) at serial 82: room.md's "Not in the room" line and the lens profile's rule 4. Both marks are read by one rule, keel's: present and not null, a string only when something is left after
 // trimming White_Space (x_charter_of since isCharterElement, 4.98.0; x_room_of since serial 83's ruling).
 //
@@ -9,6 +9,7 @@
 // fixture, profiles/room.fixture.json, is this file's own test (OWRoomTests), as it is the TypeScript SDK's and the
 // Python package's. The pairs are written here and held equal to the fixture's by that test, where npm generates them.
 
+using System;
 using System.Collections.Generic;
 using Newtonsoft.Json.Linq;
 
@@ -118,6 +119,68 @@ namespace OnlyWorlds.Sdk
         /// </summary>
         internal static bool IsRoomElementOf(JObject element, (string type, string supertype) pair) =>
             HasMark(element, MarkField) && Matches(element, new[] { pair });
+
+        /// <summary>The pair a line in the room is: type <c>narrative</c>, supertype <c>Message</c>. One of <see cref="Pairs"/>.</summary>
+        public static readonly (string type, string supertype) LinePair = ("narrative", "Message");
+
+        /// <summary>
+        /// The two fields that put a line in a talk on an element, each with the type its ids are read as (serial 135):
+        /// <c>objects</c> names Objects, <c>constructs</c> Constructs. No other field does: a line's <c>characters</c>
+        /// are its recipients, never what it is about.
+        /// </summary>
+        public static readonly IReadOnlyList<(string field, string type)> TalkFields = new[]
+        {
+            ("objects", "object"),
+            ("constructs", "construct"),
+        };
+
+        /// <summary>
+        /// The talks on an element this element is in as a line (the room profile's "a talk on an Object or a
+        /// Construct", serial 135): each <c>(type, id)</c> its <c>objects</c> (<c>object</c>) and <c>constructs</c>
+        /// (<c>construct</c>) name, read from the element alone. Empty when it is no line: a line is a room element of
+        /// <see cref="LinePair"/> with the mark, so a Message without the mark, a board entry or a report is in no talk.
+        /// </summary>
+        /// <param name="element">An element body as served; null is no element.</param>
+        /// <remarks>
+        /// <para>
+        /// A field that is not a list names nothing, and in a list an entry that is not a string, or is empty once
+        /// trimmed of White_Space, names nothing. Every other entry is an id read as written, a space left on it
+        /// included and never folded to lowercase (the address profile's "The same id"), so <c>ABC</c> and <c>abc</c>
+        /// are two talks. Each <c>(type, id)</c> once, objects first, each list in its own order; the profile compares
+        /// the answer as a set.
+        /// </para>
+        /// <para>
+        /// The talk on an element is every line that names it, whichever sitting it was said in. A line in a talk may
+        /// also hang on a board entry or a work item (the report profile's anchors), and is then in both: this answers
+        /// only the talks on an element. How a tool orders, groups or labels a talk's lines is the tool's own.
+        /// </para>
+        /// </remarks>
+        public static IReadOnlyList<(string type, string id)> TalksOf(JObject element) =>
+            IsRoomElementOf(element, LinePair) ? TalkElementsOf(element) : Array.Empty<(string, string)>();
+
+        /// <summary>
+        /// The <c>(type, id)</c> an element's <see cref="TalkFields"/> name, read as <see cref="TalksOf"/> reads a line's,
+        /// whatever the element is. The report profile reads a report's links by it.
+        /// </summary>
+        internal static IReadOnlyList<(string type, string id)> TalkElementsOf(JObject element)
+        {
+            var talks = new List<(string type, string id)>();
+            if (element == null) return talks;
+            var seen = new HashSet<(string, string)>();
+            foreach (var (field, type) in TalkFields)
+            {
+                if (!(element[field] is JArray list)) continue;
+                foreach (var entry in list)
+                {
+                    if (!(entry is JValue value && value.Type == JTokenType.String)) continue;
+                    var id = (string)value;
+                    if (OWProfileText.TrimWhiteSpace(id).Length == 0 || !seen.Add((type, id))) continue;
+                    talks.Add((type, id));
+                }
+            }
+
+            return talks;
+        }
 
         private static bool Matches(JObject element, IReadOnlyList<(string type, string supertype)> pairs)
         {
