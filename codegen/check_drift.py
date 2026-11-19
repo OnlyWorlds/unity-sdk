@@ -136,6 +136,8 @@ def main() -> int:
         [str(CODEGEN / "generate_tools.py"), "--check"],
         # The views table OWViews.ViewOf reads: views.json from the same pinned dist (serial 113 on).
         [str(CODEGEN / "generate_views.py"), "--check"],
+        # The by-links-3d directions table OWLayout.LayoutByLinks3d reads, from the same pinned dist (serial 137 on).
+        [str(CODEGEN / "generate_layout_directions.py"), "--check"],
     ):
         failed |= subprocess.run([sys.executable] + args, cwd=str(root)).returncode
     return failed
