@@ -8,6 +8,20 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Added
 
+- **`OWLayout.LayoutByLinks3d`, the `by-links-3d` layout** (the default layouts page, serial 137): a whole world in
+  three dimensions by its links. The largest part no single element's removal splits is cut into groups round its
+  most linked elements, packed apart in directions read from the published table, and settled by 300 seeded force
+  steps; what hangs off it fans out. The world's first Map (the one holding most of the graph's elements by a Pin, at
+  least three) is a flat plate its pinned elements stand on, with a Map over a place on it as a small plate; a layout
+  map is never the plate. Every other piece of linked elements is laid out on its own, and those with no pinned or
+  held element stand on rings beside the main shape. `held` and `heldUnit` keep elements where an earlier answer put
+  them; a refused call throws `OWLayoutRefusedException` with the page's code (`held-not-object`, `held-not-point`,
+  `held-unit`, `held-box`). Points agree with the method's fixture to the last bit, and within 6e-8 where the page
+  allows it (what hangs as an arm or a link, and the ring); all 116 of its cases pass.
+- **`OWLayout.UnplacedByKind`, `UnplacedAround` and `UnplacedByLinks3d`** (the default layouts page, `unplaced`): which
+  elements a saved layout map has no Pin for, by id in code point order, from the graph and `placed`, the element ids
+  of the Map's Pins. A member of `placed` that is not a non-empty string names no element. The layout fixture's 17
+  cases and the `by-links-3d` fixture's 9 pass.
 - **`OWLensReader.CoBuilder` and a contributor's own hidden creations** (the lens page, serial 138): the hidden mark
   keeps an element from every reader but a keeper (the owner or a co-builder) and the one who made it. A new rung,
   `OWLensRung.CoBuilder` (last in the enum, so no earlier value moves), reads the whole world as the owner does, hidden

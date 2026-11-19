@@ -92,7 +92,9 @@ namespace OnlyWorlds.Sdk
     /// <summary>
     /// The default layout methods: <see cref="LayoutByKind(JObject)"/>, a whole world's picture, and
     /// <see cref="LayoutAround(JObject, string, int)"/>, one element's. Both are exact: the same graph gives the same
-    /// points as the TypeScript SDK and the Python package.
+    /// points as the TypeScript SDK and the Python package. The third, <see cref="LayoutByLinks3d(JObject, IEnumerable{JToken}, JToken, JToken)"/>,
+    /// lays a whole world out in three dimensions (<c>OWLayout.ByLinks3d.cs</c>); and for each method an <c>Unplaced</c>
+    /// reading says which elements a saved layout map has no Pin for.
     /// </summary>
     /// <remarks>
     /// Everything but the anchors and around's cosines and sines is addition, subtraction, multiplication, division,

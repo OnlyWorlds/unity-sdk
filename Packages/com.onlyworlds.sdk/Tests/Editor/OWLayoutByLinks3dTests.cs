@@ -221,6 +221,58 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.That(off, Is.Empty, $"{name}: {off.Count} coordinates differ from the fixture");
         }
 
+        /// <summary>
+        /// The page's saved Map (A saved <c>by-links-3d</c> Map): an answer saved as a Map marked <c>by-links-3d</c>, one
+        /// whole-number Pin per placed element, reads back as a layout map of that method; its Pins' elements, as the
+        /// map-space reading answers them, are <c>placed</c>, and the reading is the answer's own <c>unplaced</c>, and an
+        /// element the world gains since is unplaced too. Handed back as the world's elements, the saved Map is no plate:
+        /// the answer does not move.
+        /// </summary>
+        [Test]
+        public void ASavedByLinks3dMap_ReadsBackAsALayoutMap_AndItsUnplacedIsTheAnswers()
+        {
+            var c = (JObject)Fixture["cases"].First(x => (string)x["name"] == "a saved layout Map beside a real Map");
+            var graph = new JObject { ["nodes"] = c["input"]["nodes"].DeepClone(), ["edges"] = c["input"]["edges"].DeepClone() };
+            var answer = OWLayout.LayoutByLinks3d(graph);
+            Assert.That(answer.Unplaced, Is.Not.Empty, "the case leaves elements unplaced");
+
+            var types = graph["nodes"].ToDictionary(n => (string)n["id"], n => (string)n["type"], StringComparer.Ordinal);
+            var map = new JObject { ["id"] = "saved", ["type"] = "map", ["name"] = "saved", ["x_layout"] = new JObject { ["method"] = answer.Method } };
+            var elements = new List<JToken> { map };
+            var k = 0;
+            foreach (var p in answer.Points)
+                elements.Add(new JObject
+                {
+                    ["id"] = $"pin{k++:000}", ["type"] = "pin", ["map"] = "saved", ["element_type"] = types[p.Id], ["element_id"] = p.Id,
+                    ["x"] = (long)Math.Round(p.X), ["y"] = (long)Math.Round(p.Y), ["z"] = (long)Math.Round(p.Z),
+                });
+
+            var maps = elements.Where(e => (string)e["type"] == "map").ToList();
+            var pins = elements.Where(e => (string)e["type"] == "pin").ToList();
+            var layout = OWMapSpace.LayoutOf(map, maps, pins);
+            Assert.That(layout.IsLayoutMap, Is.True);
+            Assert.That(layout.Layout, Is.EqualTo("by-links-3d"));
+
+            var placed = OWMapSpace.Of(elements).Pins.Where(p => p.Map == "saved").Select(p => p.ElementId).ToList();
+            Assert.That(placed.Count, Is.EqualTo(answer.Points.Count));
+            Assert.That(OWLayout.UnplacedByLinks3d(graph, placed), Is.EqualTo(answer.Unplaced));
+
+            var grown = (JObject)graph.DeepClone();
+            ((JArray)grown["nodes"]).Add(new JObject { ["id"] = "zz-new", ["type"] = "character" });
+            Assert.That(OWLayout.UnplacedByLinks3d(grown, placed), Is.EqualTo(answer.Unplaced.Concat(new[] { "zz-new" })));
+
+            var again = OWLayout.LayoutByLinks3d(graph, elements);
+            Assert.That(again.Points.Select(p => p.Id), Is.EqualTo(answer.Points.Select(p => p.Id)));
+            for (var i = 0; i < again.Points.Count; i++)
+                Assert.That(new[] { again.Points[i].X, again.Points[i].Y, again.Points[i].Z }, Is.EqualTo(new[] { answer.Points[i].X, answer.Points[i].Y, answer.Points[i].Z }), again.Points[i].Id);
+        }
+
+        [Test]
+        public void TheGoldenAngle_IsThePagesExpression_AndThePackagesLiteral()
+        {
+            Assert.That(Math.PI * (3 - Math.Sqrt(5)), Is.EqualTo(2.399963229728653));
+        }
+
         [Test]
         public void UnplacedByLinks3d_RefusesTwoNodesWithOneId()
         {
