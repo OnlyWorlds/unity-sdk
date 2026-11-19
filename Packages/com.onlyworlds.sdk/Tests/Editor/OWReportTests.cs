@@ -21,8 +21,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </summary>
     public class OWReportTests
     {
-        /// <summary>The fixture's sha256 as dist.122's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "c87c6165829858b58126bc5ccab2391647e8e4971a46deee39dde9b5d1f3593e";
+        /// <summary>The fixture's sha256 as dist.136's MANIFEST.json records it (serial 135 added <c>talk_cases</c>).</summary>
+        private const string DistSha256 = "0d83ce1ee76f93c79b786bb10e1e97bfb94c6983a8b3b00d1867e65f03722e94";
 
         /// <summary>The fixture's thread cases, as dist.122 holds them.</summary>
         private const int CaseCount = 29;
@@ -75,7 +75,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.122's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.136's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]

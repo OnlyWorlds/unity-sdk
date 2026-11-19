@@ -8,6 +8,15 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
+- **The schema pin moves to `v0.34.1-dist.136`** (canonical `00.34.01` unchanged; no schema file, `schema.json` or
+  `views.json` moved). Serial 135: the room page names a talk on an Object or a Construct (a line in the room that
+  names one in its `objects` or `constructs`), the report page shows a report with the talk on each Object or
+  Construct it links, and the charter page gives an Object or a Construct a design state, `in design` or `locked`, in
+  a world where `charterOf` finds a Charter for the reader; a Charter the hidden mark keeps from a reader is not that
+  reader's. The room fixture gains `talk_cases` (13), the report fixture `talk_cases` (6) and the charter fixture
+  `design_cases` (13); no existing case or answer moved. Serial 136: the packet page's fourth work-item state,
+  `standing`, its optional `x_packet_from` (who asked) and its first fixture, `packet.fixture.json`; this SDK reads
+  no work item's state, so nothing here moves with it.
 - **The schema pin moves to `v0.34.1-dist.134`** (canonical `00.34.01` unchanged; no schema file, `schema.json` or
   `views.json` moved). The strand page says no reader trims a member: one of white space alone is a string that names
   no element, so its slot is empty, and the empty string in any of the three members, `narrative` too, is no mark.

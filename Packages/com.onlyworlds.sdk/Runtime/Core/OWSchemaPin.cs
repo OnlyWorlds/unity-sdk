@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.34.01";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 134;
+        public const int DistSerial = 136;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.34.1-dist.134";
+        public const string Tag = "v0.34.1-dist.136";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -478,9 +478,21 @@ namespace OnlyWorlds.Sdk
         /// its reader, never for the Character whose draught it is read beside. The generated models and the views
         /// table changed in their serial and published stamps only.
         /// </para>
+        /// <para>
+        /// <b>134 -> 136 (2026-11-19)</b>: canonical unchanged, no schema file, <c>schema.json</c> or <c>views.json</c>
+        /// moved. Serial 135: a line in the room that names an Object in its <c>objects</c> or a Construct in its
+        /// <c>constructs</c> is in the talk on that element, and a report is shown with the talk on each Object or
+        /// Construct it links (room <c>talk_cases</c> 13, report <c>talk_cases</c> 6); in a world where
+        /// <c>charterOf</c> finds a Charter for the reader, an Object or a Construct served whole whose subtype, trimmed
+        /// and folded, is <c>in design</c> or <c>locked</c> is a design part (charter <c>design_cases</c> 13); a
+        /// Charter the hidden mark keeps from a reader is not that reader's. Serial 136: the packet page's fourth
+        /// state, <c>standing</c>, its optional <c>x_packet_from</c> and its first fixture, which this SDK does not
+        /// read. No existing case or answer moved. The generated models and the views table changed in their serial
+        /// and published stamps only.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "199b4c9af2fcccaeeaa6ed2a27e41e76cb7dd2e491cdbd367741011982fdf174";
+            "9a1f31d1135a17ffa0facca587ba354a90821bdb28dc46a4a7335cbfe7acfa91";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.
@@ -494,7 +506,7 @@ namespace OnlyWorlds.Sdk
             "af84662c29628b6e90b923c9541f68f5924563adce397cebbadfdbf0f06e5f18";
 
         /// <summary>When these constants were last verified against the published dist.</summary>
-        public const string PinnedOn = "2026-11-17";
+        public const string PinnedOn = "2026-11-19";
 
         /// <summary>
         /// ⚑ Rulings that bind THIS SDK and any emitter generating into it. Read the row, not the key.
