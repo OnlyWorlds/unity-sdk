@@ -6,6 +6,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.45.0] - 2026-11-20
+
+A world laid out in three dimensions by its links, and the elements a saved layout map has no Pin for (schema-dist
+serial 137); a co-builder reads the whole world, and the graph as a keeper, and a contributor its own hidden creations
+(serials 138 and 140); a talk on an Object or a Construct and its design state are read from the room, the report and
+the charter (serial 135); the schema pin moves through serials 134 to 141. A minor release because it adds public API
+(below).
+
 ### Added
 
 - **`OWLayout.LayoutByLinks3d`, the `by-links-3d` layout** (the default layouts page, serial 137): a whole world in
@@ -64,8 +72,8 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   answered as the owner's is on the same inputs; `not_visible` and `anchor_not_visible` stay the owner's. The lens
   fixture gains six graph cases (252 in all); no answer on an existing case moved.
 - **The schema pin moves to `v0.34.1-dist.139`** (canonical `00.34.01` unchanged; no schema file, `schema.json` or
-  `views.json` moved). Serial 137: a third default layout, `by-links-3d`, with its own fixture, which this SDK does not
-  lay out yet; a member of a layout map's `placed` that is no non-empty string names no element; map-space reads a
+  `views.json` moved). Serial 137: a third default layout, `by-links-3d`, with its own fixture, which this SDK now
+  lays out (Added); a member of a layout map's `placed` that is no non-empty string names no element; map-space reads a
   whole-number width, height or depth as written (four new `cases`, three new `layout_cases`, each read as before).
   Serial 138: the hidden mark keeps an element from every reader but a keeper (the owner or a co-builder) and the one
   who made it; the lens fixture gains four cases, the report fixture three talk cases and the charter fixture three
