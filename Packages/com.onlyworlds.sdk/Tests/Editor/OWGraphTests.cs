@@ -144,11 +144,15 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             CollectionAssert.AreEquivalent(Strings(f["graph_flags"]), OWGraph.Flags, "the flags");
             CollectionAssert.AreEqual(new[] { "hidden", "proposed" }, Strings(f["owner_only_flags"]));
             CollectionAssert.AreEquivalent(Strings(f["edges_cut_reasons"]), OWGraphCut.All, "the edges cut reasons");
-            // The fixture's owner-only list names hidden, not_visible and anchor_not_visible; proposed is owner-only here
-            // as in the TypeScript SDK and the Python package (no other rung sees a proposed element, so none counts one).
-            CollectionAssert.IsSubsetOf(Strings(f["owner_only_edges_cut_reasons"]), OWGraphCut.OwnerOnly);
+            // The fixture's owner_only_edges_cut_reasons are the reasons a reader below a keeper never carries (hidden,
+            // not_visible, anchor_not_visible; the key's name is older than the co-builder, serial 140): a keeper carries
+            // hidden, and the owner alone the other two. Proposed is a keeper's count here as in the TypeScript SDK and
+            // the Python package (no reader below a keeper sees a proposed element as a node, so none counts one).
+            var belowKeeper = Strings(f["owner_only_edges_cut_reasons"]);
+            CollectionAssert.AreEquivalent(belowKeeper.Except(Strings(f["owner_only_flags"])), OWGraphCut.OwnerOnly, "the owner's alone");
+            CollectionAssert.AreEquivalent(Strings(f["owner_only_flags"]), OWGraphCut.KeeperOnly, "a keeper's alone: the flags' own kinds");
             CollectionAssert.AreEquivalent(new[] { OWGraphCut.Proposed },
-                OWGraphCut.OwnerOnly.Except(Strings(f["owner_only_edges_cut_reasons"])), "owner-only beyond the fixture's list");
+                OWGraphCut.OwnerOnly.Concat(OWGraphCut.KeeperOnly).Except(belowKeeper), "below a keeper beyond the fixture's list");
             var reasons = new HashSet<string>(Strings(f["edges_cut_reasons"]));
             foreach (var c in GraphCases)
             {
@@ -157,20 +161,22 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             }
         }
 
-        /// <summary>The fixture's flags, read back through the reader: the owner may ask each; a contributor only those not the owner's; the public reader none.</summary>
+        /// <summary>The fixture's flags, read back through the reader: the owner and a co-builder may ask each (serial 140); a contributor only those not a keeper's; the public reader none.</summary>
         [Test]
         public void TheFlags_ReadBackThroughTheReader()
         {
             Assert.IsNotNull(Fixture, "the vendored lens fixture was not found");
-            var ownerOnly = Strings(Fixture["owner_only_flags"]);
+            var keeperOnly = Strings(Fixture["owner_only_flags"]);
             foreach (var flag in Strings(Fixture["graph_flags"]))
             {
                 var o = Flag(flag);
                 Assert.DoesNotThrow(() => OWGraph.Read(new JArray(), OWLensReader.Owner(), o), flag);
-                if (ownerOnly.Contains(flag))
+                Assert.DoesNotThrow(() => OWGraph.Read(new JArray(), OWLensReader.CoBuilder(), o), flag);
+                Assert.DoesNotThrow(() => OWGraph.Read(new JArray(), OWLensReader.CoBuilder().WithOwnerCounts(), o), flag);
+                if (keeperOnly.Contains(flag))
                 {
                     var ex = Assert.Throws<OWGraphRefusedException>(() => OWGraph.Read(new JArray(), OWLensReader.Contributor(), o), flag);
-                    StringAssert.Contains("owner's alone", ex.Message, flag);
+                    StringAssert.Contains("a keeper's alone (the owner or a co-builder)", ex.Message, flag);
                 }
                 else
                 {
@@ -233,14 +239,60 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsEmpty(contributor.EdgesCut, contributor.ToJson().ToString(Formatting.None));
         }
 
+        /// <summary>
+        /// Serial 140, a keeper's graph: a co-builder's unlensed graph counts the hidden and proposed elements it leaves
+        /// out as the owner's does, and a contributor's on the same world counts neither; with a lens whose anchors are a
+        /// proposed element and an id not in the world, the owner (and the owner reading as a co-builder) counts both
+        /// <c>anchor_not_visible</c> and the link to the proposed one, and a co-builder carries neither, not even as zero.
+        /// The fixture pins no case of a co-builder and <c>anchor_not_visible</c>.
+        /// </summary>
+        [Test]
+        public void Serial140_AKeepersGraph_CountsHiddenAndProposed_NeverTheOwnersTwo()
+        {
+            var world = new JArray
+            {
+                new JObject { ["id"] = "c1", ["type"] = "character", ["name"] = "Ada", ["friends"] = new JArray("c2", "c3") },
+                new JObject { ["id"] = "c2", ["type"] = "character", ["name"] = "Ghost", [OWPayload.Hidden] = true },
+                new JObject { ["id"] = "c3", ["type"] = "character", ["name"] = "Maybe", ["x_review_proposed"] = new JObject { ["by"] = "m1" } },
+                new JObject
+                {
+                    ["id"] = "L", ["type"] = "construct", ["supertype"] = "Lens", ["characters"] = new JArray("c1", "c3", "gone"),
+                    ["x_lens"] = new JObject { ["depth"] = 0 },
+                },
+            };
+            string Json(OWWorldGraph g) => g.ToJson().ToString(Formatting.None);
+            // Unlensed, on the three Characters alone (the lens element would be a node, its own links counted too).
+            var plain = new JArray(world.Take(3).Select(e => e.DeepClone()));
+            var counted = JObject.Parse("{\"hidden\":1,\"proposed\":1}");
+            var coBuilder = OWGraph.Read(plain, OWLensReader.CoBuilder());
+            Assert.IsTrue(JToken.DeepEquals(counted, coBuilder.ToJson()["cut"]), Json(coBuilder));
+            Assert.IsTrue(JToken.DeepEquals(counted, coBuilder.ToJson()["edges_cut"]), Json(coBuilder));
+            Assert.AreEqual(Json(OWGraph.Read(plain, OWLensReader.Owner())), Json(coBuilder), "a co-builder's unlensed graph is the owner's");
+            var contributor = OWGraph.Read(plain, OWLensReader.Contributor());
+            Assert.IsEmpty(contributor.Cut, Json(contributor));
+            Assert.IsEmpty(contributor.EdgesCut, Json(contributor));
+
+            var lens = new OWGraphOptions { LensId = "L" };
+            var owner = OWGraph.Read(world, OWLensReader.Owner(), lens);
+            Assert.AreEqual(2, owner.Cut[OWLensCut.AnchorNotVisible], Json(owner));
+            Assert.AreEqual(1, owner.EdgesCut[OWLensCut.AnchorNotVisible], Json(owner));
+            Assert.AreEqual(Json(owner), Json(OWGraph.Read(world, OWLensReader.CoBuilder().WithOwnerCounts(), lens)),
+                "the owner reading as a co-builder keeps the owner's counts");
+            var lensed = OWGraph.Read(world, OWLensReader.CoBuilder(), lens);
+            CollectionAssert.AreEqual(new[] { "c1" }, lensed.Nodes.Select(n => n.Id));
+            Assert.IsEmpty(lensed.Cut, Json(lensed));
+            // Ada's link to the hidden Ghost, which a co-builder sees and the lens's depth 0 did not reach, is its own.
+            Assert.IsTrue(JToken.DeepEquals(JObject.Parse("{\"outside_lens\":1}"), lensed.ToJson()["edges_cut"]), Json(lensed));
+        }
+
         /// <summary>A refused flag is refused before the world is read: the world here throws the moment it is enumerated.</summary>
         [Test]
         public void ARefusedFlag_IsRefusedBeforeAnythingIsRead()
         {
             var world = new Unread();
-            StringAssert.Contains("hidden is the owner's alone", Assert.Throws<OWGraphRefusedException>(() =>
+            StringAssert.Contains("hidden is a keeper's alone", Assert.Throws<OWGraphRefusedException>(() =>
                 OWGraph.Read(world, OWLensReader.Contributor(), new OWGraphOptions { Hidden = true })).Message);
-            StringAssert.Contains("proposed is the owner's alone", Assert.Throws<OWGraphRefusedException>(() =>
+            StringAssert.Contains("proposed is a keeper's alone", Assert.Throws<OWGraphRefusedException>(() =>
                 OWGraph.Read(world, OWLensReader.Guest(new string[0]), new OWGraphOptions { Proposed = true })).Message);
             StringAssert.Contains("public reader takes no flag; it asked rooms", Assert.Throws<OWGraphRefusedException>(() =>
                 OWGraph.Read(world, OWLensReader.Public(), new OWGraphOptions { Rooms = true })).Message);
@@ -250,8 +302,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 OWGraph.Read(world, OWLensReader.Public(), new OWGraphOptions { ReadingAids = true })).Message);
             StringAssert.Contains("it asked rooms", Assert.Throws<OWGraphRefusedException>(() =>
                 OWGraph.Read(world, OWLensReader.Public().WithOwnerCounts(), new OWGraphOptions { Rooms = true })).Message);
-            // The same world read without a refused flag does read the elements.
+            // The same world read without a refused flag does read the elements; a co-builder's hidden is no refused flag.
             Assert.Throws<Unread.ReadException>(() => OWGraph.Read(world, OWLensReader.Owner(), new OWGraphOptions { Hidden = true }));
+            Assert.Throws<Unread.ReadException>(() => OWGraph.Read(world, OWLensReader.CoBuilder(), new OWGraphOptions { Hidden = true, Proposed = true }));
         }
 
         /// <summary>
@@ -618,8 +671,15 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             if (!reader.OwnerCounts)
             {
-                foreach (var k in new[] { "hidden", "proposed", "not_visible", "anchor_not_visible" })
+                foreach (var k in new[] { "not_visible", "anchor_not_visible" })
                     Assert.IsFalse(cutKeys.Contains(k) || edgeKeys.Contains(k), $"{name}: a reader that is not the owner has no count of {k}");
+            }
+
+            // The hidden and proposed counts are a keeper's (the owner or a co-builder; serial 140).
+            if (!reader.OwnerCounts && reader.Rung != OWLensRung.Owner && reader.Rung != OWLensRung.CoBuilder)
+            {
+                foreach (var k in new[] { "hidden", "proposed" })
+                    Assert.IsFalse(cutKeys.Contains(k) || edgeKeys.Contains(k), $"{name}: a reader below a keeper has no count of {k}");
             }
 
             Assert.AreEqual(g.ToJson().ToString(Formatting.None), OWGraph.Read(world, reader, options).ToJson().ToString(Formatting.None),
@@ -671,11 +731,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             var unseen = new[] { "not_visible", "anchor_not_visible" };
             Assert.AreEqual(links, go.Edges.Count + go.EdgesCut.Values.Sum(), name + ": every link from a kept node is an edge or counted");
-            // The reader's own links are those to an element it sees (a proposed one too, below the public rung: its link
-            // is served, its edge cut). Counts are per reader: an element the owner counts anchor_not_visible but the reader sees (an id
+            // The reader's own links are those to an element it sees. The view a lens reads holds no proposed element for
+            // any reader (rule 1; the graph's reader, serial 140), so a link to one is the owner's not_visible, never a
+            // reader's own. Counts are per reader: an element the owner counts anchor_not_visible but the reader sees (an id
             // under a field of another type) is the reader's outside_lens or a child's reason, never left uncounted.
             var sees = new HashSet<string>(OWLens.ServedView(world, reader).Select(b => (string)b["id"]));
-            if (reader.Rung != OWLensRung.Public) sees.UnionWith(world.Where(OWPayload.IsProposedOrInDoubt).Select(e => (string)e["id"]));
             var inView = 0;
             foreach (var n in go.Nodes.Where(n => !n.KnownOf))
             {

@@ -28,7 +28,7 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   elements included and bodies as stored, with none of the owner's two counts. `OWLensReader.Contributor` takes an
   optional `whole`, the hidden elements that contributor made: each is in its view and its body carries `hidden: true`.
   The lens readers, the graph, the charter's `CharterOf` and `DesignPartsOf` and the strand reader read both through
-  the view; the graph's `hidden` and `proposed` flags stay the owner's alone, as the page says today.
+  the view.
 - **`OWRoom.TalksOf`, the talks on an Object or a Construct a line is in** (the room page, serial 135): each
   `(type, id)` a line in the room names in its `objects` (`object`) or `constructs` (`construct`), read from the line
   alone; an entry that is not a string or is empty once trimmed of White_Space names nothing, a field that is not a
@@ -46,6 +46,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
+- **`OWGraph.Read`: a co-builder reads the graph as a keeper** (the lens page, serial 140). The flags `Hidden` and
+  `Proposed`, and the `hidden` and `proposed` counts in `Cut` and `EdgesCut`, are a keeper's (the owner or a
+  co-builder), where they were the owner's alone, so a co-builder's unlensed graph is answered as the owner's is on
+  the same inputs; `not_visible` and `anchor_not_visible` stay the owner's. `OWGraphCut.OwnerOnly` now holds those
+  two, and the new `OWGraphCut.KeeperOnly` holds `hidden` and `proposed`. A refused flag's message says "a keeper's
+  alone (the owner or a co-builder)". Every case of the lens fixture's `graph` kind passes.
 - **The schema pin moves to `v0.34.1-dist.140`** (canonical `00.34.01` unchanged; only the lens page and its fixture
   moved). Serial 140: in the graph, the flags `hidden` and `proposed` and the hidden and proposed counts are a
   keeper's (the owner or a co-builder), where they were the owner's alone, so a co-builder's unlensed graph is

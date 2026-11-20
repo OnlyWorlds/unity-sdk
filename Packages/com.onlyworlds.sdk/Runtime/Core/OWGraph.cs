@@ -48,10 +48,10 @@ namespace OnlyWorlds.Sdk
         /// <summary>A room element, out by default.</summary>
         public const string Room = OWGraphMark.Room;
 
-        /// <summary>A hidden element, out by default. The owner's count only.</summary>
+        /// <summary>A hidden element, out by default. A keeper's count only (the owner or a co-builder; serial 140).</summary>
         public const string Hidden = OWGraphMark.Hidden;
 
-        /// <summary>An element written as proposed, out by default. The owner's count only.</summary>
+        /// <summary>An element written as proposed, out by default. A keeper's count only (the owner or a co-builder; serial 140).</summary>
         public const string Proposed = OWGraphMark.Proposed;
 
         /// <summary>Map space (a Map, a Pin or a Marker), out by default for size, not for standing.</summary>
@@ -76,10 +76,17 @@ namespace OnlyWorlds.Sdk
             OWLensCut.All.Concat(new[] { Room, Hidden, Proposed, MapSpace, ReadingAid, OutsideLens }).ToArray();
 
         /// <summary>
-        /// The counts only the owner sees (the owner reading as itself, or as another reader): the lens's two, and the two
-        /// kinds only the owner may bring back. Any other reader's answer never carries them, not even as zero.
+        /// The counts only the owner sees (the owner reading as itself, or as another reader): the lens's two,
+        /// <c>anchor_not_visible</c> and <c>not_visible</c>. Any other reader's answer never carries them, not even as zero.
         /// </summary>
-        public static readonly string[] OwnerOnly = OWLensCut.OwnerOnly.Concat(new[] { Hidden, Proposed }).ToArray();
+        public static readonly string[] OwnerOnly = OWLensCut.OwnerOnly.ToArray();
+
+        /// <summary>
+        /// The counts only a keeper sees (the owner or a co-builder, and the owner reading as any reader): the two kinds
+        /// only a keeper may bring back, <c>hidden</c> and <c>proposed</c> (schema-dist serial 140; the owner's alone
+        /// before). A reader below a keeper never carries them, not even as zero.
+        /// </summary>
+        public static readonly string[] KeeperOnly = { Hidden, Proposed };
     }
 
     /// <summary><see cref="OWGraph.Read"/>'s options: a lens, its reading's moment, and the five flags.</summary>
@@ -114,10 +121,10 @@ namespace OnlyWorlds.Sdk
         /// <summary>Bring back room elements, marked <c>room</c>. Refused for the public reader.</summary>
         public bool Rooms { get; set; }
 
-        /// <summary>Bring back hidden elements, marked <c>hidden</c>. The owner's alone: refused from any other rung.</summary>
+        /// <summary>Bring back hidden elements, marked <c>hidden</c>. A keeper's alone (the owner or a co-builder): refused from any other rung.</summary>
         public bool Hidden { get; set; }
 
-        /// <summary>Bring back elements written as proposed, marked <c>proposed</c>. The owner's alone.</summary>
+        /// <summary>Bring back elements written as proposed, marked <c>proposed</c>. A keeper's alone (the owner or a co-builder).</summary>
         public bool Proposed { get; set; }
 
         /// <summary>Bring back map space: Maps, Pins and Markers, with no mark. Refused for the public reader.</summary>
@@ -259,7 +266,8 @@ namespace OnlyWorlds.Sdk
         /// <summary>
         /// The links left out because their target is not a node, counted by the target's reason, in
         /// <see cref="OWGraphCut.All"/>'s order; a reason with no count is absent. A reader that is not the owner never
-        /// carries <see cref="OWGraphCut.OwnerOnly"/>; every reader carries <c>outside_lens</c>. A link to an id that is
+        /// carries <see cref="OWGraphCut.OwnerOnly"/>, one below a keeper (the owner or a co-builder) never carries
+        /// <see cref="OWGraphCut.KeeperOnly"/>, and every reader carries <c>outside_lens</c>. A link to an id that is
         /// not in the world, or a schema link to an element of another type than its field's target, is a dangling link,
         /// left out and not counted.
         /// </summary>
@@ -267,7 +275,7 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// With a lens, the lens's own cut (<see cref="OWLensResult.Cut"/>), unchanged. Without one, the elements out by
-        /// default that the reader sees, counted by reason (<c>room</c>, <c>hidden</c> and <c>proposed</c> for the owner
+        /// default that the reader sees, counted by reason (<c>room</c>, <c>hidden</c> and <c>proposed</c> for a keeper
         /// only, <c>map_space</c>, <c>reading_aid</c>).
         /// </summary>
         public IReadOnlyDictionary<string, int> Cut { get; }
@@ -372,8 +380,8 @@ namespace OnlyWorlds.Sdk
         /// <exception cref="ArgumentNullException">No reader.</exception>
         /// <exception cref="ArgumentException">Both <see cref="OWGraphOptions.Lens"/> and <see cref="OWGraphOptions.LensId"/>.</exception>
         /// <exception cref="OWGraphRefusedException">
-        /// <c>hidden</c> or <c>proposed</c> from a reader that is not the owner, or any flag from the public reader, refused
-        /// by name before anything is read; when several are, the first in <see cref="Flags"/>' order.
+        /// <c>hidden</c> or <c>proposed</c> from a reader below a keeper (the owner or a co-builder), or any flag from the
+        /// public reader, refused by name before anything is read; when several are, the first in <see cref="Flags"/>' order.
         /// </exception>
         public static OWWorldGraph Read(IEnumerable<JToken> world, OWLensReader reader, OWGraphOptions options = null)
         {
@@ -392,8 +400,12 @@ namespace OnlyWorlds.Sdk
                 [OWGraphCut.MapSpace] = o.MapSpace,
                 [OWGraphCut.ReadingAid] = o.ReadingAids,
             };
-            var seenOwner = view.Rung == OWLensRung.Owner;
-            var asGiven = seenOwner || view.Rung == OWLensRung.Served;
+            // A keeper (the owner, or a co-builder; serial 140) is served the bodies as stored, and its unlensed view holds
+            // the proposed elements, out by default. The hidden and proposed counts are a keeper's, and the counts of a
+            // reader that keeps the owner's (the owner reading as another).
+            var seenKeeper = view.Rung == OWLensRung.Owner || view.Rung == OWLensRung.CoBuilder;
+            var keeperCounts = seenKeeper || view.OwnerCounts;
+            var asGiven = seenKeeper || view.Rung == OWLensRung.Served;
 
             List<string> KindsOf(string id)
             {
@@ -406,9 +418,9 @@ namespace OnlyWorlds.Sdk
                 return kinds;
             }
 
-            // What the reader could see as a node: its view, and for the owner what is written as proposed too.
+            // What the reader could see as a node: its view, and for a keeper what is written as proposed too.
             bool Candidate(string id) =>
-                view.Sees(id) || (seenOwner && view.Proposed.Contains(id));
+                view.Sees(id) || (seenKeeper && view.Proposed.Contains(id));
 
             var nodeIds = new HashSet<string>();
             IReadOnlyDictionary<string, int> cut;
@@ -443,7 +455,7 @@ namespace OnlyWorlds.Sdk
                     else counts[why] = counts.TryGetValue(why, out var n) ? n + 1 : 1;
                 }
 
-                cut = Tally(counts, view.OwnerCounts);
+                cut = Tally(counts, view.OwnerCounts, keeperCounts);
                 reasonOf = id => Candidate(id) ? OutBy(id) : OWLensCut.NotVisible;
             }
 
@@ -484,7 +496,7 @@ namespace OnlyWorlds.Sdk
             {
                 if (view.KnownOf.Contains(source)) continue;
                 var body = view.Els[source];
-                // A schema link is served whole to the owner; any other reader is served the list as keel serves it, a link
+                // A schema link is served whole to a keeper; any other reader is served the list as keel serves it, a link
                 // to a proposed element kept below the public rung, and the index is the place in that list (the profile's
                 // ruling G5). Bodies already served hold that list as given, a proposed id with no body beside it among
                 // them (asGiven). A Pin's generic pair is placement, never an edge (G2).
@@ -501,7 +513,7 @@ namespace OnlyWorlds.Sdk
                     for (var i = 0; i < entries.Count; i++)
                     {
                         var t = StringOf(entries[i]);
-                        var inServed = seenOwner || view.ServedAs(t, linkTarget);
+                        var inServed = seenKeeper || view.ServedAs(t, linkTarget);
                         // An id of another type than the field's target names nothing, as the lens reader keys a link
                         // (the profile's ruling 1): a dangling link, neither an edge nor counted. A repeat still counts
                         // in the served list, so an index points into the list as served.
@@ -522,21 +534,22 @@ namespace OnlyWorlds.Sdk
             }
 
             var sorted = edges.OrderBy(e => e.Source, order).ThenBy(e => e.Field, order).ThenBy(e => e.Index).ToList();
-            return new OWWorldGraph(nodes, sorted, Tally(cutEdges, view.OwnerCounts), cut, refusedKey);
+            return new OWWorldGraph(nodes, sorted, Tally(cutEdges, view.OwnerCounts, keeperCounts), cut, refusedKey);
         }
 
         /// <summary>
         /// The flags the reader may not ask, judged by the rung its view is built from: <c>hidden</c> and <c>proposed</c>
-        /// are the owner's alone, and the public reader takes none. The first unmet one in <see cref="Flags"/>' order is
-        /// named.
+        /// are a keeper's alone (the owner or a co-builder; serial 140), and the public reader takes none. The first unmet
+        /// one in <see cref="Flags"/>' order is named.
         /// </summary>
         private static void Refuse(OWLensReader reader, OWGraphOptions o)
         {
             var rung = reader.Rung;
-            if (o.Hidden && rung != OWLensRung.Owner)
-                throw new OWGraphRefusedException("hidden", $"OWGraph.Read: hidden is the owner's alone; a {Word(rung)} reader may not ask it.");
-            if (o.Proposed && rung != OWLensRung.Owner)
-                throw new OWGraphRefusedException("proposed", $"OWGraph.Read: proposed is the owner's alone; a {Word(rung)} reader may not ask it.");
+            var keeper = rung == OWLensRung.Owner || rung == OWLensRung.CoBuilder;
+            if (o.Hidden && !keeper)
+                throw new OWGraphRefusedException("hidden", $"OWGraph.Read: hidden is a keeper's alone (the owner or a co-builder); a {Word(rung)} reader may not ask it.");
+            if (o.Proposed && !keeper)
+                throw new OWGraphRefusedException("proposed", $"OWGraph.Read: proposed is a keeper's alone (the owner or a co-builder); a {Word(rung)} reader may not ask it.");
 
             if (rung != OWLensRung.Public) return;
             if (o.Rooms) throw new OWGraphRefusedException("rooms", "OWGraph.Read: a public reader takes no flag; it asked rooms.");
@@ -628,15 +641,19 @@ namespace OnlyWorlds.Sdk
             System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
         }
 
-        private static string Word(OWLensRung rung) => rung.ToString().ToLowerInvariant();
+        private static string Word(OWLensRung rung) => rung == OWLensRung.CoBuilder ? "co-builder" : rung.ToString().ToLowerInvariant();
 
-        /// <summary>Counts in <see cref="OWGraphCut.All"/>'s order, a reason with no count left out, the owner's reasons kept for the owner.</summary>
-        private static IReadOnlyDictionary<string, int> Tally(IReadOnlyDictionary<string, int> counts, bool owner)
+        /// <summary>
+        /// Counts in <see cref="OWGraphCut.All"/>'s order, a reason with no count left out, the owner's reasons kept for the
+        /// owner and the hidden and proposed counts for a keeper.
+        /// </summary>
+        private static IReadOnlyDictionary<string, int> Tally(IReadOnlyDictionary<string, int> counts, bool owner, bool keeper)
         {
             var o = new Dictionary<string, int>();
             foreach (var why in OWGraphCut.All)
             {
                 if (!owner && Array.IndexOf(OWGraphCut.OwnerOnly, why) >= 0) continue;
+                if (!keeper && Array.IndexOf(OWGraphCut.KeeperOnly, why) >= 0) continue;
                 if (counts.TryGetValue(why, out var n) && n > 0) o[why] = n;
             }
 
