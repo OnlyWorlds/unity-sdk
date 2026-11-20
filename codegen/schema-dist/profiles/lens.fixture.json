@@ -12732,6 +12732,350 @@
       "note": "Serial 140. The owner reading as a co-builder keeps the owner's own counts, as on the resolved route: the lens of the co-builder's lensed case, read so, counts Ada's link to the proposed Maybe as not_visible, which a co-builder's own key never carries; the nodes and edges are the co-builder's."
     },
     {
+      "name": "a co-builder's lens anchored on a proposed element carries no count of it",
+      "kind": "graph",
+      "world": {
+        "elements": [
+          {
+            "id": "c1",
+            "type": "character",
+            "name": "Ada",
+            "friends": [
+              "c2",
+              "c3"
+            ]
+          },
+          {
+            "id": "c2",
+            "type": "character",
+            "name": "Ghost",
+            "hidden": true
+          },
+          {
+            "id": "c3",
+            "type": "character",
+            "name": "Maybe",
+            "x_review_proposed": {
+              "by": "m1"
+            }
+          }
+        ]
+      },
+      "reader": {
+        "rung": "co-builder"
+      },
+      "options": {
+        "lens": {
+          "id": "l1",
+          "type": "construct",
+          "name": "A lens",
+          "supertype": "Lens",
+          "subtype": "",
+          "characters": [
+            "c2",
+            "c3"
+          ],
+          "x_lens": {
+            "depth": 1
+          }
+        }
+      },
+      "want": {
+        "nodes": [
+          {
+            "id": "c1",
+            "type": "character",
+            "name": "Ada",
+            "family": "blue",
+            "icon": "person"
+          },
+          {
+            "id": "c2",
+            "type": "character",
+            "name": "Ghost",
+            "family": "blue",
+            "icon": "person",
+            "marks": [
+              "hidden"
+            ]
+          }
+        ],
+        "edges": [
+          {
+            "source": "c1",
+            "field": "friends",
+            "target": "c2",
+            "index": 0
+          }
+        ],
+        "edges_cut": {},
+        "cut": {},
+        "unreadable": null
+      },
+      "note": "The lens anchors the hidden Ghost and the proposed Maybe. A lens's view holds no proposed element (rule 1), so Maybe is an anchor the reader cannot see: anchor_not_visible, the owner's count only (rule 6), which a co-builder never carries, in the lens's cut or in edges_cut, where Ada's link to Maybe would be cut by that reason. The nodes are the lens's kept, Ghost marked hidden."
+    },
+    {
+      "name": "an owner reading as a co-builder keeps the owner's count of a lens's proposed anchor",
+      "kind": "graph",
+      "world": {
+        "elements": [
+          {
+            "id": "c1",
+            "type": "character",
+            "name": "Ada",
+            "friends": [
+              "c2",
+              "c3"
+            ]
+          },
+          {
+            "id": "c2",
+            "type": "character",
+            "name": "Ghost",
+            "hidden": true
+          },
+          {
+            "id": "c3",
+            "type": "character",
+            "name": "Maybe",
+            "x_review_proposed": {
+              "by": "m1"
+            }
+          }
+        ]
+      },
+      "reader": {
+        "rung": "owner",
+        "as": {
+          "rung": "co-builder"
+        }
+      },
+      "options": {
+        "lens": {
+          "id": "l1",
+          "type": "construct",
+          "name": "A lens",
+          "supertype": "Lens",
+          "subtype": "",
+          "characters": [
+            "c2",
+            "c3"
+          ],
+          "x_lens": {
+            "depth": 1
+          }
+        }
+      },
+      "want": {
+        "nodes": [
+          {
+            "id": "c1",
+            "type": "character",
+            "name": "Ada",
+            "family": "blue",
+            "icon": "person"
+          },
+          {
+            "id": "c2",
+            "type": "character",
+            "name": "Ghost",
+            "family": "blue",
+            "icon": "person",
+            "marks": [
+              "hidden"
+            ]
+          }
+        ],
+        "edges": [
+          {
+            "source": "c1",
+            "field": "friends",
+            "target": "c2",
+            "index": 0
+          }
+        ],
+        "edges_cut": {
+          "anchor_not_visible": 1
+        },
+        "cut": {
+          "anchor_not_visible": 1
+        },
+        "unreadable": null
+      },
+      "note": "The same lens read by the owner as a co-builder: the nodes and edges are the co-builder's, and the owner's own counts stay. The proposed Maybe is an anchor that view cannot see, counted anchor_not_visible in the lens's cut, and Ada's link to it is cut by the lens's own reason, anchor_not_visible, not not_visible."
+    },
+    {
+      "name": "a co-builder's lens anchored on an id of no element carries no count of it",
+      "kind": "graph",
+      "world": {
+        "elements": [
+          {
+            "id": "c1",
+            "type": "character",
+            "name": "Ada",
+            "friends": [
+              "c2",
+              "c3"
+            ]
+          },
+          {
+            "id": "c2",
+            "type": "character",
+            "name": "Ghost",
+            "hidden": true
+          },
+          {
+            "id": "c3",
+            "type": "character",
+            "name": "Maybe",
+            "x_review_proposed": {
+              "by": "m1"
+            }
+          }
+        ]
+      },
+      "reader": {
+        "rung": "co-builder"
+      },
+      "options": {
+        "lens": {
+          "id": "l1",
+          "type": "construct",
+          "name": "A lens",
+          "supertype": "Lens",
+          "subtype": "",
+          "characters": [
+            "c1",
+            "c9"
+          ],
+          "x_lens": {
+            "depth": 1
+          }
+        }
+      },
+      "want": {
+        "nodes": [
+          {
+            "id": "c1",
+            "type": "character",
+            "name": "Ada",
+            "family": "blue",
+            "icon": "person"
+          },
+          {
+            "id": "c2",
+            "type": "character",
+            "name": "Ghost",
+            "family": "blue",
+            "icon": "person",
+            "marks": [
+              "hidden"
+            ]
+          }
+        ],
+        "edges": [
+          {
+            "source": "c1",
+            "field": "friends",
+            "target": "c2",
+            "index": 0
+          }
+        ],
+        "edges_cut": {},
+        "cut": {},
+        "unreadable": null
+      },
+      "note": "The lens anchors Ada and c9, an id that names no element of the world. Such an anchor is one the reader cannot see (rule 6): anchor_not_visible, the owner's count only, which a co-builder never carries, whatever the anchor it cannot see, a proposed one or one of no element. Ada is kept, and her hop reaches the hidden Ghost, which a co-builder sees, and not the proposed Maybe, whose link is cut by not_visible, also the owner's count only."
+    },
+    {
+      "name": "a co-builder's lens anchored on an Object's id under characters carries no count of it",
+      "kind": "graph",
+      "world": {
+        "elements": [
+          {
+            "id": "c1",
+            "type": "character",
+            "name": "Ada",
+            "friends": [
+              "c2",
+              "c3"
+            ]
+          },
+          {
+            "id": "c2",
+            "type": "character",
+            "name": "Ghost",
+            "hidden": true
+          },
+          {
+            "id": "c3",
+            "type": "character",
+            "name": "Maybe",
+            "x_review_proposed": {
+              "by": "m1"
+            }
+          },
+          {
+            "id": "o1",
+            "type": "object",
+            "name": "Lamp"
+          }
+        ]
+      },
+      "reader": {
+        "rung": "co-builder"
+      },
+      "options": {
+        "lens": {
+          "id": "l1",
+          "type": "construct",
+          "name": "A lens",
+          "supertype": "Lens",
+          "subtype": "",
+          "characters": [
+            "c1",
+            "o1"
+          ],
+          "x_lens": {
+            "depth": 1
+          }
+        }
+      },
+      "want": {
+        "nodes": [
+          {
+            "id": "c1",
+            "type": "character",
+            "name": "Ada",
+            "family": "blue",
+            "icon": "person"
+          },
+          {
+            "id": "c2",
+            "type": "character",
+            "name": "Ghost",
+            "family": "blue",
+            "icon": "person",
+            "marks": [
+              "hidden"
+            ]
+          }
+        ],
+        "edges": [
+          {
+            "source": "c1",
+            "field": "friends",
+            "target": "c2",
+            "index": 0
+          }
+        ],
+        "edges_cut": {},
+        "cut": {},
+        "unreadable": null
+      },
+      "note": "The lens anchors Ada and, under characters, o1, the id of an Object. An id of another type than its field's is an anchor the reader cannot see (rule 6), as an id of no element is: anchor_not_visible, the owner's count only, which a co-builder never carries. Ada is kept, and her hop reaches the hidden Ghost, which a co-builder sees, and not the proposed Maybe; the Lamp is reached by nothing and is no node."
+    },
+    {
       "name": "a-folder-elements-clock-is-the-newer-of-its-two-and-orders-the-budget",
       "kind": "resolve",
       "world": "fen",
