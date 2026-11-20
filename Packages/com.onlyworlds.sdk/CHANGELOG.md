@@ -46,6 +46,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
+- **The schema pin moves to `v0.34.1-dist.140`** (canonical `00.34.01` unchanged; only the lens page and its fixture
+  moved). Serial 140: in the graph, the flags `hidden` and `proposed` and the hidden and proposed counts are a
+  keeper's (the owner or a co-builder), where they were the owner's alone, so a co-builder's unlensed graph is
+  answered as the owner's is on the same inputs; `not_visible` and `anchor_not_visible` stay the owner's. The lens
+  fixture gains six graph cases (252 in all); no answer on an existing case moved.
 - **The schema pin moves to `v0.34.1-dist.139`** (canonical `00.34.01` unchanged; no schema file, `schema.json` or
   `views.json` moved). Serial 137: a third default layout, `by-links-3d`, with its own fixture, which this SDK does not
   lay out yet; a member of a layout map's `placed` that is no non-empty string names no element; map-space reads a

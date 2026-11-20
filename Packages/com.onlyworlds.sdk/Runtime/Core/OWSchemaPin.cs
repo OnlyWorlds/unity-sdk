@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.34.01";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 139;
+        public const int DistSerial = 140;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.34.1-dist.139";
+        public const string Tag = "v0.34.1-dist.140";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -503,9 +503,17 @@ namespace OnlyWorlds.Sdk
         /// <c>frame_cases</c> 66), which this SDK does not read yet. No answer on an existing case moved. The generated
         /// models and the views table changed in their serial stamp only.
         /// </para>
+        /// <para>
+        /// <b>139 -> 140 (2026-11-20)</b>: canonical unchanged; only the lens page and its fixture moved. In the
+        /// graph, the flags <c>hidden</c> and <c>proposed</c> and the hidden and proposed counts are a keeper's (the
+        /// owner or a co-builder), where they were the owner's alone, so a co-builder's unlensed graph is answered as
+        /// the owner's is; <c>not_visible</c> and <c>anchor_not_visible</c> stay the owner's (six new graph cases, lens
+        /// 252 cases). No answer on an existing case moved. The generated models and the views table changed in their
+        /// serial and published stamps only.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "65a3ded94dfce624e823c664c7bcfc317530a872213a217d8e3a63215fe9f4e5";
+            "c71930530d61fb91d441d2ec7055ce4d3ec91777ed32bac04f12518d44de8ff1";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.
@@ -519,7 +527,7 @@ namespace OnlyWorlds.Sdk
             "af84662c29628b6e90b923c9541f68f5924563adce397cebbadfdbf0f06e5f18";
 
         /// <summary>When these constants were last verified against the published dist.</summary>
-        public const string PinnedOn = "2026-11-19";
+        public const string PinnedOn = "2026-11-20";
 
         /// <summary>
         /// ⚑ Rulings that bind THIS SDK and any emitter generating into it. Read the row, not the key.
