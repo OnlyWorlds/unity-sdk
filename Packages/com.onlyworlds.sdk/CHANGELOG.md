@@ -52,6 +52,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   the same inputs; `not_visible` and `anchor_not_visible` stay the owner's. `OWGraphCut.OwnerOnly` now holds those
   two, and the new `OWGraphCut.KeeperOnly` holds `hidden` and `proposed`. A refused flag's message says "a keeper's
   alone (the owner or a co-builder)". Every case of the lens fixture's `graph` kind passes.
+- **The schema pin moves to `v0.34.1-dist.141`** (canonical `00.34.01` unchanged; only the charter and lens pages and
+  their fixtures moved). Serial 141: the charter page says folded Domain names compare by code point, as written, never
+  by UTF-16 unit, a collation or a locale, with nothing normalized, and a name is trimmed and folded as the room page
+  defines both. The charter fixture gains ten Domain order cases (57 in all) and three design cases (19), the lens
+  fixture four graph cases on a co-builder's lens anchors (66 graph cases, 256 in all); no answer on an existing case
+  moved.
 - **The schema pin moves to `v0.34.1-dist.140`** (canonical `00.34.01` unchanged; only the lens page and its fixture
   moved). Serial 140: in the graph, the flags `hidden` and `proposed` and the hidden and proposed counts are a
   keeper's (the owner or a co-builder), where they were the owner's alone, so a co-builder's unlensed graph is

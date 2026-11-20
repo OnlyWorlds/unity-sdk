@@ -26,13 +26,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </remarks>
     public class OWCharterTests
     {
-        /// <summary>The fixture's sha256 as serial 139 publishes it (serial 135 added <c>design_cases</c>, serial 138 three more).</summary>
-        private const string DistSha256 = "429a110c6e02ca981574dec042f141f54c0d652c4b4fa1eda2d2a55ef03150b2";
+        /// <summary>The fixture's sha256 as serial 141 publishes it (serial 135 added <c>design_cases</c>, serial 138 three more, serial 141 three more and ten Domain order cases).</summary>
+        private const string DistSha256 = "500f68f166ae255b7eb4a4d79e9085491799e8a6eed928abc62bb8f1b4a89729";
 
-        /// <summary>The fixture's cases by kind, as serial 133 publishes them (47 in all).</summary>
+        /// <summary>The fixture's cases by kind, as serial 141 publishes them (57 in all; 47 at serial 133).</summary>
         private static readonly Dictionary<string, int> Counts = new Dictionary<string, int>
         {
-            ["element"] = 6, ["charter"] = 41,
+            ["element"] = 6, ["charter"] = 51,
         };
 
         private static JObject _fixture;
@@ -81,7 +81,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not serial 139's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not serial 141's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
@@ -89,7 +89,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             Assert.IsNotNull(Fixture, "the vendored charter fixture was not found");
             var cases = Fixture["cases"].Cast<JObject>().ToList();
-            Assert.AreEqual(47, cases.Count, "serial 133's fixture holds 47 cases");
+            Assert.AreEqual(57, cases.Count, "serial 141's fixture holds 57 cases");
             var counts = cases.GroupBy(c => (string)c["kind"]).ToDictionary(g => g.Key, g => g.Count());
             CollectionAssert.AreEquivalent(Counts, counts);
         }
@@ -169,7 +169,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             Assert.IsNotNull(Fixture, "the vendored charter fixture was not found");
             var names = Fixture["design_cases"].Select(c => (string)c["name"]).ToList();
-            Assert.AreEqual(16, names.Count, "serial 138's fixture holds 16 design cases (13 from serial 135)");
+            Assert.AreEqual(19, names.Count, "serial 141's fixture holds 19 design cases (13 from serial 135, 16 at serial 138)");
             Assert.AreEqual(names.Count, names.Distinct().Count(), "a case is found by its name, so each name is once");
             CollectionAssert.AreEqual(new[] { "in design", "locked" }, OWCharter.DesignStates.ToList());
         }

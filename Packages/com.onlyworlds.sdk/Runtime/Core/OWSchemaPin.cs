@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.34.01";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 140;
+        public const int DistSerial = 141;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.34.1-dist.140";
+        public const string Tag = "v0.34.1-dist.141";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -511,9 +511,17 @@ namespace OnlyWorlds.Sdk
         /// 252 cases). No answer on an existing case moved. The generated models and the views table changed in their
         /// serial and published stamps only.
         /// </para>
+        /// <para>
+        /// <b>140 -> 141 (2026-11-20)</b>: canonical unchanged; only the charter and lens pages and their fixtures moved.
+        /// The charter page says folded Domain names compare by code point, as written, never by UTF-16 unit, a collation
+        /// or a locale, with nothing normalized, a name trimmed and folded as the room page defines both (charter 57
+        /// cases, <c>design_cases</c> 19); the lens fixture gains four graph cases on a co-builder's lens anchors (66
+        /// graph cases, lens 256). No answer on an existing case moved. The generated models and the views table changed
+        /// in their serial stamp only.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "c71930530d61fb91d441d2ec7055ce4d3ec91777ed32bac04f12518d44de8ff1";
+            "417be97794478dd39b1ba580c3316a6daf64953ab9ea7cf7ac9eb24f34548c92";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.
