@@ -6,6 +6,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.46.0] - 2026-11-21
+
+A bulk write that only creates, never replaces (`createOnly`, keel's `create_only`, in step with the TypeScript SDK
+4.185.0); the wire fixture follows keel's document; the schema pin moves through serials 142 to 144. A minor release
+because it adds public API (below).
+
 ### Added
 
 - **`BulkAsync(items, createOnly: true)`**, sent as `create_only`: every item with an id is created as `CreateAsync`
