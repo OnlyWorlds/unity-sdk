@@ -6,6 +6,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The schema pin moves to `v0.34.1-dist.142`** (canonical `00.34.01` unchanged; only the map-space page and its
+  fixture moved). Serial 142: a Zone outlined on a child Map and on its parent keeps two outlines, never joined and
+  with no point added on the edge of the child's rectangle or its parent frame, and what a tool draws there is the
+  tool's; rule 4 says one outline per Map the Zone has placed Markers on. The map-space fixture gains three cases (46
+  in all); no answer on an existing case moved.
+
 ## [0.45.0] - 2026-11-20
 
 A world laid out in three dimensions by its links, and the elements a saved layout map has no Pin for (schema-dist

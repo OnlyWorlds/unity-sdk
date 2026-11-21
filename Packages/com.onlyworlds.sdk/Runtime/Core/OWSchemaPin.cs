@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.34.01";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 141;
+        public const int DistSerial = 142;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.34.1-dist.141";
+        public const string Tag = "v0.34.1-dist.142";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -519,9 +519,17 @@ namespace OnlyWorlds.Sdk
         /// graph cases, lens 256). No answer on an existing case moved. The generated models and the views table changed
         /// in their serial stamp only.
         /// </para>
+        /// <para>
+        /// <b>141 -> 142 (2026-11-21)</b>: canonical unchanged; only the map-space page and its fixture moved. A Zone
+        /// outlined on a child Map and on its parent keeps two outlines, never joined and with no point added on the
+        /// edge of the child's rectangle or its parent frame, and what a tool draws there is the tool's; rule 4 says one
+        /// outline per Map the Zone has placed Markers on (map-space 46 cases, <c>layout_cases</c> 32,
+        /// <c>frame_cases</c> 66). No answer on an existing case moved. The generated models and the views table
+        /// changed in their serial and published stamps only.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "417be97794478dd39b1ba580c3316a6daf64953ab9ea7cf7ac9eb24f34548c92";
+            "59d21a4b7a3210bf4cb7cc8c59aece3600681e864fb2e9825e3d592e8b1f6e4e";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.
@@ -535,7 +543,7 @@ namespace OnlyWorlds.Sdk
             "af84662c29628b6e90b923c9541f68f5924563adce397cebbadfdbf0f06e5f18";
 
         /// <summary>When these constants were last verified against the published dist.</summary>
-        public const string PinnedOn = "2026-11-20";
+        public const string PinnedOn = "2026-11-21";
 
         /// <summary>
         /// ⚑ Rulings that bind THIS SDK and any emitter generating into it. Read the row, not the key.

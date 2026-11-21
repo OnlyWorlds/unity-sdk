@@ -19,7 +19,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </summary>
     public class OWMapLayoutTests
     {
-        /// <summary>The fixture's layout cases, as dist.139 holds them (seventeen at dist.110, 21 at dist.111, 23 at dist.119, 26 at dist.126, 29 at dist.127, 32 at dist.137: a ground that is a number, a list or an object is no ground).</summary>
+        /// <summary>The fixture's layout cases, as dist.142 holds them (seventeen at dist.110, 21 at dist.111, 23 at dist.119, 26 at dist.126, 29 at dist.127, 32 at dist.137: a ground that is a number, a list or an object is no ground).</summary>
         private const int LayoutCaseCount = 32;
 
         private static JObject _fixture;
@@ -106,11 +106,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsNotNull(Fixture, "the vendored map-space fixture was not found");
             Assert.IsInstanceOf<JArray>(Fixture["layout_cases"], "dist.111's fixture holds layout_cases beside cases");
             var names = LayoutCases().Select(c => (string)c["name"]).ToList();
-            Assert.AreEqual(LayoutCaseCount, names.Count, "dist.139's fixture holds 32 layout cases");
+            Assert.AreEqual(LayoutCaseCount, names.Count, "dist.142's fixture holds 32 layout cases");
             Assert.AreEqual(names.Count, names.Distinct().Count(), "a case is found by its name, so each name is once");
             CollectionAssert.IsSubsetOf(new[] { "parentless-layout-beside-ground", "ground-beside-parentless-layout" }, names,
                 "dist.119's two cases: a layout Map and its ground, neither with a parent_map, each read in turn");
-            Assert.AreEqual(43, Fixture["cases"].Count(), "the map-space reading's cases beside them (43 since dist.137)");
+            Assert.AreEqual(46, Fixture["cases"].Count(), "the map-space reading's cases beside them (46 since dist.142)");
         }
 
         [TestCaseSource(nameof(Cases))]
