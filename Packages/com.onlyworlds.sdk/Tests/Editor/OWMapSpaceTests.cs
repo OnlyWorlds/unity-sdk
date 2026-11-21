@@ -18,15 +18,16 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </summary>
     public class OWMapSpaceTests
     {
-        /// <summary>The fixture's sha256 as dist.142's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "4ebec65d75b6de4e9a2eb9e1723c8978edef6191ba7fb783d978f882ae3f26f6";
+        /// <summary>The fixture's sha256 as dist.144's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "143d19bb65f8e552795a123658142d65b441b0c91f5ca66e23034a4c39f5a650";
 
         /// <summary>
-        /// The fixture's cases, as dist.142 holds them (34 from dist.106; dist.119 adds a layout map read as any Map,
+        /// The fixture's cases, as dist.144 holds them (34 from dist.106; dist.119 adds a layout map read as any Map,
         /// dist.126 four cases of an empty-string link read as no link; dist.127 moves none; dist.137 adds four, a
         /// size as written, a size not whole, a link not a string and a measured slot with no point; dist.139's
         /// <c>frame_cases</c> are another list, not read here; dist.142 adds three, a Zone outlined on a child Map and
-        /// on its parent kept as two outlines, and a Zone placed on only one of the two).
+        /// on its parent kept as two outlines, and a Zone placed on only one of the two; dist.144's
+        /// <c>down_cases</c> are a fourth list, not read here, and move none of these).
         /// </summary>
         private const int CaseCount = 46;
 
@@ -74,7 +75,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.142's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.144's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
@@ -83,7 +84,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsNotNull(Fixture, "the vendored map-space fixture was not found");
             Assert.AreEqual("map-space", (string)Fixture["profile"]);
             var names = Fixture["cases"].Select(c => (string)c["name"]).ToList();
-            Assert.AreEqual(CaseCount, names.Count, "dist.142's fixture holds 46 cases");
+            Assert.AreEqual(CaseCount, names.Count, "dist.144's fixture holds 46 cases");
             CollectionAssert.Contains(names, "layout-map-read-as-before", "dist.119's case: a layout map read as any Map (rule 11)");
             Assert.AreEqual(names.Count, names.Distinct().Count(), "a case is found by its name, so each name is once");
         }

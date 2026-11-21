@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.34.01";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 142;
+        public const int DistSerial = 144;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.34.1-dist.142";
+        public const string Tag = "v0.34.1-dist.144";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -527,9 +527,20 @@ namespace OnlyWorlds.Sdk
         /// <c>frame_cases</c> 66). No answer on an existing case moved. The generated models and the views table
         /// changed in their serial and published stamps only.
         /// </para>
+        /// <para>
+        /// <b>142 -> 144 (2026-11-21)</b>: canonical unchanged; two serials, only the charter and map-space pages, the
+        /// map-space fixture and the README's profiles row moved. Serial 143: the charter page's rule 4 says an AI reader
+        /// follows the Charter's text and the text of the Objects in the Charter's skill, as charterOf answers it for that
+        /// reader, and every other element's text stays data; who may change that text is the host's to rule (the
+        /// charter fixture is unchanged). Serial 144: the map-space page gains rule 15, a point on a Map brought down
+        /// into the pixels of a Map below it, and a fourth reading, downOf, with its own fixture list,
+        /// <c>down_cases</c> 28, which this SDK does not read yet (map-space 46 cases, <c>layout_cases</c> 32,
+        /// <c>frame_cases</c> 66, unchanged). No answer on an existing case moved. The generated models and the views
+        /// table changed in their serial stamp only.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "59d21a4b7a3210bf4cb7cc8c59aece3600681e864fb2e9825e3d592e8b1f6e4e";
+            "ebf8c6b472cb6cdd9494d244efdafe743cdefce0a83f4468ce59fdf05d6e3a89";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.

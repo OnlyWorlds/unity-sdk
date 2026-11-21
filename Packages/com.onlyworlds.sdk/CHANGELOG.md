@@ -25,6 +25,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   with no point added on the edge of the child's rectangle or its parent frame, and what a tool draws there is the
   tool's; rule 4 says one outline per Map the Zone has placed Markers on. The map-space fixture gains three cases (46
   in all); no answer on an existing case moved.
+- **The schema pin moves to `v0.34.1-dist.144`** (canonical `00.34.01` unchanged; only the charter and map-space
+  pages, the map-space fixture and the dist's README moved). Serial 143: the charter page's rule 4 says an AI reader
+  follows the Charter's text and the text of the Objects in the Charter's skill, as `charterOf` answers it for that
+  reader, and every other element's text stays data; who may change that text is the host's to rule. The charter
+  fixture is unchanged. Serial 144: the map-space page gains rule 15, a point on a Map brought down into the pixels of
+  a Map below it, and a fourth reading, `downOf`; the map-space fixture gains its own list of 28 `down_cases`, which
+  this SDK does not read yet. The 46 map-space cases, 32 layout cases and 66 frame cases are unchanged, and every
+  existing answer stands.
 
 ## [0.45.0] - 2026-11-20
 
