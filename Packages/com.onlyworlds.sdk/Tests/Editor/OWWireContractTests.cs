@@ -184,6 +184,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             await c.EditLinksAsync<JObject>("character", "c1", "friends", add: new[] { "a1" }, ifMatch: 7);
             await c.EditLinksAsync<JObject>("character", "c1", "friends", add: new[] { "a1" });
             await c.BulkAsync(new[] { new OWBulkItem { Type = "character", Element = new JObject { ["name"] = "B" } } });
+            // Every option given, so create_only is judged as a body key (keel's document from 5a9aac72138c).
+            await c.BulkAsync(new[] { new OWBulkItem { Type = "character", Element = new JObject { ["name"] = "B" } } },
+                atomic: true, idempotencyKey: "k", createOnly: true);
             await c.AdoptAsync<JObject>("character", "c1", "m1");
             // The hidden mark on an agent client: neither write header goes, which the header check holds.
             await c.HideAsync("character", "c1");
@@ -892,7 +895,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             // An empty recording would pass the checks above with nothing checked.
             var calls = await RecordEveryCall();
-            Assert.AreEqual(96, calls.Count);
+            Assert.AreEqual(97, calls.Count);
+
+            // The bulk write with create_only is on the wire here, so the body check above judged the key.
+            Assert.That(calls.Any(c => c.Method == "POST" && new Uri(c.Url).AbsolutePath.EndsWith("/api/v2/bulk/")
+                && c.Body != null && JObject.Parse(c.Body)["create_only"]?.Type == JTokenType.Boolean),
+                "a bulk write with create_only is recorded");
 
             // The Pin list's element filter is on the wire as given: the id, and the empty value sent (not dropped).
             var pinLists = calls.Where(c => c.Method == "GET" && new Uri(c.Url).AbsolutePath.EndsWith("/api/v2/pin/")).ToList();

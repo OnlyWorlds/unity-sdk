@@ -88,6 +88,32 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(true, _transport.LastBody["atomic"].Value<bool>());
         }
 
+        // The TypeScript SDK 4.185.0's vector: createOnly true is sent as create_only; left out or false, the body is
+        // the one earlier releases sent. Its third half (a value that is not a boolean refused before sending) has no
+        // C# counterpart: the parameter is a bool. Kills: create_only never sent, sent always, or sent as false.
+        [Test]
+        public async Task Request_CreateOnlyTrue_IsSentAsCreateOnly_LeftOutOrFalse_TheBodyIsAsBefore()
+        {
+            var items = new List<OWBulkItem> { new OWBulkItem("character", JObject.Parse(@"{""id"":""mine"",""name"":""A""}")) };
+
+            _transport.Bodies.Enqueue(AllSucceeded);
+            await Client().BulkAsync(items, createOnly: true);
+            CollectionAssert.AreEqual(new[] { "items", "atomic", "create_only" },
+                _transport.LastBody.Properties().Select(p => p.Name).ToArray());
+            Assert.AreEqual(JTokenType.Boolean, _transport.LastBody["create_only"].Type);
+            Assert.AreEqual(true, _transport.LastBody["create_only"].Value<bool>());
+
+            foreach (var createOnly in new bool?[] { null, false })
+            {
+                _transport.Bodies.Enqueue(AllSucceeded);
+                if (createOnly == null) await Client().BulkAsync(items);
+                else await Client().BulkAsync(items, createOnly: createOnly.Value);
+                CollectionAssert.AreEqual(new[] { "items", "atomic" },
+                    _transport.LastBody.Properties().Select(p => p.Name).ToArray(),
+                    createOnly == null ? "left out" : "false");
+            }
+        }
+
         [Test]
         public async Task Request_SanitizesEveryElement_JustLikeASingleWrite()
         {
@@ -312,6 +338,33 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             var e = Assert.Throws<OWBulkPartialFailureException>(result.ThrowIfAnyFailed);
             StringAssert.Contains("[1] 422 invalid_request (element)", e.Message);
+        }
+
+        // Under createOnly an id the world already holds answers its slot 409 id_conflict, and the rest of the batch goes
+        // on: that slot reads as any failed slot does. Kills: a 409 slot counted as a success, or its code lost.
+        [Test]
+        public async Task Result_A409IdConflictSlot_UnderCreateOnly_ReadsAsAFailedSlot()
+        {
+            _transport.Bodies.Enqueue(@"{
+                ""errors"": true,
+                ""items"": [
+                    {""status"":409,""id"":""0eac22e7-0000-4000-8000-000000000001"",
+                     ""error"":{""type"":""invalid_request"",""code"":""id_conflict"",
+                                ""message"":""A create supplied an id that already exists."",""param"":""id""}},
+                    {""status"":201,""id"":""ec5f6f30-0000-4000-8000-000000000002""}
+                ]}");
+
+            var result = await Client().BulkAsync(TwoItems(), createOnly: true);
+
+            Assert.IsTrue(result.Errors);
+            Assert.AreEqual(1, result.SucceededCount);
+            var held = result.Failed.Single();
+            Assert.AreSame(result.Items[0], held, "the held id's slot is the failed one");
+            Assert.AreEqual(409, held.Status);
+            Assert.AreEqual("id_conflict", held.Error.Code);
+            Assert.AreEqual("0eac22e7-0000-4000-8000-000000000001", held.Id);
+            var e = Assert.Throws<OWBulkPartialFailureException>(result.ThrowIfAnyFailed);
+            StringAssert.Contains("[0] 409 id_conflict", e.Message);
         }
 
         // -- Guards -----------------------------------------------------------

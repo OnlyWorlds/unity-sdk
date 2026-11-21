@@ -6,8 +6,20 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **`BulkAsync(items, createOnly: true)`**, sent as `create_only`: every item with an id is created as `CreateAsync`
+  creates it, never replaced. An id the world already holds answers that item's slot 409 `id_conflict`, and the
+  element stays as it was; the rest of the batch goes on as before, and the slot reads as any failed slot does
+  (`OWBulkResult.Failed`). Left out or false, the body is the one earlier releases sent. The parameter comes last, so
+  a caller passing a `CancellationToken` by position keeps working. Parity with the TypeScript SDK 4.185.0, its test
+  vector ported (its refusal of a value that is not a boolean has no counterpart here: the parameter is a `bool`).
+
 ### Changed
 
+- The wire fixture is refreshed from keel's document `5a9aac72138c` (from `514ea1d77c85`): `POST /bulk` takes
+  `create_only` (above), and every proposal answer declares `house`, which no model here reads yet. Nothing this SDK
+  sends or reads was removed.
 - **The schema pin moves to `v0.34.1-dist.142`** (canonical `00.34.01` unchanged; only the map-space page and its
   fixture moved). Serial 142: a Zone outlined on a child Map and on its parent keeps two outlines, never joined and
   with no point added on the edge of the child's rectangle or its parent frame, and what a tool draws there is the

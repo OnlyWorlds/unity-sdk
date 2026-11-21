@@ -793,6 +793,14 @@ namespace OnlyWorlds.Sdk
         /// Replaying the same key returns the original outcome rather than repeating the writes,
         /// and the result's <see cref="OWBulkResult.WasReplay"/> says which happened.
         /// </param>
+        /// <param name="createOnly">
+        /// <c>true</c> (sent as <c>create_only</c>): every item with an id is created as <see cref="CreateAsync{T}"/>
+        /// creates it, never replaced. An id the world already holds answers that item's slot 409 with
+        /// <c>id_conflict</c> (<see cref="OWBulkSlot.Error"/>), and the element stays as it was; the rest of the batch
+        /// goes on as before. <c>false</c> (the default) sends no <c>create_only</c>, the body earlier releases sent: an
+        /// item with an id held replaces it whole. A <c>bool</c>, so a value that is not true or false cannot be passed.
+        /// Last, so a caller passing <paramref name="ct"/> by position keeps working.
+        /// </param>
         /// <remarks>
         /// <para>
         /// <b>A bulk request returns HTTP 200 even when slots failed.</b> The per-slot status is the
@@ -815,7 +823,7 @@ namespace OnlyWorlds.Sdk
         /// </exception>
         public async Task<OWBulkResult> BulkAsync(
             IEnumerable<OWBulkItem> items, bool atomic = false, string idempotencyKey = null,
-            CancellationToken ct = default)
+            CancellationToken ct = default, bool createOnly = false)
         {
             if (items == null) throw new ArgumentNullException(nameof(items));
 
@@ -848,6 +856,7 @@ namespace OnlyWorlds.Sdk
             }
 
             var body = new JObject { ["items"] = array, ["atomic"] = atomic };
+            if (createOnly) body["create_only"] = true;
 
             var (result, response) = await RequestWithResponseAsync<OWBulkResult>(
                 "POST", "/bulk/", body: body, idempotencyKey: idempotencyKey, write: true, ct: ct)
