@@ -412,8 +412,11 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// True when sending the same request again, after <see cref="RetryAfter"/> when there is
-        /// one, could plausibly succeed soon: a server fault, a busy server (503 <c>server_busy</c>),
-        /// a PIN lockout (429 <c>rate_limited</c>), or a same-key request still running (409
+        /// one, could succeed once that wait has passed: a server fault, a busy server (503 <c>server_busy</c>),
+        /// the PIN wait (429 <c>rate_limited</c>, <see cref="Param"/> naming the PIN: ten different PINs were tried on
+        /// this key or account inside fifteen minutes, and every request carrying a PIN there waits, the right one too;
+        /// <see cref="RetryAfter"/> is the real wait, 15 s just after a PIN arrives, else up to 900 s; the same wrong PIN
+        /// sent again never counts), or a same-key request still running (409
         /// <c>idempotency_in_flight</c>: send the same key and body again, and it replays the first
         /// one's answer; the image routes' 409 <c>upload_pending</c> and <c>removal_in_flight</c>
         /// likewise). False for a daily allowance used up (429 <c>quota_exceeded</c>, and an AI use's
