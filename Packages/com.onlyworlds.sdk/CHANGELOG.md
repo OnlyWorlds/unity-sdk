@@ -6,6 +6,21 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **`OWProposal.House`**: the part of a world's house rules a queue row would change, on a proposal and on the
+  queue's row for a new element written as proposed: `charter` (a Law that carries the Charter mark), `skill` (an
+  Object a marked Law's text names) or `new_charter` (a Law an accept would make a Charter), as the constants
+  `OWProposal.HouseCharter`, `HouseSkill` and `HouseNewCharter`; null for any other row. onlyworlds.com works it out
+  only for the world's owner and co-builders and serves null to any other reader. Parity with the TypeScript SDK
+  4.186.0.
+
+### Changed
+
+- `GetMeAsync`'s remarks say when the call tests a PIN: the PIN is sent with it, so a wrong one shows there first for
+  a key that can write; beside a key that cannot (a read key, a player's), onlyworlds.com never reads a PIN. Parity
+  with the TypeScript SDK 4.185.0. Documentation only.
+
 ## [0.47.0] - 2026-11-22
 
 An invite link carries a note: whoever makes a person link can write a few lines for the one who opens it, and the join

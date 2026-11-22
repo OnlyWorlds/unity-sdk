@@ -355,6 +355,11 @@ namespace OnlyWorlds.Sdk
         /// is a choice (<see cref="OWLens.LensesFor"/> takes it as the membership's); <c>name</c> is served on agent and
         /// player seats only: your agent's or your player's name.
         /// </summary>
+        /// <remarks>
+        /// <see cref="OWClientConfig.ApiPin"/> is sent with this read, so a wrong PIN shows here first: the connection
+        /// test for a key that can write. Beside a key that cannot (a read key, a player's), onlyworlds.com never reads
+        /// a PIN, so this call says nothing about one.
+        /// </remarks>
         public Task<JObject> GetMeAsync(CancellationToken ct = default)
             => RequestAsync<JObject>("GET", "/me/", ct: ct);
 

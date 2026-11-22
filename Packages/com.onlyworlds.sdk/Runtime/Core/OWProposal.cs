@@ -50,6 +50,28 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("element_id")]
         public string ElementId;
 
+        /// <summary>A <see cref="House"/>: a Law that carries the Charter mark (<c>x_charter_of</c>).</summary>
+        public const string HouseCharter = "charter";
+
+        /// <summary>A <see cref="House"/>: an Object the text of a marked Law names.</summary>
+        public const string HouseSkill = "skill";
+
+        /// <summary>
+        /// A <see cref="House"/>: a Law an accept would make a Charter (on a proposal it sets the mark, and the Law's
+        /// supertype after it is <c>Charter</c>; on a new element's row, a new Law that carries the mark).
+        /// </summary>
+        public const string HouseNewCharter = "new_charter";
+
+        /// <summary>
+        /// What part of the world's house rules this row would change: <see cref="HouseCharter"/>,
+        /// <see cref="HouseSkill"/> or <see cref="HouseNewCharter"/>, null for anything else. Read when the row is served,
+        /// as the world stands then; worked out only for the world's owner and co-builders, null to any other reader.
+        /// The house rules are changed only by the owner and co-builders; anyone else proposes. A row from an older
+        /// server carries none and reads null.
+        /// </summary>
+        [JsonProperty("house")]
+        public string House;
+
         /// <summary><c>open</c>, <c>lapsed</c> (past <see cref="ExpiresValue"/>; it may still be accepted or declined), <c>accepted</c> or <c>declined</c>.</summary>
         [JsonProperty("state")]
         public string State;

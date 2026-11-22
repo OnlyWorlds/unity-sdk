@@ -362,6 +362,37 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(JTokenType.Null, written["expires"].Type);
         }
 
+        // The queue names the part of the house rules a row would change (keel's `house`): one of three words to the
+        // world's owner and co-builders, null to anyone else and for any other row.
+        [TestCase("proposal", "charter", OWProposal.HouseCharter)]
+        [TestCase("proposal", "skill", OWProposal.HouseSkill)]
+        [TestCase("proposal", "new_charter", OWProposal.HouseNewCharter)]
+        [TestCase("new_element", "new_charter", OWProposal.HouseNewCharter)]
+        [TestCase("new_element", "skill", OWProposal.HouseSkill)]
+        [TestCase("proposal", null, null)]
+        [TestCase("new_element", null, null)]
+        public async Task AQueueRow_ReadsItsHouse_OnBothKinds_AndNullAsNull(string kind, string served, string expected)
+        {
+            var row = (JObject)(kind == "proposal" ? Proposal : NewElementRow).DeepClone();
+            row["house"] = served;
+            var t = new FakeTransport { ResponseBody = new JObject { ["data"] = new JArray(row), ["has_more"] = false }.ToString() };
+            var read = (await Make(t).WorldProposalsAsync()).Data.Single();
+
+            Assert.AreEqual(expected, read.House);
+            Assert.AreEqual(kind == "new_element", read.IsNewElement);
+        }
+
+        [Test]
+        public async Task AQueueRow_FromAServerThatSendsNoHouse_ReadsNull()
+        {
+            var t = new FakeTransport { ResponseBody = new JObject { ["data"] = new JArray(Proposal.DeepClone(), NewElementRow.DeepClone()), ["has_more"] = false }.ToString() };
+            var rows = (await Make(t).WorldProposalsAsync()).Data;
+
+            Assert.AreEqual(2, rows.Count);
+            Assert.IsNull(rows[0].House);
+            Assert.IsNull(rows[1].House);
+        }
+
         [TestCase("evidence", @"""Met her in chapter 4.""", "Met her in chapter 4.")]
         [TestCase("evidence", @"""   """, "   ")]
         [TestCase("evidence", "null", null)]
