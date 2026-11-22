@@ -513,6 +513,28 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(@"{""reader"":""player"",""characters"":[""c1"",""c2""]}", t.Last.Body, "the picks in the caller's order");
         }
 
+        // The TypeScript SDK's createWorldLink() note (4.188.0, its vector): sent as note, the text untouched with its line
+        // break, and no key at all when the note is left unset. An empty note is sent as given, as npm sends any note that
+        // is not undefined (keel reads a blank note as none). npm's third assertion, a misspelt option refused by name, is
+        // the compiler's here. Kills: the note dropped, sent under another name, trimmed or its line break rewritten, or a
+        // null sent as null.
+        [Test]
+        public async Task CreateWorldLink_Note_IsSentAsGiven_AndLeftOutWhenUnset()
+        {
+            var t = new FakeTransport { Status = 201, ResponseBody = CreatedLinkBody };
+            const string note = "Come and help with the harbour.\nBring the maps.";
+            await Make(t).CreateWorldLinkAsync("w1", new OWWorldLinkCreate { Reader = "person", Note = note });
+            Assert.IsTrue(JToken.DeepEquals(new JObject { ["reader"] = "person", ["note"] = note }, JObject.Parse(t.Calls[0].Body)),
+                "the text untouched, its line break kept: " + t.Calls[0].Body);
+
+            await Make(t).CreateWorldLinkAsync("w1", new OWWorldLinkCreate { Reader = "person" });
+            Assert.AreEqual(@"{""reader"":""person""}", t.Calls[1].Body, "left out: no note key");
+
+            await Make(t).CreateWorldLinkAsync("w1", new OWWorldLinkCreate { Reader = "person", Note = "" });
+            Assert.AreEqual(@"{""reader"":""person"",""note"":""""}", t.Calls[2].Body, "an empty note, as given");
+            Assert.AreEqual(3, t.Calls.Count);
+        }
+
         // Kills: a link with no reader (keel's 422) or no options at all reaching the transport.
         [Test]
         public void CreateWorldLink_NoLink_OrNoReader_IsRefused_NothingSent()

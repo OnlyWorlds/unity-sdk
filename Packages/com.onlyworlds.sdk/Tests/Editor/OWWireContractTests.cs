@@ -261,6 +261,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             {
                 Reader = "player", Role = "guest", Days = 30, InviterName = "Ada", WithCharacter = true, Character = "c1",
                 Preview = true, MaxUses = 4, Characters = new List<string> { "c1", "c2" }, LandsOn = "site",
+                Note = "x",
             });
             t.ResponseBody = @"{""data"":[]}";
             await account.ListWorldLinksAsync("w1");

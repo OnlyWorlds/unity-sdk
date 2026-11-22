@@ -2003,7 +2003,8 @@ namespace OnlyWorlds.Sdk
         /// <exception cref="OWApiError">
         /// The server refused: anyone but the world's owner, and a world that does not exist, is a 404 <c>not_found</c>
         /// (<see cref="OWApiError.IsNotFound"/>); an option the reader does not take is a 422 naming it
-        /// (<see cref="OWApiError.Param"/>).
+        /// (<see cref="OWApiError.Param"/>), as is a note or an inviter name holding a control character or a direction
+        /// override (<see cref="OWWorldLinkCreate.Note"/>).
         /// </exception>
         /// <remarks>
         /// A person's link is accepted signed in (<see cref="AcceptJoinAsync"/>), an agent's and a player's are redeemed

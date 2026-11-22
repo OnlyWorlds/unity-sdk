@@ -6,6 +6,15 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **An invite link's note**: `OWWorldLinkCreate.Note`, on a person link, sends `CreateWorldLinkAsync` a note for
+  whoever opens the link, plain text with its line breaks, at most 500 characters and 8 line breaks. It is sent as
+  given and left out when null. An agent or player link keeps none, and no link row carries it. onlyworlds.com refuses
+  control characters (a tab included) and the characters that override or isolate text direction, in the note and in
+  `InviterName`, with a 422 whose `OWApiError.Param` names the field. Parity with the TypeScript SDK 4.188.0, its test
+  vector ported.
+
 ## [0.46.1] - 2026-11-22
 
 The schema pin at schema-dist serial 145: the charter page names the field an AI reader follows, and a leading Charter

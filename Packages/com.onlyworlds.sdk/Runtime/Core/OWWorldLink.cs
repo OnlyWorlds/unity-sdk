@@ -75,6 +75,16 @@ namespace OnlyWorlds.Sdk
         /// </summary>
         [JsonProperty("lands_on")]
         public string LandsOn;
+
+        /// <summary>
+        /// A person link only: a note for whoever opens it, plain text with its line breaks, at most 500 characters and 8
+        /// line breaks. Sent as given; null: none. <see cref="OWJoin.PreviewAsync"/> answers it as its
+        /// <c>note</c>, and no link row carries it; an agent or player link keeps none. A control
+        /// character (a tab included) or a character that overrides or isolates the direction of text, in the note or in
+        /// <see cref="InviterName"/>, is a 422 (<see cref="OWApiError.Param"/> names the field).
+        /// </summary>
+        [JsonProperty("note")]
+        public string Note;
     }
 
     /// <summary>
