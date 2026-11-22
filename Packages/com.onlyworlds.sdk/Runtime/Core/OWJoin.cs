@@ -68,6 +68,69 @@ namespace OnlyWorlds.Sdk
         public string AgentName;
     }
 
+    /// <summary>One thing in a join preview's glimpse: its name and its element type (<c>character</c>, <c>location</c>, ...). It carries no id.</summary>
+    [Serializable]
+    public class OWJoinGlimpseThing
+    {
+        [JsonProperty("name")]
+        public string Name;
+
+        [JsonProperty("type")]
+        public string Type;
+    }
+
+    /// <summary>One link in a join preview's glimpse, between two of its <see cref="OWJoinGlimpse.Things"/>.</summary>
+    [Serializable]
+    public class OWJoinGlimpseLink
+    {
+        /// <summary>The place in <see cref="OWJoinGlimpse.Things"/>, from 0, of the thing whose field holds the link.</summary>
+        [JsonProperty("from")]
+        public int From;
+
+        /// <summary>The place in <see cref="OWJoinGlimpse.Things"/>, from 0, of the thing linked to.</summary>
+        [JsonProperty("to")]
+        public int To;
+
+        /// <summary>The name of the field that holds the link.</summary>
+        [JsonProperty("field")]
+        public string Field;
+
+        /// <summary>The words to show for the link.</summary>
+        [JsonProperty("label")]
+        public string Label;
+    }
+
+    /// <summary>
+    /// A join preview's <see cref="OWJoinPreview.Glimpse"/> (npm's <c>OwJoinGlimpse</c>): up to five things of the world by
+    /// name, and the links among them, read as a visitor with no account would read the world if it were public (nothing
+    /// hidden, nothing proposed). It names no id.
+    /// </summary>
+    [Serializable]
+    public class OWJoinGlimpse
+    {
+        /// <summary>
+        /// How the things were chosen: <c>strand</c>, the world's chosen story (its happening, where it happened, its hero
+        /// and where the hero is now), or <c>links</c>, the most linked thing and the most linked of its neighbours.
+        /// </summary>
+        [JsonProperty("picked_by")]
+        public string PickedBy;
+
+        /// <summary>At most five, in the order <see cref="PickedBy"/> gives.</summary>
+        [JsonProperty("things")]
+        public List<OWJoinGlimpseThing> Things;
+
+        [JsonProperty("links")]
+        public List<OWJoinGlimpseLink> Links;
+
+        /// <summary>The things are the world's chosen story.</summary>
+        [JsonIgnore]
+        public bool IsStrand => PickedBy == "strand";
+
+        /// <summary>The things are the most linked thing and its most linked neighbours.</summary>
+        [JsonIgnore]
+        public bool IsLinks => PickedBy == "links";
+    }
+
     /// <summary>
     /// POST /join/preview's answer: what a join code holds, without using it (keel's
     /// <c>preview_join</c>; npm's <c>OwJoinPreview</c>).
@@ -112,6 +175,14 @@ namespace OnlyWorlds.Sdk
         /// </summary>
         [JsonProperty("note")]
         public string Note;
+
+        /// <summary>
+        /// A glimpse of the world, for a link whose role reads it (<c>contributor</c> or <c>co_builder</c>): up to five things by name
+        /// and type and the links among them. Null for a guest's link, and so for every player's, and when no two things
+        /// a visitor could see are linked. Keel always sends the key.
+        /// </summary>
+        [JsonProperty("glimpse")]
+        public OWJoinGlimpse Glimpse;
 
         // A party link (a table: one link, up to 50 players) adds the four below; a link for one sends none of them.
 

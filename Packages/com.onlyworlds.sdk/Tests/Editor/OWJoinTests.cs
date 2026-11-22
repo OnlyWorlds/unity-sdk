@@ -30,18 +30,26 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
         private const string Preview = @"{""reader"":""player"",""world"":{""name"":""Moppetopia"",""description"":""A demo""},
             ""invited_by"":""Sam"",""note"":null,""owner_character"":""The Mapmaker"",""role"":""guest"",""with_character"":true,
-            ""expires_at"":""2026-10-26T14:00:00+00:00""}";
+            ""expires_at"":""2026-10-26T14:00:00+00:00"",""glimpse"":null}";
 
         // A person link's preview with the note its maker wrote (keel's preview, accounts/join_api.py: `note`, a person
         // link's only, plain text with its line breaks, else null).
         private const string PersonPreview = @"{""reader"":""person"",""world"":{""name"":""Moppetopia"",""description"":""A demo""},
             ""invited_by"":""Sam"",""note"":""Come and help with the harbour.\nBring the maps."",""owner_character"":null,
-            ""role"":""contributor"",""with_character"":false,""expires_at"":""2026-10-26T14:00:00+00:00""}";
+            ""role"":""contributor"",""with_character"":false,""expires_at"":""2026-10-26T14:00:00+00:00"",""glimpse"":null}";
+
+        // The glimpse the TypeScript SDK's test sends (4.189.0): a contributor's link, two things, one link between them.
+        private const string Glimpse = @"{""picked_by"":""links"",""things"":[{""name"":""Gela"",""type"":""location""},
+            {""name"":""Ada"",""type"":""character""}],""links"":[{""from"":1,""to"":0,""field"":""location"",""label"":""is at""}]}";
+
+        private const string GlimpsePreview = @"{""reader"":""person"",""world"":{""name"":""Moppetopia"",""description"":""A demo""},
+            ""invited_by"":""Sam"",""note"":null,""owner_character"":null,""role"":""contributor"",""with_character"":false,
+            ""expires_at"":""2026-10-26T14:00:00+00:00"",""glimpse"":" + Glimpse + "}";
 
         // A party link's preview: keel's table_preview keys after the seven (accounts/agents.py, PR 110).
         private const string TablePreview = @"{""reader"":""player"",""world"":{""name"":""Moppetopia"",""description"":""A demo""},
             ""invited_by"":""Sam"",""note"":null,""owner_character"":null,""role"":""guest"",""with_character"":true,
-            ""expires_at"":""2026-10-26T14:00:00+00:00"",
+            ""expires_at"":""2026-10-26T14:00:00+00:00"",""glimpse"":null,
             ""max_uses"":4,""uses_left"":3,""name_required"":false,
             ""characters"":[{""id"":""c-ana"",""name"":""Ana"",""image_url"":null,""taken"":false},
                             {""id"":""c-bo"",""name"":""Bo"",""image_url"":""https://media.onlyworlds.com/bo.webp"",""taken"":true}]}";
@@ -225,6 +233,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsTrue(p.WithCharacter);
             Assert.AreEqual("2026-10-26T14:00:00+00:00", p.ExpiresAt);
             Assert.IsNull(p.Note, "a player link keeps no note");
+            Assert.IsNull(p.Glimpse, "a player's link shows no glimpse");
 
             // A link for one carries none of a table's keys.
             Assert.IsFalse(p.IsTable);
@@ -245,6 +254,41 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual("person", p.Reader);
             Assert.AreEqual("Come and help with the harbour.\nBring the maps.", p.Note);
             Assert.AreEqual("Sam", p.InvitedBy, "the note is not the inviter's name");
+        }
+
+        // The TypeScript SDK's previewJoin glimpse vector (4.189.0): the group comes back as it was sent, and null reads
+        // null. Written back out, the group is the JSON that came in, key for key, so a thing read with an id, a link
+        // without its label or a key read under another name fails here (npm's deepEqual). keel's document holds
+        // picked_by to two words, strand and links.
+        [Test]
+        public async Task APreview_ReadsTheGlimpse_AGroupOrNull()
+        {
+            var p = await OWJoin.PreviewAsync(Code, new FakeTransport { ResponseBody = GlimpsePreview }, Base);
+            var g = p.Glimpse;
+
+            Assert.IsNotNull(g, "a contributor's link shows its glimpse");
+            Assert.AreEqual("links", g.PickedBy);
+            Assert.IsTrue(g.IsLinks);
+            Assert.IsFalse(g.IsStrand);
+            Assert.AreEqual(new[] { "Gela", "Ada" }, g.Things.Select(x => x.Name).ToArray());
+            Assert.AreEqual(new[] { "location", "character" }, g.Things.Select(x => x.Type).ToArray());
+            Assert.AreEqual(1, g.Links.Count);
+            Assert.AreEqual(1, g.Links[0].From, "from is the thing whose field holds the link: Ada");
+            Assert.AreEqual(0, g.Links[0].To);
+            Assert.AreEqual("location", g.Links[0].Field);
+            Assert.AreEqual("is at", g.Links[0].Label);
+
+            var back = Newtonsoft.Json.Linq.JToken.FromObject(g);
+            Assert.IsTrue(Newtonsoft.Json.Linq.JToken.DeepEquals(Newtonsoft.Json.Linq.JToken.Parse(Glimpse), back),
+                "the glimpse written back is the one sent: " + back.ToString(Newtonsoft.Json.Formatting.None));
+
+            var strand = await OWJoin.PreviewAsync(Code,
+                new FakeTransport { ResponseBody = GlimpsePreview.Replace(@"""picked_by"":""links""", @"""picked_by"":""strand""") }, Base);
+            Assert.IsTrue(strand.Glimpse.IsStrand);
+            Assert.IsFalse(strand.Glimpse.IsLinks);
+
+            var none = await OWJoin.PreviewAsync(Code, new FakeTransport { ResponseBody = PersonPreview }, Base);
+            Assert.IsNull(none.Glimpse, "null reads null");
         }
 
         [Test]

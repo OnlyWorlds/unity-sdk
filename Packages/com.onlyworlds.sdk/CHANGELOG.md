@@ -6,6 +6,17 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **A join preview carries a glimpse of the world.** `OWJoinPreview.Glimpse` is an `OWJoinGlimpse` for a link whose
+  role reads the world (contributor or co-builder): up to five `Things` (`OWJoinGlimpseThing`, a `Name` and an element
+  `Type`, no id) and the `Links` among them (`OWJoinGlimpseLink`: `From` and `To` are places in `Things`, from 0, `From`
+  the thing whose `Field` holds the link, `Label` the words to show). `PickedBy` says how the things were chosen,
+  `strand` (the world's chosen story) or `links` (the most linked thing and its neighbours), with `IsStrand` and
+  `IsLinks`. It is null for a guest's link, and so for every player's, and when no two things a visitor could see are
+  linked. The wire check now holds the preview to every key keel's document serves on it, the glimpse's included.
+  Parity with the TypeScript SDK 4.189.0, its test vector ported.
+
 ## [0.48.0] - 2026-11-22
 
 Parity with the TypeScript SDK from 4.179.0 to 4.186.0: the map-space frame reading, the packet profile's readers of

@@ -658,6 +658,21 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsEmpty(stale, "keel serves these now; drop them from NotServed: " + string.Join(", ", stale));
         }
 
+        [Test]
+        public void ThePreview_ReadsEveryKeyKeelServesOnIt()
+        {
+            // The row above is one-way, so a key keel adds to the preview is silent there. A join preview is read whole
+            // by a screen before anyone joins (npm's wire check holds OwJoinPreview and its glimpse to the document both
+            // ways since 4.189.0), so every key it serves, one level down as the fixture lists them, is one
+            // OWJoinPreview reads: a preview without the glimpse, or a glimpse without its things, fails here.
+            var served = Wire["paths"]["/api/v2/join/preview"]["POST"]["response"].Values<string>().ToList();
+            var mapped = MappedKeys(typeof(OWJoinPreview));
+
+            var unread = served.Where(k => !mapped.Contains(k)).ToList();
+            Assert.IsEmpty(unread, "OWJoinPreview does not read " + string.Join(", ", unread));
+            Assert.That(served, Does.Contain("glimpse.things").And.Contain("glimpse.links").And.Contain("glimpse.picked_by"));
+        }
+
         [TestCase(typeof(OWAccountWorld), "/api/v2/account/worlds")]
         [TestCase(typeof(OWHiddenRow), "/api/v2/world/hidden")]
         [TestCase(typeof(OWWorldLink), "/api/v2/account/worlds/{world_id}/links")]
