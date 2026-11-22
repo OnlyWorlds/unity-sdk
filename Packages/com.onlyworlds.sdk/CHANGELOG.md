@@ -6,6 +6,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- `DraughtAsync`'s remark says whose packet gains lens frames on a plain read: only the caller's own Character (the
+  one `GetMeAsync` names). On any other Character's packet, and on a keyless read of a public world, a frame comes
+  only by name (`OWDraughtPolicy.Lens`). The remark said every Character's; the server's rule is narrower.
+  Documentation only: nothing this SDK sends or reads changed.
+
 ## [0.46.0] - 2026-11-21
 
 A bulk write that only creates, never replaces (`createOnly`, keel's `create_only`, in step with the TypeScript SDK

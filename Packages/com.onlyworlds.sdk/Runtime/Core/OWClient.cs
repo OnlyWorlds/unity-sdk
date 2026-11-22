@@ -1000,8 +1000,10 @@ namespace OnlyWorlds.Sdk
         /// <c>her_links</c> and <c>grade</c>; nothing is inferred. A <c>cut</c> that is not empty means the serving is
         /// partial. A Message without the room mark is placed as any Narrative unless <c>messages</c> is named, when it is
         /// there and in no other section; a room-marked Message is in <c>messages</c> or nowhere. With no policy key but
-        /// <see cref="OWDraughtPolicy.Compact"/>, the packet adds one frame per lens chosen with
-        /// <see cref="SetMyLensesAsync"/>.
+        /// <see cref="OWDraughtPolicy.Compact"/>, and only on the caller's own Character (the one
+        /// <see cref="GetMeAsync"/> names), the packet adds one frame per lens chosen with
+        /// <see cref="SetMyLensesAsync"/>. On any other Character's packet, and on a keyless read of a public world, a
+        /// frame comes only by name (<see cref="OWDraughtPolicy.Lens"/>).
         /// </para>
         /// <para>
         /// The policy's keys go in the TypeScript SDK's order (<c>components</c>, <c>mode</c>, <c>as_of</c>,
