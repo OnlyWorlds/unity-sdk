@@ -106,6 +106,13 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("expires_at")]
         public string ExpiresAt;
 
+        /// <summary>
+        /// The note the inviter wrote on a person link (<see cref="OWWorldLinkCreate.Note"/>), plain text with its line
+        /// breaks: show it as text, never as markup. Null when there is none, and always on an agent's or a player's link.
+        /// </summary>
+        [JsonProperty("note")]
+        public string Note;
+
         // A party link (a table: one link, up to 50 players) adds the four below; a link for one sends none of them.
 
         /// <summary>How many players the link seats, 2 to 50; null on a link for one.</summary>

@@ -29,12 +29,18 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 ""guide"":null,""domains"":[{""id"":""con-d1"",""name"":""The Harbour"",""sentence"":""Where the ships come in."",""hubs"":[]}]}}";
 
         private const string Preview = @"{""reader"":""player"",""world"":{""name"":""Moppetopia"",""description"":""A demo""},
-            ""invited_by"":""Sam"",""owner_character"":""The Mapmaker"",""role"":""guest"",""with_character"":true,
+            ""invited_by"":""Sam"",""note"":null,""owner_character"":""The Mapmaker"",""role"":""guest"",""with_character"":true,
             ""expires_at"":""2026-10-26T14:00:00+00:00""}";
+
+        // A person link's preview with the note its maker wrote (keel's preview, accounts/join_api.py: `note`, a person
+        // link's only, plain text with its line breaks, else null).
+        private const string PersonPreview = @"{""reader"":""person"",""world"":{""name"":""Moppetopia"",""description"":""A demo""},
+            ""invited_by"":""Sam"",""note"":""Come and help with the harbour.\nBring the maps."",""owner_character"":null,
+            ""role"":""contributor"",""with_character"":false,""expires_at"":""2026-10-26T14:00:00+00:00""}";
 
         // A party link's preview: keel's table_preview keys after the seven (accounts/agents.py, PR 110).
         private const string TablePreview = @"{""reader"":""player"",""world"":{""name"":""Moppetopia"",""description"":""A demo""},
-            ""invited_by"":""Sam"",""owner_character"":null,""role"":""guest"",""with_character"":true,
+            ""invited_by"":""Sam"",""note"":null,""owner_character"":null,""role"":""guest"",""with_character"":true,
             ""expires_at"":""2026-10-26T14:00:00+00:00"",
             ""max_uses"":4,""uses_left"":3,""name_required"":false,
             ""characters"":[{""id"":""c-ana"",""name"":""Ana"",""image_url"":null,""taken"":false},
@@ -218,6 +224,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual("guest", p.Role);
             Assert.IsTrue(p.WithCharacter);
             Assert.AreEqual("2026-10-26T14:00:00+00:00", p.ExpiresAt);
+            Assert.IsNull(p.Note, "a player link keeps no note");
 
             // A link for one carries none of a table's keys.
             Assert.IsFalse(p.IsTable);
@@ -225,6 +232,19 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsNull(p.UsesLeft);
             Assert.IsNull(p.NameRequired);
             Assert.IsNull(p.Characters);
+        }
+
+        // The TypeScript SDK's OwJoinPreview.note (4.188.0): a string or null. Kills: the note left unread, read under
+        // another key, or its line break lost.
+        [Test]
+        public async Task APersonLinksPreview_ReadsTheNoteAsWritten_LineBreakKept()
+        {
+            var t = new FakeTransport { ResponseBody = PersonPreview };
+            var p = await OWJoin.PreviewAsync(Code, t, Base);
+
+            Assert.AreEqual("person", p.Reader);
+            Assert.AreEqual("Come and help with the harbour.\nBring the maps.", p.Note);
+            Assert.AreEqual("Sam", p.InvitedBy, "the note is not the inviter's name");
         }
 
         [Test]

@@ -14,6 +14,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   control characters (a tab included) and the characters that override or isolate text direction, in the note and in
   `InviterName`, with a 422 whose `OWApiError.Param` names the field. Parity with the TypeScript SDK 4.188.0, its test
   vector ported.
+- **The note on a join preview**: `OWJoinPreview.Note`, as `OWJoin.PreviewAsync` answers it: the note a person link's
+  maker wrote, plain text with its line breaks, or null (always on an agent's or a player's link). Parity with the
+  TypeScript SDK 4.188.0's `OwJoinPreview.note`.
 
 ## [0.46.1] - 2026-11-22
 
