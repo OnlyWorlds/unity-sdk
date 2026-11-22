@@ -500,7 +500,7 @@ namespace OnlyWorlds.Sdk
         /// new reader rung, <c>co-builder</c>, reads the whole world as the owner does with none of the owner's counts
         /// (lens 246 cases, report <c>talk_cases</c> 9, charter <c>design_cases</c> 16). Serial 139: a child Map's
         /// frame on its parent, <c>x_parent_frame</c>, and how a point is carried up the chain (map-space
-        /// <c>frame_cases</c> 66), which this SDK does not read yet. No answer on an existing case moved. The generated
+        /// <c>frame_cases</c> 66), read since by <see cref="OWMapSpace.CarryOf"/>. No answer on an existing case moved. The generated
         /// models and the views table changed in their serial stamp only.
         /// </para>
         /// <para>

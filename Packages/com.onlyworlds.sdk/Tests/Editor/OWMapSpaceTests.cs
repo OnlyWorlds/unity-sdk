@@ -25,7 +25,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         /// The fixture's cases, as dist.144 holds them (34 from dist.106; dist.119 adds a layout map read as any Map,
         /// dist.126 four cases of an empty-string link read as no link; dist.127 moves none; dist.137 adds four, a
         /// size as written, a size not whole, a link not a string and a measured slot with no point; dist.139's
-        /// <c>frame_cases</c> are another list, not read here; dist.142 adds three, a Zone outlined on a child Map and
+        /// <c>frame_cases</c> are another list, read by <see cref="OWMapCarryTests"/>; dist.142 adds three, a Zone outlined on a child Map and
         /// on its parent kept as two outlines, and a Zone placed on only one of the two; dist.144's
         /// <c>down_cases</c> are a fourth list, not read here, and move none of these).
         /// </summary>

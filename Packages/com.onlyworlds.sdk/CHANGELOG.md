@@ -8,6 +8,15 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Added
 
+- **`OWMapSpace.CarryOf(map, x, y, maps)`**: the map-space profile's frame reading (rules 13 and 14), where a point
+  on a child Map lies on its parent and on each Map above it, as an `OWMapCarry`. `ParentFrame` is the Map's own
+  `x_parent_frame` when it is a parent frame (four finite numbers, x0 less than x1 and y0 less than y1, in the parent's
+  pixels), else null; `Lint` says what is wrong with the key (`no_parent`, `not_four_numbers`, `not_a_box`, as
+  `OWMapCarryLint`); `Points` is the point as given, then the point on each Map it is carried to (`OWMapCarryPoint`,
+  64-bit floats), one level at a time by each level's own frame and written size, in the order the profile writes;
+  `Stop` says why the walk ended (`top`, `dangling`, `cycle`, `no_frame`, `no_carry`, as `OWMapCarryStop`). A row
+  that is no Map answers none of them. A point that is NaN or infinite is an `ArgumentException`. The map-space
+  fixture's 66 `frame_cases` are replayed. Parity with the TypeScript SDK 4.183.0.
 - **`OWPacket`**: the packet profile's readers of a work item (a Relation with supertype `Work item`).
   `WorkStateOf(item)` is its state, the subtype trimmed and without regard to case when it is `open`, `taken`, `done`
   or `standing`, else null; `IsOpenWork(item)` is true for `open` and `taken` only, so a standing item (a kept list,
