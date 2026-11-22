@@ -990,7 +990,9 @@ namespace OnlyWorlds.Sdk
         /// answer is the packet as served.
         /// </summary>
         /// <param name="characterId">The Character's id. Escaped.</param>
-        /// <param name="policy">What to serve and how; the default sends no query, and keel's defaults hold.</param>
+        /// <param name="policy">
+        /// What to serve and how; the default sends <c>compact=false</c> alone, and keel's other defaults hold.
+        /// </param>
         /// <param name="ct">Cancels the request.</param>
         /// <exception cref="ArgumentException">
         /// No Character's id, or a component that is null, empty or holds a comma; nothing was sent.
@@ -1017,7 +1019,8 @@ namespace OnlyWorlds.Sdk
         /// <see cref="World"/> set, an account token reads the draught as the account's own access there (the Bearer and
         /// <c>world=&lt;id&gt;</c>), and no key reads it as the public reads the world (<c>world=&lt;id&gt;</c> alone).
         /// Served <c>Cache-Control: private, no-store</c>. Mirrors the TypeScript SDK's <c>draught</c> (4.47.0;
-        /// <c>compact</c> from 4.69.0, <c>lens</c> from 4.92.0, a world read from 4.121.1).
+        /// <c>compact</c> from 4.69.0, sent as false when left out from 4.128.1, <c>lens</c> from 4.92.0, a world read
+        /// from 4.121.1).
         /// </para>
         /// </remarks>
         public Task<JObject> DraughtAsync(string characterId, OWDraughtPolicy policy = default, CancellationToken ct = default)
@@ -1047,7 +1050,8 @@ namespace OnlyWorlds.Sdk
                 ("since", NullIfEmpty(policy.Since)),
                 ("budget", policy.Budget?.ToString(CultureInfo.InvariantCulture)),
                 ("depth", policy.Depth?.ToString(CultureInfo.InvariantCulture)),
-                ("compact", policy.Compact.HasValue ? (policy.Compact.Value ? "true" : "false") : null),
+                // Left out, false is sent: the full packet whatever keel's own default, which turns true on 2027-05-02.
+                ("compact", policy.Compact == true ? "true" : "false"),
                 ("lens", NullIfEmpty(policy.Lens)),
             };
 

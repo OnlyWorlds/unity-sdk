@@ -37,19 +37,20 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             + @"""events"":[{""via"":[""characters""],""her_links"":2,""grade"":""whole"",""dated"":true,"
             + @"""element"":{""id"":""e1"",""type"":""event"",""name"":""The flood""}}]}";
 
-        // The TypeScript SDK's draught(characterId) (4.47.0): GET /character/{id}/context, no query when no policy is
-        // given, a read: the key without its PIN and no write header. The answer is the packet as served. Kills: the
-        // wrong verb or path, the id unescaped, a query or a body sent, the PIN or a write header sent, or the packet
-        // rewritten (a time re-serialized in the local zone, a null dropped, an absent section filled in).
+        // The TypeScript SDK's draught(characterId) (4.47.0; compact=false when left out from 4.128.1): GET
+        // /character/{id}/context, with compact=false alone when no policy is given, a read: the key without its PIN and
+        // no write header. The answer is the packet as served. Kills: the wrong verb or path, the id unescaped, any other
+        // query or a body sent, the PIN or a write header sent, or the packet rewritten (a time re-serialized in the local
+        // zone, a null dropped, an absent section filled in).
         [Test]
-        public async Task Draught_NoPolicy_GetsTheContext_NoQuery_TheKeyAlone_AndAnswersThePacketAsServed()
+        public async Task Draught_NoPolicy_GetsTheContext_CompactFalseAlone_TheKeyAlone_AndAnswersThePacketAsServed()
         {
             var t = new FakeTransport { ResponseBody = Packet };
             var packet = await Make(t).DraughtAsync("c1");
 
             var a = t.Calls.Single();
             Assert.AreEqual("GET", a.Method);
-            Assert.AreEqual(Base + "/character/c1/context", a.Url, "the id escaped, no query");
+            Assert.AreEqual(Base + "/character/c1/context?compact=false", a.Url, "the id escaped, compact=false alone");
             Assert.IsNull(a.Body);
             CollectionAssert.AreEqual(new[] { "API-Key" }, HeaderNames(a), "a read: no PIN, no write header");
 
@@ -88,7 +89,31 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(Base + "/character/c1/context?compact=true", t.Last.Url);
 
             await Make(t).DraughtAsync("c1", new OWDraughtPolicy { Components = new string[0], Mode = "", Since = "", Lens = "" });
-            Assert.AreEqual(Base + "/character/c1/context", t.Last.Url, "null or empty sends nothing");
+            Assert.AreEqual(Base + "/character/c1/context?compact=false", t.Last.Url, "null or empty sends nothing, compact false");
+        }
+
+        // The TypeScript SDK's draught (4.128.1; its test "compact is sent as true or false and nothing else; absent,
+        // false is sent"): compact left out is sent as false, so the answer is the full packet whatever keel's own
+        // default (false until 2027-05-02, when it becomes true). Kills: a left-out compact sent as nothing (the packet
+        // turns compact the day keel's default does), or a given value not sent as given.
+        [Test]
+        public async Task Draught_Compact_IsSentAsTrueOrFalse_AndLeftOut_FalseIsSent()
+        {
+            var t = new FakeTransport();
+            await Make(t).DraughtAsync("c1", new OWDraughtPolicy { Compact = true });
+            Assert.AreEqual(Base + "/character/c1/context?compact=true", t.Last.Url);
+
+            await Make(t).DraughtAsync("c1", new OWDraughtPolicy { Compact = false });
+            Assert.AreEqual(Base + "/character/c1/context?compact=false", t.Last.Url);
+
+            await Make(t).DraughtAsync("c1", new OWDraughtPolicy());
+            Assert.AreEqual(Base + "/character/c1/context?compact=false", t.Last.Url, "left out, false is sent");
+
+            await Make(t).DraughtAsync("c1", new OWDraughtPolicy { Components = new[] { "room", "proposed" } });
+            Assert.AreEqual(Base + "/character/c1/context?components=room%2Cproposed&compact=false", t.Last.Url,
+                "beside other keys, in its place");
+
+            Assert.AreEqual(4, t.Calls.Count);
         }
 
         // Kills: a draught sent with no Character (a path keel 404s), or a component that would corrupt the joined list.

@@ -6,6 +6,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **`DraughtAsync` with `Compact` left out sends `compact=false`**, so the answer is the full packet whatever the
+  server's own default: keel's is `false` until 2027-05-02, when it becomes `true` (the MCP tool `get_draught`
+  defaults to `true` already). Before, a left-out `Compact` sent nothing, and the same call would have answered the
+  compact packet from that day. `Compact = true` and `Compact = false` are sent as before. Parity with the TypeScript
+  SDK 4.128.1 and its draught doc as of 4.190.0, its test vector ported.
+
 ## [0.49.0] - 2026-11-22
 
 A join preview now carries a glimpse of the world it invites into: up to five of its things and the links among them,

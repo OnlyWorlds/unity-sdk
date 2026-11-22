@@ -36,7 +36,10 @@ namespace OnlyWorlds.Sdk
         /// True leaves out every empty section and an empty <c>cut</c>, and each element body's empty fields (<c>null</c>,
         /// <c>""</c>, <c>[]</c>, <c>{}</c>; <c>id</c>, <c>type</c> and <c>name</c> always stay); the frame (<c>world</c>,
         /// <c>calendar</c>, <c>as_of</c>, <c>now</c>, <c>mode</c>, <c>policy</c>) and every null stay, so a null is still an
-        /// answer. An absent section then means nothing in it, never that it was not read. False is sent as given.
+        /// answer. An absent section then means nothing in it, never that it was not read. False is sent as given, and
+        /// left null, false is sent, so the answer is the full packet whatever the server's own default (keel's is
+        /// <c>false</c> until 2027-05-02, when it becomes <c>true</c>; the MCP tool <c>get_draught</c> defaults to
+        /// <c>true</c> already).
         /// </summary>
         public bool? Compact;
 
