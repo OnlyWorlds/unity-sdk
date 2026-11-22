@@ -20,6 +20,16 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   `AllowedFields` (the names this type takes). The server refuses the whole list once, so a caller corrects it in one
   try. Null for any other error or when the server sends no `unknown_fields`; an entry that is not a string is left
   out. Parity with the TypeScript SDK 4.179.0, its three tests ported.
+- **`OWText.TrimAndFold(text)`**: a text trimmed and without regard to case, as the profiles define it once. It
+  trims Unicode's White_Space set at both ends (U+0085 and the ideographic space go, a byte order mark stays), then
+  applies simple case folding by Unicode 15.1's table (the long s folds to s, the sharp s stays). It is the fold the
+  profile readers here already match by; `string.Trim()` and `ToLowerInvariant()` are neither. Null is refused with
+  an `ArgumentNullException`.
+- **`OWText.ByCodePoint`** (an `IComparer<string>`) and **`OWText.CompareByCodePoint(a, b)`**: two strings compared
+  by code point, never by UTF-16 unit as `StringComparer.Ordinal` does (which puts a letter beyond U+FFFF before
+  U+FF5A) and never by a culture's collation. It is the order the profile readers already use. Names as the profiles
+  order them: by `TrimAndFold(name)` in this order, ties by `id` in the same order. Both are parity with the
+  TypeScript SDK 4.180.0, its tests ported.
 
 ### Changed
 
