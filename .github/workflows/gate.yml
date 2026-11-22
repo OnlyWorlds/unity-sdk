@@ -1,12 +1,21 @@
 # The SDK's EditMode suite on a Linux runner, started by hand (Actions tab, "gate", Run workflow).
-# It needs three repository secrets: UNITY_LICENSE (the contents of a Unity Personal .ulf file),
-# UNITY_EMAIL and UNITY_PASSWORD (https://game.ci/docs/github/activation/).
+# It needs three secrets in the environment "unity": UNITY_LICENSE (the contents of a Unity Personal .ulf file),
+# UNITY_EMAIL and UNITY_PASSWORD (https://game.ci/docs/github/activation/). The environment allows the branch main
+# alone, so a run started from any other branch is refused before a runner sees the secrets, and a branch cannot
+# reach them by changing this file. To test a branch, start the run from main and name the branch in "ref": the
+# workflow that runs is still main's. Whoever starts such a run vouches for the code on that ref, since its tests
+# run where the licence is.
 # Tests that need a fixture or world outside this repo (OW_CONFORMANCE_FIXTURE, OW_SIKELIA_WORLD, OW_WORLD_FOLDER)
 # skip here, as do the live test and the Windows path-limit tests: 24 skipped of 1078 on its first run.
 name: gate
 
 on:
   workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, tag or commit to test. Empty: the commit the run starts from."
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -16,8 +25,13 @@ jobs:
   editmode:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    environment:
+      name: unity
+      deployment: false # read the environment's secrets under its branch rule, without a deployment record
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
 
       - uses: actions/cache@v4
         with:
