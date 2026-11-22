@@ -26,13 +26,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </remarks>
     public class OWCharterTests
     {
-        /// <summary>The fixture's sha256 as serial 141 publishes it (serial 135 added <c>design_cases</c>, serial 138 three more, serial 141 three more and ten Domain order cases).</summary>
-        private const string DistSha256 = "500f68f166ae255b7eb4a4d79e9085491799e8a6eed928abc62bb8f1b4a89729";
+        /// <summary>The fixture's sha256 as serial 145 publishes it (serial 135 added <c>design_cases</c>, serial 138 three more, serial 141 three more and ten Domain order cases, serial 145 four Charters whose description holds nothing).</summary>
+        private const string DistSha256 = "ea57091a988a4dd083d7d4cfc5e7985c6aa00f67fdce1b661c0d5023a15cbf35";
 
-        /// <summary>The fixture's cases by kind, as serial 141 publishes them (57 in all; 47 at serial 133).</summary>
+        /// <summary>The fixture's cases by kind, as serial 145 publishes them (61 in all; 47 at serial 133, 57 at serial 141).</summary>
         private static readonly Dictionary<string, int> Counts = new Dictionary<string, int>
         {
-            ["element"] = 6, ["charter"] = 51,
+            ["element"] = 6, ["charter"] = 55,
         };
 
         private static JObject _fixture;
@@ -81,7 +81,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not serial 141's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not serial 145's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
@@ -89,7 +89,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             Assert.IsNotNull(Fixture, "the vendored charter fixture was not found");
             var cases = Fixture["cases"].Cast<JObject>().ToList();
-            Assert.AreEqual(57, cases.Count, "serial 141's fixture holds 57 cases");
+            Assert.AreEqual(61, cases.Count, "serial 145's fixture holds 61 cases");
             var counts = cases.GroupBy(c => (string)c["kind"]).ToDictionary(g => g.Key, g => g.Count());
             CollectionAssert.AreEquivalent(Counts, counts);
         }

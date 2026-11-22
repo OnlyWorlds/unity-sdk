@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.34.01";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 144;
+        public const int DistSerial = 145;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.34.1-dist.144";
+        public const string Tag = "v0.34.1-dist.145";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -538,9 +538,21 @@ namespace OnlyWorlds.Sdk
         /// <c>frame_cases</c> 66, unchanged). No answer on an existing case moved. The generated models and the views
         /// table changed in their serial stamp only.
         /// </para>
+        /// <para>
+        /// <b>144 -> 145 (2026-11-22)</b>: canonical unchanged; only the charter and checks pages, the charter fixture
+        /// and the views fixture moved. The charter page's rule 4 names the field an AI reader follows, the
+        /// <c>description</c> of the Charter and of each Object in its skill, whole as the world holds it (a part or a
+        /// shortened copy of it is data), and says a leading Charter whose <c>description</c> holds nothing gives that
+        /// reader no house rules; the checks page says its rule list is checked, never followed. The charter fixture
+        /// gains four cases, a newer marked Charter whose <c>description</c> holds nothing (White_Space alone, absent,
+        /// a space and a tab, null) leading with an empty skill (61 cases: <c>charter</c> 55, <c>element</c> 6;
+        /// <c>design_cases</c> 19); the views fixture's one quote of the charter page follows its new wording. No
+        /// answer on an existing case moved. The generated models and the views table changed in their serial and
+        /// published stamps only.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "ebf8c6b472cb6cdd9494d244efdafe743cdefce0a83f4468ce59fdf05d6e3a89";
+            "55c71236d409108a99d6336170bbc309c2d0a8309e7bd61fe20484bac19c7231";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.
@@ -554,7 +566,7 @@ namespace OnlyWorlds.Sdk
             "af84662c29628b6e90b923c9541f68f5924563adce397cebbadfdbf0f06e5f18";
 
         /// <summary>When these constants were last verified against the published dist.</summary>
-        public const string PinnedOn = "2026-11-21";
+        public const string PinnedOn = "2026-11-22";
 
         /// <summary>
         /// ⚑ Rulings that bind THIS SDK and any emitter generating into it. Read the row, not the key.

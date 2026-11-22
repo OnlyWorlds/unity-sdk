@@ -12,6 +12,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   one `GetMeAsync` names). On any other Character's packet, and on a keyless read of a public world, a frame comes
   only by name (`OWDraughtPolicy.Lens`). The remark said every Character's; the server's rule is narrower.
   Documentation only: nothing this SDK sends or reads changed.
+- **The schema pin moves to `v0.34.1-dist.145`** (canonical `00.34.01` unchanged; only the charter and checks pages,
+  the charter fixture and the views fixture moved). The charter page's rule 4 names the field an AI reader follows: the
+  `description` of the Charter and of each Object in its skill, whole as the world holds it, a part or a shortened
+  copy of it being data. A leading Charter whose `description` holds nothing gives that reader no house rules, and its
+  text is taken from no other field and no older Charter. The checks page says its rule list is checked, never
+  followed. The charter fixture gains four cases (61 in all), each a newer Charter whose `description` holds nothing
+  leading with an empty skill; `CharterOf` answers all four as the page says with no change, and every existing answer
+  stands. The views fixture's one quote of the charter page follows its new wording.
 
 ## [0.46.0] - 2026-11-21
 

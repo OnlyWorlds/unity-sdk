@@ -20,8 +20,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </summary>
     public class OWViewsTests
     {
-        /// <summary>The fixture's sha256 as dist.127's MANIFEST.json records it.</summary>
-        private const string FixtureSha256 = "6fda45c2d36cc82a613a4b4d99d14ba9646db2c5bf912b82e68c6b62b20441c1";
+        /// <summary>The fixture's sha256 as dist.145's MANIFEST.json records it (one cite's quote follows the charter page's new wording; the cases are dist.127's).</summary>
+        private const string FixtureSha256 = "f9a2713b26639d1cb2c792b9f28f95c57e576f8e6c123b5ad3eac2a2507dfcf8";
 
         private const string World = "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e0f";
 
@@ -117,7 +117,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsNotNull(Fixture, "the vendored views fixture was not found");
             Assert.IsNotNull(TheFile, "the vendored views.json was not found");
             Assert.AreEqual(FixtureSha256, Sha("views.fixture.json"),
-                "the vendored fixture is not dist.127's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.145's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
             Assert.AreEqual(OWViews.Sha256, Sha("views.json"),
                 "the vendored views.json is not the one OWViews.Table.cs was baked from: regenerate with codegen/generate_views.py");
         }
