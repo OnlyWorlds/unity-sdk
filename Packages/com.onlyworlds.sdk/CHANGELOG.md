@@ -6,6 +6,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.46.1] - 2026-11-22
+
+The schema pin at schema-dist serial 145: the charter page names the field an AI reader follows, and a leading Charter
+whose `description` holds nothing gives that reader no house rules. The readers already answered as the page says, so
+only the pin and the fixtures move. With it, `DraughtAsync`'s remark is corrected and a test holds the served reading
+aids to their named keys. A patch release: no public API changes.
+
 ### Changed
 
 - `DraughtAsync`'s remark says whose packet gains lens frames on a plain read: only the caller's own Character (the
