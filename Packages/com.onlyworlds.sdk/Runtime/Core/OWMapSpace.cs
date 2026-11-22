@@ -2,11 +2,13 @@
 // profiles/map-space.md, serials 105 and 106, ruled 2026-11-02): a Map's frame, a Zone's outline from its Markers, a
 // Pin's point, and what the reading left aside, counted by reason. Structure and coordinates in the Map's own pixels;
 // looks, cameras, units, rooms and doors are a drawing tool's and are not read here. Since serial 110 the profile's
-// second, small reading, OWMapSpace.LayoutOf: one Map's layout keys (x_layout on the Map, x_hand on its Pins).
+// second, small reading, OWMapSpace.LayoutOf: one Map's layout keys (x_layout on the Map, x_hand on its Pins). Since
+// serial 139 its third, OWMapSpace.CarryOf: where a point on a child Map lies on its parent and on each Map above it
+// (x_parent_frame on the child, rules 13 and 14).
 //
 // Written from the profile and its conformance fixture, profiles/map-space.fixture.json, which is this file's own test
-// (OWMapSpaceTests its cases, OWMapLayoutTests its layout_cases); the TypeScript SDK's mapSpace and layoutOf and the
-// Python package's map_space and layout_of answer the same cases.
+// (OWMapSpaceTests its cases, OWMapLayoutTests its layout_cases, OWMapCarryTests its frame_cases); the TypeScript SDK's
+// mapSpace, layoutOf and carryOf and the Python package's map_space, layout_of and carry_of answer the same cases.
 
 using System;
 using System.Collections.Generic;
@@ -276,6 +278,121 @@ namespace OnlyWorlds.Sdk
         };
     }
 
+    /// <summary>Why the frame reading's walk up <c>parent_map</c> ended (<see cref="OWMapSpace.CarryOf"/>, rule 14), in the order the walk tests them.</summary>
+    public static class OWMapCarryStop
+    {
+        /// <summary>The Map has no <c>parent_map</c>: the top of the chain.</summary>
+        public const string Top = "top";
+
+        /// <summary>Its <c>parent_map</c> names a Map the reader is not served.</summary>
+        public const string Dangling = "dangling";
+
+        /// <summary>Its <c>parent_map</c> names a Map the walk has already reached, the Map itself included.</summary>
+        public const string Cycle = "cycle";
+
+        /// <summary>The Map has no parent frame.</summary>
+        public const string NoFrame = "no_frame";
+
+        /// <summary>The Map has a parent frame and no carry: its written <c>width</c> or <c>height</c> is not a whole number above 0.</summary>
+        public const string NoCarry = "no_carry";
+    }
+
+    /// <summary>What is wrong with a Map's own <c>x_parent_frame</c> (<see cref="OWMapSpace.CarryOf"/>, rule 13).</summary>
+    public static class OWMapCarryLint
+    {
+        /// <summary>The key is present and not null on a Map with no <c>parent_map</c>: not read, whatever it holds.</summary>
+        public const string NoParent = "no_parent";
+
+        /// <summary>The key is not a list of exactly four numbers; its first four are never read.</summary>
+        public const string NotFourNumbers = "not_four_numbers";
+
+        /// <summary>Four numbers whose x0 is not less than x1, or y0 not less than y1: mirrored, or no width or height. Never normalised.</summary>
+        public const string NotABox = "not_a_box";
+    }
+
+    /// <summary>A point on one Map in the frame reading: the Map's id and the point in its pixels, from its bottom left, as 64-bit floats.</summary>
+    public readonly struct OWMapCarryPoint : IEquatable<OWMapCarryPoint>
+    {
+        internal OWMapCarryPoint(string map, double x, double y)
+        {
+            Map = map;
+            X = x;
+            Y = y;
+        }
+
+        /// <summary>The Map's id.</summary>
+        public string Map { get; }
+
+        /// <summary>Pixels from the Map's left edge.</summary>
+        public double X { get; }
+
+        /// <summary>Pixels from the Map's bottom edge.</summary>
+        public double Y { get; }
+
+        /// <summary>The profile's <c>{map, x, y}</c>.</summary>
+        public JObject ToJson() => new JObject { ["map"] = Map, ["x"] = X, ["y"] = Y };
+
+        /// <summary>The same Map and the same two 64-bit floats (0 and -0 are one number, as the profile compares them).</summary>
+        public bool Equals(OWMapCarryPoint other) => Map == other.Map && X == other.X && Y == other.Y;
+
+        /// <inheritdoc />
+        public override bool Equals(object obj) => obj is OWMapCarryPoint p && Equals(p);
+
+        /// <inheritdoc />
+        public override int GetHashCode() =>
+            unchecked(((Map?.GetHashCode() ?? 0) * 397 ^ (X == 0 ? 0d : X).GetHashCode()) * 397 ^ (Y == 0 ? 0d : Y).GetHashCode());
+
+        /// <inheritdoc />
+        public override string ToString() => string.Format(CultureInfo.InvariantCulture, "{0} [{1:R}, {2:R}]", Map, X, Y);
+    }
+
+    /// <summary>
+    /// One Map's frame reading (<see cref="OWMapSpace.CarryOf"/>; the map-space profile's rules 13 and 14, serial 139):
+    /// the Map's own parent frame and lint, and a point on it carried up the <c>parent_map</c> chain, one level at a
+    /// time, until the walk stops. A Map row that is no Map answers no parent frame, no lint, no points and no stop.
+    /// </summary>
+    public sealed class OWMapCarry
+    {
+        internal static readonly OWMapCarry NoMap = new OWMapCarry(null, null, null, Array.Empty<OWMapCarryPoint>(), null);
+
+        private readonly JArray _frame;
+
+        internal OWMapCarry(JArray frame, IReadOnlyList<double> parentFrame, string lint, IReadOnlyList<OWMapCarryPoint> points,
+            string stop)
+        {
+            _frame = frame;
+            ParentFrame = parentFrame;
+            Lint = lint;
+            Points = points;
+            Stop = stop;
+        }
+
+        /// <summary>
+        /// The Map's <c>x_parent_frame</c> as <c>[x0, y0, x1, y1]</c> when it is a parent frame, else null. The Map's
+        /// own: it does not depend on the point, and it is reported on a Map with no carry and on one whose parent is not
+        /// served or closes a ring.
+        /// </summary>
+        public IReadOnlyList<double> ParentFrame { get; }
+
+        /// <summary>A <see cref="OWMapCarryLint"/> word when this Map's own key is one, else null. A Map further up the chain is read for its own lint by its own reading.</summary>
+        public string Lint { get; }
+
+        /// <summary>The point on this Map as given, then the point on each Map it is carried to, in order up the chain. Empty only for a row that is no Map.</summary>
+        public IReadOnlyList<OWMapCarryPoint> Points { get; }
+
+        /// <summary>A <see cref="OWMapCarryStop"/> word: why the last point is carried no further. Null only for a row that is no Map.</summary>
+        public string Stop { get; }
+
+        /// <summary>The profile's answer, <c>{parent_frame, lint, points, stop}</c>, every key present, in that order; <c>parent_frame</c>'s numbers as served.</summary>
+        public JObject ToJson() => new JObject
+        {
+            ["parent_frame"] = _frame == null ? JValue.CreateNull() : _frame.DeepClone(),
+            ["lint"] = OWMapSpace.Str(Lint),
+            ["points"] = new JArray(Points.Select(p => (object)p.ToJson())),
+            ["stop"] = OWMapSpace.Str(Stop),
+        };
+    }
+
     /// <summary>
     /// A world's map space as one reader is served it (<see cref="Of"/>): the Maps' frames, the Zones' outlines, the
     /// Pins' points, and what the reading left aside by reason. Nothing is stored and nothing in the input is changed.
@@ -519,6 +636,133 @@ namespace OnlyWorlds.Sdk
             hand.Sort(OWCodePointComparer.Instance);
             return new OWMapLayout(method, ground, hand);
         }
+
+        /// <summary>
+        /// Reads one Map's frame (the map-space profile's frame reading, rules 13 and 14): <paramref name="map"/> is the
+        /// Map read, (<paramref name="x"/>, <paramref name="y"/>) a point on it in its pixels from its bottom left (a
+        /// Pin's <c>x</c> and <c>y</c>, or a tap), and <paramref name="maps"/> the Maps the reader is served. A row is a
+        /// Map when its <c>type</c> is exactly <c>map</c> and its <c>id</c> a non-empty string; other rows are passed
+        /// over, and of two Map rows with one id the last served is read. A <paramref name="map"/> that is no Map answers
+        /// no parent frame, no lint, no points and no stop.
+        /// </summary>
+        /// <remarks>
+        /// A Map's <c>x_parent_frame</c> is read only when its <c>parent_map</c> is a link (a non-empty string); it is a
+        /// parent frame when it is a list of exactly four finite numbers <c>[x0, y0, x1, y1]</c> with x0 less than x1
+        /// and y0 less than y1, in the parent's pixels. The point is carried one level at a time up <c>parent_map</c>,
+        /// by each level's own parent frame and its own written <c>width</c> and <c>height</c>, as
+        /// <c>x0 + ((x * (x1 - x0)) / width)</c> and <c>y0 + ((y * (y1 - y0)) / height)</c> in 64-bit floats, in that
+        /// order, never through one product of the levels' ratios. The walk ends, the first of these that holds, at a
+        /// Map with no <c>parent_map</c> (<c>top</c>), one whose parent is not served (<c>dangling</c>), one whose
+        /// parent the walk has already reached, itself included (<c>cycle</c>), one with no parent frame
+        /// (<c>no_frame</c>), or one whose written <c>width</c> or <c>height</c> is not a whole number above 0, by value
+        /// (<c>no_carry</c>). A point outside the child is carried as written, never clipped; <c>z</c> is not carried;
+        /// no scale is read or reported, and a layout map is read as any Map. The walk starts from the row passed as
+        /// <paramref name="map"/>, never from a row of <paramref name="maps"/> with its id. Pure. Parity with the
+        /// TypeScript SDK's <c>carryOf</c> and the Python package's <c>carry_of</c>; <see cref="Of"/> and
+        /// <see cref="LayoutOf"/> read no frame key.
+        /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="map"/> or <paramref name="maps"/> is null.</exception>
+        /// <exception cref="ArgumentException"><paramref name="x"/> or <paramref name="y"/> is NaN or infinite.</exception>
+        public static OWMapCarry CarryOf(JObject map, double x, double y, IEnumerable<JToken> maps)
+        {
+            if (map == null) throw new ArgumentNullException(nameof(map), "OWMapSpace.CarryOf: map is one Map element");
+            if (double.IsNaN(x) || double.IsInfinity(x) || double.IsNaN(y) || double.IsInfinity(y))
+                throw new ArgumentException(string.Format(CultureInfo.InvariantCulture,
+                    "OWMapSpace.CarryOf: the point is two finite numbers; got [{0:R}, {1:R}]", x, y));
+            if (maps == null) throw new ArgumentNullException(nameof(maps), "OWMapSpace.CarryOf: maps is a list of Map elements");
+            var id = MapId(map);
+            if (id == null) return OWMapCarry.NoMap;
+
+            var served = new Dictionary<string, JObject>(StringComparer.Ordinal);
+            foreach (var t in maps)
+                if (t is JObject row && MapId(row) is string mid) served[mid] = row;
+
+            var ownFrame = FrameOf(map, out var ownLint, out var ownTokens);
+            var points = new List<OWMapCarryPoint> { new OWMapCarryPoint(id, x, y) };
+            var reached = new HashSet<string>(StringComparer.Ordinal) { id };
+            var at = map;
+            var frame = ownFrame;
+            string stop;
+            for (;;)
+            {
+                var parentId = Id(at["parent_map"]);
+                if (parentId == null) { stop = OWMapCarryStop.Top; break; }
+                if (!served.TryGetValue(parentId, out var parent)) { stop = OWMapCarryStop.Dangling; break; }
+                if (reached.Contains(parentId)) { stop = OWMapCarryStop.Cycle; break; }
+                if (frame == null) { stop = OWMapCarryStop.NoFrame; break; }
+                if (!CarrySize(at["width"], out var width) || !CarrySize(at["height"], out var height))
+                {
+                    stop = OWMapCarryStop.NoCarry;
+                    break;
+                }
+
+                // Rule 14's order: the difference, then the product, then the quotient, then the sum.
+                x = frame[0] + ((x * (frame[2] - frame[0])) / width);
+                y = frame[1] + ((y * (frame[3] - frame[1])) / height);
+                points.Add(new OWMapCarryPoint(parentId, x, y));
+                reached.Add(parentId);
+                at = parent;
+                frame = FrameOf(parent, out _, out _);
+            }
+
+            return new OWMapCarry(ownTokens, ownFrame, ownLint, points, stop);
+        }
+
+        /// <summary>A Map row's id: <c>type</c> exactly <c>map</c> (reading K) and a non-empty string id (reading H); else null.</summary>
+        private static string MapId(JObject row) =>
+            row["type"] is JValue t && t.Type == JTokenType.String && (string)t == "map" ? Id(row["id"]) : null;
+
+        /// <summary>
+        /// A Map's own parent frame (rule 13) as four doubles, or null, with its lint and the list as served. The key is
+        /// read only on a Map whose <c>parent_map</c> is a link; absent or null it is no frame and no lint.
+        /// </summary>
+        private static double[] FrameOf(JObject map, out string lint, out JArray served)
+        {
+            served = null;
+            var key = map["x_parent_frame"];
+            var present = key != null && key.Type != JTokenType.Null;
+            if (Id(map["parent_map"]) == null)
+            {
+                lint = present ? OWMapCarryLint.NoParent : null;
+                return null;
+            }
+
+            lint = null;
+            if (!present) return null;
+            var f = new double[4];
+            if (!(key is JArray list) || list.Count != 4 || !FiniteNumber(list[0], out f[0]) || !FiniteNumber(list[1], out f[1])
+                || !FiniteNumber(list[2], out f[2]) || !FiniteNumber(list[3], out f[3]))
+            {
+                lint = OWMapCarryLint.NotFourNumbers;
+                return null;
+            }
+
+            if (!(f[0] < f[2]) || !(f[1] < f[3]))
+            {
+                lint = OWMapCarryLint.NotABox;
+                return null;
+            }
+
+            served = list;
+            return f;
+        }
+
+        /// <summary>A JSON number held as a finite 64-bit float (rule 13); a string, a boolean, null, a list, an object and a number past a double's range are none.</summary>
+        private static bool FiniteNumber(JToken token, out double value)
+        {
+            value = 0;
+            if (!(token is JValue v) || (v.Type != JTokenType.Integer && v.Type != JTokenType.Float)) return false;
+            value = ToDouble(v);
+            return !double.IsNaN(value) && !double.IsInfinity(value);
+        }
+
+        /// <summary>
+        /// A size a carry divides by (rule 13): a whole number above 0 by value, read as a 64-bit float (<c>100.0</c> is
+        /// 100). Unlike <see cref="Whole"/> it bounds no magnitude, as the TypeScript SDK's <c>Number.isInteger</c> does
+        /// not: an integer past 2^53 reads as its nearest double and divides.
+        /// </summary>
+        private static bool CarrySize(JToken token, out double size) =>
+            FiniteNumber(token, out size) && Math.Floor(size) == size && size > 0;
 
         // -- Reading -----------------------------------------------------------------------
 
