@@ -6,6 +6,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.48.0] - 2026-11-22
+
+Parity with the TypeScript SDK from 4.179.0 to 4.186.0: the map-space frame reading, the packet profile's readers of
+a work item, the house rules a proposal would change, the typed refusal of a read's unknown fields, and the profiles'
+fold and code-point order by name. A minor release because it adds public API (below).
+
 ### Added
 
 - **`OWMapSpace.CarryOf(map, x, y, maps)`**: the map-space profile's frame reading (rules 13 and 14), where a point
