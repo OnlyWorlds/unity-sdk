@@ -6,6 +6,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.47.0] - 2026-11-22
+
+An invite link carries a note: whoever makes a person link can write a few lines for the one who opens it, and the join
+preview answers them. A minor release because it adds public API (below). Parity with the TypeScript SDK 4.188.0.
+
 ### Added
 
 - **An invite link's note**: `OWWorldLinkCreate.Note`, on a person link, sends `CreateWorldLinkAsync` a note for
