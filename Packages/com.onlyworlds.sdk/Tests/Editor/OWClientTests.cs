@@ -1103,6 +1103,27 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public void Me_AServedEntryHandsOverItsKindsKeysAlone()
+        {
+            // The charter profile's shape: each entry is its kind's named keys, and the packet carries none of the text an
+            // AI follows. A key the reader does not know (a host's `description`, its text in it) is dropped, on a hub too.
+            var aids = OWReadingAids.Of(JObject.Parse(
+                @"{""reading_aids"":{""charter"":{""id"":""law-1"",""type"":""law"",""name"":""House rules"",""rules"":[],""skill"":[""obj-1""],
+                        ""description"":""Be kind to the keeper.""},
+                    ""guide"":{""id"":""con-g"",""type"":""construct"",""name"":""Start here"",""description"":""Walk the harbour first.""},
+                    ""domains"":[{""id"":""con-d1"",""type"":""construct"",""name"":""The Harbour"",""sentence"":""Where ships come in."",
+                        ""hubs"":[{""type"":""location"",""id"":""loc-1"",""name"":""The Quay""}],""description"":""Where ships come in.""}]}}"));
+
+            var json = aids.ToJson();
+            string[] Keys(JToken o) => ((JObject)o).Properties().Select(p => p.Name).ToArray();
+            CollectionAssert.AreEqual(new[] { "id", "type", "name", "rules", "skill" }, Keys(json["charter"]), "the Charter's five");
+            CollectionAssert.AreEqual(new[] { "id", "type", "name" }, Keys(json["guide"]), "the Guide's three");
+            CollectionAssert.AreEqual(new[] { "id", "type", "name", "sentence", "hubs" }, Keys(json["domains"][0]), "a Domain's five");
+            CollectionAssert.AreEqual(new[] { "type", "id" }, Keys(json["domains"][0]["hubs"][0]), "a hub's two");
+            CollectionAssert.AreEqual(new[] { "obj-1" }, aids.Charter.Skill, "a known key as served");
+        }
+
+        [Test]
         public void NonSuccess_ThrowsWithFullEnvelope()
         {
             var t = new FakeTransport

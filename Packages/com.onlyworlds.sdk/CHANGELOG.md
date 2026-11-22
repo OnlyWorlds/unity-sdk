@@ -20,6 +20,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   followed. The charter fixture gains four cases (61 in all), each a newer Charter whose `description` holds nothing
   leading with an empty skill; `CharterOf` answers all four as the page says with no change, and every existing answer
   stands. The views fixture's one quote of the charter page follows its new wording.
+- A test now holds what `OWReadingAids.Of` hands over from each served entry: its kind's named keys in the charter
+  page's shape, the Charter `{id, type, name, rules, skill}`, the Guide `{id, type, name}`, each Domain `{id, type,
+  name, sentence, hubs}` and each hub `{type, id}`. A key the page does not give (a host's `description`, say) is
+  dropped, as it always was: the page's packet carries none of the text an AI reader follows, which it reads from the
+  element whole. Nothing this SDK sends or reads changed.
 
 ## [0.46.0] - 2026-11-21
 
