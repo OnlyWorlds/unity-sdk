@@ -486,8 +486,8 @@ namespace OnlyWorlds.Sdk
         /// <c>charterOf</c> finds a Charter for the reader, an Object or a Construct served whole whose subtype, trimmed
         /// and folded, is <c>in design</c> or <c>locked</c> is a design part (charter <c>design_cases</c> 13); a
         /// Charter the hidden mark keeps from a reader is not that reader's. Serial 136: the packet page's fourth
-        /// state, <c>standing</c>, its optional <c>x_packet_from</c> and its first fixture, which this SDK does not
-        /// read. No existing case or answer moved. The generated models and the views table changed in their serial
+        /// state, <c>standing</c>, its optional <c>x_packet_from</c> and its first fixture, read since by
+        /// <see cref="OWPacket"/> (state cases 11, asker cases 14 at serial 138). No existing case or answer moved. The generated models and the views table changed in their serial
         /// and published stamps only.
         /// </para>
         /// <para>

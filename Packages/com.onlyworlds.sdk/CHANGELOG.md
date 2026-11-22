@@ -8,6 +8,16 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Added
 
+- **`OWPacket`**: the packet profile's readers of a work item (a Relation with supertype `Work item`).
+  `WorkStateOf(item)` is its state, the subtype trimmed and without regard to case when it is `open`, `taken`, `done`
+  or `standing`, else null; `IsOpenWork(item)` is true for `open` and `taken` only, so a standing item (a kept list,
+  never done) and one with no state are never open work. `AskerOf(item, world)` is the Character its
+  `x_packet_from` names, read as written, never the maker and never `actor`. `WorkOf(items, world, sourceWorld)`
+  reads the work items one reader is given together, as an `OWWork`: each item's state, every item shown, the open
+  work on each element, each item's elements in the packet's order (`OWWorkElement`), each asker, the `asker` lints
+  (`OWWorkLint`) and what each Character of the world is waiting on; the world is an `OWWorkWorld` (its Characters'
+  ids and the other ids the reader holds). The profile's fixture (`packet.fixture.json`, 11 state cases and 14
+  asker cases) is vendored and replayed. Parity with the TypeScript SDK 4.181.0, its tests ported.
 - **`OWProposal.House`**: the part of a world's house rules a queue row would change, on a proposal and on the
   queue's row for a new element written as proposed: `charter` (a Law that carries the Charter mark), `skill` (an
   Object a marked Law's text names) or `new_charter` (a Law an accept would make a Charter), as the constants
