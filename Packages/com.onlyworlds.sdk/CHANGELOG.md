@@ -14,6 +14,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   `OWProposal.HouseCharter`, `HouseSkill` and `HouseNewCharter`; null for any other row. onlyworlds.com works it out
   only for the world's owner and co-builders and serves null to any other reader. Parity with the TypeScript SDK
   4.186.0.
+- **`OWApiError.FieldsRefusal`**: on a 422 whose `Param` is `fields`, when a read's `fields` list names fields its
+  type does not have, everything the server says about it, as an `OWFieldsRefusal`: `UnknownFields` (every unknown
+  name, in the order sent), `TypesWithField` (for each one another element type has, those types) and
+  `AllowedFields` (the names this type takes). The server refuses the whole list once, so a caller corrects it in one
+  try. Null for any other error or when the server sends no `unknown_fields`; an entry that is not a string is left
+  out. Parity with the TypeScript SDK 4.179.0, its three tests ported.
 
 ### Changed
 

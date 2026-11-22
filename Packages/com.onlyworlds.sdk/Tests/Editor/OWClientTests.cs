@@ -2119,5 +2119,87 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.Throws<System.ArgumentException>(() =>
                 new OWClient(new OWClientConfig { ApiKey = "ow_w_x", Transport = null }));
         }
+
+        // A read whose `fields` list names fields its type does not have: one 422, every unknown name beside it. The
+        // body is the server's answer to fields=name,story,hidden,narrator,nonsuch on a Character list, its allowed
+        // list cut to four names (npm 4.179.0's vector).
+        private static JObject FieldsRefused() => JObject.Parse(@"{""error"":{""type"":""invalid_request"",""code"":""invalid_request"",
+            ""message"":""Unknown fields in ?fields: story, hidden, narrator, nonsuch"",""param"":""fields"",
+            ""doc_url"":""https://onlyworlds.github.io/api/errors/#invalid_request"",
+            ""unknown_fields"":[""story"",""hidden"",""narrator"",""nonsuch""],
+            ""types_with_field"":{""story"":[""narrative""],""narrator"":[""narrative""]},
+            ""allowed_fields"":[""id"",""name"",""description"",""supertype""]}}");
+
+        private static OWApiError ListWithFieldsThrown(int status, JObject body)
+        {
+            var t = new FakeTransport { Status = status, ResponseBody = body.ToString() };
+            return Assert.ThrowsAsync<OWApiError>(() => Make(t).ListAsync<OWElement>("character", new OWListParams
+            {
+                Fields = new[] { "name", "story", "hidden", "narrator", "nonsuch" },
+            }));
+        }
+
+        [Test]
+        public void FieldsRefusal_ReadsTheThreeKeysOfA422OnFields_AsServed()
+        {
+            var e = ListWithFieldsThrown(422, FieldsRefused());
+
+            Assert.AreEqual("fields", e.Param);
+            var r = e.FieldsRefusal;
+            Assert.IsNotNull(r);
+            CollectionAssert.AreEqual(new[] { "story", "hidden", "narrator", "nonsuch" }, r.UnknownFields);
+            CollectionAssert.AreEquivalent(new[] { "story", "narrator" }, r.TypesWithField.Keys);
+            CollectionAssert.AreEqual(new[] { "narrative" }, r.TypesWithField["story"]);
+            CollectionAssert.AreEqual(new[] { "narrative" }, r.TypesWithField["narrator"]);
+            CollectionAssert.AreEqual(new[] { "id", "name", "description", "supertype" }, r.AllowedFields);
+        }
+
+        [Test]
+        public void FieldsRefusal_IsNullOnAnyOtherError_EachConditionAlone()
+        {
+            // no unknown_fields: a server from before the keys, or another refusal that names fields
+            var bare = FieldsRefused();
+            ((JObject)bare["error"]).Remove("unknown_fields");
+            Assert.IsNull(ListWithFieldsThrown(422, bare).FieldsRefusal, "no unknown_fields");
+
+            // the three keys under another param
+            var otherParam = FieldsRefused();
+            otherParam["error"]["param"] = "expand";
+            Assert.IsNull(ListWithFieldsThrown(422, otherParam).FieldsRefusal, "another param");
+
+            // the three keys under another status
+            Assert.IsNull(ListWithFieldsThrown(400, FieldsRefused()).FieldsRefusal, "another status");
+
+            // unknown_fields that is no list
+            var notList = FieldsRefused();
+            notList["error"]["unknown_fields"] = "story";
+            Assert.IsNull(ListWithFieldsThrown(422, notList).FieldsRefusal, "unknown_fields no list");
+        }
+
+        [Test]
+        public void FieldsRefusal_LeavesOutWhatIsNotInShape_AndAnswersEmptyForAKeyTheServerLeftOut()
+        {
+            var odd = FieldsRefused();
+            odd["error"]["unknown_fields"] = JArray.Parse(@"[""story"",7,null]");
+            odd["error"]["types_with_field"] = JObject.Parse(@"{""story"":[""narrative"",3],""narrator"":""narrative""}");
+            odd["error"]["allowed_fields"] = JArray.Parse(@"[""id"",{},""name""]");
+            var r = ListWithFieldsThrown(422, odd).FieldsRefusal;
+            CollectionAssert.AreEqual(new[] { "story" }, r.UnknownFields);
+            CollectionAssert.AreEquivalent(new[] { "story" }, r.TypesWithField.Keys);
+            CollectionAssert.AreEqual(new[] { "narrative" }, r.TypesWithField["story"]);
+            CollectionAssert.AreEqual(new[] { "id", "name" }, r.AllowedFields);
+
+            var thin = FieldsRefused();
+            ((JObject)thin["error"]).Remove("types_with_field");
+            ((JObject)thin["error"]).Remove("allowed_fields");
+            r = ListWithFieldsThrown(422, thin).FieldsRefusal;
+            CollectionAssert.AreEqual(new[] { "story", "hidden", "narrator", "nonsuch" }, r.UnknownFields);
+            Assert.AreEqual(0, r.TypesWithField.Count);
+            Assert.AreEqual(0, r.AllowedFields.Count);
+
+            var list = FieldsRefused();
+            list["error"]["types_with_field"] = JArray.Parse(@"[[""story"",[""narrative""]]]");
+            Assert.AreEqual(0, ListWithFieldsThrown(422, list).FieldsRefusal.TypesWithField.Count);
+        }
     }
 }

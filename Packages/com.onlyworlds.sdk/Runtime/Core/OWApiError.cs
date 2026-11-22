@@ -281,6 +281,50 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
+        /// On a 422 whose <see cref="Param"/> is <c>fields</c>, when a read's <c>fields</c> list named fields its type
+        /// does not have: every unknown name in the order sent, for each one another element type has, those types, and
+        /// the names this type takes. The server refuses the whole list once, so the list is corrected in one try. Null
+        /// for any other error, when the server sends no <c>unknown_fields</c>, or when the body is not JSON; an entry
+        /// that is not a string is left out. npm's <c>fieldsRefusal</c>.
+        /// </summary>
+        public OWFieldsRefusal FieldsRefusal
+        {
+            get
+            {
+                if (StatusCode != 422 || Param != "fields" || string.IsNullOrEmpty(RawBody)) return null;
+
+                try
+                {
+                    var nested = JObject.Parse(RawBody)["error"] as JObject;
+                    if (!(nested?["unknown_fields"] is JArray unknown)) return null;
+
+                    var held = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+                    if (nested["types_with_field"] is JObject byName)
+                    {
+                        foreach (var p in byName.Properties())
+                            if (p.Value is JArray types) held[p.Name] = Strings(types);
+                    }
+
+                    return new OWFieldsRefusal(Strings(unknown), held, Strings(nested["allowed_fields"] as JArray));
+                }
+                catch (Exception)
+                {
+                    return null;
+                }
+            }
+        }
+
+        /// <summary>The strings of <paramref name="list"/> in its order; anything that is not a string is left out, and null reads empty.</summary>
+        private static IReadOnlyList<string> Strings(JArray list)
+        {
+            var result = new List<string>();
+            if (list == null) return result;
+            foreach (var t in list)
+                if (t.Type == JTokenType.String) result.Add((string)t);
+            return result;
+        }
+
+        /// <summary>
         /// A conditional write's <c>If-Match</c> was stale (412 <c>precondition_failed</c>: a patch, a link edit or a delete): the
         /// element changed since the <c>change_seq</c> you sent, and nothing was written. <see cref="Current"/> is
         /// the element as it is now; decide from it, then send again with its <c>change_seq</c>.
@@ -502,6 +546,36 @@ namespace OnlyWorlds.Sdk
             if (!string.IsNullOrEmpty(param)) text += $" (field: {param})";
             if (!string.IsNullOrEmpty(message)) text += $": {message}";
             return text;
+        }
+    }
+
+    /// <summary>
+    /// What a 422 with <c>param</c> <c>fields</c> carries beside its message, when a read's <c>fields</c> list names
+    /// fields its type does not have: the whole list is refused once, with every unknown name, so a caller corrects it
+    /// in one try. Read from <see cref="OWApiError.FieldsRefusal"/>. npm's <c>OwFieldsRefusal</c>.
+    /// </summary>
+    public sealed class OWFieldsRefusal
+    {
+        /// <summary>Every name in the list that the type does not have, in the order sent.</summary>
+        public IReadOnlyList<string> UnknownFields { get; }
+
+        /// <summary>For each unknown name another element type has, those types. A name no type has is not a key here.</summary>
+        public IReadOnlyDictionary<string, IReadOnlyList<string>> TypesWithField { get; }
+
+        /// <summary>
+        /// The names this type's <c>fields</c> takes. An extension field name (<c>x_</c>, <c>atlas_</c>, <c>shadow_</c>)
+        /// passes too and is not listed.
+        /// </summary>
+        public IReadOnlyList<string> AllowedFields { get; }
+
+        internal OWFieldsRefusal(
+            IReadOnlyList<string> unknownFields,
+            IReadOnlyDictionary<string, IReadOnlyList<string>> typesWithField,
+            IReadOnlyList<string> allowedFields)
+        {
+            UnknownFields = unknownFields;
+            TypesWithField = typesWithField;
+            AllowedFields = allowedFields;
         }
     }
 
