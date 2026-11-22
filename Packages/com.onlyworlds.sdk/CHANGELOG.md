@@ -6,6 +6,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.49.0] - 2026-11-22
+
+A join preview now carries a glimpse of the world it invites into: up to five of its things and the links among them,
+in parity with the TypeScript SDK 4.189.0. A minor release because it adds public API (below).
+
 ### Added
 
 - **A join preview carries a glimpse of the world.** `OWJoinPreview.Glimpse` is an `OWJoinGlimpse` for a link whose
