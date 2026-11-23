@@ -3690,15 +3690,23 @@ namespace OnlyWorlds.Sdk
 
             if (proposable && response.Status == 202) throw Proposed(response, method, path);
 
-            if (response.Status == 204 || allowEmpty)
+            try
             {
-                var empty = string.IsNullOrWhiteSpace(response.Body)
-                    ? default
-                    : OWJson.Deserialize<T>(response.Body);
-                return (empty, response);
-            }
+                if (response.Status == 204 || allowEmpty)
+                {
+                    var empty = string.IsNullOrWhiteSpace(response.Body)
+                        ? default
+                        : OWJson.Deserialize<T>(response.Body);
+                    return (empty, response);
+                }
 
-            return (OWJson.Deserialize<T>(response.Body), response);
+                return (OWJson.Deserialize<T>(response.Body), response);
+            }
+            catch (OWNumberOutOfRangeException e)
+            {
+                // The answer holds a number this reader cannot hold: the refusal by its name, saying which request.
+                throw e.At($"{method} {path}");
+            }
         }
 
         /// <summary>

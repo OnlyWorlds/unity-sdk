@@ -191,5 +191,59 @@ namespace OnlyWorlds.Sdk
         /// <summary>Prevents the AOT anchor from being considered unused.</summary>
         [UnityEngine.Scripting.Preserve]
         internal static object AotAnchor => AotIntConverter;
+
+        /// <summary>
+        /// The name of the one refusal for a number the reader cannot hold (<see cref="OWNumberOutOfRangeException"/>):
+        /// the word the TypeScript SDK's and the Python package's folder readers skip such a file by.
+        /// </summary>
+        public const string NumberOutOfRange = "number_out_of_range";
+    }
+
+    /// <summary>
+    /// A JSON number the reader cannot hold, refused by name (<see cref="OWJson.NumberOutOfRange"/>): an integer of more
+    /// than 380 characters, its sign counted, or a number past the largest double (<c>1e400</c>). JSON has no form for an
+    /// infinity, and a value read as one would be written back as another (<c>null</c>, or a string).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Every reader of the SDK throws it where Newtonsoft threw a bare <see cref="JsonReaderException"/> (its inner
+    /// exception), so a caller that catches <see cref="JsonException"/> still catches it. <see cref="JsonReaderException.Path"/>
+    /// is the number's place in the text (<c>data[1].x_n</c> in a page). A folder or a <c>.owworld</c> skips such a file
+    /// and serves the rest, its <see cref="OWSkippedFile.Reason"/> starting with the word; a <c>world.json</c> or an
+    /// export file holding one is refused by it; a response holding one throws this, its message naming the request.
+    /// </para>
+    /// <para>
+    /// The TypeScript SDK's folder reader (4.195.0) and the Python package's (0.143.0) skip such a file by the same word;
+    /// where each draws the line differs (TypeScript: any number a double cannot hold, an integer from 309 digits; Python: an
+    /// integer of more than 4,300 digits), and no profile says yet.
+    /// </para>
+    /// </remarks>
+    public sealed class OWNumberOutOfRangeException : JsonReaderException
+    {
+        /// <summary>Always <see cref="OWJson.NumberOutOfRange"/>.</summary>
+        public string Reason => OWJson.NumberOutOfRange;
+
+        private OWNumberOutOfRangeException(string message, string path, int lineNumber, int linePosition, Exception inner)
+            : base(message, path, lineNumber, linePosition, inner)
+        {
+        }
+
+        /// <summary>The refusal of <paramref name="literal"/>, found at <paramref name="path"/>.</summary>
+        internal static OWNumberOutOfRangeException Of(string literal, string path, int lineNumber, int linePosition, Exception inner)
+            => new OWNumberOutOfRangeException(
+                $"A number too large for this reader to hold ({OWJson.NumberOutOfRange}): {Shown(literal)}. "
+                + $"Path '{path}', line {lineNumber}, position {linePosition}.",
+                path, lineNumber, linePosition, inner);
+
+        /// <summary>The same refusal, its message saying where the text came from (a request, a file).</summary>
+        internal OWNumberOutOfRangeException At(string where)
+            => new OWNumberOutOfRangeException(where + ": " + Message, Path, LineNumber, LinePosition, this);
+
+        /// <summary>A long literal shortened, with its length: a 4,301-digit number is not a message.</summary>
+        private static string Shown(string literal)
+            => literal.Length <= 40
+                ? literal
+                : literal.Substring(0, 12) + "..." + literal.Substring(literal.Length - 4)
+                  + " (" + literal.Length.ToString(CultureInfo.InvariantCulture) + " characters)";
     }
 }

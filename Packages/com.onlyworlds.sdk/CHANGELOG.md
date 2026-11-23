@@ -31,6 +31,32 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   inputs the cases are silent on are held to the TypeScript SDK's own answers. Parity with the TypeScript SDK
   4.194.0.
 
+- **`OWNumberOutOfRangeException`, a number the reader cannot hold refused by name.** An integer of more than 380
+  characters (its sign counted) or a number past the largest double (`1e400`, `-1e400`) is valid JSON that Newtonsoft
+  cannot read, and every reader of the SDK threw its bare `JsonReaderException` for it. Each now throws this one
+  refusal instead: `Reason` is `number_out_of_range` (`OWJson.NumberOutOfRange`, the word the TypeScript SDK's and the
+  Python package's folder readers skip such a file by), `Path` is the number's place in the text, Newtonsoft's
+  exception is the inner one. It is a `JsonReaderException`, so a caller that catches `JsonException` still catches it.
+  Where the line falls is unchanged: 380 characters still read, exactly, and write back with the same bytes. The
+  three packages do not draw it in one place (the TypeScript SDK refuses any number a double cannot hold, an integer
+  from 309 digits; the Python package an integer of more than 4,300 digits), and no profile says yet.
+
+### Fixed
+
+- **A folder or an `.owworld` skips such a file by its name.** The other elements were always served, but the skip's
+  `Reason` said `unparseable JSON` for a file that is JSON; it now starts `number_out_of_range` and says where the
+  number sits. A `world.json` or a portal export file holding one is refused by that name, no longer as "not valid
+  JSON".
+- **A response holding such a number throws the refusal, naming the request** (`GET /character/: A number too large
+  …`), where it threw Newtonsoft's exception with no word of which call. A page is one JSON text, so the whole page
+  fails, as before. An error response holding one still becomes an `OWApiError` of its status, its `Code` unread.
+- **`OWSync.BaselineAsync` leaves the cache as it was when its walk throws.** It emptied the cache before walking, and
+  a walk that failed part way (a dropped connection, a cancel, a page holding such a number) left it empty at cursor 0;
+  only the resets put it back. Now the baseline puts back its elements, cursor, cursor token, epoch and sync time
+  itself, and an `IncrementalAsync` with no cursor (which runs one) does too.
+- **`OWWorldCache.IsKnownOf` throws the refusal for a raw body holding such a number**, where it answered `false`
+  and so read a stub it could not read as a whole element.
+
 ## [0.49.1] - 2026-11-23
 
 Two calls send what the server would have answered differently: a draught left without `Compact` asks for the full

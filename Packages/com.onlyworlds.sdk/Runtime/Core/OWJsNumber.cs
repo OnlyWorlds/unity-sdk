@@ -240,6 +240,55 @@ namespace OnlyWorlds.Sdk
         // -- Read --------------------------------------------------------------
 
         /// <summary>
+        /// The longest integer literal the reader holds, its sign counted: Newtonsoft's own cap (its
+        /// <c>JSON integer … is too large to parse</c>).
+        /// </summary>
+        internal const int MaxIntegerCharacters = 380;
+
+        /// <summary>
+        /// Whether a JSON number's text is one the reader cannot hold: an integer literal of more than
+        /// <see cref="MaxIntegerCharacters"/> characters, or a number with a fraction or an exponent past the largest
+        /// double. The one place the line is drawn (<see cref="OWNumberOutOfRangeException"/>); false for any text that
+        /// is not a JSON number.
+        /// </summary>
+        internal static bool IsOutOfRange(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return false;
+            var i = text[0] == '-' ? 1 : 0;
+            var digits = i;
+            while (digits < text.Length && text[digits] >= '0' && text[digits] <= '9') digits++;
+            if (digits == i || (digits - i > 1 && text[i] == '0')) return false; // JSON has no leading zeros
+            if (digits == text.Length) return text.Length > MaxIntegerCharacters;
+
+            // A fraction or an exponent: the exact reader's answer is false only for a text that is no JSON number
+            // and for a magnitude past the largest double, so a text of the right shape that it refuses is the second.
+            return IsNumberShape(text, digits) && !TryParse(text, 0, text.Length, out _);
+        }
+
+        /// <summary>The rest of a JSON number after its integer digits (<paramref name="at"/>): a fraction, an exponent, or both.</summary>
+        private static bool IsNumberShape(string text, int at)
+        {
+            var i = at;
+            if (i < text.Length && text[i] == '.')
+            {
+                var start = ++i;
+                while (i < text.Length && text[i] >= '0' && text[i] <= '9') i++;
+                if (i == start) return false;
+            }
+
+            if (i < text.Length && (text[i] == 'e' || text[i] == 'E'))
+            {
+                i++;
+                if (i < text.Length && (text[i] == '+' || text[i] == '-')) i++;
+                var start = i;
+                while (i < text.Length && text[i] >= '0' && text[i] <= '9') i++;
+                if (i == start) return false;
+            }
+
+            return i == text.Length && i > at;
+        }
+
+        /// <summary>
         /// A JSON number (<c>-?digits(.digits)?([eE][+-]?digits)?</c>, the text from <paramref name="start"/> for
         /// <paramref name="length"/> characters) to the nearest double, ties to even, exactly. False for anything that
         /// is not a JSON number, and for a magnitude past the largest double (JSON has no infinity).
@@ -451,6 +500,12 @@ namespace OnlyWorlds.Sdk
     /// few hundred thousand steps from Newtonsoft's (which would mean the text found is not this token's). So the
     /// worst it can do is what Newtonsoft did.
     /// </para>
+    /// <para>
+    /// A number Newtonsoft cannot hold (<see cref="OWJsNumber.IsOutOfRange"/>: an integer of more than 380 characters,
+    /// a number past the largest double) is thrown as <see cref="OWNumberOutOfRangeException"/>, Newtonsoft's own
+    /// exception as its inner one, where Newtonsoft threw a bare <see cref="JsonReaderException"/>; every other error is
+    /// Newtonsoft's, untouched. A runtime whose parser reads such a float as an infinity (not Mono) is refused the same.
+    /// </para>
     /// </remarks>
     internal sealed class OWExactReader : JsonTextReader
     {
@@ -469,7 +524,10 @@ namespace OnlyWorlds.Sdk
         public override bool Read()
         {
             _exact = null;
-            var read = base.Read();
+            bool read;
+            try { read = base.Read(); }
+            catch (JsonReaderException e) when (Named(e, out var refusal)) { throw refusal; }
+
             Capture();
             return read;
         }
@@ -477,35 +535,72 @@ namespace OnlyWorlds.Sdk
         public override double? ReadAsDouble()
         {
             _exact = null;
-            var read = base.ReadAsDouble();
+            double? read;
+            try { read = base.ReadAsDouble(); }
+            catch (JsonReaderException e) when (Named(e, out var refusal)) { throw refusal; }
+
             return Capture() is double exact ? exact : read;
         }
 
-        // Every other read clears the last token's exact value first, so it is never served for the wrong token.
-        public override int? ReadAsInt32() { _exact = null; return base.ReadAsInt32(); }
+        // Every other read clears the last token's exact value first, so it is never served for the wrong token, and
+        // names the refusal of a number no reader here holds.
+        public override int? ReadAsInt32() { _exact = null; try { return base.ReadAsInt32(); } catch (JsonReaderException e) when (Named(e, out var r)) { throw r; } }
 
-        public override string ReadAsString() { _exact = null; return base.ReadAsString(); }
+        public override string ReadAsString() { _exact = null; try { return base.ReadAsString(); } catch (JsonReaderException e) when (Named(e, out var r)) { throw r; } }
 
-        public override byte[] ReadAsBytes() { _exact = null; return base.ReadAsBytes(); }
+        public override byte[] ReadAsBytes() { _exact = null; try { return base.ReadAsBytes(); } catch (JsonReaderException e) when (Named(e, out var r)) { throw r; } }
 
-        public override decimal? ReadAsDecimal() { _exact = null; return base.ReadAsDecimal(); }
+        public override decimal? ReadAsDecimal() { _exact = null; try { return base.ReadAsDecimal(); } catch (JsonReaderException e) when (Named(e, out var r)) { throw r; } }
 
-        public override DateTime? ReadAsDateTime() { _exact = null; return base.ReadAsDateTime(); }
+        public override DateTime? ReadAsDateTime() { _exact = null; try { return base.ReadAsDateTime(); } catch (JsonReaderException e) when (Named(e, out var r)) { throw r; } }
 
-        public override DateTimeOffset? ReadAsDateTimeOffset() { _exact = null; return base.ReadAsDateTimeOffset(); }
+        public override DateTimeOffset? ReadAsDateTimeOffset() { _exact = null; try { return base.ReadAsDateTimeOffset(); } catch (JsonReaderException e) when (Named(e, out var r)) { throw r; } }
 
-        public override bool? ReadAsBoolean() { _exact = null; return base.ReadAsBoolean(); }
+        public override bool? ReadAsBoolean() { _exact = null; try { return base.ReadAsBoolean(); } catch (JsonReaderException e) when (Named(e, out var r)) { throw r; } }
+
+        /// <summary>
+        /// Newtonsoft's exception, named when the number it stopped at is one the reader cannot hold: the text that ends
+        /// where it stopped (its line and position, as <see cref="Capture"/> finds a number's text).
+        /// </summary>
+        private bool Named(JsonReaderException e, out OWNumberOutOfRangeException refusal)
+        {
+            refusal = null;
+            if (e is OWNumberOutOfRangeException) return false;
+            var literal = NumberEndingAt(OffsetOf(e.LineNumber, e.LinePosition));
+            if (literal == null || !OWJsNumber.IsOutOfRange(literal)) return false;
+            refusal = OWNumberOutOfRangeException.Of(literal, e.Path, e.LineNumber, e.LinePosition, e);
+            return true;
+        }
+
+        /// <summary>The run of number characters that ends at <paramref name="end"/>, or null when there is none.</summary>
+        private string NumberEndingAt(int end)
+        {
+            if (end <= 0 || end > _text.Length) return null;
+            var start = end;
+            while (start > 0 && IsNumberChar(_text[start - 1])) start--;
+            return start == end ? null : _text.Substring(start, end - start);
+        }
 
         private object Capture()
         {
             if (TokenType != JsonToken.Float || !(base.Value is double read)) return null;
-            if (double.IsNaN(read) || double.IsInfinity(read)) return null;
+            if (double.IsNaN(read)) return null;
 
             var end = Offset();
             if (end <= 0 || end > _text.Length) return null;
             var start = end;
             while (start > 0 && IsNumberChar(_text[start - 1])) start--;
             if (start == end) return null;
+
+            if (double.IsInfinity(read))
+            {
+                // A JSON number read as an infinity (a runtime whose parser does that): the same refusal as Mono's throw.
+                // The words NaN and Infinity, which are no JSON numbers, are left as Newtonsoft reads them.
+                var literal = _text.Substring(start, end - start);
+                if (OWJsNumber.IsOutOfRange(literal))
+                    throw OWNumberOutOfRangeException.Of(literal, Path, LineNumber, LinePosition, null);
+                return null;
+            }
 
             if (!OWJsNumber.TryParse(_text, start, end - start, out var exact) || !Near(exact, read)) return null;
             _exact = exact;
@@ -528,13 +623,15 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>Where Newtonsoft's reading stopped, as an offset into the text.</summary>
-        private int Offset()
+        private int Offset() => OffsetOf(LineNumber, LinePosition);
+
+        /// <summary>A line and position, as Newtonsoft counts them, as an offset into the text.</summary>
+        private int OffsetOf(int line, int position)
         {
-            var line = LineNumber;
             if (line <= 0) return -1;
             if (_lineStarts == null) _lineStarts = LineStarts(_text);
             if (line > _lineStarts.Count) return -1;
-            return _lineStarts[line - 1] + LinePosition;
+            return _lineStarts[line - 1] + position;
         }
 
         /// <summary>Each line's first offset, breaking where Newtonsoft breaks: LF, CR, and CRLF as one.</summary>
