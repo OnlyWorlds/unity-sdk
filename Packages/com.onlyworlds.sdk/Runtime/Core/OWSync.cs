@@ -74,24 +74,35 @@ namespace OnlyWorlds.Sdk
             // during the walk is silently below the recorded cursor and never syncs again.
             var tip = await client.ChangesAsync(headOnly: true, ct: ct).ConfigureAwait(OWAwait.OnCaller);
 
+            // A walk that throws (a dropped connection, a page the reader cannot hold, a cancel) leaves the cache as it
+            // was, its elements and its cursor: a baseline never empties a copy on its own, as a reset never does.
+            var held = Held.Of(cache);
             cache.Clear();
             var fetched = 0;
 
-            foreach (var type in ElementTypes)
+            try
             {
-                ct.ThrowIfCancellationRequested();
-
-                var elements = await client.ListAllAsync<JObject>(type, ct: ct).ConfigureAwait(OWAwait.OnCaller);
-                foreach (var element in elements)
+                foreach (var type in ElementTypes)
                 {
-                    var id = element["id"]?.ToString();
-                    if (string.IsNullOrEmpty(id)) continue;
+                    ct.ThrowIfCancellationRequested();
 
-                    cache.Upsert(id, type, OWJson.Write(element));
-                    fetched++;
+                    var elements = await client.ListAllAsync<JObject>(type, ct: ct).ConfigureAwait(OWAwait.OnCaller);
+                    foreach (var element in elements)
+                    {
+                        var id = element["id"]?.ToString();
+                        if (string.IsNullOrEmpty(id)) continue;
+
+                        cache.Upsert(id, type, OWJson.Write(element));
+                        fetched++;
+                    }
+
+                    onType?.Invoke(type, elements.Count);
                 }
-
-                onType?.Invoke(type, elements.Count);
+            }
+            catch (Exception)
+            {
+                held.PutBack(cache);
+                throw;
             }
 
             cache.SetCursor(tip.Head, tip.Cursor, tip.Epoch, NowIso());
@@ -287,28 +298,14 @@ namespace OnlyWorlds.Sdk
         private static async Task<OWSyncResult> RewalkAsync(
             OWClient client, OWWorldCache cache, bool keep, CancellationToken ct)
         {
-            var held = cache.Snapshot();
-            var heldCursor = cache.Cursor;
-            var heldToken = cache.CursorToken;
-            var heldEpoch = cache.Epoch;
-            var heldAt = cache.SyncedAt;
+            var held = Held.Of(cache);
 
-            OWSyncResult result;
-            try
-            {
-                result = await BaselineAsync(client, cache, ct: ct).ConfigureAwait(OWAwait.OnCaller);
-            }
-            catch (Exception)
-            {
-                cache.Clear();
-                foreach (var element in held) cache.Upsert(element.Id, element.TypeSlug, element.RawJson);
-                cache.SetCursor(heldCursor, heldToken, heldEpoch, heldAt);
-                throw;
-            }
+            // A baseline that throws has put the cache and its cursor back itself.
+            var result = await BaselineAsync(client, cache, ct: ct).ConfigureAwait(OWAwait.OnCaller);
 
             if (keep)
             {
-                foreach (var element in held)
+                foreach (var element in held.Elements)
                 {
                     if (cache.Contains(element.Id)) continue;
 
@@ -318,6 +315,32 @@ namespace OnlyWorlds.Sdk
             }
 
             return result;
+        }
+
+        /// <summary>What a cache held before a walk: its elements and where its last sync stopped, to put back.</summary>
+        private sealed class Held
+        {
+            public List<OWCachedElement> Elements;
+            private long _cursor;
+            private string _token;
+            private long? _epoch;
+            private string _at;
+
+            public static Held Of(OWWorldCache cache) => new Held
+            {
+                Elements = cache.Snapshot(),
+                _cursor = cache.Cursor,
+                _token = cache.CursorToken,
+                _epoch = cache.Epoch,
+                _at = cache.SyncedAt,
+            };
+
+            public void PutBack(OWWorldCache cache)
+            {
+                cache.Clear();
+                foreach (var element in Elements) cache.Upsert(element.Id, element.TypeSlug, element.RawJson);
+                cache.SetCursor(_cursor, _token, _epoch, _at);
+            }
         }
 
         /// <summary>

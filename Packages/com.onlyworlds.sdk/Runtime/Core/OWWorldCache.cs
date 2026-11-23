@@ -132,6 +132,10 @@ namespace OnlyWorlds.Sdk
         /// exactly as a whole element with nothing filled in would; this, or the model's own
         /// <see cref="OWElement.IsKnownOf"/>, is how a caller tells the two apart.
         /// </remarks>
+        /// <exception cref="OWNumberOutOfRangeException">
+        /// The raw JSON holds the key and a number the reader cannot hold: whether it is a stub cannot be told, and
+        /// "false" would read it as whole.
+        /// </exception>
         public bool IsKnownOf(string id)
         {
             EnsureIndex();
@@ -144,7 +148,7 @@ namespace OnlyWorlds.Sdk
             {
                 return OWPayload.IsKnownOf(OWJson.ParseObject(raw));
             }
-            catch (Newtonsoft.Json.JsonException)
+            catch (Newtonsoft.Json.JsonException e) when (!(e is OWNumberOutOfRangeException))
             {
                 return false;
             }

@@ -473,6 +473,10 @@ namespace OnlyWorlds.Sdk
                 if (text == null) throw new IOException("world.json could not be read.");
                 world = OWFolderWriter.Parse(text);
             }
+            catch (OWNumberOutOfRangeException e)
+            {
+                throw new OWFolderFormatException($"world.json in '{where}' is refused, {NumberOutOfRangeReason(e)}.", e);
+            }
             catch (Exception e)
             {
                 throw new OWFolderFormatException($"world.json in '{where}' is not valid JSON.", e);
@@ -498,6 +502,13 @@ namespace OnlyWorlds.Sdk
         /// <c>7</c> would key the world as <c>"7"</c> and <c>"  "</c> as a blank, and neither is an id another tool
         /// keys the same world by. The folder read, the archive read and the archive's pack all ask this one question.
         /// </remarks>
+        /// <summary>
+        /// A skipped file's reason, and a refused file's words, for a number the reader cannot hold: the name first, so a
+        /// caller can match it, then where it sits.
+        /// </summary>
+        internal static string NumberOutOfRangeReason(OWNumberOutOfRangeException e)
+            => $"{OWJson.NumberOutOfRange}: holds a number too large for this reader to hold, at '{e.Path}'";
+
         internal static string WorldIdOf(JObject world)
         {
             var id = world?["id"];
@@ -522,6 +533,13 @@ namespace OnlyWorlds.Sdk
             {
                 if (text == null) throw new IOException($"'{file}' could not be read.");
                 body = OWFolderWriter.Parse(text);
+            }
+            catch (OWNumberOutOfRangeException e)
+            {
+                // JSON, but holding a number no reader here holds: skipped by its name (the TypeScript SDK's and the Python
+                // package's word), never as "unparseable", and left on disk like any file skipped.
+                skipped.Add(new OWSkippedFile { Path = file, Reason = NumberOutOfRangeReason(e) });
+                return;
             }
             catch (Exception)
             {

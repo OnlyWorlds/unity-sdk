@@ -56,7 +56,9 @@ namespace OnlyWorlds.Sdk
         /// <param name="source">Where it came from, for each element's and skip's <c>Path</c> (optional).</param>
         /// <exception cref="OWFolderFormatException">
         /// Not JSON, not an object, <c>format</c> other than <see cref="Format"/>, or no world with an id:
-        /// the failures that make the whole file unreadable. Everything else degrades to a skipped entry.
+        /// the failures that make the whole file unreadable. Everything else degrades to a skipped entry. A number the
+        /// reader cannot hold, anywhere in the file, refuses it by that name (<see cref="OWNumberOutOfRangeException"/>,
+        /// the inner exception): the file is one JSON text, read whole.
         /// </exception>
         public static OWEnvelopeReadResult Parse(string json, string source = null)
         {
@@ -66,6 +68,10 @@ namespace OnlyWorlds.Sdk
             try
             {
                 envelope = OWFolderWriter.Parse(json ?? "");
+            }
+            catch (OWNumberOutOfRangeException e)
+            {
+                throw new OWFolderFormatException($"{where} is refused, {OWFolderReader.NumberOutOfRangeReason(e)}.", e);
             }
             catch (Exception e)
             {

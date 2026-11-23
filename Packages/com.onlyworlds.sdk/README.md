@@ -198,7 +198,9 @@ recorded as agent-made. Every element carries `ChangedBy` and `ChangedVia` (the 
 and `Failed`, or call `ThrowIfAnyFailed()`.
 
 **Reading a world folder never writes to it.** `OWFolderReader` creates nothing and rewrites nothing. Files it can't
-use are reported, not deleted, and one bad file doesn't cost you the rest of the world.
+use are reported, not deleted, and one bad file doesn't cost you the rest of the world. A file holding a number too
+large to hold (an integer of more than 380 characters, `1e400`) is skipped with a reason starting
+`number_out_of_range`; any other read of such a number throws `OWNumberOutOfRangeException`.
 
 **Writing a world folder is a byte contract.** `OWFolderWriter` writes an element to
 `elements/<type>/<slug>--<id-tail>.json` with LF line endings, UTF-8 without a BOM, two-space indent, one trailing
