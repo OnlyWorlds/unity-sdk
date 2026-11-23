@@ -417,13 +417,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 (joined.Id, joined.WorldId, joined.WorldName, joined.Role, joined.JoinedAt, joined.RosterCharacter));
         }
 
-        // Kills: an empty code reaching the transport (keel's 404 would read as a bad code, not a missing one), and the
+        // Kills: an empty or blank code reaching the transport (keel's 404 would read as a bad code, not a missing one), and the
         // code itself in the message.
         [Test]
         public void AcceptJoin_NoCode_IsRefused_NothingSent()
         {
             var t = new FakeTransport();
-            foreach (var code in new[] { null, "" })
+            foreach (var code in new[] { null, "", " ", "\t\n", "\u00a0" })
             {
                 var e = Assert.ThrowsAsync<ArgumentException>(() => Make(t).AcceptJoinAsync(code), code ?? "null");
                 StringAssert.Contains("a join code is required", e.Message);

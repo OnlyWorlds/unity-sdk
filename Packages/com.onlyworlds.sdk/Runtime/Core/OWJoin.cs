@@ -387,7 +387,7 @@ namespace OnlyWorlds.Sdk
             string path, JObject body, IOWTransport transport, string baseUrl, CancellationToken ct)
         {
             if (transport == null) throw new ArgumentNullException(nameof(transport));
-            if (string.IsNullOrEmpty((string)body["code"])) throw new ArgumentException("A join code is required.", "code");
+            if (string.IsNullOrWhiteSpace((string)body["code"])) throw new ArgumentException("A join code is required. Nothing was sent.", "code");
 
             var request = new OWRequest
             {

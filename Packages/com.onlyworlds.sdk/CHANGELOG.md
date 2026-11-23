@@ -13,6 +13,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   defaults to `true` already). Before, a left-out `Compact` sent nothing, and the same call would have answered the
   compact packet from that day. `Compact = true` and `Compact = false` are sent as before. Parity with the TypeScript
   SDK 4.128.1 and its draught doc as of 4.190.0, its test vector ported.
+- **The join calls refuse a blank code before sending.** `OWJoin.PreviewAsync`, `OWJoin.RedeemAsync` and
+  `AcceptJoinAsync` throw an `ArgumentException` for a code of white space alone, as they did for a null or empty one;
+  before, it went to the server, which answers it 404 as any bad code. Parity with the TypeScript SDK 4.191.0.
 
 ## [0.49.0] - 2026-11-22
 

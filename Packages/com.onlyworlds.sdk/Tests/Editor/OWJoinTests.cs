@@ -335,6 +335,22 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsTrue(ex.IsNotFound);
         }
 
+        // Kills: no code reaching the transport; the server answers it 404 as any bad code. Parity with the TypeScript
+        // SDK 4.191.0.
+        [TestCase(null)]
+        [TestCase("")]
+        [TestCase(" ")]
+        [TestCase("\t\n")]
+        [TestCase("\u00a0")]
+        public void NoCode_IsRefused_NothingSent(string code)
+        {
+            var t = new FakeTransport { ResponseBody = Preview };
+
+            Assert.ThrowsAsync<System.ArgumentException>(async () => await OWJoin.PreviewAsync(code, t, Base));
+            Assert.ThrowsAsync<System.ArgumentException>(async () => await OWJoin.RedeemAsync(code, t, baseUrl: Base));
+            Assert.IsEmpty(t.Calls);
+        }
+
         [Test]
         public void AMissingAgentName_NamesItsParam()
         {

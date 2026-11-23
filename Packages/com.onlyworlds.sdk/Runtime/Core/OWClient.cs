@@ -1973,7 +1973,7 @@ namespace OnlyWorlds.Sdk
         /// </param>
         /// <param name="ct">Cancels the request.</param>
         /// <exception cref="InvalidOperationException">This client's key is not an account token (<c>ow_a_</c>); nothing was sent.</exception>
-        /// <exception cref="ArgumentException">The code is null or empty; nothing was sent.</exception>
+        /// <exception cref="ArgumentException">The code is null, empty or blank; nothing was sent.</exception>
         /// <exception cref="OWApiError">
         /// The server refused, and the code is not spent: every bad code (unknown, used, revoked or expired), and a code
         /// made for an AI agent, is the same 404 <c>not_found</c> (<see cref="OWApiError.IsNotFound"/>); an account already
@@ -1989,7 +1989,7 @@ namespace OnlyWorlds.Sdk
         {
             RequireAccountToken(nameof(AcceptJoinAsync),
                 "A world key cannot join a world; a player's or an agent's code is redeemed with OWJoin.RedeemAsync.");
-            if (string.IsNullOrEmpty(code))
+            if (string.IsNullOrWhiteSpace(code))
                 throw new ArgumentException("AcceptJoinAsync: a join code is required. Nothing was sent.", nameof(code));
 
             return RequestAsync<OWJoinedMembership>("POST", "/account/join", body: new JObject { ["code"] = code }, ct: ct);
