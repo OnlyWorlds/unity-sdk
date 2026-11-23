@@ -267,6 +267,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 cache.Upsert(IdC, "character", Wire(IdC, "C"));
 
                 AssertRefusal(Assert.Catch(() => cache.IsKnownOf(IdB), number), "x_n");
+                // All<T> passes over the element it cannot read and says so in the log, by the refusal's name.
+                UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Error,
+                    new System.Text.RegularExpressions.Regex("Could not deserialize cached element .*number_out_of_range"));
                 CollectionAssert.AreEqual(new[] { "A", "C" }, cache.All<OWCharacter>("character").Select(c => c.Name).ToArray());
             }
         }
