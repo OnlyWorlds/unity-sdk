@@ -6,6 +6,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.49.1] - 2026-11-23
+
+Two calls send what the server would have answered differently: a draught left without `Compact` asks for the full
+packet, and a blank join code is refused before anything is sent. A patch release: no public API is added.
+
 ### Changed
 
 - **`DraughtAsync` with `Compact` left out sends `compact=false`**, so the answer is the full packet whatever the

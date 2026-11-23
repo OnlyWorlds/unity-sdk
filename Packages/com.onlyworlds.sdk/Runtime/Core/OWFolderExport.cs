@@ -126,7 +126,7 @@ namespace OnlyWorlds.Sdk
         /// could read it is Editor-only. A test holds it equal to <c>package.json</c>'s <c>version</c>, so a release that
         /// moves one without the other fails.
         /// </remarks>
-        public const string ProducerVersion = "0.49.0";
+        public const string ProducerVersion = "0.49.1";
 
         /// <summary>
         /// The <c>producer</c> line (folder spec §4.2, v0.3.14) every folder <see cref="ExportAsync"/> makes carries:
