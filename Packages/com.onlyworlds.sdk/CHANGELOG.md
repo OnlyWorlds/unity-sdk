@@ -6,6 +6,29 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The folder reader reads names as written, at every door** (the folder format's rulings of 2026-11-23). A type
+  folder is the type word in lower case, one of the 22 (under the old `spatial/` layout, one of `map`, `pin`, `zone`,
+  `marker`), and an element file's extension is `.json` in lower case. A `.json` file in any spelling that sits in a
+  folder that is no type (`elements/Character/`, `elements/widget/`, `spatial/Pin/`) is skipped and never served,
+  whatever its body declares, and listed in `Skipped` with the reason `in a folder that is no type: ...`; a file in a
+  type folder whose extension is spelled otherwise (`X.JSON`, `y.Json`) is skipped with the reason `the extension is
+  not .json in lower case: not read`. Before, `OWFolderReader.Read` served such files on
+  Windows and macOS, whose file systems fold a name's case, and not on Linux; a folder under `elements/` that is no
+  type was read on every platform, its type taken from the folder's name; and the in-memory read
+  (`OWFolderReader.ReadEntries`, so `OWWorldArchive.Read`) passed over `X.JSON` without saying so. Now every platform
+  and every door gives the same answer. A file of another extension (`notes.txt`) is still no element file and is not
+  listed, and a tool's dot-prefixed folder is still never read. An id was already compared as written, never as a
+  UUID: one UUID in capitals in one file and in lower case in another is two elements, at every door and in the cache,
+  and new tests hold it.
+- **`OWFolderWriter` touches only what the reader serves.** `WriteElement` never writes into a file whose extension is
+  spelled otherwise (on Windows `kira--c0de.json` opens `kira--c0de.JSON`): the element takes the full-id name, and
+  that file keeps its bytes. A rename never removes such a file, and `DeleteElement` searches only the type folders
+  under `elements/`, so a file in `elements/Character/`, `elements/widget/` or a tool's `.atlas/` is never removed.
+- A share (`OWWorldArchive.Pack` with `includeHidden: false`) already left all of these files out and named them in
+  `UnreadLeftOut`, and still does.
+
 ## [0.50.0] - 2026-11-23
 
 A world's element names found in prose, and four refusals that keep a reader and a writer honest: a number the reader
