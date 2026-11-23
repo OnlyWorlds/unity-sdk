@@ -6,6 +6,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.50.0] - 2026-11-23
+
+A world's element names found in prose, and four refusals that keep a reader and a writer honest: a number the reader
+cannot hold is refused by name, a file is one JSON value and nothing after it, a share carries only what the folder
+reader serves as one element with no mark, and a save never writes over a file it could not read or a byte that is
+not UTF-8. The package is now on OpenUPM (`openupm add com.onlyworlds.sdk`). A minor release because it adds public
+API (below).
+
 ### Added
 
 - **`OWNameFinder.For(elements, nameCase)`: a world's element names found in prose.** It reads the names once and
