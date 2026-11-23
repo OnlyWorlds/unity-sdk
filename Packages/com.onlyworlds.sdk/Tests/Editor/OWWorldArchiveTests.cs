@@ -1352,6 +1352,38 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsFalse(read.Elements.Concat(read.LegacyElements).Any(e => e.Id == "c-5" || e.Id == "p-1"));
         }
 
+        // Kills: the share carrying the unmarked file of an id two files hold when it sorts first (the reader serves it
+        // with no mark and skips the hidden one after it: the order that leaked), or in the other order; either file
+        // counted hidden; a copy that drops either.
+        [TestCase("a-plain.json", "b-veiled.json", TestName = "Pack_AsAShare_ATwiceHeldId_TheUnmarkedFileFirst_TravelsInNeither")]
+        [TestCase("b-plain.json", "a-veiled.json", TestName = "Pack_AsAShare_ATwiceHeldId_TheHiddenFileFirst_TravelsInNeither")]
+        public void Pack_AsAShare_ATwiceHeldId_TravelsInNeither_WhicheverSortsFirst(string plainName, string veiledName)
+        {
+            var root = Path.Combine(_temp, "t");
+            Write(root, "world.json", WorldJson("0695db52-0000-7000-8000-0000000000be", "T"));
+            Write(root, "elements/character/lone.json", "{\"id\": \"c-1\", \"name\": \"Lone\"}\n");
+            Write(root, "elements/character/" + plainName, "{\"id\": \"c-2\", \"name\": \"Twice\"}\n");
+            Write(root, "elements/character/" + veiledName, "{\"id\": \"c-2\", \"name\": \"Twice\", \"hidden\": true}\n");
+            var plain = "elements/character/" + plainName;
+            var veiled = "elements/character/" + veiledName;
+
+            var hidden = new List<string>();
+            var unread = new List<string>();
+            var share = Path.Combine(_temp, "s.owworld");
+            var entries = OWWorldArchive.Pack(root, share, false, false, includeHidden: false, hidden, unread);
+
+            CollectionAssert.AreEqual(new[] { "mimetype", "t/elements/character/lone.json", "t/world.json" }, entries);
+            CollectionAssert.IsEmpty(hidden, "the share cannot say which file's mark is the element's");
+            CollectionAssert.AreEqual(new[] { plain, veiled }.OrderBy(p => p, StringComparer.Ordinal).ToList(), unread);
+            Assert.IsFalse(OWWorldArchive.Read(share).Elements.Any(e => e.Id == "c-2"));
+
+            var copy = Path.Combine(_temp, "c.owworld");
+            OWWorldArchive.Pack(root, copy);
+            foreach (var name in new[] { plain, veiled })
+                CollectionAssert.AreEqual(File.ReadAllBytes(Path.Combine(root, name.Replace('/', Path.DirectorySeparatorChar))),
+                    EntryBytes(copy, "t/" + name), name);
+        }
+
         // Kills: a copy that drops, rewrites or reports a file the share leaves out.
         [Test]
         public void Pack_AsACopy_CarriesEveryFileTheShareLeavesOut_ByteForByte()
