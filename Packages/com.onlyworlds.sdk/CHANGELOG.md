@@ -6,6 +6,31 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **`OWNameFinder.For(elements, nameCase)`: a world's element names found in prose.** It reads the names once and
+  answers an `OWNameFinder<T>`, whose `Find(text)` lists every `OWNameFound<T>` (`Start`, `End`, and `Element`, the
+  object that was passed in) in order, none overlapping, so a game or a tool can mark the words that are elements (a
+  hover, a suggestion, a link a person chooses to make). It finds and never writes. Elements are JSON rows
+  (`IEnumerable<JToken>`, by their string `id` and `name`), typed models (`OWElement`, by `Id` and `Name`), or any
+  kind of the caller's own with an `idOf`. `nameCase` must be given, `OWNameCase.Exact` or `OWNameCase.Folded`
+  (simple case folding, Unicode 15.1): the enum has no zero value, so `default(OWNameCase)` is refused. The optional
+  `names` gives the names an element is found by, by default its name alone; a name is a string or a JSON string,
+  anything else is passed over. The rule: a whole name only, where the character on each side is not a letter, a
+  combining mark, a decimal digit or an underscore in any script (so `Kira's` holds the name and `Kiran` does not);
+  trimmed of White_Space, three code points at least; the longest whole name where several start at one place; a
+  name two elements share is never answered, nor anything inside it; nothing inside an address (what
+  `OWAddress.FindLinks` finds) or a Markdown link `[label](target)`. `Start` and `End` are C# string indexes, UTF-16
+  code units, as the TypeScript SDK counts them (the Python package counts code points). Limits: text is compared as
+  written, with no Unicode normalisation; a space in a name matches that one space; what counts as a letter is the
+  runtime's own table, as in the other two packages, and Unity 6's Mono reads Unicode 11.0's, so beside a letter
+  assigned since then (one of CJK Extension G, say) a name is whole here and not for the TypeScript SDK on a current
+  Node. The work for one text is at most its length times the longest name's length, with no pattern that
+  backtracks. The TypeScript SDK's cases file (`name-finder.cases.json`, 47 cases, each answer written by hand) is
+  vendored byte for byte and its sha256 held; every case is replayed, its seven hostile or large texts timed, and ten
+  inputs the cases are silent on are held to the TypeScript SDK's own answers. Parity with the TypeScript SDK
+  4.194.0.
+
 ## [0.49.1] - 2026-11-23
 
 Two calls send what the server would have answered differently: a draught left without `Compact` asks for the full

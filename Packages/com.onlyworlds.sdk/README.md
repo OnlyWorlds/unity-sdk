@@ -167,6 +167,40 @@ list's `element_types`, read from the address alone) is left out of another kind
 `ArgumentException` naming what is wrong. The TypeScript SDK's `openersFor` and the Python package's `openers_for` give
 the same rows.
 
+## Names in prose
+
+`OWNameFinder.For` reads a world's element names once and answers a finder that finds them in any text, so a game
+or a tool can show which words are elements: a hover, a suggestion, a link a person chooses to make. It finds and
+never writes.
+
+```csharp
+var find = OWNameFinder.For(elements, OWNameCase.Exact); // once per world: JSON rows, OWElement models, or your own
+foreach (var f in find.Find("Kira's watch ends at the Iron Gate."))
+    Mark(f.Start, f.End, f.Element); // Element: the object you passed in
+```
+
+The case must be given: `OWNameCase.Exact` for a page that marks names unasked, `OWNameCase.Folded` (case ignored,
+by Unicode 15.1's simple folding) for an editor that only suggests. The rule, the same as the TypeScript SDK's
+`nameFinder` and the Python package's `name_finder`, held by the same file of cases:
+
+- A whole name only: the character on each side is not a letter, a combining mark, a decimal digit or an underscore,
+  in any script. `Kira's` and `Kira-led` hold the name; `Kiran` does not.
+- A name is trimmed and is three characters at least. Where several names start at one place, the longest whole one
+  is taken.
+- A name two elements share is never answered, and nothing inside it is: the text stays plain there.
+- Nothing is read inside an address or a Markdown link `[label](target)`.
+- Every mention is answered, in order. `Start` and `End` are C# string indexes (UTF-16 code units), as the
+  TypeScript SDK counts them.
+
+The last argument gives the names an element is found by, such as your own aliases:
+`OWNameFinder.For(elements, OWNameCase.Folded, el => new object[] { el["name"] }.Concat(Aliases(el)))`. Which
+elements go in is yours to choose. Limits: text is compared as written, with no Unicode normalisation; a space in a
+name matches that one space; in a script written without spaces between words (Chinese, Japanese, Thai) a name is
+whole only between punctuation or spaces; and what counts as a letter is the runtime's own table, Unicode 11.0 on
+Unity 6's Mono, so beside a letter added to Unicode since then a name is whole here where a newer runtime reads it
+inside a word. The work for one text is at most its length times the longest name's length, whatever the number of
+names.
+
 ## Things that will bite you
 
 **Only `name` is required.** Every other field is optional, and the API sends its empty value explicitly (`null`,
