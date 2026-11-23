@@ -840,5 +840,69 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 "Advancing the world clock must change exactly one line. A writer must not drop "
                 + "keys the source had, nor reorder what it did not touch.");
         }
+
+        // -- A file that is not UTF-8 --------------------------------------------
+
+        /// <summary>
+        /// Two elements in section 5's form; the second's description holds one Latin-1 byte (0xE9) where UTF-8 would
+        /// hold C3 A9. The reader decodes it leniently, so its body holds U+FFFD there.
+        /// </summary>
+        private (string plain, string latin, byte[] plainBytes, byte[] latinBytes) LatinWorld()
+        {
+            var dir = Path.Combine(_temp, "elements", "character");
+            Directory.CreateDirectory(dir);
+            var plain = Path.Combine(dir, OWFolderWriter.ElementFilename("c-1", "Plain"));
+            var plainBytes = new UTF8Encoding(false).GetBytes(OWFolderWriter.Serialize(Body("c-1", "character", "Plain")));
+            File.WriteAllBytes(plain, plainBytes);
+            var latin = Path.Combine(dir, OWFolderWriter.ElementFilename("c-2", "Lat"));
+            var latinBytes = Encoding.ASCII
+                .GetBytes("{\n  \"type\": \"character\",\n  \"id\": \"c-2\",\n  \"name\": \"Lat\",\n  \"description\": \"caf")
+                .Concat(new byte[] { 0xE9 }).Concat(Encoding.ASCII.GetBytes("\"\n}\n")).ToArray();
+            File.WriteAllBytes(latin, latinBytes);
+            return (plain, latin, plainBytes, latinBytes);
+        }
+
+        // Kills: a save that writes U+FFFD (EF BF BD) over a byte the person wrote, in a file nobody edited.
+        [Test]
+        public void Write_NeverRewritesAnUneditedFileThatIsNotUtf8()
+        {
+            var (_, latin, _, latinBytes) = LatinWorld();
+            var read = OWFolderReader.Read(_temp);
+            StringAssert.Contains("�", read.Elements.Single(e => e.Id == "c-2").Body["description"].ToString(),
+                "the reader decodes leniently: the premise of the test");
+
+            OWFolderWriter.Write(_temp, read.Elements.Select(e => e.Body));
+            CollectionAssert.AreEqual(latinBytes, Bytes(latin), "a whole save");
+            Assert.AreEqual(latin, OWFolderWriter.WriteElement(_temp, read.Elements.Single(e => e.Id == "c-2").Body),
+                "the element's own path, unwritten");
+            CollectionAssert.AreEqual(latinBytes, Bytes(latin), "one element's save");
+
+            var c1 = read.Elements.Single(e => e.Id == "c-1").Body;
+            c1["summary"] = "edited";
+            OWFolderWriter.Write(_temp, read.Elements.Select(e => e.Body));
+            CollectionAssert.AreEqual(latinBytes, Bytes(latin), "a save after another element's edit");
+        }
+
+        // Kills: an edited element whose file did not decode cleanly saved with U+FFFD in place of the byte, a refusal
+        // that does not name the file, or a refused batch that wrote some of its elements first.
+        [Test]
+        public void Write_RefusesAnEditedElementWhoseFileIsNotUtf8_ByName_AndWritesNothing()
+        {
+            var (plain, latin, plainBytes, latinBytes) = LatinWorld();
+            var read = OWFolderReader.Read(_temp);
+            var c2 = read.Elements.Single(e => e.Id == "c-2").Body;
+            c2["summary"] = "edited";
+
+            var one = Assert.Throws<OWFolderFormatException>(() => OWFolderWriter.WriteElement(_temp, c2));
+            StringAssert.Contains(Path.GetFileName(latin), one.Message);
+            CollectionAssert.AreEqual(latinBytes, Bytes(latin));
+
+            read.Elements.Single(e => e.Id == "c-1").Body["summary"] = "edited";
+            var batch = Assert.Throws<OWFolderFormatException>(() =>
+                OWFolderWriter.Write(_temp, read.Elements.Select(e => e.Body)));
+            StringAssert.Contains(Path.GetFileName(latin), batch.Message);
+            CollectionAssert.AreEqual(latinBytes, Bytes(latin));
+            CollectionAssert.AreEqual(plainBytes, Bytes(plain), "a refused batch writes nothing");
+        }
     }
 }

@@ -6,6 +6,34 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **`OWWorldArchivePackOptions.UnreadLeftOut`, and `unreadLeftOut` as the last parameter of
+  `OWWorldArchive.Pack(worldFolder, archivePath, keepApiBlock, includePrivateRecords, includeHidden, hiddenLeftOut,
+  unreadLeftOut)`**: on a share, the paths inside the world (code point order) of the files in a type folder the
+  writer could not read as an element, counted apart from `HiddenLeftOut`. Nothing is added on a copy. The new
+  parameter is optional, so every existing call compiles as before.
+
+### Changed
+
+- **A share leaves out every element file it could not read** (folder spec §4.8, a file whose mark cannot be read).
+  With `includeHidden: false`, a `.json` file directly in a type folder of `elements/` or `spatial/` is carried only
+  when the writer has read it as a JSON object and found no mark. One it could not read, whatever the reason (not
+  UTF-8, not JSON, cut short, nested past the parser's depth of 64, a number the parser refuses such as `1e400` or
+  4,301 digits, an array or a string), is left out whole and named in `UnreadLeftOut`. Before, such a file was carried
+  byte for byte, so `{"id": "c-2", "hidden": true, ` cut short travelled in a share, and a hidden element in a file
+  holding one byte that is not UTF-8 reached the receiver, whose reader decodes leniently, as a hidden element. A copy
+  (`includeHidden` on, the default) is unchanged: it carries every such file byte for byte.
+
+### Fixed
+
+- **A save never writes U+FFFD over bytes that are not UTF-8.** The folder reader decodes an element file leniently,
+  so a file holding one Latin-1 byte reads with U+FFFD in its place, and `OWFolderWriter.Write` or `WriteElement` of
+  that body wrote `EF BF BD` over the person's byte, even when nothing was edited. Now a body read from such a file and
+  not edited is left as it is on disk (its path returned, nothing written), and an edited one is refused with an
+  `OWFolderFormatException` naming the file; a refused `Write` writes none of its batch. Files that are UTF-8 are
+  written as before.
+
 ## [0.49.1] - 2026-11-23
 
 Two calls send what the server would have answered differently: a draught left without `Compact` asks for the full

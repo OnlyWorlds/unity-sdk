@@ -50,12 +50,19 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// Carry element files marked hidden (folder spec §4.8). On by default: a world file is a copy; a share passes
-        /// <c>false</c> (see <see cref="OWWorldArchive.Pack(string, string, bool, bool, bool, ICollection{string})"/>).
+        /// <c>false</c> (see <see cref="OWWorldArchive.Pack(string, string, bool, bool, bool, ICollection{string}, ICollection{string})"/>).
         /// </summary>
         public bool IncludeHidden = true;
 
         /// <summary>When given, receives the paths inside the world of the element files left out for the hidden mark.</summary>
         public ICollection<string> HiddenLeftOut;
+
+        /// <summary>
+        /// When given, receives the paths inside the world of the files in a type folder a share left out because it
+        /// could not read them as an element, whatever the reason (folder spec §4.8): counted apart from
+        /// <see cref="HiddenLeftOut"/>. Nothing is added when <see cref="IncludeHidden"/> is on.
+        /// </summary>
+        public ICollection<string> UnreadLeftOut;
 
         /// <summary>
         /// Write every entry stored (zip method 0), none deflated, so the archive can be read by a player that cannot
@@ -321,25 +328,35 @@ namespace OnlyWorlds.Sdk
         /// as keel's own download keeps an owner's hidden elements, and a file is also how a person moves or backs up their
         /// own world. A tool that makes the file to hand to someone else passes <c>false</c>: every <c>.json</c> file
         /// directly in a type folder of <c>elements/</c> or the legacy <c>spatial/</c> whose JSON object carries a mark or
-        /// a doubt (<see cref="OWPayload.IsHidden"/>) is left out whole. A file there that is not UTF-8 JSON, or
-        /// not an object, is kept. Nothing else is rewritten: a visible element's link to a hidden one keeps its id.
+        /// a doubt (<see cref="OWPayload.IsHidden"/>) is left out whole. A file there the writer cannot read as an
+        /// element, for any reason (not UTF-8, not JSON, cut short, nested too deep, a number the parser refuses, not an
+        /// object), is left out whole too, since its mark cannot be read, and counted apart (<paramref name="unreadLeftOut"/>).
+        /// A copy carries every such file byte for byte. Nothing else is rewritten: a visible element's link to a hidden
+        /// one keeps its id.
         /// </param>
         /// <param name="hiddenLeftOut">
         /// When given, receives the paths inside the world (forward slashes, code point order) of the element files left
         /// out for the mark; its count is the count. Nothing is added when <paramref name="includeHidden"/> is on.
+        /// </param>
+        /// <param name="unreadLeftOut">
+        /// When given, receives the paths inside the world (forward slashes, code point order) of the files in a type
+        /// folder left out because the writer could not read them as an element; its count is the unread count, apart
+        /// from the hidden one. Nothing is added when <paramref name="includeHidden"/> is on.
         /// </param>
         /// <returns>The entry names written, in order.</returns>
         /// <exception cref="DirectoryNotFoundException">The folder does not exist.</exception>
         /// <exception cref="OWFolderFormatException">As the overload above.</exception>
         /// <exception cref="ArgumentException"><paramref name="archivePath"/> is inside the folder.</exception>
         public static List<string> Pack(string worldFolder, string archivePath, bool keepApiBlock,
-            bool includePrivateRecords, bool includeHidden, ICollection<string> hiddenLeftOut = null)
+            bool includePrivateRecords, bool includeHidden, ICollection<string> hiddenLeftOut = null,
+            ICollection<string> unreadLeftOut = null)
             => Pack(worldFolder, archivePath, new OWWorldArchivePackOptions
             {
                 KeepApiBlock = keepApiBlock,
                 IncludePrivateRecords = includePrivateRecords,
                 IncludeHidden = includeHidden,
                 HiddenLeftOut = hiddenLeftOut,
+                UnreadLeftOut = unreadLeftOut,
             });
 
         /// <summary>
@@ -365,6 +382,7 @@ namespace OnlyWorlds.Sdk
             var keepApiBlock = options.KeepApiBlock;
             var includeHidden = options.IncludeHidden;
             var hiddenLeftOut = options.HiddenLeftOut;
+            var unreadLeftOut = options.UnreadLeftOut;
             var deflate = !options.StoreForWebPlayers;
 
             if (string.IsNullOrEmpty(worldFolder)) throw new ArgumentNullException(nameof(worldFolder));
@@ -387,9 +405,17 @@ namespace OnlyWorlds.Sdk
             {
                 plan.RemoveAll(entry =>
                 {
-                    if (!IsHiddenElementFile(entry.relative, entry.source)) return false;
-                    hiddenLeftOut?.Add(entry.relative);
-                    return true;
+                    switch (ReadForShare(entry.relative, entry.source))
+                    {
+                        case ShareRead.Hidden:
+                            hiddenLeftOut?.Add(entry.relative);
+                            return true;
+                        case ShareRead.Unread:
+                            unreadLeftOut?.Add(entry.relative);
+                            return true;
+                        default:
+                            return false;
+                    }
                 });
             }
 
@@ -631,24 +657,47 @@ namespace OnlyWorlds.Sdk
             return plan;
         }
 
+        /// <summary>What a share's read of a planned file found (folder spec §4.8).</summary>
+        internal enum ShareRead
+        {
+            /// <summary>Not an element file (not a <c>.json</c> directly in a type folder): a share carries it.</summary>
+            NotAnElementFile,
+
+            /// <summary>Read as an element, no mark found: a share carries it.</summary>
+            Visible,
+
+            /// <summary>Read as an element carrying the mark or a doubt: a share leaves it out, counted as hidden.</summary>
+            Hidden,
+
+            /// <summary>Could not be read as an element, for any reason: a share leaves it out, counted apart.</summary>
+            Unread,
+        }
+
         /// <summary>
-        /// Whether a planned file is an element file a share leaves out (folder spec §4.8): a <c>.json</c> file (any case)
-        /// directly in a type folder of <c>elements/</c> or <c>spatial/</c>, whose JSON is an object carrying the mark or a
-        /// doubt. Not UTF-8, not JSON, or not an object: no element, kept. The npm writer's <c>isHiddenElement</c>.
+        /// A share's read of a planned file (folder spec §4.8): a <c>.json</c> file (any case) directly in a type folder
+        /// of <c>elements/</c> or <c>spatial/</c> is an element file; it is <see cref="ShareRead.Visible"/> only when it
+        /// decodes as UTF-8 and parses as a JSON object with no mark. A file the writer cannot read as an element,
+        /// whatever the reason (not UTF-8, not JSON, cut short, nested past the parser's depth, a number the parser
+        /// refuses, not an object), is <see cref="ShareRead.Unread"/>: a refusal is never an absence. The npm writer's
+        /// <c>isHiddenElement</c>, with the third state the spec names.
         /// </summary>
-        internal static bool IsHiddenElementFile(string relative, string source)
+        internal static ShareRead ReadForShare(string relative, string source)
         {
             var parts = relative.Split('/');
             if (parts.Length != 3 || (parts[0] != "elements" && parts[0] != "spatial")
-                || !parts[2].EndsWith(".json", StringComparison.OrdinalIgnoreCase)) return false;
+                || !parts[2].EndsWith(".json", StringComparison.OrdinalIgnoreCase)) return ShareRead.NotAnElementFile;
             try
             {
                 var text = StrictUtf8.GetString(File.ReadAllBytes(source));
                 if (text.Length > 0 && text[0] == '﻿') text = text.Substring(1);
-                return JToken.Parse(text) is JObject body && OWPayload.IsHidden(body);
+                if (!(JToken.Parse(text) is JObject body)) return ShareRead.Unread;
+                return OWPayload.IsHidden(body) ? ShareRead.Hidden : ShareRead.Visible;
             }
-            catch (DecoderFallbackException) { return false; }
-            catch (Newtonsoft.Json.JsonException) { return false; }
+            catch (Exception)
+            {
+                // Every refusal, whatever its type: the rule keys on the writer's own read, never on the reason.
+                return ShareRead.Unread;
+            }
         }
 
         /// <summary>

@@ -98,9 +98,15 @@ namespace OnlyWorlds.Sdk
         /// <returns>Absolute path of the file written.</returns>
         /// <exception cref="OWFolderFormatException">
         /// The body has no usable id, or declares no type. Identity and location are the two things
-        /// a writer cannot invent, so both are refusals rather than guesses.
+        /// a writer cannot invent, so both are refusals rather than guesses. Or a file of this id is not
+        /// well-formed UTF-8 and the body is not the one the reader read there: the reader decoded it with
+        /// U+FFFD, and the write would put that over the person's bytes (the message names the file).
         /// </exception>
         /// <remarks>
+        /// <para>
+        /// A body read from a file that is not UTF-8 and not edited is not written: the file stays as it is,
+        /// byte for byte, and its path is returned.
+        /// </para>
         /// <para>
         /// If the id already exists in that directory under a different filename -- a rename -- the
         /// old file is removed, so identity stays with the id and never forks.
@@ -119,6 +125,8 @@ namespace OnlyWorlds.Sdk
             if (body == null) throw new ArgumentNullException(nameof(body));
 
             var (id, type) = Validate(body);
+            var undecodable = UndecodableFiles(folder, type);
+            RefuseEditOverUndecodable(undecodable, id, body);
 
             var directory = Path.Combine(folder, "elements", type);
             // §4 (v0.3.8, one id, one file): an element older Atlas kept under spatial/<type>/ is written there, in
@@ -143,6 +151,15 @@ namespace OnlyWorlds.Sdk
             // into the file it holds first, so an interrupted rename leaves one body under two names at worst, never
             // two different bodies for the reader's first-by-name to choose between.
             var others = OtherFilesFor(directory, id, filename);
+
+            // A file that is not UTF-8 and holds this body unedited is left as it is: rewriting it would put U+FFFD
+            // (what the reader decoded) over the bytes the person wrote. (An edited one was refused above.)
+            if (others.Count == 0 && undecodable.TryGetValue(id, out var held) && held.Count == 1
+                && string.Equals(held[0], path, StringComparison.OrdinalIgnoreCase))
+            {
+                return path;
+            }
+
             foreach (var other in others) WriteJsonFile(other, body);
 
             WriteJsonFile(path, body);
@@ -162,8 +179,9 @@ namespace OnlyWorlds.Sdk
         /// <param name="bodies">Element bodies, each carrying its own id and type.</param>
         /// <returns>Absolute paths written, in the order the bodies arrived.</returns>
         /// <exception cref="OWFolderFormatException">
-        /// A body has no usable id or no type. Every body is checked before the first is written, so
-        /// a refused batch writes nothing.
+        /// A body has no usable id or no type, or one would be written over a file of its id that is not
+        /// UTF-8 when it is not the body read there (see <see cref="WriteElement"/>). Every body is checked
+        /// before the first is written, so a refused batch writes nothing.
         /// </exception>
         /// <remarks>
         /// <para>
@@ -195,7 +213,14 @@ namespace OnlyWorlds.Sdk
                 if (body == null) throw new ArgumentNullException(nameof(bodies), "A body in the batch is null.");
             }
 
-            foreach (var body in list) Validate(body);
+            var undecodableByType = new Dictionary<string, Dictionary<string, List<string>>>(StringComparer.Ordinal);
+            foreach (var body in list)
+            {
+                var (id, type) = Validate(body);
+                if (!undecodableByType.TryGetValue(type, out var undecodable))
+                    undecodableByType[type] = undecodable = UndecodableFiles(folder, type);
+                RefuseEditOverUndecodable(undecodable, id, body);
+            }
 
             var ids = list.Select(body => IdOf(body)).ToList();
             var order = Enumerable.Range(0, list.Count).ToList();
@@ -452,6 +477,56 @@ namespace OnlyWorlds.Sdk
             if (occupant == null || string.Equals(occupant, id, StringComparison.Ordinal)) return candidate;
 
             return ElementFilenameFullId(id, name);
+        }
+
+        private static readonly UTF8Encoding StrictUtf8 = new UTF8Encoding(false, true);
+
+        /// <summary>
+        /// The element files of one type (in <c>elements/&lt;type&gt;/</c> and the legacy <c>spatial/&lt;type&gt;/</c>)
+        /// whose bytes are not well-formed UTF-8, by the id the reader reads in them. The reader decodes such a file
+        /// leniently, so the body it hands out holds U+FFFD where the file holds the person's bytes.
+        /// </summary>
+        private static Dictionary<string, List<string>> UndecodableFiles(string folder, string type)
+        {
+            var found = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+            foreach (var directory in new[] { Path.Combine(folder, "elements", type), Path.Combine(folder, "spatial", type) })
+            {
+                if (!Directory.Exists(directory)) continue;
+                foreach (var file in Directory.GetFiles(directory, "*.json"))
+                {
+                    try { StrictUtf8.GetString(File.ReadAllBytes(file)); continue; }
+                    catch (DecoderFallbackException) { }
+                    catch (Exception) { continue; }  // unreadable here: not this check's to judge
+
+                    var id = IdInFile(file);
+                    if (id == null) continue;
+                    if (!found.TryGetValue(id, out var files)) found[id] = files = new List<string>();
+                    files.Add(file);
+                }
+            }
+
+            return found;
+        }
+
+        /// <summary>
+        /// Refuses, by the file's name, to write a body over a file of its id that is not UTF-8 when the body is not
+        /// the one the reader read there: the write would replace the person's bytes with U+FFFD. The body read and
+        /// not edited passes (the caller leaves that file as it is).
+        /// </summary>
+        private static void RefuseEditOverUndecodable(Dictionary<string, List<string>> undecodable, string id, JObject body)
+        {
+            if (!undecodable.TryGetValue(id, out var files)) return;
+            foreach (var file in files)
+            {
+                JObject read;
+                try { read = Parse(File.ReadAllText(file)); }
+                catch (Exception) { read = null; }
+                if (read != null && JToken.DeepEquals(read, body)) continue;
+                throw new OWFolderFormatException(
+                    $"'{file}' is not well-formed UTF-8, so element '{id}' as read holds U+FFFD where the file holds "
+                    + "other bytes, and writing it would replace them. Re-save that file as UTF-8 first; nothing was "
+                    + "written.");
+            }
         }
 
         /// <summary>Every file in this directory whose body carries the given id.</summary>

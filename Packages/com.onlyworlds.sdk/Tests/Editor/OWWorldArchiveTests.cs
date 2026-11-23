@@ -1118,14 +1118,15 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         // Kills: a doubt handed on in a share, a file kept for its case, a deeper or non-element file left out, an
-        // unreadable file left out, or the count not the files left out.
+        // unreadable file carried, an unreadable file counted as hidden, or a count not the files left out.
         [Test]
-        public void Pack_AsAShare_LeavesMarkedAndDoubtedElementFilesOutWhole_AndCountsThem()
+        public void Pack_AsAShare_LeavesMarkedDoubtedAndUnreadElementFilesOutWhole_AndCountsThemApart()
         {
             var root = HiddenWorld();
             var leftOut = new List<string>();
+            var unread = new List<string>();
             var entries = OWWorldArchive.Pack(root, Path.Combine(_temp, "s.owworld"), false, false, includeHidden: false,
-                leftOut);
+                leftOut, unread);
 
             CollectionAssert.AreEqual(new[]
             {
@@ -1133,19 +1134,27 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 "elements/location/vault.JSON",
                 "spatial/pin/secret.json",
             }, leftOut);
-            foreach (var gone in leftOut) Assert.IsFalse(entries.Contains("h/" + gone), gone);
+            // §4.8: a file in a type folder the writer could not read as an element (cut short, not an object, not
+            // UTF-8) is left out whole and counted apart from the hidden ones.
+            CollectionAssert.AreEqual(new[]
+            {
+                "elements/location/latin.json",
+                "elements/location/list.json",
+                "elements/location/torn.json",
+            }, unread);
+            foreach (var gone in leftOut.Concat(unread)) Assert.IsFalse(entries.Contains("h/" + gone), gone);
             foreach (var kept in new[]
                      {
                          "elements/character/pal.json", "elements/location/open.json", "elements/location/plain.json",
-                         "elements/location/nested.json", "elements/location/torn.json", "elements/location/list.json",
-                         "elements/location/deep/inner.json", "elements/location/note.txt", "elements/location/latin.json",
-                         "media/m.json", "world.json",
+                         "elements/location/nested.json", "elements/location/deep/inner.json",
+                         "elements/location/note.txt", "media/m.json", "world.json",
                      })
                 Assert.Contains("h/" + kept, entries, kept);
 
             // The rest is the copy's, entry for entry and byte for byte: a link to a hidden element keeps its id.
             var copy = OWWorldArchive.Pack(root, Path.Combine(_temp, "c.owworld"));
-            CollectionAssert.AreEqual(copy.Where(e => !leftOut.Contains(e.Substring(2))).ToList(), entries);
+            CollectionAssert.AreEqual(
+                copy.Where(e => !leftOut.Contains(e.Substring(2)) && !unread.Contains(e.Substring(2))).ToList(), entries);
             using (var zip = ZipFile.OpenRead(Path.Combine(_temp, "s.owworld")))
             using (var stream = zip.GetEntry("h/elements/character/pal.json").Open())
             using (var bytes = new MemoryStream())
@@ -1154,6 +1163,92 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 CollectionAssert.AreEqual(File.ReadAllBytes(Path.Combine(root, "elements", "character", "pal.json")),
                     bytes.ToArray());
             }
+        }
+
+        /// <summary>
+        /// A world with one element file per reason a writer cannot read it as an element (folder spec §4.8: the rule
+        /// keys on the writer's own read, not on the reason), beside one plain and one whole hidden element.
+        /// </summary>
+        private string UnreadWorld()
+        {
+            var root = Path.Combine(_temp, "u");
+            Write(root, "world.json", WorldJson("0695db52-0000-7000-8000-0000000000bc", "U"));
+            Write(root, "elements/character/plain.json", "{\"id\": \"c-1\", \"name\": \"Plain\"}\n");
+            Write(root, "elements/character/veiled.json", "{\"id\": \"c-3\", \"name\": \"Veiled\", \"hidden\": true}\n");
+            Write(root, "elements/character/cut.json", "{\"id\": \"c-2\", \"hidden\": true, ");
+            Write(root, "elements/character/yaml.json", "id: c-4\nhidden: true\n");
+            Write(root, "elements/character/empty.json", "");
+            Write(root, "elements/character/deep.json",
+                "{\"id\": \"c-5\", \"hidden\": true, \"x\": " + new string('[', 64) + new string(']', 64) + "}");
+            Write(root, "elements/character/list.json", "[1,2]");
+            Write(root, "elements/character/text.json", "\"text\"");
+            Write(root, "elements/character/long.json", "{\"id\": \"c-6\", \"hidden\": true, \"n\": " + new string('7', 4301) + "}");
+            Write(root, "elements/character/far.json", "{\"id\": \"c-7\", \"hidden\": true, \"n\": 1e400}");
+            File.WriteAllBytes(Path.Combine(root, "elements", "character", "latin.json"),
+                Encoding.ASCII.GetBytes("{\"id\": \"c-8\", \"hidden\": true, \"n\": \"caf").Concat(new byte[] { 0xE9 })
+                    .Concat(Encoding.ASCII.GetBytes("\"}")).ToArray());
+            return root;
+        }
+
+        private static readonly string[] UnreadNames =
+        {
+            "elements/character/cut.json", "elements/character/deep.json", "elements/character/empty.json",
+            "elements/character/far.json", "elements/character/latin.json", "elements/character/list.json",
+            "elements/character/long.json", "elements/character/text.json", "elements/character/yaml.json",
+        };
+
+        // Kills: any reason carried into a share (a cut, a depth, a number, a byte, not an object), an unread file
+        // counted as hidden or the hidden as unread, a name missing or out of order, or the two overloads disagreeing.
+        [Test]
+        public void Pack_AsAShare_LeavesOutEveryFileItCouldNotRead_WhateverTheReason_AndNamesItApart()
+        {
+            var root = UnreadWorld();
+            var hidden = new List<string>();
+            var unread = new List<string>();
+            var entries = OWWorldArchive.Pack(root, Path.Combine(_temp, "s.owworld"), false, false, includeHidden: false,
+                hidden, unread);
+
+            CollectionAssert.AreEqual(new[] { "elements/character/veiled.json" }, hidden, "the hidden count is the hidden");
+            CollectionAssert.AreEqual(UnreadNames, unread, "every unread file named, in code point order");
+            CollectionAssert.AreEqual(new[] { "mimetype", "u/elements/character/plain.json", "u/world.json" }, entries);
+
+            var hiddenOpts = new List<string>();
+            var unreadOpts = new List<string>();
+            var viaOptions = OWWorldArchive.Pack(root, Path.Combine(_temp, "o.owworld"), new OWWorldArchivePackOptions
+            {
+                IncludeHidden = false, HiddenLeftOut = hiddenOpts, UnreadLeftOut = unreadOpts,
+            });
+            CollectionAssert.AreEqual(entries, viaOptions);
+            CollectionAssert.AreEqual(hidden, hiddenOpts);
+            CollectionAssert.AreEqual(unread, unreadOpts);
+            CollectionAssert.AreEqual(File.ReadAllBytes(Path.Combine(_temp, "s.owworld")),
+                File.ReadAllBytes(Path.Combine(_temp, "o.owworld")));
+
+            // No list asked for: the files are left out all the same.
+            CollectionAssert.AreEqual(entries, OWWorldArchive.Pack(root, Path.Combine(_temp, "n.owworld"),
+                new OWWorldArchivePackOptions { IncludeHidden = false, StoreForWebPlayers = true }));
+        }
+
+        // Kills: a copy that drops, rewrites or reports an unread file.
+        [Test]
+        public void Pack_AsACopy_CarriesEveryFileItCouldNotRead_ByteForByte()
+        {
+            var root = UnreadWorld();
+            var hidden = new List<string>();
+            var unread = new List<string>();
+            var archive = Path.Combine(_temp, "c.owworld");
+            var entries = OWWorldArchive.Pack(root, archive, false, false, includeHidden: true, hidden, unread);
+
+            CollectionAssert.IsEmpty(hidden);
+            CollectionAssert.IsEmpty(unread, "nothing is left out of a copy");
+            foreach (var name in UnreadNames.Concat(new[] { "elements/character/veiled.json" }))
+            {
+                Assert.Contains("u/" + name, entries, name);
+                CollectionAssert.AreEqual(File.ReadAllBytes(Path.Combine(root, name.Replace('/', Path.DirectorySeparatorChar))),
+                    EntryBytes(archive, "u/" + name), name);
+            }
+            CollectionAssert.AreEqual(File.ReadAllBytes(archive),
+                File.ReadAllBytes(PackTo(root, "default.owworld")), "the default is the copy, byte for byte");
         }
 
         [Test]
