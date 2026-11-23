@@ -43,20 +43,44 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 - **`OWWorldArchivePackOptions.UnreadLeftOut`, and `unreadLeftOut` as the last parameter of
   `OWWorldArchive.Pack(worldFolder, archivePath, keepApiBlock, includePrivateRecords, includeHidden, hiddenLeftOut,
-  unreadLeftOut)`**: on a share, the paths inside the world (code point order) of the files in a type folder the
-  writer could not read as an element, counted apart from `HiddenLeftOut`. Nothing is added on a copy. The new
-  parameter is optional, so every existing call compiles as before.
+  unreadLeftOut)`**: on a share, the paths inside the world (code point order) of the files under `elements/` and
+  `spatial/` left out because the folder reader would not serve them as one element (below), counted apart from
+  `HiddenLeftOut`. Nothing is added on a copy. The new parameter is optional, so every existing call compiles as
+  before.
 
 ### Changed
 
-- **A share leaves out every element file it could not read** (folder spec §4.8, a file whose mark cannot be read).
-  With `includeHidden: false`, a `.json` file directly in a type folder of `elements/` or `spatial/` is carried only
-  when the writer has read it as a JSON object and found no mark. One it could not read, whatever the reason (not
-  UTF-8, not JSON, cut short, nested past the parser's depth of 64, a number the parser refuses such as `1e400` or
-  4,301 digits, an array or a string), is left out whole and named in `UnreadLeftOut`. Before, such a file was carried
-  byte for byte, so `{"id": "c-2", "hidden": true, ` cut short travelled in a share, and a hidden element in a file
-  holding one byte that is not UTF-8 reached the receiver, whose reader decodes leniently, as a hidden element. A copy
-  (`includeHidden` on, the default) is unchanged: it carries every such file byte for byte.
+- **A share carries under `elements/` and `spatial/` only an element the folder reader serves with no mark** (folder
+  spec §4.8, a file whose mark cannot be read, and its rulings of 2026-11-23). With `includeHidden: false`, "read as
+  an element" is the folder reader's own verdict, by its own code over the bytes decoded strictly as UTF-8: a file is
+  carried only when `OWFolderReader` would serve it as an element and it carries no mark; a served element with the
+  mark or a doubt is left out whole and named in `HiddenLeftOut`; every other file under the two folders is left out
+  whole and named in `UnreadLeftOut`. That is a file the writer could not read, whatever the reason (not UTF-8, not
+  JSON, not one JSON value, cut short, nested past the parser's depth of 64, a number the parser refuses such as
+  `1e400` or 4,301 digits, an array or a string, an object with no id or an empty one); a file no reader serves as an
+  element (a `notes.txt` in a type folder, a `.json` in a folder deeper than a type folder, such as a hidden element's
+  file moved into `old/` by hand, a file directly in `elements/` or `spatial/`, a folder under `elements/` that is not
+  one of the 22 types or under `spatial/` not one of `map`, `pin`, `zone`, `marker`, a name spelled `.JSON`, which the
+  archive reader never serves); and both files of an id two files hold, in one folder or across `elements/` and
+  `spatial/`, since the share cannot say which file's mark is the element's (a hidden first file with a visible twin
+  would hand the twin on). Before, such files were carried byte for byte: `{"id": "c-2", "hidden": true, ` cut short
+  travelled; a hidden element in a file holding one byte that is not UTF-8 reached the receiver, whose reader decodes
+  leniently, as a hidden element; a hidden element's visible twin, or its old `spatial/` copy, reached it as that
+  element, visible; and `{"hidden": true}` with no id was counted hidden. `media/` and `records/` are not read for it
+  and travel as before. A copy (`includeHidden` on, the default) is unchanged: it carries every such file byte for
+  byte.
+- **A JSON text is one value and nothing after it but whitespace, at every reader** (folder spec §4.8).
+  `{"id": "c-9"} {"hidden": true}` was read by the folder and `.owworld` readers, a `world.json`, an export file, the
+  cache's `IsKnownOf` and `OWFolderWriter.Parse` as the visible element `c-9`, the content after the first object
+  ignored, while the serializer refused it; and every reader passed over a comment, U+00A0 or a NUL after the value.
+  Now every reader refuses anything after the value but JSON's four whitespace characters (space, tab, LF, CR),
+  saying where it starts: a folder or an `.owworld` skips the file, its `Reason` starting `content after the JSON
+  value` with the line and position, and serves the rest; a `world.json` or an export file is refused with those
+  words; a response throws the refusal naming the request (`GET /character/<id>: Not one JSON value: …`); the cache's
+  `IsKnownOf` throws it rather than answer `false`, and `All<T>` passes over that element and logs it; a records
+  manifest with content after it refuses a share, as an unreadable one does. The refusal is a `JsonReaderException`,
+  so a caller that catches `JsonException` still catches it. A text that ends in newlines or other whitespace reads as
+  before.
 
 ### Fixed
 
@@ -79,6 +103,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   not edited is left as it is on disk (its path returned, nothing written), and an edited one is refused with an
   `OWFolderFormatException` naming the file; a refused `Write` writes none of its batch. Files that are UTF-8 are
   written as before.
+- **A save never writes over a file it could not read** (folder spec §4.8). A new element whose short filename was
+  already a file the writer could not read as an element (cut short, not JSON, not one JSON value, a number it cannot
+  hold, an array, `{"hidden": true}` with no id) was written over it, since such a file was taken as holding no id and
+  so as free. Now the element takes the next name, the full-id form the writer collision rule gives, and the file
+  keeps its bytes; the next write of that element finds it there. When the full-id form is such a file too, nothing is
+  written and `WriteElement` or `Write` throws an `OWFolderFormatException` naming the file (a refused `Write` writes
+  none of its batch). A neighbour's id is read as the folder reader reads it, so an id shaped like a date is compared
+  as written.
 
 ## [0.49.1] - 2026-11-23
 

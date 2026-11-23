@@ -622,6 +622,28 @@ namespace OnlyWorlds.Sdk
             return Math.Abs((a & long.MaxValue) - (b & long.MaxValue)) <= 1 << 20;
         }
 
+        /// <summary>
+        /// Throws <see cref="OWContentAfterValueException"/> when anything but JSON's whitespace (space, tab, LF, CR)
+        /// follows the value just read (folder spec §4.8: one value, nothing after it but whitespace). Call it once the
+        /// value is whole. The text is read from where Newtonsoft stopped, by this reader, never by Newtonsoft, which
+        /// passes over a comment, U+00A0 and a NUL there.
+        /// </summary>
+        internal void RefuseContentAfterValue()
+        {
+            var start = TokenType == JsonToken.None ? 0 : Offset();
+            if (start < 0) start = 0;
+            for (var i = start; i < _text.Length; i++)
+            {
+                var c = _text[i];
+                if (c == ' ' || c == '\t' || c == '\n' || c == '\r') continue;
+
+                if (_lineStarts == null) _lineStarts = LineStarts(_text);
+                var line = _lineStarts.BinarySearch(i);
+                if (line < 0) line = ~line - 1;
+                throw OWContentAfterValueException.Of(c, line + 1, i - _lineStarts[line] + 1);
+            }
+        }
+
         /// <summary>Where Newtonsoft's reading stopped, as an offset into the text.</summary>
         private int Offset() => OffsetOf(LineNumber, LinePosition);
 

@@ -546,6 +546,87 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 "Both elements must be readable back.");
         }
 
+        /// <summary>What may hold a new element's short name and is no element the writer can read (folder spec §4.8).</summary>
+        private static readonly (string what, byte[] bytes)[] Unreadable =
+        {
+            ("cut short", Encoding.UTF8.GetBytes("{\"id\": \"c-2\", \"hidden\": true, ")),
+            ("not JSON", Encoding.UTF8.GetBytes("id: c-2\nhidden: true\n")),
+            ("empty", new byte[0]),
+            ("an array", Encoding.UTF8.GetBytes("[{\"id\": \"c-2\"}]\n")),
+            ("no id", Encoding.UTF8.GetBytes("{\"hidden\": true}\n")),
+            ("an empty id", Encoding.UTF8.GetBytes("{\"id\": \"\", \"name\": \"Ann\"}\n")),
+            ("two values", Encoding.UTF8.GetBytes("{\"id\": \"c-3\"} {\"hidden\": true}\n")),
+            ("a number past the largest double", Encoding.UTF8.GetBytes("{\"id\": \"c-4\", \"n\": 1e400}\n")),
+            ("4,301 digits", Encoding.UTF8.GetBytes("{\"id\": \"c-5\", \"n\": " + new string('7', 4301) + "}\n")),
+        };
+
+        // Kills: a file the writer could not read taken as a free name and written over (the new element's bytes over a
+        // person's cut file), in either door.
+        [Test]
+        public void ANewElement_WhoseNameIsAFileTheWriterCannotRead_TakesTheNextName_AndLeavesTheFileAsItIs()
+        {
+            const string id = "0195c3a1-7b2e-7c4d-9e5f-0000000000a1";
+            var shortName = OWFolderWriter.ElementFilename(id, "Ann");
+            var fullName = OWFolderWriter.ElementFilenameFullId(id, "Ann");
+            var batch = false;
+            foreach (var (what, bytes) in Unreadable.Concat(Unreadable))
+            {
+                var dir = Path.Combine(_temp, "w" + (batch ? "b" : "e") + Array.FindIndex(Unreadable, u => u.what == what));
+                Directory.CreateDirectory(Path.Combine(dir, "elements", "character"));
+                File.WriteAllText(Path.Combine(dir, "world.json"), "{\n  \"id\": \"w\",\n  \"name\": \"W\"\n}\n");
+                var occupant = Path.Combine(dir, "elements", "character", shortName);
+                File.WriteAllBytes(occupant, bytes);
+
+                var written = batch
+                    ? OWFolderWriter.Write(dir, new[] { Body(id, "character", "Ann") }).Single()
+                    : OWFolderWriter.WriteElement(dir, Body(id, "character", "Ann"));
+
+                Assert.AreEqual(fullName, Path.GetFileName(written), what + (batch ? ", Write" : ", WriteElement"));
+                CollectionAssert.AreEqual(bytes, Bytes(occupant), what + ": the file the writer could not read keeps its bytes");
+                Assert.AreEqual("Ann", (string)OWFolderReader.Read(dir).Elements.Single(e => e.Id == id).Body["name"], what);
+
+                // The next write of the same element finds its own file and rewrites it there.
+                var again = Body(id, "character", "Ann");
+                again["description"] = "changed";
+                Assert.AreEqual(written, OWFolderWriter.WriteElement(dir, again), what);
+                CollectionAssert.AreEqual(bytes, Bytes(occupant), what);
+                if (what == Unreadable[Unreadable.Length - 1].what) batch = true;
+            }
+        }
+
+        // Kills: the next name written over when it too is a file the writer could not read, or a batch that writes some
+        // bodies before it refuses.
+        [Test]
+        public void TheNextName_AlsoAFileTheWriterCannotRead_IsRefused_ByName_AndNothingIsWritten()
+        {
+            const string id = "0195c3a1-7b2e-7c4d-9e5f-0000000000a1";
+            var dir = Path.Combine(_temp, "elements", "character");
+            Directory.CreateDirectory(dir);
+            var shortPath = Path.Combine(dir, OWFolderWriter.ElementFilename(id, "Ann"));
+            var fullPath = Path.Combine(dir, OWFolderWriter.ElementFilenameFullId(id, "Ann"));
+            File.WriteAllText(shortPath, "{\"id\": \"c-2\", ");
+            File.WriteAllText(fullPath, "{\"hidden\": true}\n");
+
+            var e = Assert.Throws<OWFolderFormatException>(() => OWFolderWriter.WriteElement(_temp, Body(id, "character", "Ann")));
+            StringAssert.Contains(Path.GetFileName(fullPath), e.Message);
+            StringAssert.Contains("could not read", e.Message);
+
+            Assert.Throws<OWFolderFormatException>(() => OWFolderWriter.Write(_temp, new[]
+            {
+                Body("0195c3a1-7b2e-7c4d-9e5f-000000000001", "character", "Bea"),
+                Body(id, "character", "Ann"),
+            }));
+            Assert.AreEqual("{\"id\": \"c-2\", ", File.ReadAllText(shortPath));
+            Assert.AreEqual("{\"hidden\": true}\n", File.ReadAllText(fullPath));
+            CollectionAssert.AreEquivalent(new[] { shortPath, fullPath }, Directory.GetFiles(dir), "a refused batch writes nothing");
+
+            // A name with no slug has one form only: the id itself, refused the same.
+            var bare = Path.Combine(dir, id + ".json");
+            File.WriteAllText(bare, "");
+            Assert.Throws<OWFolderFormatException>(() => OWFolderWriter.WriteElement(_temp, Body(id, "character", "")));
+            Assert.AreEqual(0, new FileInfo(bare).Length);
+        }
+
         [Test]
         public void Write_SettlesACollisionIdAscending_CaseFolded_WhateverTheOrder()
         {

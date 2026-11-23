@@ -1117,8 +1117,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 File.ReadAllBytes(Path.Combine(_temp, "b.owworld")));
         }
 
-        // Kills: a doubt handed on in a share, a file kept for its case, a deeper or non-element file left out, an
-        // unreadable file carried, an unreadable file counted as hidden, or a count not the files left out.
+        // Kills: a doubt handed on in a share, a file in a deeper folder or of another extension carried, a non-element
+        // file outside elements/ and spatial/ left out, an unreadable file carried, an unreadable file counted as hidden,
+        // or a count not the files left out.
         [Test]
         public void Pack_AsAShare_LeavesMarkedDoubtedAndUnreadElementFilesOutWhole_AndCountsThemApart()
         {
@@ -1131,23 +1132,26 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             CollectionAssert.AreEqual(new[]
             {
                 "elements/character/spy.json",
-                "elements/location/vault.JSON",
                 "spatial/pin/secret.json",
             }, leftOut);
-            // §4.8: a file in a type folder the writer could not read as an element (cut short, not an object, not
-            // UTF-8) is left out whole and counted apart from the hidden ones.
+            // §4.8: on a share nothing under elements/ or spatial/ travels but a file the folder reader serves as an
+            // element with no mark. A file it could not read (cut short, not an object, not UTF-8), a deeper folder's
+            // file, a file of another extension and one spelled .JSON (which the archive reader never serves) are left
+            // out whole and counted apart from the hidden ones.
             CollectionAssert.AreEqual(new[]
             {
+                "elements/location/deep/inner.json",
                 "elements/location/latin.json",
                 "elements/location/list.json",
+                "elements/location/note.txt",
                 "elements/location/torn.json",
+                "elements/location/vault.JSON",
             }, unread);
             foreach (var gone in leftOut.Concat(unread)) Assert.IsFalse(entries.Contains("h/" + gone), gone);
             foreach (var kept in new[]
                      {
                          "elements/character/pal.json", "elements/location/open.json", "elements/location/plain.json",
-                         "elements/location/nested.json", "elements/location/deep/inner.json",
-                         "elements/location/note.txt", "media/m.json", "world.json",
+                         "elements/location/nested.json", "media/m.json", "world.json",
                      })
                 Assert.Contains("h/" + kept, entries, kept);
 
@@ -1249,6 +1253,123 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             }
             CollectionAssert.AreEqual(File.ReadAllBytes(archive),
                 File.ReadAllBytes(PackTo(root, "default.owworld")), "the default is the copy, byte for byte");
+        }
+
+        /// <summary>
+        /// A world holding, under <c>elements/</c> and <c>spatial/</c>, every shape a share leaves out though it is no
+        /// unreadable JSON (folder spec §4.8, ruled 2026-11-23): files no folder reader serves (another extension, a
+        /// deeper folder, a file directly under the layout folder, a folder not one of the 22 types or the four legacy
+        /// ones), objects with no id, and ids two files hold; beside them one plain element of each layout, one whole
+        /// hidden one, and files outside the two folders.
+        /// </summary>
+        private string ShareRulesWorld()
+        {
+            var root = Path.Combine(_temp, "r");
+            Write(root, "world.json", WorldJson("0695db52-0000-7000-8000-0000000000bd", "R"));
+            Write(root, "elements/character/plain.json", "{\"id\": \"c-1\", \"name\": \"Plain\"}\n");
+            Write(root, "elements/character/notes.txt", "a person's notes\n");
+            Write(root, "elements/character/old/moved.json", "{\"id\": \"c-9\", \"name\": \"Moved\", \"hidden\": true}\n");
+            Write(root, "elements/README.md", "# readme\n");
+            Write(root, "elements/loose.json", "{\"id\": \"c-7\"}\n");
+            Write(root, "elements/vessel/ark.json", "{\"id\": \"v-1\", \"name\": \"Ark\"}\n");
+            Write(root, "elements/character/noid.json", "{\"hidden\": true}\n");
+            Write(root, "elements/character/nameonly.json", "{\"name\": \"Nobody\"}\n");
+            Write(root, "elements/character/blank.json", "{\"id\": \"\", \"name\": \"Blank\"}\n");
+            Write(root, "elements/character/twin-a.json", "{\"id\": \"c-5\", \"name\": \"Twin\", \"hidden\": true}\n");
+            Write(root, "elements/character/twin-b.json", "{\"id\": \"c-5\", \"name\": \"Twin\"}\n");
+            Write(root, "elements/location/veiled.json", "{\"id\": \"l-1\", \"hidden\": true}\n");
+            Write(root, "elements/pin/marked.json", "{\"id\": \"p-1\", \"hidden\": true}\n");
+            Write(root, "spatial/pin/marked-old.json", "{\"id\": \"p-1\"}\n");
+            Write(root, "spatial/map/m.json", "{\"id\": \"m-1\", \"name\": \"Map\"}\n");
+            Write(root, "spatial/map/notes.txt", "map notes\n");
+            Write(root, "spatial/region/r.json", "{\"id\": \"r-1\"}\n");
+            Write(root, "spatial/loose.json", "{\"id\": \"m-2\"}\n");
+            Write(root, "media/notes.txt", "media notes\n");
+            Write(root, "media/sub/m.json", "{\"hidden\": true}\n");
+            Write(root, "records/lab/ledger.json", "{\"hidden\": true}\n");
+            return root;
+        }
+
+        private static readonly string[] ShareRulesUnread =
+        {
+            "elements/README.md", "elements/character/blank.json", "elements/character/nameonly.json",
+            "elements/character/noid.json", "elements/character/notes.txt", "elements/character/old/moved.json",
+            "elements/character/twin-a.json", "elements/character/twin-b.json", "elements/loose.json",
+            "elements/pin/marked.json", "elements/vessel/ark.json", "spatial/loose.json", "spatial/map/notes.txt",
+            "spatial/pin/marked-old.json", "spatial/region/r.json",
+        };
+
+        // Kills: a file under elements/ or spatial/ that no folder reader serves carried into a share (a notes.txt, a
+        // hidden file moved into old/ by hand, a file loose in the layout folder, a folder not one of the types), an
+        // object with no id read by its mark (counted hidden, or carried), a file outside the two folders left out.
+        [Test]
+        public void Pack_AsAShare_CarriesUnderElementsAndSpatialOnlyAnElementWithNoMark()
+        {
+            var root = ShareRulesWorld();
+            var hidden = new List<string>();
+            var unread = new List<string>();
+            var share = Path.Combine(_temp, "s.owworld");
+            var entries = OWWorldArchive.Pack(root, share, new OWWorldArchivePackOptions
+            {
+                IncludeHidden = false, HiddenLeftOut = hidden, UnreadLeftOut = unread,
+            });
+
+            CollectionAssert.AreEqual(new[] { "elements/location/veiled.json" }, hidden, "only a served element is hidden");
+            CollectionAssert.AreEqual(ShareRulesUnread, unread, "every file no reader serves, named, in code point order");
+            CollectionAssert.AreEqual(new[]
+            {
+                "mimetype", "r/elements/character/plain.json", "r/media/notes.txt", "r/media/sub/m.json",
+                "r/records/lab/ledger.json", "r/spatial/map/m.json", "r/world.json",
+            }, entries);
+
+            // What a receiver reads of it: the two plain elements, nothing hidden, nothing skipped.
+            var read = OWWorldArchive.Read(share, includeLegacySpatial: true);
+            CollectionAssert.AreEqual(new[] { "c-1" }, read.Elements.Select(e => e.Id).ToArray());
+            CollectionAssert.AreEqual(new[] { "m-1" }, read.LegacyElements.Select(e => e.Id).ToArray());
+            CollectionAssert.IsEmpty(read.Skipped);
+        }
+
+        // Kills: the reader's serve-the-first taken as the share's answer for an id two files hold (the hidden first file
+        // left out and the visible twin carried, or a legacy spatial/ copy carried beside a hidden elements/ file).
+        [Test]
+        public void Pack_AsAShare_AnIdTwoFilesHold_TravelsInNeither()
+        {
+            var root = ShareRulesWorld();
+            var hidden = new List<string>();
+            var unread = new List<string>();
+            var share = Path.Combine(_temp, "s.owworld");
+            var entries = OWWorldArchive.Pack(root, share, false, false, includeHidden: false, hidden, unread);
+
+            foreach (var twin in new[] { "elements/character/twin-a.json", "elements/character/twin-b.json",
+                                         "elements/pin/marked.json", "spatial/pin/marked-old.json" })
+            {
+                Assert.IsFalse(entries.Contains("r/" + twin), twin);
+                Assert.Contains(twin, unread, twin);
+                Assert.IsFalse(hidden.Contains(twin), twin + ": the share cannot say which mark is the element's");
+            }
+
+            var read = OWWorldArchive.Read(share, includeLegacySpatial: true);
+            Assert.IsFalse(read.Elements.Concat(read.LegacyElements).Any(e => e.Id == "c-5" || e.Id == "p-1"));
+        }
+
+        // Kills: a copy that drops, rewrites or reports a file the share leaves out.
+        [Test]
+        public void Pack_AsACopy_CarriesEveryFileTheShareLeavesOut_ByteForByte()
+        {
+            var root = ShareRulesWorld();
+            var hidden = new List<string>();
+            var unread = new List<string>();
+            var archive = Path.Combine(_temp, "c.owworld");
+            var entries = OWWorldArchive.Pack(root, archive, false, false, includeHidden: true, hidden, unread);
+
+            CollectionAssert.IsEmpty(hidden);
+            CollectionAssert.IsEmpty(unread, "nothing is left out of a copy");
+            foreach (var name in ShareRulesUnread.Concat(new[] { "elements/location/veiled.json" }))
+            {
+                Assert.Contains("r/" + name, entries, name);
+                CollectionAssert.AreEqual(File.ReadAllBytes(Path.Combine(root, name.Replace('/', Path.DirectorySeparatorChar))),
+                    EntryBytes(archive, "r/" + name), name);
+            }
         }
 
         [Test]

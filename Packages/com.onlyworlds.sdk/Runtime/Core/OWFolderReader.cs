@@ -477,6 +477,10 @@ namespace OnlyWorlds.Sdk
             {
                 throw new OWFolderFormatException($"world.json in '{where}' is refused, {NumberOutOfRangeReason(e)}.", e);
             }
+            catch (OWContentAfterValueException e)
+            {
+                throw new OWFolderFormatException($"world.json in '{where}' is refused, {ContentAfterValueReason(e)}.", e);
+            }
             catch (Exception e)
             {
                 throw new OWFolderFormatException($"world.json in '{where}' is not valid JSON.", e);
@@ -509,6 +513,14 @@ namespace OnlyWorlds.Sdk
         internal static string NumberOutOfRangeReason(OWNumberOutOfRangeException e)
             => $"{OWJson.NumberOutOfRange}: holds a number too large for this reader to hold, at '{e.Path}'";
 
+        /// <summary>
+        /// A skipped file's reason, and a refused file's words, for a text with content after its one JSON value (folder
+        /// spec §4.8): the words first, then where the content starts.
+        /// </summary>
+        internal static string ContentAfterValueReason(OWContentAfterValueException e)
+            => $"{OWContentAfterValueException.Words}, at line {e.LineNumber}, position {e.LinePosition}: a file holds one "
+               + "JSON value and nothing after it but whitespace";
+
         internal static string WorldIdOf(JObject world)
         {
             var id = world?["id"];
@@ -539,6 +551,13 @@ namespace OnlyWorlds.Sdk
                 // JSON, but holding a number no reader here holds: skipped by its name (the TypeScript SDK's and the Python
                 // package's word), never as "unparseable", and left on disk like any file skipped.
                 skipped.Add(new OWSkippedFile { Path = file, Reason = NumberOutOfRangeReason(e) });
+                return;
+            }
+            catch (OWContentAfterValueException e)
+            {
+                // A second value, a comment or a stray character after the object (§4.8): read by no reader, since the
+                // first object alone may be visible where its writer meant it hidden. Skipped by name, left on disk.
+                skipped.Add(new OWSkippedFile { Path = file, Reason = ContentAfterValueReason(e) });
                 return;
             }
             catch (Exception)

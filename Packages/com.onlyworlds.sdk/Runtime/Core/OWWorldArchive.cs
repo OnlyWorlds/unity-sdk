@@ -58,9 +58,9 @@ namespace OnlyWorlds.Sdk
         public ICollection<string> HiddenLeftOut;
 
         /// <summary>
-        /// When given, receives the paths inside the world of the files in a type folder a share left out because it
-        /// could not read them as an element, whatever the reason (folder spec §4.8): counted apart from
-        /// <see cref="HiddenLeftOut"/>. Nothing is added when <see cref="IncludeHidden"/> is on.
+        /// When given, receives the paths inside the world of the files under <c>elements/</c> and <c>spatial/</c> a share
+        /// left out because the folder reader would not serve them as one element, whatever the reason (folder spec
+        /// §4.8): counted apart from <see cref="HiddenLeftOut"/>. Nothing is added when <see cref="IncludeHidden"/> is on.
         /// </summary>
         public ICollection<string> UnreadLeftOut;
 
@@ -326,22 +326,25 @@ namespace OnlyWorlds.Sdk
         /// <param name="includeHidden">
         /// Carry element files marked hidden (folder spec §4.8). On by default in every overload: a world file is a copy,
         /// as keel's own download keeps an owner's hidden elements, and a file is also how a person moves or backs up their
-        /// own world. A tool that makes the file to hand to someone else passes <c>false</c>: every <c>.json</c> file
-        /// directly in a type folder of <c>elements/</c> or the legacy <c>spatial/</c> whose JSON object carries a mark or
-        /// a doubt (<see cref="OWPayload.IsHidden"/>) is left out whole. A file there the writer cannot read as an
-        /// element, for any reason (not UTF-8, not JSON, cut short, nested too deep, a number the parser refuses, not an
-        /// object), is left out whole too, since its mark cannot be read, and counted apart (<paramref name="unreadLeftOut"/>).
-        /// A copy carries every such file byte for byte. Nothing else is rewritten: a visible element's link to a hidden
-        /// one keeps its id.
+        /// own world. A tool that makes the file to hand to someone else passes <c>false</c>, and then nothing under
+        /// <c>elements/</c> or the legacy <c>spatial/</c> travels but a file the folder reader serves as an element with
+        /// no mark. A served element carrying a mark or a doubt (<see cref="OWPayload.IsHidden"/>) is left out whole and
+        /// counted hidden. Every other file there is left out whole and counted apart (<paramref name="unreadLeftOut"/>):
+        /// one the writer cannot read as an element, for any reason (not UTF-8, not JSON, not one JSON value, cut short,
+        /// nested too deep, a number the parser refuses, not an object, no id), one no reader serves (a
+        /// <c>notes.txt</c>, a file in a deeper folder, a folder that is not one of the types), and both files of an id
+        /// two files hold. <c>media/</c> and <c>records/</c> are not read for it. A copy carries every such file byte for
+        /// byte. Nothing else is rewritten: a visible element's link to a hidden one keeps its id.
         /// </param>
         /// <param name="hiddenLeftOut">
         /// When given, receives the paths inside the world (forward slashes, code point order) of the element files left
         /// out for the mark; its count is the count. Nothing is added when <paramref name="includeHidden"/> is on.
         /// </param>
         /// <param name="unreadLeftOut">
-        /// When given, receives the paths inside the world (forward slashes, code point order) of the files in a type
-        /// folder left out because the writer could not read them as an element; its count is the unread count, apart
-        /// from the hidden one. Nothing is added when <paramref name="includeHidden"/> is on.
+        /// When given, receives the paths inside the world (forward slashes, code point order) of the files under
+        /// <c>elements/</c> and <c>spatial/</c> left out because the folder reader would not serve them as one element;
+        /// its count is the unread count, apart from the hidden one. Nothing is added when <paramref name="includeHidden"/>
+        /// is on.
         /// </param>
         /// <returns>The entry names written, in order.</returns>
         /// <exception cref="DirectoryNotFoundException">The folder does not exist.</exception>
@@ -403,9 +406,10 @@ namespace OnlyWorlds.Sdk
             var plan = PackPlan(root, options.IncludePrivateRecords);
             if (!includeHidden)
             {
+                var reads = ReadForShare(root, plan);
                 plan.RemoveAll(entry =>
                 {
-                    switch (ReadForShare(entry.relative, entry.source))
+                    switch (reads[entry.relative])
                     {
                         case ShareRead.Hidden:
                             hiddenLeftOut?.Add(entry.relative);
@@ -660,43 +664,101 @@ namespace OnlyWorlds.Sdk
         /// <summary>What a share's read of a planned file found (folder spec §4.8).</summary>
         internal enum ShareRead
         {
-            /// <summary>Not an element file (not a <c>.json</c> directly in a type folder): a share carries it.</summary>
+            /// <summary>Outside <c>elements/</c> and <c>spatial/</c> (<c>media/</c>, <c>records/</c>): a share carries it.</summary>
             NotAnElementFile,
 
-            /// <summary>Read as an element, no mark found: a share carries it.</summary>
+            /// <summary>Served by the folder reader as an element, no mark found: a share carries it.</summary>
             Visible,
 
-            /// <summary>Read as an element carrying the mark or a doubt: a share leaves it out, counted as hidden.</summary>
+            /// <summary>Served as an element carrying the mark or a doubt: a share leaves it out, counted as hidden.</summary>
             Hidden,
 
-            /// <summary>Could not be read as an element, for any reason: a share leaves it out, counted apart.</summary>
+            /// <summary>Under the two folders and not served as one element, for any reason: left out, counted apart.</summary>
             Unread,
         }
 
         /// <summary>
-        /// A share's read of a planned file (folder spec §4.8): a <c>.json</c> file (any case) directly in a type folder
-        /// of <c>elements/</c> or <c>spatial/</c> is an element file; it is <see cref="ShareRead.Visible"/> only when it
-        /// decodes as UTF-8 and parses as a JSON object with no mark. A file the writer cannot read as an element,
-        /// whatever the reason (not UTF-8, not JSON, cut short, nested past the parser's depth, a number the parser
-        /// refuses, not an object), is <see cref="ShareRead.Unread"/>: a refusal is never an absence. The npm writer's
-        /// <c>isHiddenElement</c>, with the third state the spec names.
+        /// A share's read of every planned file (folder spec §4.8, ruled 2026-11-23): under <c>elements/</c> and
+        /// <c>spatial/</c> nothing travels but a file the package's folder reader would serve as an element and that
+        /// carries no mark (<see cref="ShareRead.Visible"/>); a served element with the mark or a doubt is
+        /// <see cref="ShareRead.Hidden"/>; everything else there is <see cref="ShareRead.Unread"/>, a refusal never an
+        /// absence. Outside the two folders a file is <see cref="ShareRead.NotAnElementFile"/>, read by no one here.
         /// </summary>
-        internal static ShareRead ReadForShare(string relative, string source)
+        /// <remarks>
+        /// <para>
+        /// "Served" is the folder reader's own verdict, by its own code (<see cref="OWFolderReader.ReadEntries"/>, the
+        /// legacy layout included) over the bytes decoded strictly as UTF-8: so no id, an empty id, a text that is not one
+        /// JSON value, a number the reader cannot hold and a byte that is not UTF-8 are all unread. Only a <c>.json</c>
+        /// file directly in a folder named for one of the 22 types (<see cref="OWElementTypes.Slugs"/>) under
+        /// <c>elements/</c>, or one of the four legacy ones under <c>spatial/</c>, is offered to it: a <c>notes.txt</c>,
+        /// a file in a deeper folder (a hidden element's file moved into <c>old/</c> by hand), a file directly in the
+        /// layout folder, a folder no type names and a name spelled <c>.JSON</c> (which the archive reader never serves)
+        /// are unread.
+        /// </para>
+        /// <para>
+        /// An id that two files hold travels in neither file, wherever the two sit: the share cannot say which file's
+        /// mark is the element's, and the reader's serve-the-first is safe in one order only (a hidden first file and its
+        /// visible twin would hand the twin on). Both are unread.
+        /// </para>
+        /// </remarks>
+        internal static Dictionary<string, ShareRead> ReadForShare(string root, List<(string relative, string source)> plan)
         {
-            var parts = relative.Split('/');
-            if (parts.Length != 3 || (parts[0] != "elements" && parts[0] != "spatial")
-                || !parts[2].EndsWith(".json", StringComparison.OrdinalIgnoreCase)) return ShareRead.NotAnElementFile;
+            var reads = new Dictionary<string, ShareRead>(StringComparer.Ordinal);
+            var texts = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var (relative, source) in plan)
+            {
+                var parts = relative.Split('/');
+                if (parts[0] != "elements" && parts[0] != "spatial")
+                {
+                    reads[relative] = ShareRead.NotAnElementFile;
+                    continue;
+                }
+
+                reads[relative] = ShareRead.Unread; // until the folder reader serves it as one element
+                if (IsElementPlace(parts)) texts[relative] = StrictText(source);
+            }
+
+            if (texts.Count == 0) return reads;
+
+            texts[WorldFile] = File.ReadAllText(Path.Combine(root, WorldFile));
+            var read = OWFolderReader.ReadEntries(texts, includeLegacySpatial: true, source: root);
+            var served = read.Elements.Concat(read.LegacyElements).ToList();
+            var files = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (var id in served.Select(e => e.Id).Concat(read.Skipped.Where(s => s.Id != null).Select(s => s.Id)))
+                files[id] = files.TryGetValue(id, out var n) ? n + 1 : 1;
+
+            foreach (var element in served)
+            {
+                if (files[element.Id] != 1) continue;
+                reads[element.Path] = OWPayload.IsHidden(element.Body) ? ShareRead.Hidden : ShareRead.Visible;
+            }
+
+            return reads;
+        }
+
+        /// <summary>
+        /// A path a folder reader serves an element from: a <c>.json</c> file (as written) directly in a folder of
+        /// <c>elements/</c> named for one of the 22 types, or of <c>spatial/</c> named for one of the four legacy ones.
+        /// </summary>
+        private static bool IsElementPlace(string[] parts)
+            => parts.Length == 3 && parts[2].EndsWith(".json", StringComparison.Ordinal)
+               && (parts[0] == "elements" ? Array.IndexOf(OWElementTypes.Slugs, parts[1]) >= 0
+                   : Array.IndexOf(OWFolderReader.LegacySpatialTypes, parts[1]) >= 0);
+
+        /// <summary>
+        /// A file's text decoded strictly as UTF-8, a byte order mark read past; null when it is not UTF-8 or cannot be
+        /// read, which the folder reader takes as a file it could not read.
+        /// </summary>
+        private static string StrictText(string source)
+        {
             try
             {
                 var text = StrictUtf8.GetString(File.ReadAllBytes(source));
-                if (text.Length > 0 && text[0] == '﻿') text = text.Substring(1);
-                if (!(JToken.Parse(text) is JObject body)) return ShareRead.Unread;
-                return OWPayload.IsHidden(body) ? ShareRead.Hidden : ShareRead.Visible;
+                return text.Length > 0 && text[0] == '﻿' ? text.Substring(1) : text;
             }
             catch (Exception)
             {
-                // Every refusal, whatever its type: the rule keys on the writer's own read, never on the reason.
-                return ShareRead.Unread;
+                return null;
             }
         }
 
@@ -781,7 +843,7 @@ namespace OnlyWorlds.Sdk
             try
             {
                 var text = StrictUtf8.GetString(File.ReadAllBytes(path));
-                manifest = JToken.Parse(text.Length > 0 && text[0] == (char)0xFEFF ? text.Substring(1) : text) as JArray;
+                manifest = OWJson.ParseToken(text.Length > 0 && text[0] == (char)0xFEFF ? text.Substring(1) : text) as JArray;
             }
             catch (Exception e)
             {
@@ -877,6 +939,10 @@ namespace OnlyWorlds.Sdk
             try
             {
                 world = OWFolderWriter.Parse(File.ReadAllText(path));
+            }
+            catch (OWContentAfterValueException e)
+            {
+                throw new OWFolderFormatException($"world.json in '{root}' is refused, {OWFolderReader.ContentAfterValueReason(e)}.", e);
             }
             catch (Exception e)
             {

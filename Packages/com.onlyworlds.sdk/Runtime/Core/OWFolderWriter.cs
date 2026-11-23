@@ -100,12 +100,19 @@ namespace OnlyWorlds.Sdk
         /// The body has no usable id, or declares no type. Identity and location are the two things
         /// a writer cannot invent, so both are refusals rather than guesses. Or a file of this id is not
         /// well-formed UTF-8 and the body is not the one the reader read there: the reader decoded it with
-        /// U+FFFD, and the write would put that over the person's bytes (the message names the file).
+        /// U+FFFD, and the write would put that over the person's bytes (the message names the file). Or both
+        /// names this element may take are files the writer cannot read as an element (below).
         /// </exception>
         /// <remarks>
         /// <para>
         /// A body read from a file that is not UTF-8 and not edited is not written: the file stays as it is,
         /// byte for byte, and its path is returned.
+        /// </para>
+        /// <para>
+        /// A writer never writes over a file it could not read (folder spec §4.8): a short name held by a file that is no
+        /// element the reader serves (cut short, not JSON, not one JSON value, a number it cannot hold, no id) sends
+        /// this element to the full-id form, as another id's file does, and that file keeps its bytes. When the
+        /// full-id form is such a file too, nothing is written and the write is refused, naming it.
         /// </para>
         /// <para>
         /// If the id already exists in that directory under a different filename -- a rename -- the
@@ -128,23 +135,10 @@ namespace OnlyWorlds.Sdk
             var undecodable = UndecodableFiles(folder, type);
             RefuseEditOverUndecodable(undecodable, id, body);
 
-            var directory = Path.Combine(folder, "elements", type);
-            // §4 (v0.3.8, one id, one file): an element older Atlas kept under spatial/<type>/ is written there, in
-            // its own file, so the folder never holds one id in both layouts. A new element goes to elements/.
-            var legacy = Path.Combine(folder, "spatial", type);
-            if (Array.IndexOf(OWFolderReader.LegacySpatialTypes, type) >= 0
-                && FilesHoldingId(legacy, id).Count > 0
-                && (!Directory.Exists(directory) || FilesHoldingId(directory, id).Count == 0))
-            {
-                directory = legacy;
-            }
-            Directory.CreateDirectory(directory);
-
-            var name = body["name"] != null && body["name"].Type == JTokenType.String
-                ? body["name"].ToString()
-                : null;
-
+            var directory = DirectoryFor(folder, id, type);
+            var name = NameOf(body);
             var filename = ResolveFilename(directory, id, name);
+            Directory.CreateDirectory(directory);
             var path = Path.Combine(directory, filename);
 
             // A rename moves this element to a new path. §4's writer note (clarified in v0.3.19): the new body goes
@@ -220,6 +214,10 @@ namespace OnlyWorlds.Sdk
                 if (!undecodableByType.TryGetValue(type, out var undecodable))
                     undecodableByType[type] = undecodable = UndecodableFiles(folder, type);
                 RefuseEditOverUndecodable(undecodable, id, body);
+
+                // A body whose every name is a file the writer could not read is refused here, before any is written.
+                // The batch's own writes add only files it reads, so the answer cannot change while it runs.
+                ResolveFilename(DirectoryFor(folder, id, type), id, NameOf(body));
             }
 
             var ids = list.Select(body => IdOf(body)).ToList();
@@ -459,24 +457,74 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
-        /// The short form, unless a different id in this directory already holds that path.
+        /// The directory an element is written into: <c>elements/&lt;type&gt;/</c>, or the legacy <c>spatial/&lt;type&gt;/</c>
+        /// when the element already lives there and not in <c>elements/</c>.
         /// </summary>
+        private static string DirectoryFor(string folder, string id, string type)
+        {
+            var directory = Path.Combine(folder, "elements", type);
+            // §4 (v0.3.8, one id, one file): an element older Atlas kept under spatial/<type>/ is written there, in
+            // its own file, so the folder never holds one id in both layouts. A new element goes to elements/.
+            var legacy = Path.Combine(folder, "spatial", type);
+            if (Array.IndexOf(OWFolderReader.LegacySpatialTypes, type) >= 0
+                && FilesHoldingId(legacy, id).Count > 0
+                && (!Directory.Exists(directory) || FilesHoldingId(directory, id).Count == 0))
+            {
+                directory = legacy;
+            }
+
+            return directory;
+        }
+
+        /// <summary>The body's name when it is a string, the one a filename is made from; otherwise null.</summary>
+        private static string NameOf(JObject body)
+            => body["name"] != null && body["name"].Type == JTokenType.String ? body["name"].ToString() : null;
+
+        /// <summary>
+        /// The short form, unless that path is held by a file that is not this element's: a different id (the writer
+        /// collision rule, §3.2) or a file the writer could not read as an element (§4.8: a writer never writes over a
+        /// file it could not read). Then the next name, the full-id form.
+        /// </summary>
+        /// <exception cref="OWFolderFormatException">
+        /// The full-id form is a file the writer could not read as well (or the only form, for a name with no slug):
+        /// there is no name left that writes over nothing, so nothing is written. The message names the file.
+        /// </exception>
         private static string ResolveFilename(string directory, string id, string name)
         {
             var candidate = ElementFilename(id, name);
-
-            // Looked for case-insensitively, on every filesystem: on NTFS and APFS the two spellings
-            // are one file, and a folder written on Linux is opened on both.
-            var candidatePath = Directory.GetFiles(directory, "*.json")
-                .FirstOrDefault(file => string.Equals(Path.GetFileName(file), candidate, StringComparison.OrdinalIgnoreCase));
+            var candidatePath = FileNamed(directory, candidate);
             if (candidatePath == null) return candidate;
 
             // The path is taken. If it is taken by THIS element, that is not a collision -- it is
             // the ordinary case of rewriting a file in place.
             var occupant = IdInFile(candidatePath);
-            if (occupant == null || string.Equals(occupant, id, StringComparison.Ordinal)) return candidate;
+            if (string.Equals(occupant, id, StringComparison.Ordinal)) return candidate;
 
-            return ElementFilenameFullId(id, name);
+            // Another id, or a file no reader serves as an element (cut short, not JSON, not one value, no id): the
+            // person's bytes stay, and this element takes the next name.
+            var full = ElementFilenameFullId(id, name);
+            var fullPath = FileNamed(directory, full);
+            if (fullPath != null && IdInFile(fullPath) == null)
+            {
+                throw new OWFolderFormatException(
+                    $"'{fullPath}' holds no element the writer can read"
+                    + (fullPath == candidatePath ? "" : $", nor does '{candidatePath}'")
+                    + $", and element '{id}' has no other name to take: a writer never writes over a file it could not "
+                    + "read (folder spec §4.8). Mend or move that file first; nothing was written.");
+            }
+
+            return full;
+        }
+
+        /// <summary>
+        /// The file of this name in the directory, looked for case-insensitively on every filesystem (on NTFS and APFS
+        /// the two spellings are one file, and a folder written on Linux is opened on both); null when there is none.
+        /// </summary>
+        private static string FileNamed(string directory, string filename)
+        {
+            if (!Directory.Exists(directory)) return null;
+            return Directory.GetFiles(directory, "*.json")
+                .FirstOrDefault(file => string.Equals(Path.GetFileName(file), filename, StringComparison.OrdinalIgnoreCase));
         }
 
         private static readonly UTF8Encoding StrictUtf8 = new UTF8Encoding(false, true);
@@ -561,16 +609,22 @@ namespace OnlyWorlds.Sdk
             return others;
         }
 
-        /// <summary>The id inside a file, or null if it has none or cannot be read.</summary>
+        /// <summary>
+        /// The id the folder reader would serve this file as, or null when it would serve none: not one JSON object (cut
+        /// short, not JSON, content after the value, a number the reader cannot hold, not an object) or no id.
+        /// </summary>
         /// <remarks>
-        /// An unreadable neighbour is never an error here. A malformed file is not ours to delete,
-        /// and it must not stop the element we were actually asked to write.
+        /// An unreadable neighbour is never an error here. A malformed file is not ours to delete or to write over
+        /// (<see cref="ResolveFilename"/> gives the element the next name), and it must not stop the element we were
+        /// actually asked to write. Read as the reader reads it (<see cref="Parse"/>, dates kept as text), so an id that
+        /// looks like a date is compared as written.
         /// </remarks>
         private static string IdInFile(string path)
         {
             try
             {
-                return JObject.Parse(File.ReadAllText(path))["id"]?.ToString();
+                var id = Parse(File.ReadAllText(path))["id"]?.ToString();
+                return string.IsNullOrEmpty(id) ? null : id;
             }
             catch (Exception)
             {

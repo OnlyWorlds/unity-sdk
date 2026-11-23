@@ -3707,6 +3707,11 @@ namespace OnlyWorlds.Sdk
                 // The answer holds a number this reader cannot hold: the refusal by its name, saying which request.
                 throw e.At($"{method} {path}");
             }
+            catch (OWContentAfterValueException e)
+            {
+                // The answer is not one JSON value (folder spec §4.8): refused, saying which request.
+                throw e.At($"{method} {path}");
+            }
         }
 
         /// <summary>

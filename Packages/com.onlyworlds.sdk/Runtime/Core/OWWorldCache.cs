@@ -134,7 +134,8 @@ namespace OnlyWorlds.Sdk
         /// </remarks>
         /// <exception cref="OWNumberOutOfRangeException">
         /// The raw JSON holds the key and a number the reader cannot hold: whether it is a stub cannot be told, and
-        /// "false" would read it as whole.
+        /// "false" would read it as whole. The same for a raw body with content after its one JSON value (folder spec
+        /// §4.8), thrown as a <see cref="Newtonsoft.Json.JsonReaderException"/> saying where the content starts.
         /// </exception>
         public bool IsKnownOf(string id)
         {
@@ -148,7 +149,7 @@ namespace OnlyWorlds.Sdk
             {
                 return OWPayload.IsKnownOf(OWJson.ParseObject(raw));
             }
-            catch (Newtonsoft.Json.JsonException e) when (!(e is OWNumberOutOfRangeException))
+            catch (Newtonsoft.Json.JsonException e) when (!(e is OWNumberOutOfRangeException) && !(e is OWContentAfterValueException))
             {
                 return false;
             }

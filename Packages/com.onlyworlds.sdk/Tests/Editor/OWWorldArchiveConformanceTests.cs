@@ -173,6 +173,54 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             }
         }
 
+        /// <summary>
+        /// The writer's half of the share case (folder spec §4.8, OW-23): the copy side's world, packed again by
+        /// <see cref="OWWorldArchive.Pack(string, string, OWWorldArchivePackOptions)"/> as a share and as a copy, gives
+        /// each side's files byte for byte, the marker aside, and the share's report names what the side's
+        /// <c>left_out</c> names: the hidden paths, and apart from them the unread ones.
+        /// </summary>
+        [TestCase(false, "pass-OW-23-share-leaves-unread-out.owworld")]
+        [TestCase(true, "pass-OW-23-copy-carries-unread.owworld")]
+        public void Pack_OnTheShareCase_GivesEachSideOfTheSet(bool includeHidden, string side)
+        {
+            const string source = "pass-OW-23-copy-carries-unread.owworld";
+            if (Verdicts == null || !File.Exists(Path.Combine(FixtureDir, source)))
+            {
+                Assert.Ignore("This set has no share case (OW-23, folder spec §4.8). Nothing ran.");
+            }
+
+            var temp = Path.Combine(Path.GetTempPath(), "ow-conformance-share-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                ZipFile.ExtractToDirectory(Path.Combine(FixtureDir, source), temp);
+                var packed = Path.Combine(temp, "packed.owworld");
+                var hidden = new List<string>();
+                var unread = new List<string>();
+                OWWorldArchive.Pack(Path.Combine(temp, "abbey"), packed, new OWWorldArchivePackOptions
+                {
+                    IncludeHidden = includeHidden, HiddenLeftOut = hidden, UnreadLeftOut = unread,
+                });
+
+                var want = FilesOf(Path.Combine(FixtureDir, side));
+                var got = FilesOf(packed);
+                CollectionAssert.AreEqual(want.Keys.ToList(), got.Keys.ToList(), $"Pack's entries are not {side}'s");
+                foreach (var name in want.Keys)
+                {
+                    CollectionAssert.AreEqual(want[name], got[name], $"{name} differs from {side}'s bytes");
+                }
+
+                var leftOut = Verdicts["fixtures"].Cast<JObject>().First(f => (string)f["file"] == side)["left_out"] as JObject;
+                CollectionAssert.AreEqual(leftOut?["hidden"]?.Select(t => (string)t).ToList() ?? new List<string>(), hidden,
+                    "the share's hidden list is not the side's");
+                CollectionAssert.AreEqual(leftOut?["unread"]?.Select(t => (string)t).ToList() ?? new List<string>(), unread,
+                    "the share's unread list is not the side's");
+            }
+            finally
+            {
+                if (Directory.Exists(temp)) Directory.Delete(temp, recursive: true);
+            }
+        }
+
         /// <summary>An archive's files by name, in its order, inflated; the marker left out (Pack always writes it).</summary>
         private static Dictionary<string, byte[]> FilesOf(string archive)
         {

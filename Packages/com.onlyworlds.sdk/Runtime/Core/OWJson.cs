@@ -113,6 +113,11 @@ namespace OnlyWorlds.Sdk
         /// runtime (<see cref="OWExactReader"/>): Newtonsoft reads it with the runtime's <c>double.TryParse</c>, and
         /// Unity's Mono misreads ordinary numbers that keel and npm write (<c>263.2953629956518</c>, one step off).
         /// </para>
+        /// <para>
+        /// The text is one value and nothing after it but whitespace (folder spec §4.8): a second value, a comment or any
+        /// other character after the object is refused (<see cref="OWContentAfterValueException"/>), where
+        /// <c>JObject.Load</c> alone would hand back the first object of <c>{"id": "c-9"} {"hidden": true}</c>.
+        /// </para>
         /// </remarks>
         public static JObject ParseObject(string text)
         {
@@ -121,29 +126,35 @@ namespace OnlyWorlds.Sdk
             {
                 reader.DateParseHandling = DateParseHandling.None;
                 reader.FloatParseHandling = FloatParseHandling.Double;
-                return JObject.Load(reader);
+                var value = JObject.Load(reader);
+                reader.RefuseContentAfterValue();
+                return value;
             }
         }
 
         /// <summary>
-        /// Deserializes with <see cref="Settings"/>, as <c>JsonConvert.DeserializeObject</c> does (content after the
-        /// value is refused), reading every double exactly as <see cref="ParseObject"/> does: an element's
-        /// <c>x_</c> doubles as much as a typed field.
+        /// Deserializes with <see cref="Settings"/>, as <c>JsonConvert.DeserializeObject</c> does, reading every double
+        /// exactly as <see cref="ParseObject"/> does: an element's <c>x_</c> doubles as much as a typed field. Content
+        /// after the value is refused as <see cref="ParseObject"/> refuses it, a comment and every character but JSON's
+        /// whitespace included (Newtonsoft's own check passes over a comment and U+00A0).
         /// </summary>
         public static T Deserialize<T>(string json)
         {
             if (json == null) throw new ArgumentNullException(nameof(json));
             var serializer = JsonSerializer.CreateDefault(Settings);
-            serializer.CheckAdditionalContent = true;
+            serializer.CheckAdditionalContent = false;
             using (var reader = new OWExactReader(json))
             {
-                return serializer.Deserialize<T>(reader);
+                var value = serializer.Deserialize<T>(reader);
+                reader.RefuseContentAfterValue();
+                return value;
             }
         }
 
         /// <summary>
         /// <c>JToken.Parse</c> with its own settings (an ISO-8601 string still becomes a date token, as it did at the
-        /// one caller), reading every double exactly.
+        /// one caller), reading every double exactly, and refusing content after the value as <see cref="ParseObject"/>
+        /// does.
         /// </summary>
         internal static JToken ParseToken(string text)
         {
@@ -151,12 +162,7 @@ namespace OnlyWorlds.Sdk
             using (var reader = new OWExactReader(text))
             {
                 var token = JToken.ReadFrom(reader);
-
-                // Any content here other than a comment throws in the reader, as in JToken.Parse.
-                while (reader.Read())
-                {
-                }
-
+                reader.RefuseContentAfterValue();
                 return token;
             }
         }
@@ -245,5 +251,43 @@ namespace OnlyWorlds.Sdk
                 ? literal
                 : literal.Substring(0, 12) + "..." + literal.Substring(literal.Length - 4)
                   + " (" + literal.Length.ToString(CultureInfo.InvariantCulture) + " characters)";
+    }
+
+    /// <summary>
+    /// A JSON text with content after its one value (folder spec §4.8): a second value, a comment, or any character but
+    /// JSON's whitespace (space, tab, LF, CR). <c>{"id": "c-9"} {"hidden": true}</c> is read by no reader of the SDK, since
+    /// one that took the first object would serve as visible what its writer meant hidden.
+    /// </summary>
+    /// <remarks>
+    /// A <see cref="JsonReaderException"/>, so a caller that catches <see cref="JsonException"/> still catches it. Its
+    /// <see cref="JsonReaderException.LineNumber"/> and <see cref="JsonReaderException.LinePosition"/> are where the
+    /// content starts (both from 1). A folder or a <c>.owworld</c> skips such a file and serves the rest, its
+    /// <see cref="OWSkippedFile.Reason"/> starting "content after the JSON value"; a <c>world.json</c> or an export file
+    /// holding one is refused; a response holding one throws this, its message naming the request.
+    /// </remarks>
+    internal sealed class OWContentAfterValueException : JsonReaderException
+    {
+        private OWContentAfterValueException(string message, int lineNumber, int linePosition, Exception inner)
+            : base(message, "", lineNumber, linePosition, inner)
+        {
+        }
+
+        /// <summary>The words a skipped file's reason and a refusal's message carry.</summary>
+        internal const string Words = "content after the JSON value";
+
+        /// <summary>The refusal of <paramref name="found"/>, the first character after the value that is not whitespace.</summary>
+        internal static OWContentAfterValueException Of(char found, int lineNumber, int linePosition)
+            => new OWContentAfterValueException(
+                $"Not one JSON value: {Words} at line {lineNumber.ToString(CultureInfo.InvariantCulture)}, position "
+                + $"{linePosition.ToString(CultureInfo.InvariantCulture)} ({Shown(found)}). A JSON text holds one value and "
+                + "nothing after it but whitespace, so it is not read.",
+                lineNumber, linePosition, null);
+
+        /// <summary>The same refusal, its message saying where the text came from (a request, a file).</summary>
+        internal OWContentAfterValueException At(string where)
+            => new OWContentAfterValueException(where + ": " + Message, LineNumber, LinePosition, this);
+
+        private static string Shown(char c)
+            => c >= 0x21 && c <= 0x7E ? "'" + c + "'" : "U+" + ((int)c).ToString("X4", CultureInfo.InvariantCulture);
     }
 }
