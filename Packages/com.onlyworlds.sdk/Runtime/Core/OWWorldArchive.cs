@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Globalization;
 using System.IO.Compression;
 using System.Linq;
+using System.Numerics;
 using System.Text;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json.Linq;
@@ -63,6 +65,43 @@ namespace OnlyWorlds.Sdk
         /// §4.8): counted apart from <see cref="HiddenLeftOut"/>. Nothing is added when <see cref="IncludeHidden"/> is on.
         /// </summary>
         public ICollection<string> UnreadLeftOut;
+
+        /// <summary>
+        /// Carry the author fields of every file under <c>elements/</c> and <c>spatial/</c>: <c>created_by</c>,
+        /// <c>changed_by</c>, <c>changed_via</c>, <c>changed_client</c> and <c>doors</c>, which record which member and
+        /// which tool wrote an element (a membership id, a door) and mean nothing to someone the world is handed to. Off
+        /// by default: a world file is a file handed on (folder spec §4.2), so each file there that is one JSON object
+        /// and holds any of the five at its top level is rewritten without them, in the folder's own form
+        /// (<see cref="OWFolderWriter.Serialize"/>: two-space indent, a trailing newline, the other keys in their order).
+        /// Pass <c>true</c> for a byte copy of your own folder.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// "One JSON object" is read as the TypeScript SDK reads a file it did not write: strict UTF-8 (a byte order mark
+        /// read past), one value by JSON's own grammar and nothing after it but white space, every number one a double
+        /// holds. A file that is not, an array, a file holding none of the five and every file outside the two folders
+        /// (<c>world.json</c>, <c>media/</c>, <c>records/</c>) travel byte for byte. Only top-level keys go: an
+        /// <c>x_</c> value that holds one of the names is the extension's, and stays.
+        /// </para>
+        /// <para>
+        /// A rewrite never writes a value the file does not hold, nor one JavaScript would write differently: a file is
+        /// rewritten only when every number in it is written back as <c>JSON.stringify</c> writes it after
+        /// <c>JSON.parse</c>. So a file holding an integer past 2^53 that JavaScript would round
+        /// (<c>12345678901234567891</c>) keeps its bytes, the five included, as a number no double holds
+        /// (<c>1e400</c>) does, and so does a file holding the escape of a lone surrogate (<c>"\ud800"</c>), which
+        /// Newtonsoft reads as U+FFFD. Newtonsoft's reader stops at 64 levels of nesting, so a file nested deeper keeps
+        /// its bytes too, where the TypeScript SDK reads to 200.
+        /// </para>
+        /// </remarks>
+        public bool IncludeAuthorFields;
+
+        /// <summary>
+        /// When given, receives the paths inside the world (forward slashes, code point order) of the files written
+        /// without their author fields; its count is the count. Nothing is added when
+        /// <see cref="IncludeAuthorFields"/> is on. In a share (<see cref="IncludeHidden"/> off) only files it carries
+        /// are counted.
+        /// </summary>
+        public ICollection<string> AuthorFieldsLeftOut;
 
         /// <summary>
         /// Write every entry stored (zip method 0), none deflated, so the archive can be read by a player that cannot
@@ -169,6 +208,13 @@ namespace OnlyWorlds.Sdk
     /// it (a private copy, not a portable <c>.owworld</c>). That block holds an API key, and an archive is made to be
     /// shared: committed with a project, sent, shipped in a build. Nothing else in <c>world.json</c> changes. A read
     /// strips the block from whatever archive it meets and never returns it (folder spec §4.7, OW-10).
+    /// </para>
+    /// <para>
+    /// <b>The rule: who wrote it does not travel.</b> The five author fields (<c>created_by</c>, <c>changed_by</c>,
+    /// <c>changed_via</c>, <c>changed_client</c>, <c>doors</c>: which member and which tool wrote an element) are left
+    /// out of every file under <c>elements/</c> and <c>spatial/</c> that is one JSON object, unless the caller asks for
+    /// a byte copy (<see cref="OWWorldArchivePackOptions.IncludeAuthorFields"/>): an archive is a file handed on
+    /// (folder spec §4.2). Such a file is rewritten in the folder's own form; every other file keeps its bytes.
     /// </para>
     /// <para>
     /// <b>Known gap, media.</b> <see cref="Pack"/> carries <c>media/</c> (it is world content), but
@@ -334,7 +380,8 @@ namespace OnlyWorlds.Sdk
         /// nested too deep, a number the parser refuses, not an object, no id), one no reader serves (a
         /// <c>notes.txt</c>, a file in a deeper folder, a folder that is not one of the types), and both files of an id
         /// two files hold. <c>media/</c> and <c>records/</c> are not read for it. A copy carries every such file byte for
-        /// byte. Nothing else is rewritten: a visible element's link to a hidden one keeps its id.
+        /// byte. Nothing else is rewritten for the share: a visible element's link to a hidden one keeps its id (the
+        /// author fields are left out either way, <see cref="OWWorldArchivePackOptions.IncludeAuthorFields"/>).
         /// </param>
         /// <param name="hiddenLeftOut">
         /// When given, receives the paths inside the world (forward slashes, code point order) of the element files left
@@ -439,7 +486,18 @@ namespace OnlyWorlds.Sdk
                 foreach (var (relative, source) in plan)
                 {
                     var name = top + "/" + relative;
-                    zip.Add(name, relative == WorldFile ? worldBytes : File.ReadAllBytes(source), deflate);
+                    var bytes = relative == WorldFile ? worldBytes : File.ReadAllBytes(source);
+                    if (!options.IncludeAuthorFields && IsUnderElementFolders(relative))
+                    {
+                        var bare = WithoutAuthorFields(bytes);
+                        if (bare != null)
+                        {
+                            bytes = bare;
+                            options.AuthorFieldsLeftOut?.Add(relative);
+                        }
+                    }
+
+                    zip.Add(name, bytes, deflate);
                     written.Add(name);
                 }
 
@@ -753,13 +811,314 @@ namespace OnlyWorlds.Sdk
         {
             try
             {
-                var text = StrictUtf8.GetString(File.ReadAllBytes(source));
-                return text.Length > 0 && text[0] == '﻿' ? text.Substring(1) : text;
+                return StrictText(File.ReadAllBytes(source));
             }
             catch (Exception)
             {
                 return null;
             }
+        }
+
+        /// <summary>Bytes decoded strictly as UTF-8, a byte order mark read past; null when they are not UTF-8.</summary>
+        private static string StrictText(byte[] bytes)
+        {
+            try
+            {
+                var text = StrictUtf8.GetString(bytes);
+                return text.Length > 0 && text[0] == '﻿' ? text.Substring(1) : text;
+            }
+            catch (ArgumentException)
+            {
+                return null; // DecoderFallbackException: not UTF-8
+            }
+        }
+
+        // -- Author fields ----------------------------------------------------
+
+        /// <summary>
+        /// Which member and which tool wrote an element (a membership id, a door): nothing to someone the world is handed
+        /// to, so a world file leaves them out unless asked (<see cref="OWWorldArchivePackOptions.IncludeAuthorFields"/>).
+        /// The TypeScript SDK's <c>AUTHOR_FIELDS</c>, in its order.
+        /// </summary>
+        internal static readonly string[] AuthorFields = { "created_by", "changed_by", "changed_via", "changed_client", "doors" };
+
+        /// <summary>The deepest nesting the TypeScript SDK reads (its <c>OUTSIDE_JSON_MAX_DEPTH</c>): an object or array at the top is 1.</summary>
+        private const int OutsideJsonMaxDepth = 200;
+
+        /// <summary>Whether a path inside the world sits under <c>elements/</c> or the legacy <c>spatial/</c>, as written.</summary>
+        private static bool IsUnderElementFolders(string relative)
+            => relative.StartsWith("elements/", StringComparison.Ordinal) || relative.StartsWith("spatial/", StringComparison.Ordinal);
+
+        /// <summary>
+        /// A file under the element folders without its author fields, in the folder's own form
+        /// (<see cref="OWFolderWriter.Serialize"/>, UTF-8 with no byte order mark), or null when its bytes travel as they
+        /// are: it holds none of the five at its top level, or it is not one JSON object as the TypeScript SDK reads a file
+        /// it did not write (<c>parseOutsideJson</c>), or a rewrite would write a number other than the one
+        /// <c>JSON.stringify</c> writes for it.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// "One JSON object": strict UTF-8 with a byte order mark read past, then JSON's own grammar
+        /// (<see cref="IsOneJsonValue"/>), since Newtonsoft also reads comments, single quotes, bare names, trailing
+        /// commas, <c>NaN</c>, a leading zero and a raw control character inside a string, none of which
+        /// <c>JSON.parse</c> takes; then <see cref="OWFolderWriter.Parse"/>, which reads every double exactly and refuses
+        /// a number no double holds (<see cref="OWNumberOutOfRangeException"/>). Newtonsoft's reader stops at 64 levels
+        /// of nesting where the TypeScript SDK reads to 200: a file between the two keeps its bytes here (an open
+        /// difference, kept as it is).
+        /// </para>
+        /// <para>
+        /// Numbers: a double is read exactly and written as <c>JSON.stringify</c> writes it, so it never stops a
+        /// rewrite. An integer is kept as an integer by the reader and written as read, where JavaScript reads it as a
+        /// double: past 2^53 the two can differ (<c>12345678901234567891</c>, which JavaScript writes
+        /// <c>12345678901234567000</c>). A file holding such an integer keeps its bytes, so this writer never writes a
+        /// value the file does not hold, nor one the TypeScript SDK would write differently.
+        /// </para>
+        /// <para>
+        /// Strings: a <c>\u</c> escape of a lone surrogate (<c>"\ud800x"</c>) is read by Newtonsoft as U+FFFD, where
+        /// <c>JSON.parse</c> keeps it and the TypeScript SDK writes it back escaped; a file holding one keeps its bytes
+        /// (<see cref="HoldsLoneSurrogateEscape"/>).
+        /// </para>
+        /// <para>
+        /// A key the file gives twice keeps its first place and its last value, as <c>JSON.parse</c> reads it. Keys keep
+        /// the order they came in, an integer-like key too (where <c>JSON.stringify</c> would put it first).
+        /// </para>
+        /// </remarks>
+        internal static byte[] WithoutAuthorFields(byte[] bytes)
+        {
+            var text = StrictText(bytes);
+            if (text == null || !IsOneJsonValue(text) || HoldsLoneSurrogateEscape(text)) return null;
+
+            JObject doc;
+            try
+            {
+                doc = OWFolderWriter.Parse(text);
+            }
+            catch (Newtonsoft.Json.JsonException)
+            {
+                return null; // not an object, too deep for the reader, or a number it cannot hold
+            }
+
+            var present = AuthorFields.Where(field => doc.Property(field) != null).ToList();
+            if (present.Count == 0 || !EveryNumberAsJavaScriptWritesIt(doc)) return null;
+
+            foreach (var field in present) doc.Remove(field);
+            return new UTF8Encoding(false).GetBytes(OWFolderWriter.Serialize(doc));
+        }
+
+        /// <summary>
+        /// Whether every integer in <paramref name="token"/> is written back as <c>JSON.stringify</c> writes it after
+        /// <c>JSON.parse</c>: its text is the ECMAScript spelling of the nearest double (<see cref="OWJsNumber"/>).
+        /// Doubles are not looked at: the reader reads them exactly, and the writer spells them as ECMAScript does.
+        /// </summary>
+        private static bool EveryNumberAsJavaScriptWritesIt(JToken token)
+        {
+            var stack = new Stack<JToken>();
+            stack.Push(token);
+            while (stack.Count > 0)
+            {
+                var item = stack.Pop();
+                if (item is JContainer container)
+                {
+                    foreach (var child in container.Children()) stack.Push(child);
+                }
+                else if (item.Type == JTokenType.Integer)
+                {
+                    var value = ((JValue)item).Value;
+                    var text = value is BigInteger big
+                        ? big.ToString(CultureInfo.InvariantCulture)
+                        : Convert.ToString(value, CultureInfo.InvariantCulture);
+                    if (!OWJsNumber.TryParse(text, 0, text.Length, out var asDouble) || OWJsNumber.Format(asDouble) != text)
+                        return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Whether <paramref name="text"/> is one JSON value by RFC 8259's grammar, with nothing after it but JSON's
+        /// white space (space, tab, LF, CR), nested at most <see cref="OutsideJsonMaxDepth"/> deep: what
+        /// <c>JSON.parse</c> reads, and the TypeScript SDK's line on depth. No value is built.
+        /// </summary>
+        internal static bool IsOneJsonValue(string text)
+        {
+            var i = 0;
+            SkipJsonWhite(text, ref i);
+            if (!JsonValueAt(text, ref i, 1)) return false;
+            SkipJsonWhite(text, ref i);
+            return i == text.Length;
+        }
+
+        private static void SkipJsonWhite(string s, ref int i)
+        {
+            while (i < s.Length && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r')) i++;
+        }
+
+        /// <summary>One value from <paramref name="i"/>; <paramref name="depth"/> is the depth an object or array here would have.</summary>
+        private static bool JsonValueAt(string s, ref int i, int depth)
+        {
+            if (i >= s.Length) return false;
+            switch (s[i])
+            {
+                case '{':
+                case '[':
+                {
+                    if (depth > OutsideJsonMaxDepth) return false;
+                    var close = s[i] == '{' ? '}' : ']';
+                    var isObject = close == '}';
+                    i++;
+                    SkipJsonWhite(s, ref i);
+                    if (i < s.Length && s[i] == close)
+                    {
+                        i++;
+                        return true;
+                    }
+
+                    while (true)
+                    {
+                        if (isObject)
+                        {
+                            if (i >= s.Length || s[i] != '"' || !JsonStringAt(s, ref i)) return false;
+                            SkipJsonWhite(s, ref i);
+                            if (i >= s.Length || s[i] != ':') return false;
+                            i++;
+                            SkipJsonWhite(s, ref i);
+                        }
+
+                        if (!JsonValueAt(s, ref i, depth + 1)) return false;
+                        SkipJsonWhite(s, ref i);
+                        if (i >= s.Length) return false;
+                        if (s[i] == close)
+                        {
+                            i++;
+                            return true;
+                        }
+
+                        if (s[i] != ',') return false;
+                        i++;
+                        SkipJsonWhite(s, ref i);
+                    }
+                }
+                case '"':
+                    return JsonStringAt(s, ref i);
+                case 't':
+                    return JsonWordAt(s, ref i, "true");
+                case 'f':
+                    return JsonWordAt(s, ref i, "false");
+                case 'n':
+                    return JsonWordAt(s, ref i, "null");
+                default:
+                    return JsonNumberAt(s, ref i);
+            }
+        }
+
+        private static bool JsonWordAt(string s, ref int i, string word)
+        {
+            if (string.CompareOrdinal(s, i, word, 0, word.Length) != 0) return false;
+            i += word.Length;
+            return true;
+        }
+
+        /// <summary>A string from its opening quote: no raw character below U+0020, and only JSON's escapes.</summary>
+        private static bool JsonStringAt(string s, ref int i)
+        {
+            i++;
+            while (i < s.Length)
+            {
+                var c = s[i++];
+                if (c == '"') return true;
+                if (c < ' ') return false;
+                if (c != '\\') continue;
+                if (i >= s.Length) return false;
+                var e = s[i++];
+                if (e == 'u')
+                {
+                    if (i + 4 > s.Length) return false;
+                    for (var k = 0; k < 4; k++, i++)
+                        if (!Uri.IsHexDigit(s[i])) return false;
+                }
+                else if (e != '"' && e != '\\' && e != '/' && e != 'b' && e != 'f' && e != 'n' && e != 'r' && e != 't')
+                {
+                    return false;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>A number: <c>-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?</c>.</summary>
+        private static bool JsonNumberAt(string s, ref int i)
+        {
+            if (i < s.Length && s[i] == '-') i++;
+            if (i >= s.Length) return false;
+            if (s[i] == '0') i++;
+            else if (s[i] >= '1' && s[i] <= '9') SkipDigits(s, ref i);
+            else return false;
+
+            if (i < s.Length && s[i] == '.')
+            {
+                i++;
+                if (!SkipDigits(s, ref i)) return false;
+            }
+
+            if (i < s.Length && (s[i] == 'e' || s[i] == 'E'))
+            {
+                i++;
+                if (i < s.Length && (s[i] == '+' || s[i] == '-')) i++;
+                if (!SkipDigits(s, ref i)) return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>Past a run of ASCII digits; false when there was none.</summary>
+        private static bool SkipDigits(string s, ref int i)
+        {
+            var start = i;
+            while (i < s.Length && s[i] >= '0' && s[i] <= '9') i++;
+            return i > start;
+        }
+
+        /// <summary>
+        /// Whether a string in <paramref name="s"/> (one JSON value, <see cref="IsOneJsonValue"/>) holds a <c>\u</c>
+        /// escape of a surrogate that is not one half of an escaped pair (<c>"\ud800x"</c>). Newtonsoft reads a lone high
+        /// one as U+FFFD, where <c>JSON.parse</c> keeps it, so a rewrite would write a string the file does not hold.
+        /// </summary>
+        private static bool HoldsLoneSurrogateEscape(string s)
+        {
+            var inString = false;
+            var pendingHigh = false; // the string's last character was an escaped high surrogate
+            for (var i = 0; i < s.Length; i++)
+            {
+                var c = s[i];
+                if (!inString)
+                {
+                    if (c == '"') inString = true;
+                    continue;
+                }
+
+                if (c == '\\' && s[i + 1] == 'u')
+                {
+                    var unit = int.Parse(s.Substring(i + 2, 4), NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture);
+                    i += 5;
+                    if (unit >= 0xDC00 && unit <= 0xDFFF)
+                    {
+                        if (!pendingHigh) return true;
+                        pendingHigh = false;
+                        continue;
+                    }
+
+                    if (pendingHigh) return true;
+                    pendingHigh = unit >= 0xD800 && unit <= 0xDBFF;
+                    continue;
+                }
+
+                if (pendingHigh) return true;
+                if (c == '\\') i++; // a two-character escape: its second character is no quote
+                else if (c == '"') inString = false;
+            }
+
+            return pendingHigh;
         }
 
         /// <summary>

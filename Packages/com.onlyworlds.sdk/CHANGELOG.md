@@ -6,6 +6,40 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **`OWWorldArchivePackOptions.IncludeAuthorFields` and `AuthorFieldsLeftOut`.** Pass `IncludeAuthorFields = true`
+  for a byte copy of your own folder, author fields included; `AuthorFieldsLeftOut`, when given, receives the paths
+  of the files written without them (forward slashes, code point order), as `HiddenLeftOut` does for hidden ones.
+
+### Changed
+
+- **A world file leaves out who wrote each element.** `OWWorldArchive.Pack` now removes the five author fields
+  (`created_by`, `changed_by`, `changed_via`, `changed_client`, `doors`: which member and which tool wrote an element,
+  a membership id and a door, nothing to someone the world is handed to) from every file under `elements/` and the
+  legacy `spatial/` that is one JSON object, whatever its name, extension or depth, and whether or not it is read as
+  an element. Every overload does, the Editor's **Pack World Folder...** menu included: a `.owworld` is a file handed
+  on (folder spec §4.2). Only top-level keys go (an `x_` value that holds one of the names stays), and a key present
+  with `null` goes too. Such a file is rewritten in the folder's own form (`OWFolderWriter.Serialize`: two-space
+  indent, LF, a trailing newline, the other keys in their order, numbers and strings as `JSON.stringify` writes them,
+  no byte order mark); a file holding none of the five, a file that is no JSON object (an array, a write cut short,
+  not UTF-8), and `world.json`, `media/` and `records/` keep their bytes. In a share (`IncludeHidden = false`) only the
+  files it carries are counted. Parity with the TypeScript SDK 4.203.1 (and 4.109.0): `author-fields.fixture.json`
+  (7 cases, the same bytes as the TypeScript SDK's and the Python package's) is vendored byte for byte with its
+  sha256 held, and every case passes, each entry compared byte for byte, with the count.
+
+  "One JSON object" is read as the TypeScript SDK reads a file it did not write: strict UTF-8 (a byte order mark read
+  past), one value by JSON's grammar and nothing after it, every number one a double holds. So a file Newtonsoft reads
+  but `JSON.parse` does not (a comment, single quotes, a bare name, a trailing comma, `NaN`, a leading zero, a raw tab
+  inside a string) keeps its bytes. **Where the two packages' readers differ, a file keeps its bytes, which is the safe
+  side for every reader:** a rewrite here never writes a value the file does not hold, nor one the TypeScript SDK
+  would write differently. A file holding an integer past 2^53 that JavaScript reads rounded (`12345678901234567891`,
+  which the TypeScript SDK writes back as `12345678901234567000`) keeps its bytes, the author fields included, as a
+  number no double holds (`1e400`) does in both. So does a file holding the escape of a lone surrogate (`"\ud800"`,
+  which Newtonsoft reads as U+FFFD), and one nested more than 64 deep, past Newtonsoft's reader (the TypeScript SDK
+  reads to 200). An integer-like key (`"0"`, `"12"`) keeps its place in the object, where `JSON.stringify` would put
+  it first.
+
 ## [0.52.0] - 2026-11-24
 
 A stored calendar no longer sets what one date label costs: in 0.51.0 a calendar with long runs of spaces in its
