@@ -6,6 +6,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.51.0] - 2026-11-24
+
+The name finder reads a text once, whatever the names: a long name whose opening words a text repeats took 0.50.0
+up to 50 seconds (measured on Mono, outside Unity), and now takes milliseconds. Beside it, the names two elements share, and a reader for
+which of a map's Pins one Character knows, for a map drawn as that Character sees it. The folder reader now reads type
+folders, extensions and ids as written on every platform, and the folder writer touches only what the reader serves.
+A minor release because it adds public API (below).
+
 ### Added
 
 - **`OWMapSpace.PinsKnownTo(pins, served)`: which of a map's Pins one reader knows**, for a map drawn as one
