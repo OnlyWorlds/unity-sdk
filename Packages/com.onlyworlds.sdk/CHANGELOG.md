@@ -6,6 +6,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.52.0] - 2026-11-24
+
+A stored calendar no longer sets what one date label costs: in 0.51.0 a calendar with long runs of spaces in its
+labels, or a very long month, could take seconds to minutes for one label (measured on Mono, outside Unity), and now
+takes under a millisecond, with every answer as before. Beside it, the most linked elements of each type, from a
+reader's graph. A minor release because it adds public API (below).
+
 ### Added
 
 - **`OWMostLinked.Of(graph, options)`: the most linked elements of each type.** From the graph `OWGraph.Read`
