@@ -876,27 +876,108 @@ namespace OnlyWorlds.Sdk
             public CalendarIntercalary Intercalary;
         }
 
-        /// <summary>The slots of absolute year y, in step order. O(config).</summary>
-        static List<DaySlot> YearSlots(CalendarConfig cfg, long y)
+        /// <summary>One run of a year's slots: an intercalary day (length 1, its slot held), or a month's days.</summary>
+        sealed class YearRun
         {
-            var slots = new List<DaySlot>();
-            var months = cfg.Bundles?.Months;
-            if (months == null) return slots;
-            var inter = Inter(cfg);
-            void Push(long afterMonth)
+            public long Start;
+            public long Length;
+            public int Month;         // 0 for an intercalary day
+            public DaySlot Slot;      // the intercalary day's slot; null for a month's run of days
+        }
+
+        /// <summary>
+        /// The slots of absolute year y, in step order, as runs: each intercalary day one run, each month one run of its
+        /// days, so finding a slot is arithmetic and a long month costs nothing (TypeScript SDK 4.201.2's yearRuns; before
+        /// it a year was a list of every day, built on each call). A month with no length listed, or one of 0 or less
+        /// (only a config built by hand has either), holds no day, as the list held none. TypeScript keeps the list where
+        /// a length is not an integer; a length here is a <c>long</c>, so the runs serve every config.
+        /// </summary>
+        sealed class YearLayout
+        {
+            readonly List<YearRun> _runs = new List<YearRun>();
+
+            /// <summary>How many slots the year holds.</summary>
+            public readonly long Total;
+
+            public YearLayout(CalendarConfig cfg, long y)
             {
-                foreach (var ic in inter)
-                    if (ic.AfterMonth == afterMonth && IntercalaryInYear(cfg, ic, y))
-                        slots.Add(new DaySlot { IsIntercalary = true, Intercalary = ic });
+                var months = cfg.Bundles?.Months;
+                if (months == null) return;
+                var inter = Inter(cfg);
+                long at = 0;
+                void Push(long afterMonth)
+                {
+                    foreach (var ic in inter)
+                    {
+                        if (ic.AfterMonth == afterMonth && IntercalaryInYear(cfg, ic, y))
+                        {
+                            _runs.Add(new YearRun { Start = at, Length = 1, Slot = new DaySlot { IsIntercalary = true, Intercalary = ic } });
+                            at += 1;
+                        }
+                    }
+                }
+                Push(0);
+                for (int m = 1; m <= months.Names.Count; m++)
+                {
+                    long len = m - 1 < months.Lengths.Count ? months.Lengths[m - 1] : 0;
+                    if (len > 0)
+                    {
+                        _runs.Add(new YearRun { Start = at, Length = len, Month = m });
+                        at += len;
+                    }
+                    Push(m);
+                }
+                Total = at;
             }
-            Push(0);
-            for (int m = 1; m <= months.Names.Count; m++)
+
+            /// <summary>The slot at index i of the year, or null outside it.</summary>
+            public DaySlot At(long i)
             {
-                long len = m - 1 < months.Lengths.Count ? months.Lengths[m - 1] : 0;
-                for (long d = 1; d <= len; d++) slots.Add(new DaySlot { Month = m, Day = d });
-                Push(m);
+                if (i < 0 || i >= Total) return null;
+                int lo = 0, hi = _runs.Count - 1;
+                while (lo < hi)
+                {
+                    int mid = (lo + hi + 1) >> 1;
+                    if (_runs[mid].Start <= i) lo = mid; else hi = mid - 1;
+                }
+                var r = _runs[lo];
+                return r.Slot ?? new DaySlot { Month = r.Month, Day = i - r.Start + 1 };
             }
-            return slots;
+
+            /// <summary>
+            /// The intercalary days out of the week at the indexes 0, 1, ... below offset, and inside the year: the list's
+            /// loop stopped at the year's last slot (TypeScript reads past it and throws; only a config built by hand can
+            /// get there).
+            /// </summary>
+            public long SkippedBefore(long offset)
+            {
+                long n = 0;
+                foreach (var r in _runs)
+                {
+                    if (r.Start >= offset) break;
+                    if (r.Slot != null && !r.Slot.Intercalary.InWeek) n += 1;
+                }
+                return n;
+            }
+
+            /// <summary>The index of the intercalary day's slot in the year, or -1 when it does not occur.</summary>
+            public long IndexOfIntercalary(CalendarIntercalary intercalary)
+            {
+                foreach (var r in _runs)
+                    if (r.Slot != null && ReferenceEquals(r.Slot.Intercalary, intercalary)) return r.Start;
+                return -1;
+            }
+
+            /// <summary>The index of a month's day in the year, or -1 when the month has no such day.</summary>
+            public long IndexOfDay(int month, long day)
+            {
+                foreach (var r in _runs)
+                {
+                    if (r.Slot != null || r.Month != month) continue;
+                    return day >= 1 && day <= r.Length ? r.Start + day - 1 : -1;
+                }
+                return -1;
+            }
         }
 
         // ---- Weekday ----
@@ -920,17 +1001,9 @@ namespace OnlyWorlds.Sdk
             long y = pos.AbsYear;
             long skippedBeforeYear = y * skipped.Count(i => i.EveryYears == null);
             foreach (var r in LeapRules(cfg, skipped)) skippedBeforeYear += LeapYearsBefore(y, r);
-            long skippedInYear = 0;
-            if (pos.Slots != null)
-            {
-                // TS reads slots[i] unguarded; past the end it would throw. Since serial 89 the reader refuses the one
-                // value that got there (an after_month past the last month); a config built by hand still can.
-                for (long i = 0; i < pos.Offset && i < pos.Slots.Count; i++)
-                {
-                    var s = pos.Slots[(int)i];
-                    if (s.IsIntercalary && !s.Intercalary.InWeek) skippedInYear += 1;
-                }
-            }
+            // TS reads slots[i] unguarded; past the end it would throw. Since serial 89 the reader refuses the one
+            // value that got there (an after_month past the last month); a config built by hand still can.
+            long skippedInYear = pos.Slots != null ? pos.Slots.SkippedBefore(pos.Offset) : 0;
             long counted = step - skippedBeforeYear - skippedInYear;
             return week.Names[(int)FloorMod(counted, week.Length)];
         }
@@ -942,7 +1015,7 @@ namespace OnlyWorlds.Sdk
             public long AbsYear;
             public long Offset;           // steps into the year
             public DaySlot Slot;          // null when no months
-            public List<DaySlot> Slots;   // null when no months
+            public YearLayout Slots;      // null when no months
         }
 
         static StepPosition PositionOf(CalendarConfig cfg, long step)
@@ -950,9 +1023,8 @@ namespace OnlyWorlds.Sdk
             long y = AbsoluteYear(cfg, step);
             long offset = step - YearStartStep(cfg, y);
             if (cfg.Bundles?.Months == null) return new StepPosition { AbsYear = y, Offset = offset };
-            var slots = YearSlots(cfg, y);
-            var slot = offset >= 0 && offset < slots.Count ? slots[(int)offset] : null;
-            return new StepPosition { AbsYear = y, Offset = offset, Slot = slot, Slots = slots };
+            var slots = new YearLayout(cfg, y);
+            return new StepPosition { AbsYear = y, Offset = offset, Slot = slots.At(offset), Slots = slots };
         }
 
         /// <summary>A step, taken apart: absolute and display year, era, month, day, intercalary day, weekday.</summary>
@@ -991,15 +1063,22 @@ namespace OnlyWorlds.Sdk
         const string WsChars = @"\t\n\v\f\r    -     　﻿";
         const string Ws = "[" + WsChars + "]";
         static readonly Regex TokenRx = new Regex(@"\{([a-z_]+)\}");
-        static readonly Regex CollapseRx = new Regex(Ws + @"*[,;·]?" + Ws + @"*" + Ws + @"*[,;·]?" + Ws + "*");
         static readonly Regex MultiWsRx = new Regex(Ws + "{2,}");
         static readonly Regex AnyWsRx = new Regex(Ws + "+");
-        static readonly Regex TrimRx = new Regex(@"\A" + Ws + "+|" + Ws + @"+\z");
-        static readonly Regex EdgeSepRx = new Regex(@"\A[" + WsChars + @",;·]+|[" + WsChars + @",;·]+\z");
         static readonly Regex IntRx = new Regex(@"\A-?[0-9]+\z"); // JS \d is ASCII; .NET \d is not
 
-        /// <summary>JavaScript's String.prototype.trim.</summary>
-        internal static string JsTrim(string s) => TrimRx.Replace(s, "");
+        /// <summary>
+        /// JavaScript's String.prototype.trim: the white space of <see cref="WsChars"/> off both edges, in one pass. It was
+        /// the regular expression <c>\AWs+|Ws+\z</c>, whose second half took quadratic time on a long run of white space
+        /// inside the text (a step word with 20,000 spaces: seven seconds on Mono); the answer is the same.
+        /// </summary>
+        internal static string JsTrim(string s)
+        {
+            int a = 0, b = s.Length;
+            while (a < b && IsJsSpace(s[a])) a++;
+            while (b > a && IsJsSpace(s[b - 1])) b--;
+            return a == 0 && b == s.Length ? s : s.Substring(a, b - a);
+        }
 
         /// <summary>Substitute and collapse. KNOWN tokens with no value render empty and adjacent separators
         /// collapse; UNKNOWN tokens render literally (visible, never swallowed).</summary>
@@ -1013,11 +1092,66 @@ namespace OnlyWorlds.Sdk
                 return string.IsNullOrEmpty(v) ? EmptyKnown : v;
             });
             // Collapse around empty-known markers: absorb adjacent separators/spaces.
-            output = CollapseRx.Replace(output, " ");
+            output = CollapseEmpty(output);
             output = MultiWsRx.Replace(output, " ");
             output = JsTrim(output);
-            output = EdgeSepRx.Replace(output, "");
-            return output;
+            return TrimEdges(output);
+        }
+
+        /// <summary>A character of JavaScript's <c>\s</c> (<see cref="WsChars"/>).</summary>
+        static bool IsJsSpace(char ch) =>
+            ch == ' ' || (ch >= '\t' && ch <= '\r') || ch == '\u00a0' || ch == '\u1680' || (ch >= '\u2000' && ch <= '\u200a')
+            || ch == '\u2028' || ch == '\u2029' || ch == '\u202f' || ch == '\u205f' || ch == '\u3000' || ch == '\ufeff';
+
+        /// <summary>A separator mark the collapse absorbs.</summary>
+        static bool IsMark(char ch) => ch == ',' || ch == ';' || ch == '\u00b7';
+
+        /// <summary>
+        /// What <c>Ws*[,;·]?Ws*MARKER Ws*[,;·]?Ws*</c>, replaced globally by one space, gave (MARKER: <see cref="EmptyKnown"/>),
+        /// in one pass: each marker takes the white space, at most one mark and white space before it (back to where the
+        /// last replacement ended) and the same after it. As a regular expression it took cubic time on a long run of
+        /// white space that held no marker (TypeScript SDK 4.201.2's collapseEmpty).
+        /// </summary>
+        static string CollapseEmpty(string text)
+        {
+            int i = text.IndexOf(EmptyKnown, StringComparison.Ordinal);
+            if (i == -1) return text;
+            int n = text.Length;
+            int done = 0;
+            var output = new System.Text.StringBuilder(n);
+            while (i != -1)
+            {
+                int j = i;
+                while (j > done && IsJsSpace(text[j - 1])) j--;
+                if (j > done && IsMark(text[j - 1]))
+                {
+                    j--;
+                    while (j > done && IsJsSpace(text[j - 1])) j--;
+                }
+                int k = i + 1;
+                while (k < n && IsJsSpace(text[k])) k++;
+                if (k < n && IsMark(text[k]))
+                {
+                    k++;
+                    while (k < n && IsJsSpace(text[k])) k++;
+                }
+                output.Append(text, done, j - done).Append(' ');
+                done = k;
+                i = done < n ? text.IndexOf(EmptyKnown, done, StringComparison.Ordinal) : -1;
+            }
+            return output.Append(text, done, n - done).ToString();
+        }
+
+        /// <summary>
+        /// What <c>\A[Ws,;·]+|[Ws,;·]+\z</c> removed, in one pass: the white space and marks at both edges. As a regular
+        /// expression its second half took quadratic time on a long run of marks (TypeScript SDK 4.201.2's trimEdges).
+        /// </summary>
+        static string TrimEdges(string text)
+        {
+            int a = 0, b = text.Length;
+            while (a < b && (IsJsSpace(text[a]) || IsMark(text[a]))) a++;
+            while (b > a && (IsJsSpace(text[b - 1]) || IsMark(text[b - 1]))) b--;
+            return text.Substring(a, b - a);
         }
 
         /// <summary>Format a step. Total: every integer formats to a string under every readable config.</summary>
@@ -1316,15 +1450,14 @@ namespace OnlyWorlds.Sdk
             {
                 long start = YearStartStep(cfg, abs);
                 if (monthIndex == null && intercalary == null) return ParseResult.Ok(start);
-                var slots = YearSlots(cfg, abs);
+                var slots = new YearLayout(cfg, abs);
                 if (intercalary != null)
                 {
-                    int ii = slots.FindIndex(s => s.IsIntercalary && ReferenceEquals(s.Intercalary, intercalary));
+                    long ii = slots.IndexOfIntercalary(intercalary);
                     if (ii == -1) return ParseResult.Fail(intercalary.Name + " does not occur in that year");
                     return ParseResult.Ok(start + ii);
                 }
-                long wanted = day ?? 1;
-                int idx = slots.FindIndex(s => !s.IsIntercalary && s.Month == monthIndex.Value && s.Day == wanted);
+                long idx = slots.IndexOfDay(monthIndex.Value, day ?? 1);
                 if (idx == -1) return ParseResult.Fail("that day does not exist in that month");
                 return ParseResult.Ok(start + idx);
             }
