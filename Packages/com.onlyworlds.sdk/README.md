@@ -193,7 +193,9 @@ by Unicode 15.1's simple folding) for an editor that only suggests. The rule, th
   in any script. `Kira's` and `Kira-led` hold the name; `Kiran` does not.
 - A name is trimmed and is three characters at least. Where several names start at one place, the longest whole one
   is taken.
-- A name two elements share is never answered, and nothing inside it is: the text stays plain there.
+- A name two elements share is never answered, and nothing inside it is: the text stays plain there. `find.Shared`
+  lists every such name with the elements that hold it, so a tool can say why a name stays plain, or test that no
+  two elements of a world share one.
 - Nothing is read inside an address or a Markdown link `[label](target)`.
 - Every mention is answered, in order. `Start` and `End` are C# string indexes (UTF-16 code units), as the
   TypeScript SDK counts them.
@@ -204,8 +206,9 @@ elements go in is yours to choose. Limits: text is compared as written, with no 
 name matches that one space; in a script written without spaces between words (Chinese, Japanese, Thai) a name is
 whole only between punctuation or spaces; and what counts as a letter is the runtime's own table, Unicode 11.0 on
 Unity 6's Mono, so beside a letter added to Unicode since then a name is whole here where a newer runtime reads it
-inside a word. The work for one text is at most its length times the longest name's length, whatever the number of
-names.
+inside a word (a capital added since then whose small letter is older, such as U+A7C4, is no word character here
+either, so a folded name holding one inside it is found where the text writes the small letter, not the capital). The work for
+one text grows with its length alone, whatever the names and however many: the text is read once.
 
 ## Things that will bite you
 

@@ -1,11 +1,13 @@
 // Element names found in prose: a world's names read once, then found in any text. Parity with @onlyworlds/sdk
-// 4.194.0 (src/name-finder.ts, nameFinder) and the Python package's name_finder: a rule of the packages, not of the
-// standard, held by one file of cases (Tests/Editor/Fixtures/name-finder/name-finder.cases.json, the same bytes as
-// the TypeScript SDK's test/fixtures/name-finder.cases.json).
+// 4.198.0 (src/name-finder.ts, nameFinder) and the Python package's name_finder: a rule of the packages, not of the
+// standard, held by one file of cases (Tests/Editor/Fixtures/name-finder/name-finder.cases.json, version 2, the same
+// bytes as the TypeScript SDK's test/fixtures/name-finder.cases.json).
 
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Text;
 using Newtonsoft.Json.Linq;
 
 namespace OnlyWorlds.Sdk
@@ -50,6 +52,26 @@ namespace OnlyWorlds.Sdk
     }
 
     /// <summary>
+    /// A name two or more elements hold (<see cref="OWNameFinder{T}.Shared"/>): <see cref="OWNameFinder{T}.Find"/>
+    /// answers nothing for it, and this says that it is there.
+    /// </summary>
+    /// <typeparam name="T">The kind of element the finder was made from.</typeparam>
+    public sealed class OWNameShared<T>
+    {
+        internal OWNameShared(string name, IReadOnlyList<T> elements)
+        {
+            Name = name;
+            Elements = elements;
+        }
+
+        /// <summary>The name as the finder compares it: trimmed of White_Space, and folded when the finder is <see cref="OWNameCase.Folded"/>.</summary>
+        public string Name { get; }
+
+        /// <summary>The elements that hold it, two at least, in the order they were given: the same objects the finder was given. Read-only.</summary>
+        public IReadOnlyList<T> Elements { get; }
+    }
+
+    /// <summary>
     /// A finder of a world's element names in prose, made once by <see cref="OWNameFinder.For(IEnumerable{JToken}, OWNameCase, Func{JToken, IEnumerable{object}})"/>
     /// (or another overload of <c>For</c>); <see cref="Find"/> is then called on each text. It finds and never writes:
     /// what a tool does with a found name (a mark for a reader, a suggestion, a link a person chooses to make) is the
@@ -60,27 +82,55 @@ namespace OnlyWorlds.Sdk
     {
         private const int NameMin = 3;
 
+        /// <summary>
+        /// The mark the matcher reads between two characters wherever a name may end: before a character that is not a
+        /// word character, and at the end of the text. No code point is negative.
+        /// </summary>
+        private const int EndMark = -1;
+
+        /// <summary>One name, as compared, and every element that holds it.</summary>
         private sealed class Hit
         {
-            internal Hit(string id, T element)
+            internal Hit(int length, string name, string id, T element)
             {
-                Id = id;
-                Element = element;
+                Length = length;
+                Name = name;
+                FirstId = id;
+                Elements.Add(element);
             }
 
-            internal readonly string Id;
-            internal readonly T Element;
-            internal bool Shared;
+            /// <summary>The name's length in code points.</summary>
+            internal readonly int Length;
+
+            internal readonly string Name;
+            internal readonly string FirstId;
+            internal readonly List<T> Elements = new List<T>(1);
+
+            /// <summary>The ids of <see cref="Elements"/>, kept once a second element holds the name.</summary>
+            internal HashSet<string> Ids;
         }
 
-        private sealed class Node
+        /// <summary>
+        /// A state of the matcher. The names are held backwards, each from its last character to its first, with the
+        /// end mark before every character that is not a word character and once at the name's end: so a text read
+        /// from its end towards its start, with the same mark laid wherever a name may end, passes each character once
+        /// (Aho and Corasick's failure links), and the state after a character says which whole names start there.
+        /// </summary>
+        private sealed class State
         {
-            internal readonly Dictionary<int, Node> Next = new Dictionary<int, Node>();
+            internal readonly Dictionary<int, State> Next = new Dictionary<int, State>();
+            internal State Fail;
+
+            /// <summary>The name that is this state, read backwards.</summary>
             internal Hit Hit;
+
+            /// <summary>The longest name that ends, read backwards, at this state: <see cref="Hit"/>, or the failure state's.</summary>
+            internal Hit Longest;
         }
 
-        private readonly Node _root = new Node();
+        private readonly State _root = new State();
         private readonly bool _folded;
+        private readonly int _names;
 
         internal OWNameFinder(IEnumerable<T> elements, OWNameCase nameCase, Func<T, string> idOf, Func<T, IEnumerable<object>> names)
         {
@@ -91,7 +141,9 @@ namespace OnlyWorlds.Sdk
             if (names == null) throw new ArgumentNullException(nameof(names), "OWNameFinder: names is a function from an element to its names");
             _folded = nameCase == OWNameCase.Folded;
 
+            var hits = new List<Hit>();
             var points = new List<int>();
+            var tokens = new List<int>();
             foreach (var element in elements)
             {
                 var id = element == null ? null : idOf(element);
@@ -111,23 +163,99 @@ namespace OnlyWorlds.Sdk
                     }
 
                     if (points.Count < NameMin) continue;
-                    var node = _root;
-                    foreach (var p in points)
-                    {
-                        if (!node.Next.TryGetValue(p, out var child))
-                        {
-                            child = new Node();
-                            node.Next.Add(p, child);
-                        }
 
-                        node = child;
+                    // The name backwards: the end mark, then each character from the last to the first, and the mark
+                    // again after (so, in the text, before) every character but the first that is not a word character.
+                    tokens.Clear();
+                    tokens.Add(EndMark);
+                    for (var k = points.Count - 1; k >= 0; k--)
+                    {
+                        tokens.Add(points[k]);
+                        if (k > 0 && !OWNameFinder.IsWord(points[k])) tokens.Add(EndMark);
                     }
 
-                    if (node.Hit == null) node.Hit = new Hit(id, element);
-                    else if (!string.Equals(node.Hit.Id, id, StringComparison.Ordinal)) node.Hit.Shared = true;
+                    var state = _root;
+                    foreach (var token in tokens)
+                    {
+                        if (!state.Next.TryGetValue(token, out var child))
+                        {
+                            child = new State();
+                            state.Next.Add(token, child);
+                        }
+
+                        state = child;
+                    }
+
+                    var hit = state.Hit;
+                    if (hit == null)
+                    {
+                        state.Hit = new Hit(points.Count, Spelled(points), id, element);
+                        hits.Add(state.Hit);
+                    }
+                    else if (hit.Ids == null)
+                    {
+                        if (!string.Equals(hit.FirstId, id, StringComparison.Ordinal))
+                        {
+                            hit.Ids = new HashSet<string>(StringComparer.Ordinal) { hit.FirstId, id };
+                            hit.Elements.Add(element);
+                        }
+                    }
+                    else if (hit.Ids.Add(id))
+                    {
+                        hit.Elements.Add(element);
+                    }
                 }
             }
+
+            _names = hits.Count;
+
+            // The failure links, level by level: where the matcher goes on when the text leaves the name it was reading.
+            var level = new List<State>();
+            foreach (var child in _root.Next.Values)
+            {
+                child.Fail = _root;
+                child.Longest = child.Hit;
+                level.Add(child);
+            }
+
+            while (level.Count > 0)
+            {
+                var deeper = new List<State>();
+                foreach (var state in level)
+                {
+                    foreach (var pair in state.Next)
+                    {
+                        var child = pair.Value;
+                        var back = state.Fail;
+                        State to = null;
+                        while (back != null && !back.Next.TryGetValue(pair.Key, out to)) back = back.Fail;
+                        child.Fail = back == null ? _root : to;
+                        child.Longest = child.Hit ?? child.Fail.Longest;
+                        deeper.Add(child);
+                    }
+                }
+
+                level = deeper;
+            }
+
+            var shared = new List<OWNameShared<T>>();
+            foreach (var hit in hits)
+            {
+                if (hit.Elements.Count > 1)
+                    shared.Add(new OWNameShared<T>(hit.Name, new ReadOnlyCollection<T>(hit.Elements.ToArray())));
+            }
+
+            Shared = new ReadOnlyCollection<OWNameShared<T>>(shared);
         }
+
+        /// <summary>
+        /// Every name two or more elements hold, in the order each name was first met, each as an
+        /// <see cref="OWNameShared{T}"/> (the name as compared, and the elements that hold it in the order given).
+        /// <see cref="Find"/> never answers one of these, so a tool reads this list to tell a writer why a name stays
+        /// plain, or to test that no two elements of a world share one. A name too short to be looked for is not on
+        /// it. The list and its entries are read-only, and made once, with the finder.
+        /// </summary>
+        public IReadOnlyList<OWNameShared<T>> Shared { get; }
 
         /// <summary>
         /// Every name of the finder's elements in <paramref name="text"/>, in order, none overlapping, each as an
@@ -138,77 +266,124 @@ namespace OnlyWorlds.Sdk
         /// <item>A whole name only: the code point on each side of it is not a letter (Unicode category L), a mark (M),
         /// a decimal digit (Nd) or an underscore, in any script. So <c>Kira's</c> and <c>Kira-led</c> hold the name
         /// <c>Kira</c>, and <c>Kiran</c> does not. Outside ASCII the category is the runtime's own
-        /// (<see cref="CharUnicodeInfo.GetUnicodeCategory(string, int)"/>), as the TypeScript SDK reads JavaScript's and the
+        /// (<see cref="CharUnicodeInfo.GetUnicodeCategory(char)"/>), as the TypeScript SDK reads JavaScript's and the
         /// Python package Python's, so a letter assigned in a newer Unicode than the runtime knows is no word character
         /// here. Unity 6's Mono reads Unicode 11.0's categories: beside a letter added since (one of CJK Extension G,
-        /// say), a name is whole here and inside a word for the TypeScript SDK on a current Node. The same read
-        /// decides where <see cref="OWAddress.FindLinks"/> takes a start glued to a word.</item>
+        /// say), a name is whole here and inside a word for the TypeScript SDK on a current Node. A capital assigned
+        /// since then whose fold is an older letter (U+A7C4 to U+A7C6) is no word character here while its fold is
+        /// one, so a folded name holding one inside it is found where the text writes the fold, not the capital. The
+        /// same read decides where <see cref="OWAddress.FindLinks"/> takes a start glued to a word.</item>
         /// <item>A name is trimmed of Unicode's White_Space and is three code points at least; a shorter one is never
         /// looked for.</item>
         /// <item>Where several names start at one place, the longest whole one is taken (<c>Iron Gate</c> over
         /// <c>Iron</c>), and the search goes on after it.</item>
         /// <item>A name two elements share (by id) is never answered, and nothing inside it is: the text stays plain
-        /// there. One element listed twice, or found by two of its own names, is one element.</item>
+        /// there (<see cref="Shared"/> lists it). One element listed twice, or found by two of its own names, is one
+        /// element.</item>
         /// <item>Nothing is read inside an address (what <see cref="OWAddress.FindLinks"/> finds) or a Markdown link
         /// <c>[label](target)</c> (a <c>[</c>, a label up to the first <c>]</c>, a <c>(</c> right after it, a target
         /// up to the first <c>)</c>), and no name is read across the edge of one.</item>
         /// <item>Text is compared as written: no Unicode normalisation (a letter and a combining mark are not the
         /// one-character letter), and a space in a name matches that one space.</item>
         /// </list>
-        /// The work for one text is at most its length times the longest name's length, whatever the number of names,
-        /// with no pattern that backtracks.
+        /// The work for one text grows with its length alone, whatever the names and however many: the text is read
+        /// once, from its end to its start, and no character is read again for another name. Reading the names, when
+        /// the finder is made, grows with their total length.
         /// </remarks>
         /// <exception cref="ArgumentNullException"><paramref name="text"/> is null.</exception>
         public IReadOnlyList<OWNameFound<T>> Find(string text)
         {
             if (text == null) throw new ArgumentNullException(nameof(text), "OWNameFinder: text must be a string");
             var found = new List<OWNameFound<T>>();
-            if (_root.Next.Count == 0) return found;
+            if (_names == 0) return found;
             var spans = PassedOver(text);
             var length = text.Length;
-            var span = 0;
-            var i = 0;
-            while (i < length)
-            {
-                if (span < spans.Count && i >= spans[span].start)
-                {
-                    i = spans[span].end;
-                    span++;
-                    continue;
-                }
 
-                var width = Width(text, i);
-                if (!WordBefore(text, i))
+            // Where a whole name starts and the longest one that does, as the backward pass meets them: last place first.
+            var starts = new List<int>();
+            var longest = new List<Hit>();
+            // Whether every character from that start to the stretch's end is one string index wide.
+            var narrow = new List<bool>();
+            var from = 0;
+            for (var span = 0; span <= spans.Count; span++)
+            {
+                var to = span < spans.Count ? spans[span].start : length;
+                if (to > from)
                 {
-                    var limit = span < spans.Count ? spans[span].start : length;
-                    var node = _root;
-                    var j = i;
-                    Hit best = null;
-                    var bestEnd = -1;
-                    while (j < limit)
+                    starts.Clear();
+                    longest.Clear();
+                    narrow.Clear();
+                    var pairs = false;
+                    var state = _root;
+                    var k = to;
+                    // Whether a name may end at k: the text ends there, or the character at k is not a word character.
+                    var mayEnd = k >= length || !OWNameFinder.IsWord(CodePointAt(text, k));
+                    while (k > from)
                     {
-                        var c = CodePointAt(text, j);
-                        if (!node.Next.TryGetValue(_folded ? OWCaseFold.Fold(c) : c, out node)) break;
-                        j += Width(text, j);
-                        if (node.Hit != null && (j >= length || !IsWordAt(text, j)))
+                        if (mayEnd) state = Step(state, EndMark);
+                        int c = text[k - 1];
+                        k--;
+                        if (char.IsLowSurrogate((char)c) && k > from && char.IsHighSurrogate(text[k - 1]))
                         {
-                            best = node.Hit;
-                            bestEnd = j;
+                            k--;
+                            c = char.ConvertToUtf32(text[k], (char)c);
+                            pairs = true;
+                        }
+
+                        mayEnd = !OWNameFinder.IsWord(c);
+                        // From the root only the end mark leads anywhere: every name starts, read backwards, with it.
+                        if (state != _root) state = Step(state, _folded ? OWCaseFold.Fold(c) : c);
+                        if (state.Longest != null && !WordBefore(text, k))
+                        {
+                            starts.Add(k);
+                            longest.Add(state.Longest);
+                            narrow.Add(!pairs);
                         }
                     }
 
-                    if (best != null)
+                    // Forwards over what was met: the first place a name starts takes its longest name, and the next
+                    // name starts at or after that one's end.
+                    var free = from;
+                    for (var r = starts.Count - 1; r >= 0; r--)
                     {
-                        if (!best.Shared) found.Add(new OWNameFound<T>(i, bestEnd, best.Element));
-                        i = bestEnd;
-                        continue;
+                        var start = starts[r];
+                        if (start < free) continue;
+                        var hit = longest[r];
+                        var end = start;
+                        if (narrow[r]) end += hit.Length;
+                        else
+                            for (var n = hit.Length; n > 0; n--)
+                                end += Width(text, end);
+                        if (hit.Elements.Count == 1) found.Add(new OWNameFound<T>(start, end, hit.Elements[0]));
+                        free = end;
                     }
                 }
 
-                i += width;
+                if (span < spans.Count) from = spans[span].end;
             }
 
             return found;
+        }
+
+        /// <summary>The state after <paramref name="token"/>: the first state on the failure chain that has it, else the root.</summary>
+        private State Step(State from, int token)
+        {
+            for (var state = from; state != null; state = state.Fail)
+                if (state.Next.TryGetValue(token, out var to)) return to;
+            return _root;
+        }
+
+        /// <summary>A name's code points as a string (a lone surrogate kept as its own unit).</summary>
+        private static string Spelled(List<int> points)
+        {
+            var name = new StringBuilder(points.Count);
+            foreach (var p in points)
+            {
+                if (p < 0x10000) name.Append((char)p);
+                else name.Append(char.ConvertFromUtf32(p));
+            }
+
+            return name.ToString();
         }
 
         /// <summary>A name's text: a string, or a JSON string token; anything else is no name.</summary>
@@ -235,34 +410,8 @@ namespace OnlyWorlds.Sdk
         private static bool WordBefore(string text, int i)
         {
             if (i <= 0) return false;
-            if (i >= 2 && char.IsLowSurrogate(text[i - 1]) && char.IsHighSurrogate(text[i - 2])) return IsWordAt(text, i - 2);
-            return IsWordAt(text, i - 1);
-        }
-
-        /// <summary>
-        /// Whether the code point that starts at <paramref name="i"/> is a word character: an ASCII letter or digit or
-        /// an underscore, or outside ASCII a letter, a mark or a decimal digit by the runtime's categories. A lone
-        /// surrogate is none.
-        /// </summary>
-        private static bool IsWordAt(string text, int i)
-        {
-            var c = text[i];
-            if (c < 0x80) return c >= '0' && c <= '9' || c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c == '_';
-            switch (CharUnicodeInfo.GetUnicodeCategory(text, i))
-            {
-                case UnicodeCategory.UppercaseLetter:
-                case UnicodeCategory.LowercaseLetter:
-                case UnicodeCategory.TitlecaseLetter:
-                case UnicodeCategory.ModifierLetter:
-                case UnicodeCategory.OtherLetter:
-                case UnicodeCategory.NonSpacingMark:
-                case UnicodeCategory.SpacingCombiningMark:
-                case UnicodeCategory.EnclosingMark:
-                case UnicodeCategory.DecimalDigitNumber:
-                    return true;
-                default:
-                    return false;
-            }
+            if (i >= 2 && char.IsLowSurrogate(text[i - 1]) && char.IsHighSurrogate(text[i - 2])) return OWNameFinder.IsWord(CodePointAt(text, i - 2));
+            return OWNameFinder.IsWord(text[i - 1]);
         }
 
         /// <summary>
@@ -386,5 +535,33 @@ namespace OnlyWorlds.Sdk
             => element is JObject o && o["id"] is JValue v && v.Type == JTokenType.String ? (string)v.Value : null;
 
         private static IEnumerable<object> JsonName(JToken element) => new object[] { element is JObject o ? o["name"] : null };
+
+        /// <summary>
+        /// Whether a code point is a word character: an ASCII letter or digit or an underscore, or outside ASCII a
+        /// letter, a mark or a decimal digit by the runtime's categories. A lone surrogate is none.
+        /// </summary>
+        internal static bool IsWord(int codePoint)
+        {
+            if (codePoint < 0x80)
+                return codePoint >= '0' && codePoint <= '9' || codePoint >= 'A' && codePoint <= 'Z' || codePoint >= 'a' && codePoint <= 'z' || codePoint == '_';
+            var category = codePoint < 0x10000
+                ? CharUnicodeInfo.GetUnicodeCategory((char)codePoint)
+                : CharUnicodeInfo.GetUnicodeCategory(char.ConvertFromUtf32(codePoint), 0);
+            switch (category)
+            {
+                case UnicodeCategory.UppercaseLetter:
+                case UnicodeCategory.LowercaseLetter:
+                case UnicodeCategory.TitlecaseLetter:
+                case UnicodeCategory.ModifierLetter:
+                case UnicodeCategory.OtherLetter:
+                case UnicodeCategory.NonSpacingMark:
+                case UnicodeCategory.SpacingCombiningMark:
+                case UnicodeCategory.EnclosingMark:
+                case UnicodeCategory.DecimalDigitNumber:
+                    return true;
+                default:
+                    return false;
+            }
+        }
     }
 }
