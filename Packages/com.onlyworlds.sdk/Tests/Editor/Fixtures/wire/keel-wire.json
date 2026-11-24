@@ -5,7 +5,7 @@
     "X-Session-Token",
     "Authorization"
   ],
-  "document_sha256": "a42c3fa5ed094b5bacdb0c647090835405828c2c07342d5262de16ebe41b1e5f",
+  "document_sha256": "49e288f658c8b78bdef56234397b117602499c5c0d38e07fff5ae23f2a4e3c4a",
   "error_codes": {
     "already_member": 409,
     "already_reported": 409,
@@ -95,7 +95,7 @@
     "write_failed": 502,
     "wrong_audience": 401
   },
-  "fetched": "2026-11-22T17:56+01:00",
+  "fetched": "2026-11-24T11:47+01:00",
   "openapi_version": "2.0",
   "paths": {
     "/api/v2/ability": {
@@ -1053,7 +1053,16 @@
     "/api/v2/account/invites": {
       "GET": {
         "header": [],
-        "query": []
+        "query": [],
+        "response": [
+          "data",
+          "data[].created_at",
+          "data[].id",
+          "data[].owner",
+          "data[].role",
+          "data[].world_id",
+          "data[].world_name"
+        ]
       }
     },
     "/api/v2/account/invites/{invite_id}/accept": {
@@ -1194,11 +1203,26 @@
     "/api/v2/account/watched": {
       "GET": {
         "header": [],
-        "query": []
+        "query": [],
+        "response": [
+          "data",
+          "data[].id",
+          "data[].last4",
+          "data[].stale",
+          "data[].world_id",
+          "data[].world_name"
+        ]
       },
       "POST": {
         "header": [],
-        "query": []
+        "query": [],
+        "response": [
+          "id",
+          "last4",
+          "stale",
+          "world_id",
+          "world_name"
+        ]
       }
     },
     "/api/v2/account/watched/{watch_id}": {
@@ -1315,7 +1339,13 @@
     "/api/v2/account/worlds/{world_id}/invites": {
       "POST": {
         "header": [],
-        "query": []
+        "query": [],
+        "response": [
+          "created_at",
+          "email",
+          "id",
+          "role"
+        ]
       }
     },
     "/api/v2/account/worlds/{world_id}/invites/{invite_id}": {
@@ -6330,13 +6360,23 @@
     "/api/v2/health": {
       "GET": {
         "header": [],
-        "query": []
+        "query": [],
+        "response": [
+          "service",
+          "status"
+        ]
       }
     },
     "/api/v2/health/deep": {
       "GET": {
         "header": [],
-        "query": []
+        "query": [],
+        "response": [
+          "components",
+          "components.cache",
+          "components.database",
+          "status"
+        ]
       }
     },
     "/api/v2/institution": {
