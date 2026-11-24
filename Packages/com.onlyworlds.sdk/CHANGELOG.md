@@ -6,6 +6,38 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **`OWMostLinked.Of(graph, options)`: the most linked elements of each type.** From the graph `OWGraph.Read`
+  answers for a reader, so only what that reader is served is counted (map space, hidden, proposed and room elements
+  stay out unless the graph brought them in). For each type, at most `PerType` (default 3) of its elements by the
+  landing profile's degree (`OWGraph.DegreeOf`), highest first, ties by id in code point order; a node of degree 0
+  and a known-of node are never picked, and a type with nothing to pick is left out. The answer, an `OWMostLinked`,
+  holds `PerType`, `Types` (in code point order) and `ByType`, each entry an `OWLinked` (`Id`, `Name` as the graph
+  holds it or null, `Degree`); `ToJson()` writes `{per_type, by_type}`. A few of every type, never one ranking: it is
+  "the most linked", not "where to start", since in a world with a secret the secret is often the hub. Options come
+  typed (`OWMostLinkedOptions`) or as JSON (`OWMostLinkedOptions.FromJson`, the key `per_type`); an unknown key, or a
+  `per_type` that is not a whole number from 1 to 2^53 - 1, is refused by name (`OWLandingRefusedException`). A draft
+  reading of the packages, held to their own fixture until the landing profile takes it: `most-linked.fixture.json`
+  (18 cases) is vendored byte for byte, its sha256 held, and every case compared byte for byte. Parity with the
+  TypeScript SDK 4.203.0.
+
+### Fixed
+
+- **A stored calendar no longer sets what one date label costs.** `FormatStep` collapsed the separators around an
+  empty token and trimmed a label's edges with regular expressions whose time grew with the cube or the square of a
+  long run of white space or marks: measured on Mono outside Unity, a month name with 3,000 spaces took 215 seconds
+  for one label, a template with 4,000 spaces 527 seconds, 20,000 commas at a label's edge about 10 seconds. A year
+  was a list of every day, built on each call, so a month of 5,000,000 days cost 0.6 to 1.3 seconds a label in
+  `FormatStep`, `WeekdayForStep`, `BreakdownStep` and `ParseDate`. Both are one pass now, and a year is its runs of
+  days, each answer arithmetic. The package's own JavaScript trim, which `FormatDuration` reads a step word through,
+  had the same fault (20,000 spaces inside a step word: 7 seconds) and is one pass too. Every answer is the same as
+  before: 4,000 made templates against the old regular expressions and every step of six made calendars against the
+  old list of days (weekdays, parts of a date, labels read back), and the calendar's other tests unchanged. Parity
+  with the TypeScript SDK 4.201.2, its cost cases replayed: `calendar-cost.cases.json` (8 cases, the same bytes as
+  the Python package's) is vendored byte for byte with its sha256 held, and each case answers its words inside the
+  TypeScript SDK's 50 ms.
+
 ## [0.51.0] - 2026-11-24
 
 The name finder reads a text once, whatever the names: a long name whose opening words a text repeats took 0.50.0
