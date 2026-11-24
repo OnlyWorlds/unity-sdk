@@ -4,7 +4,9 @@
 // looks, cameras, units, rooms and doors are a drawing tool's and are not read here. Since serial 110 the profile's
 // second, small reading, OWMapSpace.LayoutOf: one Map's layout keys (x_layout on the Map, x_hand on its Pins). Since
 // serial 139 its third, OWMapSpace.CarryOf: where a point on a child Map lies on its parent and on each Map above it
-// (x_parent_frame on the child, rules 13 and 14).
+// (x_parent_frame on the child, rules 13 and 14). Beside the profile, OWMapSpace.PinsKnownTo: which of a map's Pins one
+// reader knows, a rule of the packages (the TypeScript SDK 4.200.0's pinsKnownTo, the Python package's pins_known_to)
+// held by their shared cases, Tests/Editor/Fixtures/pins-known-to/pins-known-to.cases.json (OWPinsKnownToTests).
 //
 // Written from the profile and its conformance fixture, profiles/map-space.fixture.json, which is this file's own test
 // (OWMapSpaceTests its cases, OWMapLayoutTests its layout_cases, OWMapCarryTests its frame_cases); the TypeScript SDK's
@@ -393,6 +395,93 @@ namespace OnlyWorlds.Sdk
         };
     }
 
+    /// <summary>How a known Pin's element reached the reader (<see cref="OWPinKnown.How"/>).</summary>
+    public static class OWPinKnownHow
+    {
+        /// <summary>Served whole: the reader knows the element.</summary>
+        public const string Whole = "whole";
+
+        /// <summary>Served as a stub the reader only knows of (<c>known_of: true</c>): a place heard of, not a place known.</summary>
+        public const string KnownOf = "known_of";
+    }
+
+    /// <summary>One Pin a reader knows (<see cref="OWMapSpace.PinsKnownTo"/>), by ids and one word, never the element's name or body.</summary>
+    public sealed class OWPinKnown
+    {
+        internal OWPinKnown(string pin, string map, string elementType, string elementId, string how)
+        {
+            Pin = pin;
+            Map = map;
+            ElementType = elementType;
+            ElementId = elementId;
+            How = how;
+        }
+
+        /// <summary>The Pin's id.</summary>
+        public string Pin { get; }
+
+        /// <summary>The Pin's <c>map</c> as written when it is a non-empty string, else null. Not checked against any Map.</summary>
+        public string Map { get; }
+
+        /// <summary>The placed element's type, as the Pin writes it.</summary>
+        public string ElementType { get; }
+
+        /// <summary>The placed element's id, as the Pin writes it.</summary>
+        public string ElementId { get; }
+
+        /// <summary><see cref="OWPinKnownHow.Whole"/> or <see cref="OWPinKnownHow.KnownOf"/>.</summary>
+        public string How { get; }
+
+        /// <summary>The shared cases' <c>{pin, map, element_type, element_id, how}</c>, keys in that order.</summary>
+        public JObject ToJson() => new JObject
+        {
+            ["pin"] = Pin,
+            ["map"] = OWMapSpace.Str(Map),
+            ["element_type"] = ElementType,
+            ["element_id"] = ElementId,
+            ["how"] = How,
+        };
+    }
+
+    /// <summary>
+    /// Which of a map's Pins one reader knows (<see cref="OWMapSpace.PinsKnownTo"/>): the known Pins, how many are
+    /// unknown, and the Pins left aside by reason.
+    /// </summary>
+    public sealed class OWPinsKnownTo
+    {
+        /// <summary>The reason <see cref="Out"/> counts a Pin under when it places nothing: it has only one of <c>element_type</c> and <c>element_id</c>, or neither.</summary>
+        public const string NoLink = "no_link";
+
+        internal OWPinsKnownTo(IReadOnlyList<OWPinKnown> known, int unknown, IReadOnlyDictionary<string, int> @out)
+        {
+            Known = known;
+            Unknown = unknown;
+            Out = @out;
+        }
+
+        /// <summary>Each known Pin, by Pin id in code point order. Read-only.</summary>
+        public IReadOnlyList<OWPinKnown> Known { get; }
+
+        /// <summary>How many Pins place an element the reader was not served: a count, never ids.</summary>
+        public int Unknown { get; }
+
+        /// <summary>The Pins left aside, by reason (<see cref="NoLink"/>); a reason with nothing counted is absent.</summary>
+        public IReadOnlyDictionary<string, int> Out { get; }
+
+        /// <summary>The shared cases' answer, <c>{known, unknown, out}</c>, every key present, <c>out</c> with <c>no_link</c> only when one was counted.</summary>
+        public JObject ToJson()
+        {
+            var counted = new JObject();
+            if (Out.TryGetValue(NoLink, out var n)) counted[NoLink] = n;
+            return new JObject
+            {
+                ["known"] = new JArray(Known.Select(k => (object)k.ToJson())),
+                ["unknown"] = Unknown,
+                ["out"] = counted,
+            };
+        }
+    }
+
     /// <summary>
     /// A world's map space as one reader is served it (<see cref="Of"/>): the Maps' frames, the Zones' outlines, the
     /// Pins' points, and what the reading left aside by reason. Nothing is stored and nothing in the input is changed.
@@ -706,6 +795,94 @@ namespace OnlyWorlds.Sdk
             }
 
             return new OWMapCarry(ownTokens, ownFrame, ownLint, points, stop);
+        }
+
+        /// <summary>
+        /// Which of <paramref name="pins"/> one reader knows, for a map drawn as one Character sees it: a Pin is known
+        /// when the element it places is among <paramref name="served"/>, the elements as that reader was served them,
+        /// stubs included (a list read with the reader's own key, or the owner's read as that Character with
+        /// <c>viewAs</c>). It reads nothing else, so it cannot show a reader more than the world told them.
+        /// </summary>
+        /// <remarks>
+        /// <paramref name="pins"/> is a list of elements of which the rows of type <c>pin</c> are read, so a whole world's
+        /// list can be passed; the Pins are the caller's to bring, from whichever read holds the map (an open world's, the
+        /// owner's): a reader's own list need not hold them. A Pin is known when a row of <paramref name="served"/> has
+        /// the Pin's <c>element_type</c> as its <c>type</c> and the Pin's <c>element_id</c> as its <c>id</c>, both as
+        /// written (<c>Location</c> is no <c>location</c>, and the same id under another type is another element).
+        /// <see cref="OWPinKnown.How"/> is <see cref="OWPinKnownHow.KnownOf"/> when that row is a stub
+        /// (<see cref="OWPayload.IsKnownOf"/>: <c>known_of</c> exactly <c>true</c>), else <see cref="OWPinKnownHow.Whole"/>;
+        /// of two served rows with one type and id, the last one decides. A Pin with only one of <c>element_type</c> and
+        /// <c>element_id</c> (each a non-empty string) places nothing: it is counted under
+        /// <see cref="OWPinsKnownTo.NoLink"/> and never known. A row without a string <c>type</c> and a non-empty string
+        /// <c>id</c> is no element and is not counted; of two Pin rows with one id, the last one is read. It does not ask
+        /// whether a Pin has a point or its Map exists: that is <see cref="Of"/>'s reading, and a drawing keeps the Pins
+        /// both name. The answer carries ids and the two words only, never an element's name or body. Nothing in the
+        /// input is changed. A rule of this package, the TypeScript SDK's <c>pinsKnownTo</c> and the Python package's
+        /// <c>pins_known_to</c>, not of the standard: the three run the same cases (<c>pins-known-to.cases.json</c>).
+        /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="pins"/> or <paramref name="served"/> is null (<paramref name="pins"/> is named first).</exception>
+        /// <exception cref="ArgumentException"><paramref name="pins"/> or <paramref name="served"/> is a JSON value that is
+        /// no list (an object, a string, a number): enumerable in C#, and still no list of elements.</exception>
+        public static OWPinsKnownTo PinsKnownTo(IEnumerable<JToken> pins, IEnumerable<JToken> served)
+        {
+            RefuseNoList(pins, nameof(pins));
+            RefuseNoList(served, nameof(served));
+
+            var servedHow = new Dictionary<string, Dictionary<string, string>>(StringComparer.Ordinal);
+            foreach (var t in served)
+            {
+                if (!(t is JObject e) || e["type"]?.Type != JTokenType.String) continue;
+                var id = Id(e["id"]);
+                if (id == null) continue;
+                var type = (string)e["type"];
+                if (!servedHow.TryGetValue(type, out var ofType))
+                    servedHow[type] = ofType = new Dictionary<string, string>(StringComparer.Ordinal);
+                ofType[id] = OWPayload.IsKnownOf(e) ? OWPinKnownHow.KnownOf : OWPinKnownHow.Whole;
+            }
+
+            var rows = new Dictionary<string, JObject>(StringComparer.Ordinal);
+            foreach (var t in pins)
+            {
+                if (!(t is JObject p) || !(p["type"] is JValue pt) || pt.Type != JTokenType.String || (string)pt != "pin") continue;
+                var id = Id(p["id"]);
+                if (id != null) rows[id] = p;
+            }
+
+            var ids = rows.Keys.ToList();
+            ids.Sort(OWCodePointComparer.Instance);
+            var known = new List<OWPinKnown>();
+            int unknown = 0, noLink = 0;
+            foreach (var id in ids)
+            {
+                var p = rows[id];
+                var type = Id(p["element_type"]);
+                var element = Id(p["element_id"]);
+                if (type == null || element == null)
+                {
+                    noLink++;
+                    continue;
+                }
+
+                if (!servedHow.TryGetValue(type, out var ofType) || !ofType.TryGetValue(element, out var how))
+                {
+                    unknown++;
+                    continue;
+                }
+
+                known.Add(new OWPinKnown(id, Id(p["map"]), type, element, how));
+            }
+
+            var @out = new Dictionary<string, int>(StringComparer.Ordinal);
+            if (noLink > 0) @out[OWPinsKnownTo.NoLink] = noLink;
+            return new OWPinsKnownTo(known.AsReadOnly(), unknown, @out);
+        }
+
+        /// <summary>A list of elements is given and is no single JSON value: null, or a JSON object, string or number, is refused by name.</summary>
+        private static void RefuseNoList(IEnumerable<JToken> list, string name)
+        {
+            if (list == null) throw new ArgumentNullException(name, $"OWMapSpace.PinsKnownTo: {name} is a list of elements");
+            if (list is JToken token && !(token is JArray))
+                throw new ArgumentException($"OWMapSpace.PinsKnownTo: {name} is a list of elements; got a JSON {token.Type.ToString().ToLowerInvariant()}", name);
         }
 
         /// <summary>A Map row's id: <c>type</c> exactly <c>map</c> (reading K) and a non-empty string id (reading H); else null.</summary>
