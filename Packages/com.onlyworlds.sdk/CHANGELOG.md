@@ -6,7 +6,45 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **`OWMapSpace.PinsKnownTo(pins, served)`: which of a map's Pins one reader knows**, for a map drawn as one
+  Character sees it. A Pin is known when the element it places is among `served`, the elements as that reader was
+  served them (a list read with the reader's own key, or the owner's read as that Character); nothing else is read,
+  so a drawing cannot show a reader more than the world told them. The answer, an `OWPinsKnownTo`, lists each known
+  Pin in `Known` as an `OWPinKnown` (`Pin`, `Map`, `ElementType`, `ElementId`, and `How`: `OWPinKnownHow.Whole`, or
+  `OWPinKnownHow.KnownOf` when the element reached the reader as a stub with `known_of: true`, so a place heard of can
+  be drawn apart from a place known), by Pin id in code point order; `Unknown` counts the Pins that place an element
+  the reader was not served, as a number and never as ids; `Out["no_link"]` counts the Pins that place nothing. Type
+  and id are compared as written, the last of two served rows with one type and id decides, and the answer carries no
+  name or body of any element. It does not ask whether a Pin has a point or its Map exists: `OWMapSpace.Of` reads
+  that, and a drawing keeps the Pins both name. `pins` may be a whole world's list: only its rows of type `pin` are
+  read. A rule of the packages, not of the standard: the TypeScript SDK's cases file (`pins-known-to.cases.json`, 31
+  cases and 8 refusals, each answer written by hand) is vendored byte for byte and its sha256 held, and every case is
+  replayed whole, key order included. Parity with the TypeScript SDK 4.200.0.
+- **`OWNameFinder<T>.Shared`: the names two or more elements hold.** Each is an `OWNameShared<T>`: `Name`, the name
+  as it is compared (trimmed, and folded when the finder is `OWNameCase.Folded`), and `Elements`, the objects that
+  were passed in, in the order given, in the order each name was first met. `Find` never answers such a name, and
+  until now nothing said it was there: a tool reads the list to tell a writer why a name stays plain, or to test that
+  no two elements of a world share one. A name too short to be looked for is not on it. The list and its entries are
+  read-only and made once, with the finder.
+
 ### Changed
+
+- **`OWNameFinder` reads a text once, whatever the names.** The work for one text was at most its length times the
+  longest name's length, and a long name whose opening words the text repeats reached it: a name of 5,000 characters
+  against 400,000 characters of its first word took about 25 seconds, and one of 5,000 marks and a letter against a
+  text of marks about 50 (on Mono, outside Unity). The names are now held as one matcher with failure links and the
+  text is read once from its end to its start, so the work grows with the text's length alone: those cases take a few
+  milliseconds. No answer moves on the cases: the 47 of version 1 stand, with 15 more (names that end other names,
+  names of marks alone, names nested in one another, overlaps, and what `Shared` lists), and the inputs the cases are
+  silent on still answer as the TypeScript SDK does. One answer moves outside them, for three code points this
+  runtime does not know: Unity 6's Mono reads Unicode 11.0's categories, so U+A7C4 to U+A7C6 (capitals of Unicode
+  12.0, whose folds are older letters) are no word characters here while their folds are, and a folded name holding
+  one inside it is now found where the text writes the small letter, not the capital. The word edge promises nothing
+  for a code point assigned after Unicode 11.0. Parity with the TypeScript SDK 4.198.0, its cases file version 2
+  replayed (`name-finder.cases.json`, 62 cases and 10 timed recipes, each recipe held to five times the TypeScript
+  SDK's two-second line).
 
 - **The folder reader reads names as written, at every door** (the folder format's rulings of 2026-11-23). A type
   folder is the type word in lower case, one of the 22 (under the old `spatial/` layout, one of `map`, `pin`, `zone`,
