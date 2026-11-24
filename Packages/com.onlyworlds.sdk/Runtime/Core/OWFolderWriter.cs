@@ -266,7 +266,8 @@ namespace OnlyWorlds.Sdk
         /// <remarks>
         /// Every type directory is searched, because an element's type may have changed since it
         /// was written, and a delete that only looks where it expects the file leaves an orphan
-        /// behind -- which the reader then serves as a live element.
+        /// behind -- which the reader then serves as a live element. Only what the reader serves from is
+        /// searched: a type folder named as written, and a file whose extension is <c>.json</c> in lower case.
         /// </remarks>
         public static bool DeleteElement(string folder, string id)
         {
@@ -279,6 +280,9 @@ namespace OnlyWorlds.Sdk
             var removed = false;
             foreach (var typeDir in Directory.GetDirectories(elementsRoot))
             {
+                // Only a type folder as written, where the reader serves from (ruled 2026-11-23): a file in elements/Character/,
+                // elements/widget/ or a tool's .atlas/ is not the element's, so it is not removed.
+                if (Array.IndexOf(OWElementTypes.Slugs, Path.GetFileName(typeDir)) < 0) continue;
                 foreach (var file in FilesHoldingId(typeDir, id))
                 {
                     File.Delete(file);
@@ -621,6 +625,9 @@ namespace OnlyWorlds.Sdk
         /// </remarks>
         private static string IdInFile(string path)
         {
+            // The reader skips a name spelled otherwise (X.JSON) whatever it holds (ruled 2026-11-23), so it holds no
+            // element here either: never written into (on NTFS x.json opens it), never removed as a rename's old file.
+            if (!Path.GetFileName(path).EndsWith(".json", StringComparison.Ordinal)) return null;
             try
             {
                 var id = Parse(File.ReadAllText(path))["id"]?.ToString();

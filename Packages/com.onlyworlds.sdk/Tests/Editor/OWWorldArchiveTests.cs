@@ -951,9 +951,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(new[] { "0695db83-0000-7000-8000-0000000000e1" }, read.Elements.Select(e => e.Id).ToArray());
             Assert.AreEqual("elements/character/one.json", read.Elements[0].Path);
             Assert.AreEqual(0, read.LegacyElements.Count);
-            Assert.AreEqual(1, read.Skipped.Count);
+            Assert.AreEqual(2, read.Skipped.Count);
             Assert.AreEqual("spatial/pin/gone.json", read.Skipped[0].Path);
             Assert.AreEqual("unparseable JSON", read.Skipped[0].Reason, "As the folder form says of a file it cannot read.");
+            // A .json in a folder of the layout that is no type is listed and skipped, as the folder form does (ruled
+            // 2026-11-23: spatial/ follows the same sentence as elements/).
+            Assert.AreEqual("spatial/region/r.json", read.Skipped[1].Path);
+            Assert.AreEqual(OWFolderReader.NoTypeFolderReason, read.Skipped[1].Reason);
         }
 
         [Test]

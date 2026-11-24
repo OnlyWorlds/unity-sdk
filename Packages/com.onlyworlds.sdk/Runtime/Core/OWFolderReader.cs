@@ -168,6 +168,11 @@ namespace OnlyWorlds.Sdk
     /// <item><b>A tool's litter is never an element</b> (§4): a dot-prefixed folder under <c>elements/</c> (<c>.atlas/</c>)
     /// is never read, and a dot-prefixed file in a type directory (an editor's swap file, a sync client's <c>._</c>
     /// twin) is skipped and reported, whatever it holds.</item>
+    /// <item><b>Names are read as written</b> (ruled 2026-11-23), never through the file system, which folds case on
+    /// NTFS and APFS: a type folder is the type word in lower case, one of the 22 (<c>elements/Character/</c> is none),
+    /// and an element file's extension is <c>.json</c> in lower case (<c>X.JSON</c> is none). A file in a folder that is
+    /// no type, or spelled otherwise, is skipped and reported, whatever it holds. An id is compared as written, never as
+    /// a UUID: one UUID in capitals in one file and in lower case in another is two elements.</item>
     /// <item><b>Both spellings are accepted</b>: <c>map</c>/<c>map_id</c>, <c>zone</c>/<c>zone_id</c> (Atlas writes the
     /// <c>_id</c> forms on pins and markers), <c>time_current</c>/<c>time_range_current</c>. The bodies here stay as
     /// written; <see cref="WithSchemaLinkNames"/> is the schema's view, and it is what the cache is given.</item>
@@ -207,7 +212,9 @@ namespace OnlyWorlds.Sdk
             var result = new OWFolderReadResult { World = ReadWorldJson(folderPath) };
 
             // Every file is listed first, in the order ReadEntries visits them: names by code point on every platform
-            // (§4), never the file system's listing order (NTFS lists case-blind, ext4 by hash).
+            // (§4), never the file system's listing order (NTFS lists case-blind, ext4 by hash). Names are compared as
+            // written, never by the file system's pattern or path lookup, which fold case on NTFS and APFS: a folder's
+            // name is taken from its listing, and every file is listed and judged by its own name (NameFault).
             var files = new List<(string path, string type, bool legacy)>();
             var elementsRoot = Path.Combine(folderPath, "elements");
             if (Directory.Exists(elementsRoot))
@@ -216,7 +223,7 @@ namespace OnlyWorlds.Sdk
                 {
                     var type = Path.GetFileName(typeDir);
                     if (IsDotPrefixed(type)) continue;
-                    foreach (var file in ByName(Directory.GetFiles(typeDir, "*.json"))) files.Add((file, type, false));
+                    foreach (var file in ByName(JsonFilesIn(typeDir))) files.Add((file, type, false));
                 }
             }
 
@@ -225,12 +232,11 @@ namespace OnlyWorlds.Sdk
                 var spatialRoot = Path.Combine(folderPath, "spatial");
                 if (Directory.Exists(spatialRoot))
                 {
-                    foreach (var type in LegacySpatialTypes)
+                    var dirs = ByName(Directory.GetDirectories(spatialRoot))
+                        .Where(d => !IsDotPrefixed(Path.GetFileName(d))).ToList();
+                    foreach (var dir in LegacyOrder(dirs, Path.GetFileName))
                     {
-                        var dir = Path.Combine(spatialRoot, type);
-                        if (!Directory.Exists(dir)) continue;
-
-                        foreach (var file in ByName(Directory.GetFiles(dir, "*.json"))) files.Add((file, type, true));
+                        foreach (var file in ByName(JsonFilesIn(dir))) files.Add((file, Path.GetFileName(dir), true));
                     }
                 }
             }
@@ -241,12 +247,60 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
+        /// Why a file is not read for its name, or null when its name is an element file's (the folder format's rulings
+        /// of 2026-11-23: names are read as written). <paramref name="folder"/> is the type folder's name as written,
+        /// <paramref name="name"/> the file's.
+        /// </summary>
+        /// <remarks>
+        /// A type folder is the type word in lower case, one of the 22 (under <c>spatial/</c>, one of the four it held);
+        /// <c>elements/Character/</c> is no type folder. An element file's extension is <c>.json</c> in lower case;
+        /// <c>X.JSON</c> is no element file. Both are skipped and listed, whatever they hold, and on a case-blind disk too.
+        /// </remarks>
+        private static string NameFault(string folder, string name, bool legacy)
+        {
+            var isType = legacy
+                ? Array.IndexOf(LegacySpatialTypes, folder) >= 0
+                : Array.IndexOf(OWElementTypes.Slugs, folder) >= 0;
+            if (!isType) return NoTypeFolderReason;
+            if (!IsDotPrefixed(name) && !name.EndsWith(".json", StringComparison.Ordinal)) return ExtensionReason;
+            return null;
+        }
+
+        /// <summary>A skipped file's reason: it sits in a folder that is no type folder (ruled 2026-11-23).</summary>
+        internal const string NoTypeFolderReason =
+            "in a folder that is no type: a type folder is the type word in lower case, one of the 22";
+
+        /// <summary>A skipped file's reason: its extension is <c>.json</c> in another spelling (ruled 2026-11-23).</summary>
+        internal const string ExtensionReason = "the extension is not .json in lower case: not read";
+
+        /// <summary>
+        /// The files in a directory whose names end <c>.json</c> in any spelling: the ones a reader reads, and the ones it
+        /// skips by name and says so. Listed whole and filtered here, never by the file system's pattern, which folds
+        /// case on one platform and not on another.
+        /// </summary>
+        private static string[] JsonFilesIn(string directory)
+            => Directory.GetFiles(directory)
+                .Where(f => Path.GetFileName(f).EndsWith(".json", StringComparison.OrdinalIgnoreCase)).ToArray();
+
+        /// <summary>
+        /// The <c>spatial/</c> folders in the order both forms visit them: the four legacy types in
+        /// <see cref="LegacySpatialTypes"/>' order, then every other folder in the order given (code point).
+        /// </summary>
+        private static IEnumerable<T> LegacyOrder<T>(List<T> folders, Func<T, string> nameOf)
+        {
+            foreach (var type in LegacySpatialTypes)
+                foreach (var f in folders.Where(f => nameOf(f) == type)) yield return f;
+            foreach (var f in folders.Where(f => Array.IndexOf(LegacySpatialTypes, nameOf(f)) < 0)) yield return f;
+        }
+
+        /// <summary>
         /// Reads a world held in memory: each file's path inside the world and its text. The folder read without the
         /// folder, for a world that arrives as a zip, a download or a test.
         /// </summary>
         /// <param name="entries">
         /// Path (relative to the world, <c>/</c> or <c>\</c>) to text. A null text is a file that could not be read,
-        /// and is skipped as the folder form skips one. Paths the folder form would not read are ignored.
+        /// and is skipped as the folder form skips one. Paths the folder form would not list are ignored; one it lists
+        /// and skips for its name (in a folder that is no type, an extension spelled otherwise) is skipped here too.
         /// </param>
         /// <param name="includeLegacySpatial">As <see cref="Read(string, bool)"/>.</param>
         /// <param name="source">Names the world in error messages (an archive's path, say). Never stored.</param>
@@ -259,12 +313,11 @@ namespace OnlyWorlds.Sdk
         /// The same rules as the folder form, by the same code: one <c>world.json</c> at the root, files directly in
         /// <c>elements/&lt;type&gt;/</c> and (when asked) <c>spatial/{map,pin,zone,marker}/</c> ending
         /// <c>.json</c>, every element parsed and every spelling kept as the folder form keeps it, and an id in both
-        /// layouts served from <c>elements/</c>. Names match as written (case-sensitive), as on a case-sensitive disk.
+        /// layouts served from <c>elements/</c>. Names match as written (case-sensitive), in both forms and on every disk.
         /// </para>
         /// <para>
-        /// Order: type folders and files in ordinal order, <c>spatial/</c> after <c>elements/</c> in the folder
-        /// form's type order. A folder's order is its file system's, so the two agree wherever that is ordinal for
-        /// the names in hand (lowercase slugs on NTFS, as written by every OnlyWorlds tool).
+        /// Order: folders and files by code point, <c>spatial/</c> after <c>elements/</c>, its four legacy folders in
+        /// <see cref="LegacySpatialTypes"/>' order and any other after them; the folder form visits the same order.
         /// </para>
         /// </remarks>
         /// <exception cref="ArgumentException">Two entries with the same path.</exception>
@@ -294,22 +347,25 @@ namespace OnlyWorlds.Sdk
             var legacy = new Dictionary<string, List<string>>(StringComparer.Ordinal);
             foreach (var path in byPath.Keys)
             {
+                // Every name ending .json in any spelling, directly in a folder of the layout: the ones read, and the ones
+                // skipped by name and said so (NameFault), as the folder form lists them.
                 var parts = path.Split('/');
-                if (parts.Length != 3 || parts[1].Length == 0 || !parts[2].EndsWith(".json", StringComparison.Ordinal)) continue;
+                if (parts.Length != 3 || parts[1].Length == 0 || IsDotPrefixed(parts[1])
+                    || !parts[2].EndsWith(".json", StringComparison.OrdinalIgnoreCase)) continue;
 
                 if (parts[0] == "elements")
                 {
-                    if (!IsDotPrefixed(parts[1])) elements.Add((path, parts[1]));
+                    elements.Add((path, parts[1]));
                 }
-                else if (includeLegacySpatial && parts[0] == "spatial" && Array.IndexOf(LegacySpatialTypes, parts[1]) >= 0)
+                else if (includeLegacySpatial && parts[0] == "spatial")
                 {
                     if (!legacy.TryGetValue(parts[1], out var list)) legacy[parts[1]] = list = new List<string>();
                     list.Add(path);
                 }
             }
 
-            // The folder form visits elements/ type by type, then spatial/ in LegacySpatialTypes' order. Names compare
-            // by code point on every platform (§4, v0.3.21), never UTF-16 order, which differs above U+FFFF.
+            // The folder form visits elements/ folder by folder, then spatial/ in LegacyOrder. Names compare by code
+            // point on every platform (§4, v0.3.21), never UTF-16 order, which differs above U+FFFF.
             elements.Sort((a, b) =>
             {
                 var byType = OWCodePointComparer.Instance.Compare(a.type, b.type);
@@ -317,11 +373,13 @@ namespace OnlyWorlds.Sdk
             });
 
             var files = elements.Select(e => (e.path, e.type, false)).ToList();
-            foreach (var type in LegacySpatialTypes)
+            var legacyFolders = legacy.Keys.ToList();
+            legacyFolders.Sort(OWCodePointComparer.Instance);
+            foreach (var folder in LegacyOrder(legacyFolders, f => f))
             {
-                if (!legacy.TryGetValue(type, out var list)) continue;
+                var list = legacy[folder];
                 list.Sort(OWCodePointComparer.Instance);
-                files.AddRange(list.Select(p => (p, type, true)));
+                files.AddRange(list.Select(p => (p, folder, true)));
             }
 
             Assemble(result, files, files.Select(f => byPath[f.Item1]).ToArray());
@@ -338,6 +396,14 @@ namespace OnlyWorlds.Sdk
             for (var i = 0; i < files.Count; i++)
             {
                 var (path, type, legacy) = files[i];
+                var fault = NameFault(type, Path.GetFileName(path), legacy);
+                if (fault != null)
+                {
+                    // Not read, whatever it holds: its name is no element file's. Left on disk, as every skipped file is.
+                    result.Skipped.Add(new OWSkippedFile { Path = path, Reason = fault });
+                    continue;
+                }
+
                 ReadElement(path, texts[i], type, legacy ? result.LegacyElements : result.Elements, result.Skipped);
             }
 
@@ -422,15 +488,18 @@ namespace OnlyWorlds.Sdk
         private static string[] ReadAllTexts(List<(string path, string type, bool legacy)> files)
         {
             var texts = new string[files.Count];
+            // A file skipped for its name is never opened.
+            string ReadOne(int i)
+                => NameFault(files[i].type, Path.GetFileName(files[i].path), files[i].legacy) == null ? TryReadText(files[i].path) : null;
 #if UNITY_WEBGL && !UNITY_EDITOR
-            for (var i = 0; i < files.Count; i++) texts[i] = TryReadText(files[i].path);
+            for (var i = 0; i < files.Count; i++) texts[i] = ReadOne(i);
 #else
             System.Threading.Tasks.Parallel.For(0, files.Count,
                 new System.Threading.Tasks.ParallelOptions
                 {
                     MaxDegreeOfParallelism = Math.Max(1, Math.Min(ReadThreads, Environment.ProcessorCount)),
                 },
-                i => texts[i] = TryReadText(files[i].path));
+                i => texts[i] = ReadOne(i));
 #endif
             return texts;
         }
