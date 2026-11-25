@@ -197,8 +197,11 @@ namespace OnlyWorlds.Sdk
         /// </param>
         /// <exception cref="DirectoryNotFoundException">The folder does not exist.</exception>
         /// <exception cref="OWFolderFormatException">
-        /// There is no readable <c>world.json</c>, or it has no id (a non-empty string). That is the one failure that
-        /// makes the whole folder unreadable -- everything else degrades to a skipped file.
+        /// There is no readable <c>world.json</c>, or it has no id (a non-empty string). Or the folder holds
+        /// <c>world.json</c>, <c>elements/</c> or <c>spatial/</c> in another case and not as written (<c>Elements/</c>):
+        /// its <see cref="OWFolderFormatException.Reason"/> is <see cref="OWWorldArchiveReason.NameCase"/>, whether or
+        /// not <paramref name="includeLegacySpatial"/> reads <c>spatial/</c>. Those are the failures that make the whole
+        /// folder unreadable -- everything else degrades to a skipped file.
         /// </exception>
         public static OWFolderReadResult Read(string folderPath, bool includeLegacySpatial = true)
         {
@@ -208,6 +211,10 @@ namespace OnlyWorlds.Sdk
             {
                 throw new DirectoryNotFoundException($"No world folder at '{folderPath}'.");
             }
+
+            // The three fixed names are read as written (§4.8, ruled 2026-11-25): the root is listed and compared, so the
+            // lookups below find world.json, elements and spatial only as written, on a disk that folds case too.
+            OWFixedNames.RefuseFolder(folderPath);
 
             var result = new OWFolderReadResult { World = ReadWorldJson(folderPath) };
 
@@ -322,7 +329,9 @@ namespace OnlyWorlds.Sdk
         /// </remarks>
         /// <exception cref="ArgumentException">Two entries with the same path.</exception>
         /// <exception cref="OWFolderFormatException">
-        /// No <c>world.json</c>, it is not JSON, or it has no id (a non-empty string).
+        /// No <c>world.json</c>, it is not JSON, or it has no id (a non-empty string). Or a first-level name is
+        /// <c>world.json</c>, <c>elements</c> or <c>spatial</c> in another case and the name itself is absent: its
+        /// <see cref="OWFolderFormatException.Reason"/> is <see cref="OWWorldArchiveReason.NameCase"/>.
         /// </exception>
         public static OWFolderReadResult ReadEntries(
             IEnumerable<KeyValuePair<string, string>> entries, bool includeLegacySpatial = true, string source = null)
@@ -338,6 +347,7 @@ namespace OnlyWorlds.Sdk
                 byPath.Add(path, entry.Value);
             }
 
+            OWFixedNames.RefusePaths(byPath.Keys, where);
             if (!byPath.TryGetValue("world.json", out var worldText))
                 throw new OWFolderFormatException($"No world.json in '{where}'.");
 
@@ -744,6 +754,75 @@ namespace OnlyWorlds.Sdk
         }
     }
 
+    /// <summary>
+    /// The three fixed names of a world, <c>world.json</c>, <c>elements</c> and <c>spatial</c>, read as written (folder
+    /// spec §4.8, ruled 2026-11-25): one question, asked of a listing, by the folder reader, the in-memory read, the world
+    /// file's reader, the pack and the writer alike.
+    /// </summary>
+    /// <remarks>
+    /// The file system is never asked for a fixed name, since NTFS and APFS serve <c>Elements/</c> to a lookup of
+    /// <c>elements</c> and ext4 serves nothing. A level that holds one of the names in another case and not the name
+    /// itself is refused (<see cref="OWWorldArchiveReason.NameCase"/>), never read as empty. One that holds both (only a
+    /// disk that keeps case can) reads the name as written and leaves the other unread. Names are compared by OW-18's fold
+    /// (NFC, then simple case folding, Unicode 15.1), the one every reader uses, so <c>ſpatial</c> is <c>spatial</c> in
+    /// another case.
+    /// </remarks>
+    internal static class OWFixedNames
+    {
+        internal const string WorldFile = "world.json";
+        internal const string Elements = "elements";
+        internal const string Spatial = "spatial";
+
+        /// <summary>The three, in the order a refusal names them.</summary>
+        internal static readonly string[] All = { WorldFile, Elements, Spatial };
+
+        /// <summary>
+        /// Why a level of names holding <paramref name="names"/> is refused for one of <paramref name="wanted"/>, or null:
+        /// a wanted name absent as written while one or more of the names is it in another case. The reason names both
+        /// spellings.
+        /// </summary>
+        internal static string Fault(IEnumerable<string> names, IEnumerable<string> wanted)
+        {
+            var held = new HashSet<string>(names, StringComparer.Ordinal);
+            foreach (var name in wanted)
+            {
+                if (held.Contains(name)) continue;
+                var key = OWWorldArchive.Fold(name);
+                var others = held.Where(n => OWWorldArchive.Fold(n) == key).ToList();
+                if (others.Count == 0) continue;
+                others.Sort(OWCodePointComparer.Instance);
+                return $"holds '{string.Join("', '", others)}' and no '{name}': the name is read as written, so "
+                       + $"'{others[0]}' is not {name}, and the world would read without it (folder spec §4.8); rename it '{name}'";
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Refuses a folder on disk whose root holds a fixed name in another case and not as written. Lists the root
+        /// (files and folders, as written); never asks the file system for a name.
+        /// </summary>
+        /// <exception cref="OWFolderFormatException">Its reason <see cref="OWWorldArchiveReason.NameCase"/>.</exception>
+        internal static void RefuseFolder(string folder)
+        {
+            var fault = Fault(Directory.GetFileSystemEntries(folder).Select(Path.GetFileName), All);
+            if (fault != null)
+                throw new OWFolderFormatException(OWWorldArchiveReason.NameCase, $"The world folder '{folder}' {fault}.");
+        }
+
+        /// <summary>
+        /// Refuses a world held as paths (forward slashes, relative to the world) whose first level holds a fixed name in
+        /// another case and not as written.
+        /// </summary>
+        /// <exception cref="OWFolderFormatException">Its reason <see cref="OWWorldArchiveReason.NameCase"/>.</exception>
+        internal static void RefusePaths(IEnumerable<string> paths, string where)
+        {
+            var fault = Fault(paths.Select(p => p.Split('/')[0]), All);
+            if (fault != null)
+                throw new OWFolderFormatException(OWWorldArchiveReason.NameCase, $"The world in '{where}' {fault}.");
+        }
+    }
+
     /// <summary>The folder itself is unreadable -- not merely one element within it.</summary>
     public class OWFolderFormatException : Exception
     {
@@ -758,8 +837,10 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// Why an <c>.owworld</c> was refused, by the cause's name in folder spec §4.7's shared list (the values of
-        /// <see cref="OWWorldArchiveReason"/>, such as <c>"unsafe_path"</c> or <c>"collision"</c>); null for a
-        /// folder's refusal. <see cref="OWWorldArchive.Read"/> and <c>LoadInto</c> always set it.
+        /// <see cref="OWWorldArchiveReason"/>, such as <c>"unsafe_path"</c> or <c>"collision"</c>).
+        /// <see cref="OWWorldArchive.Read"/> and <c>LoadInto</c> always set it. A folder's refusal, a pack's and a
+        /// write's set it only for <see cref="OWWorldArchiveReason.NameCase"/> (a fixed name in another case), and are
+        /// null otherwise.
         /// </summary>
         public string Reason { get; }
     }

@@ -172,6 +172,14 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>A <c>mimetype</c> marker that holds other bytes than <see cref="OWWorldArchive.MediaType"/>.</summary>
         public const string Marker = "marker";
+
+        /// <summary>
+        /// <c>world.json</c>, <c>elements/</c> or <c>spatial/</c> held in another case (<c>World.JSON</c>,
+        /// <c>Elements/</c>) and not as written: those three names are read as written, so the world would read as
+        /// empty, and on a disk that ignores case a writer's <c>elements/</c> would land inside <c>Elements/</c>
+        /// (folder spec §4.8, ruled 2026-11-25). A folder's refusal carries it too, and so do a pack and a write.
+        /// </summary>
+        public const string NameCase = "name_case";
     }
 
     /// <summary>
@@ -327,7 +335,9 @@ namespace OnlyWorlds.Sdk
         /// <exception cref="OWFolderFormatException">
         /// No readable <c>world.json</c>, or no id (a non-empty string) in it; or a <c>records/RECORDS.json</c> that
         /// cannot be read (not UTF-8 JSON, not an array of objects, a private entry whose producer is not one
-        /// directory name), so which producers are private cannot be told.
+        /// directory name), so which producers are private cannot be told; or the folder holds <c>world.json</c>,
+        /// <c>elements/</c> or <c>spatial/</c> in another case and not as written, which its reader refuses
+        /// (<see cref="OWWorldArchiveReason.NameCase"/>): nothing is written.
         /// </exception>
         /// <exception cref="ArgumentException"><paramref name="archivePath"/> is inside the folder.</exception>
         public static List<string> Pack(string worldFolder, string archivePath, bool keepApiBlock = false)
@@ -449,6 +459,9 @@ namespace OnlyWorlds.Sdk
                     + "only the archive, never into the folder.", nameof(archivePath));
             }
 
+            // §4.8 (ruled 2026-11-25): a folder its own reader refuses is never packed, so the file system's fold never
+            // turns Elements/ into elements/ in the archive (NTFS, APFS), nor packs a world without it (ext4).
+            OWFixedNames.RefuseFolder(root);
             var worldBytes = WorldJsonBytes(root, keepApiBlock);
             var plan = PackPlan(root, options.IncludePrivateRecords);
             if (!includeHidden)
@@ -1323,10 +1336,12 @@ namespace OnlyWorlds.Sdk
         /// <summary>
         /// A default file name for a folder's archive: <c>&lt;world name slug&gt;.owworld</c>, else the id's tail.
         /// </summary>
-        /// <exception cref="OWFolderFormatException">No readable <c>world.json</c>, or no id (a non-empty string) in it.</exception>
+        /// <exception cref="OWFolderFormatException">No readable <c>world.json</c>, or no id (a non-empty string) in it; or a
+        /// fixed name in another case (<see cref="OWWorldArchiveReason.NameCase"/>).</exception>
         public static string DefaultArchiveName(string worldFolder)
         {
             var root = FullDirectory(worldFolder);
+            if (Directory.Exists(root)) OWFixedNames.RefuseFolder(root);
             var path = Path.Combine(root, WorldFile);
             if (!File.Exists(path)) throw new OWFolderFormatException($"No world.json in '{root}'.");
 
@@ -1351,7 +1366,8 @@ namespace OnlyWorlds.Sdk
         /// <exception cref="OWFolderFormatException">
         /// No world (its <see cref="OWFolderFormatException.Reason"/> <c>not_a_world</c>), or more than one
         /// (<c>more_than_one</c>). Never a guess: a zip with two worlds in it opened as one of them is the wrong world
-        /// with a correct-looking UI, the failure the cache's key exists to prevent.
+        /// with a correct-looking UI, the failure the cache's key exists to prevent. No world, but a <c>world.json</c> in
+        /// another case where one would sit (<c>World.JSON</c>): <c>name_case</c>.
         /// </exception>
         /// <remarks>
         /// Only <c>world.json</c> directly at the root or directly in a top-level folder counts; a top-level
@@ -1382,6 +1398,22 @@ namespace OnlyWorlds.Sdk
 
             if (roots.Count == 0)
             {
+                // §4.8 (ruled 2026-11-25): world.json in another case, where a world would sit, is said as its cause.
+                var cased = entryNames.Select(NormalizeEntry).Where(n =>
+                {
+                    var parts = n.Split('/');
+                    return (parts.Length == 1 || (parts.Length == 2 && parts[0].Length > 0 && !IsToolLitter(parts[0])
+                                                  && parts[0] != RecordsFolder))
+                           && OWFixedNames.Fault(new[] { parts[parts.Length - 1] }, new[] { WorldFile }) != null;
+                }).ToList();
+                if (cased.Count > 0)
+                {
+                    cased.Sort(OWCodePointComparer.Instance);
+                    throw new OWFolderFormatException(OWWorldArchiveReason.NameCase,
+                        $"The archive holds '{string.Join("', '", cased)}' and no world.json: the name is read as written "
+                        + "(folder spec §4.8), so it holds no world as it is; rename it 'world.json'.");
+                }
+
                 throw new OWFolderFormatException(OWWorldArchiveReason.NotAWorld,
                     "No world.json in the archive. An .owworld holds one world: world.json at its root, or one "
                     + "top-level folder holding world.json.");
@@ -1459,7 +1491,8 @@ namespace OnlyWorlds.Sdk
         /// budget, or an entry inflating past its declared size; an entry that is broken, short or fails its CRC-32,
         /// or whose deflate stream does not end at the compressed size it declares;
         /// a marker holding other bytes; no world or more than
-        /// one in it, a nested one included; or the world's own <c>world.json</c> is unreadable.
+        /// one in it, a nested one included; or the world's own <c>world.json</c> is unreadable; or the world holds
+        /// <c>world.json</c>, <c>elements/</c> or <c>spatial/</c> in another case and not as written (<c>name_case</c>).
         /// </exception>
         public static OWFolderReadResult Read(
             string archivePath, bool includeLegacySpatial = true, OWWorldArchiveReadOptions options = null)
@@ -1591,6 +1624,12 @@ namespace OnlyWorlds.Sdk
                     }
                 }
 
+                // §4.8 (ruled 2026-11-25): world.json, elements/ and spatial/ are read as written, and one held in
+                // another case without the name itself refuses the archive, never reads as an empty world (OW-18 refuses
+                // the two side by side; this, the one alone). Before one byte is inflated, as the reference checker orders it.
+                OWFixedNames.RefusePaths(named.Where(n => n.path.StartsWith(root, StringComparison.Ordinal))
+                    .Select(n => n.path.Substring(root.Length)), archivePath);
+
                 // Every name and the shape are settled before one byte of content is inflated, as the TypeScript reader
                 // orders it, so an archive with two faults is refused for the same one by every reader.
                 // Every file is checked against its headers, in the archive's order; only the world's read entries are
@@ -1616,9 +1655,10 @@ namespace OnlyWorlds.Sdk
                 {
                     read = OWFolderReader.ReadEntries(entries, includeLegacySpatial, archivePath);
                 }
-                catch (OWFolderFormatException e)
+                catch (OWFolderFormatException e) when (e.Reason != OWWorldArchiveReason.NameCase)
                 {
-                    // The folder read refuses only the world's own world.json: unparseable, not an object, no id.
+                    // The folder read refuses only the world's own world.json: unparseable, not an object, no id. (A
+                    // fixed name in another case is refused above; one from the read would keep its own cause.)
                     throw new OWFolderFormatException(OWWorldArchiveReason.NotAWorld, e.Message, e);
                 }
 
@@ -1964,7 +2004,7 @@ namespace OnlyWorlds.Sdk
         /// <see cref="OWCaseFold"/>), so <c>ς</c> meets <c>σ</c>, <c>ſ</c> meets <c>s</c>, <c>ß</c> stays apart from
         /// <c>ss</c>, and a code point Unicode assigned after 15.1 stays itself, on every runtime.
         /// </summary>
-        private static string Fold(string name)
+        internal static string Fold(string name)
         {
             try
             {

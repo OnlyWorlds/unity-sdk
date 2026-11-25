@@ -11,8 +11,25 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 - **`OWWorldArchivePackOptions.IncludeAuthorFields` and `AuthorFieldsLeftOut`.** Pass `IncludeAuthorFields = true`
   for a byte copy of your own folder, author fields included; `AuthorFieldsLeftOut`, when given, receives the paths
   of the files written without them (forward slashes, code point order), as `HiddenLeftOut` does for hidden ones.
+- **`OWWorldArchiveReason.NameCase` (`"name_case"`).** The cause of a refusal when a folder or a world file holds
+  `world.json`, `elements/` or `spatial/` in another case and not as written (below).
 
 ### Changed
+
+- **`world.json`, `elements/` and `spatial/` are read as written, and one held in another case is refused, never
+  read as an empty world** (folder spec §4.8, ruled 2026-11-25). A folder holding `Elements/`, `World.JSON` or
+  `Spatial/` and not the name itself is refused by `OWFolderReader.Read` with `Reason` `name_case`, the message naming
+  both spellings, whether or not the legacy layout is read. Before, on Windows and macOS the folder was read as if the
+  name were right, and on Linux it read with no elements: one folder, two worlds. Every other door asks the same
+  question of a listing, never of the file system: `OWFolderReader.ReadEntries`, `OWWorldArchive.Read` and
+  `FindWorldRoot` (a world file holding `abbey/Elements/` or `abbey/World.JSON` alone was accepted as empty, or refused
+  as `not_a_world`), `OWWorldArchive.Pack` and `DefaultArchiveName` (a pack on Windows wrote `Elements/` into the
+  archive as `elements/`), and `OWFolderWriter.WriteElement`, `Write`, `WriteWorld` and `DeleteElement` (on Windows a
+  write landed inside `Elements/`, where no reader looks). Nothing is written when they refuse. Names are compared by
+  the archive's one fold (NFC, then simple case folding, Unicode 15.1), so `ſpatial/` is `spatial/` in another case. A
+  folder holding both spellings (only a case-sensitive disk can) reads the name as written and leaves the other
+  unread. The fixture set's `fail-OW-18-folder-case-alone` and `fail-OW-18-world-case-alone` pass; under `spatial/`
+  only `map`, `pin`, `zone` and `marker` were already read, as `pass-OW-24-spatial-untyped` and `-type-case` ask.
 
 - **A world file leaves out who wrote each element.** `OWWorldArchive.Pack` now removes the five author fields
   (`created_by`, `changed_by`, `changed_via`, `changed_client`, `doors`: which member and which tool wrote an element,

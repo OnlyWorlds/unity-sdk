@@ -101,7 +101,9 @@ namespace OnlyWorlds.Sdk
         /// a writer cannot invent, so both are refusals rather than guesses. Or a file of this id is not
         /// well-formed UTF-8 and the body is not the one the reader read there: the reader decoded it with
         /// U+FFFD, and the write would put that over the person's bytes (the message names the file). Or both
-        /// names this element may take are files the writer cannot read as an element (below).
+        /// names this element may take are files the writer cannot read as an element (below). Or the folder holds
+        /// <c>world.json</c>, <c>elements/</c> or <c>spatial/</c> in another case and not as written, which its reader
+        /// refuses (<see cref="OWWorldArchiveReason.NameCase"/>; folder spec §4.8): nothing is written.
         /// </exception>
         /// <remarks>
         /// <para>
@@ -130,6 +132,7 @@ namespace OnlyWorlds.Sdk
         {
             if (string.IsNullOrEmpty(folder)) throw new ArgumentNullException(nameof(folder));
             if (body == null) throw new ArgumentNullException(nameof(body));
+            RefuseFixedNameInAnotherCase(folder);
 
             var (id, type) = Validate(body);
             var undecodable = UndecodableFiles(folder, type);
@@ -174,8 +177,9 @@ namespace OnlyWorlds.Sdk
         /// <returns>Absolute paths written, in the order the bodies arrived.</returns>
         /// <exception cref="OWFolderFormatException">
         /// A body has no usable id or no type, or one would be written over a file of its id that is not
-        /// UTF-8 when it is not the body read there (see <see cref="WriteElement"/>). Every body is checked
-        /// before the first is written, so a refused batch writes nothing.
+        /// UTF-8 when it is not the body read there (see <see cref="WriteElement"/>), or the folder holds a fixed
+        /// name in another case (<see cref="OWWorldArchiveReason.NameCase"/>). Every body is checked before the first is
+        /// written, so a refused batch writes nothing.
         /// </exception>
         /// <remarks>
         /// <para>
@@ -207,6 +211,8 @@ namespace OnlyWorlds.Sdk
                 if (body == null) throw new ArgumentNullException(nameof(bodies), "A body in the batch is null.");
             }
 
+            RefuseFixedNameInAnotherCase(folder);
+
             var undecodableByType = new Dictionary<string, Dictionary<string, List<string>>>(StringComparer.Ordinal);
             foreach (var body in list)
             {
@@ -231,6 +237,17 @@ namespace OnlyWorlds.Sdk
             var written = new string[list.Count];
             foreach (var i in order) written[i] = WriteElement(folder, list[i]);
             return written.ToList();
+        }
+
+        /// <summary>
+        /// Refuses to write into a folder its own reader refuses: one holding <c>world.json</c>, <c>elements/</c> or
+        /// <c>spatial/</c> in another case and not as written (folder spec §4.8, ruled 2026-11-25). On a disk that folds
+        /// case the write would land inside <c>Elements/</c>, which no reader reads. A folder not there yet holds nothing.
+        /// </summary>
+        /// <exception cref="OWFolderFormatException">Its reason <see cref="OWWorldArchiveReason.NameCase"/>; nothing written.</exception>
+        private static void RefuseFixedNameInAnotherCase(string folder)
+        {
+            if (Directory.Exists(folder)) OWFixedNames.RefuseFolder(folder);
         }
 
         /// <summary>The body's id and type, or the refusal a writer gives without them.</summary>
@@ -263,6 +280,10 @@ namespace OnlyWorlds.Sdk
         /// <param name="folder">World folder root.</param>
         /// <param name="id">Element id. The filename is not consulted for identity.</param>
         /// <returns>True if a file was removed.</returns>
+        /// <exception cref="OWFolderFormatException">
+        /// The folder holds <c>world.json</c>, <c>elements/</c> or <c>spatial/</c> in another case and not as written
+        /// (<see cref="OWWorldArchiveReason.NameCase"/>): nothing is removed.
+        /// </exception>
         /// <remarks>
         /// Every type directory is searched, because an element's type may have changed since it
         /// was written, and a delete that only looks where it expects the file leaves an orphan
@@ -273,6 +294,7 @@ namespace OnlyWorlds.Sdk
         {
             if (string.IsNullOrEmpty(folder)) throw new ArgumentNullException(nameof(folder));
             if (string.IsNullOrEmpty(id)) throw new ArgumentNullException(nameof(id));
+            RefuseFixedNameInAnotherCase(folder);
 
             var elementsRoot = Path.Combine(folder, "elements");
             if (!Directory.Exists(elementsRoot)) return false;
@@ -305,7 +327,11 @@ namespace OnlyWorlds.Sdk
         /// <c>image_url</c>.
         /// </param>
         /// <returns>Absolute path of <c>world.json</c>.</returns>
-        /// <exception cref="OWFolderFormatException">The world's id is no non-empty string.</exception>
+        /// <exception cref="OWFolderFormatException">
+        /// The world's id is no non-empty string; or the folder holds <c>world.json</c>, <c>elements/</c> or
+        /// <c>spatial/</c> in another case and not as written (<see cref="OWWorldArchiveReason.NameCase"/>): a
+        /// <c>World.JSON</c> keeps its bytes.
+        /// </exception>
         /// <remarks>
         /// On disk the world's now-line is <c>time_current</c>, the canonical schema's spelling --
         /// not the wire's <c>time_range_current</c>, which is a server-side rename the standard
@@ -327,6 +353,7 @@ namespace OnlyWorlds.Sdk
                     + "tool's own until a host gives it one.");
             }
 
+            RefuseFixedNameInAnotherCase(folder);
             Directory.CreateDirectory(folder);
             var path = Path.Combine(folder, "world.json");
             WriteJsonFile(path, world);
