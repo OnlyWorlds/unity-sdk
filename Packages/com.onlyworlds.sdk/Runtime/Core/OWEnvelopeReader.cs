@@ -131,8 +131,9 @@ namespace OnlyWorlds.Sdk
                         continue;
                     }
 
-                    var declared = body["type"]?.ToString();
-                    var inferred = string.IsNullOrEmpty(declared);
+                    // As the folder reader reads it (§4.1): only one of the 22 slugs, exactly, is a declared type.
+                    var declared = OWFolderReader.DeclaredType(body);
+                    var inferred = declared == null;
 
                     result.Elements.Add(new OWFolderElement
                     {

@@ -31,6 +31,15 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   unread. The fixture set's `fail-OW-18-folder-case-alone` and `fail-OW-18-world-case-alone` pass; under `spatial/`
   only `map`, `pin`, `zone` and `marker` were already read, as `pass-OW-24-spatial-untyped` and `-type-case` ask.
 
+- **A body's `type` counts only when it is one of the 22 type slugs, exactly** (folder spec §4.1, ruled 2026-11-22).
+  `OWFolderReader.Read` and `ReadEntries` (so an `.owworld` too) and `OWEnvelopeReader` used to serve any string in
+  `type` as the element's type, and a number, `true`, a list or an object as its text: a file in
+  `elements/character/` saying `"type": "Location"` was served as a `Location`, and one saying `"type": 7` as a `7`.
+  Now anything but one of the 22 as written (another case, a space around it, an unknown word, a plural, a number, a
+  list) declares nothing: the type comes from the directory, or the export's list, and `TypeInferred` is true. One of
+  the 22 still wins over the directory, as before. The body is served as written. The cases are the Python package's
+  and the TypeScript SDK's shared `declared-type.cases.json`, vendored with its sha256.
+
 - **A world file leaves out who wrote each element.** `OWWorldArchive.Pack` now removes the five author fields
   (`created_by`, `changed_by`, `changed_via`, `changed_client`, `doors`: which member and which tool wrote an element,
   a membership id and a door, nothing to someone the world is handed to) from every file under `elements/` and the

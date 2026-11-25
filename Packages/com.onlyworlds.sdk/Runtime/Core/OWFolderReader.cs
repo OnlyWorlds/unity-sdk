@@ -107,7 +107,9 @@ namespace OnlyWorlds.Sdk
         public string Id;
 
         /// <summary>
-        /// Type, taken from the body when it declares one, else inferred from the directory.
+        /// Type, taken from the body when it declares one, else inferred from the directory. A declared type is a string
+        /// exactly equal to one of the 22 type slugs (folder spec §4.1): <c>"Location"</c>, <c>"widget"</c> or <c>7</c>
+        /// declares nothing, so the directory's type is served and the body keeps what it says.
         /// </summary>
         public string Type;
 
@@ -608,6 +610,20 @@ namespace OnlyWorlds.Sdk
             return string.IsNullOrWhiteSpace(text) ? null : text;
         }
 
+        /// <summary>
+        /// The type a body declares, or null when it declares none. A declared type is a string exactly equal to one of
+        /// the 22 type slugs (folder spec §4.1, ruled 2026-11-22): anything else in <c>type</c> (an unknown word, another
+        /// case such as <c>"Location"</c>, a space around it, a number, <c>true</c>, a list, an object, null) declares
+        /// nothing, and the reader fills the type from the directory.
+        /// </summary>
+        internal static string DeclaredType(JObject body)
+        {
+            var token = body?["type"];
+            if (token == null || token.Type != JTokenType.String) return null;
+            var text = (string)token;
+            return Array.IndexOf(OWElementTypes.Slugs, text) >= 0 ? text : null;
+        }
+
         private static void ReadElement(
             string file, string text, string typeFromDirectory,
             List<OWFolderElement> into, List<OWSkippedFile> skipped)
@@ -659,9 +675,9 @@ namespace OnlyWorlds.Sdk
 
             // The body wins over the directory when it declares a type: a file may legitimately
             // sit in the wrong folder, and the declaration is the stronger claim. Fill from the
-            // directory only when the body is silent, and never write the inference back.
-            var declared = body["type"]?.ToString();
-            var inferred = string.IsNullOrEmpty(declared);
+            // directory when the body declares none (§4.1), and never write the inference back.
+            var declared = DeclaredType(body);
+            var inferred = declared == null;
 
             into.Add(new OWFolderElement
             {
