@@ -13,10 +13,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// <see cref="OWCalendar"/> and <see cref="OWCalendarLens"/> against the TypeScript SDK's own answers:
     /// <c>Fixtures/calendar/calendar_parity.json</c>, vendored byte for byte from the Godot SDK (commit <c>1eda4ff</c>,
     /// <c>tests/data/calendar_parity.json</c>), which made it with <c>codegen/generate_calendar_parity.mjs</c> from the built
-    /// code of <c>@onlyworlds/sdk</c> 4.205.0 at commit <c>8ef7535</c>. It holds, for every calendar the profile fixture
+    /// code of <c>@onlyworlds/sdk</c> 4.206.0 at commit <c>a18e65a</c>. It holds, for every calendar the profile fixture
     /// reads as one (named by case, so its value is read from <c>calendar.fixture.json</c> beside it) and for sixteen
     /// calendars written for the traps: year and mid labels, month starts, the year length, durations (a fraction carries
-    /// its IEEE 754 bits), era years and about 15,000 parses; then 150 validations and 784 resolutions.
+    /// its IEEE 754 bits), era years and about 20,000 parses; then 162 validations and 784 resolutions.
     /// </summary>
     /// <remarks>
     /// Every record is replayed. Where Unity answers otherwise on purpose, a <see cref="Known"/> entry names the
@@ -29,7 +29,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     public class OWCalendarParityTests
     {
         /// <summary>The vectors' sha256 at godot-sdk e3b81ce.</summary>
-        private const string VectorsSha256 = "6a4e4435bbf6021a52196bdb6ac396d4f965dd118d22ef4f11599ddea9c10a68";
+        private const string VectorsSha256 = "2afe82704c4a2a0d287cbe0cb45595121f9bded4755f1749a25bdc37e238c235";
 
         // ---- the documents ----
 
@@ -160,12 +160,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(VectorsSha256, Sha256(PathOf("calendar_parity.json")),
                 "the vendored vectors are not godot-sdk e3b81ce's: re-vendor them byte for byte (a checkout's line endings change the bytes)");
             Assert.AreEqual("@onlyworlds/sdk", (string)Vectors["npm"]["package"]);
-            Assert.AreEqual("4.205.0", (string)Vectors["npm"]["version"]);
-            Assert.AreEqual("8ef7535", (string)Vectors["npm"]["commit"]);
+            Assert.AreEqual("4.206.0", (string)Vectors["npm"]["version"]);
+            Assert.AreEqual("a18e65a", (string)Vectors["npm"]["commit"]);
             Assert.AreEqual(Sha256(PathOf("calendar.fixture.json")), (string)Vectors["fixture_sha256"],
                 "the vectors were made from another profile fixture than the one vendored here");
-            Assert.AreEqual(36, Vectors["calendars"].Count(c => c["case"] != null), "every calendar of the fixture");
-            Assert.AreEqual(52, Vectors["calendars"].Count());
+            Assert.AreEqual(48, Vectors["calendars"].Count(c => c["case"] != null), "every calendar of the fixture");
+            Assert.AreEqual(64, Vectors["calendars"].Count());
         }
 
         // ---- labels, month starts, year length, era years ----
@@ -205,14 +205,14 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         [Test]
         public void FormatYearLabel_AnswersAsNpm()
         {
-            Replay("formatYearLabel", LabelRecords(1, "FormatYearLabel", OWCalendar.FormatYearLabel), 3825, AbbrevNotAString());
+            Replay("formatYearLabel", LabelRecords(1, "FormatYearLabel", OWCalendar.FormatYearLabel), 4773, AbbrevNotAString());
         }
 
         [Test]
         public void FormatMidLabel_AnswersAsNpm()
         {
             // The three calendars with such an abbrev have no months: their mid label is the year label.
-            Replay("formatMidLabel", LabelRecords(2, "FormatMidLabel", OWCalendar.FormatMidLabel), 3825, AbbrevNotAString());
+            Replay("formatMidLabel", LabelRecords(2, "FormatMidLabel", OWCalendar.FormatMidLabel), 4773, AbbrevNotAString());
         }
 
         [Test]
@@ -222,7 +222,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             {
                 Calendar = x.Name, Call = "MonthStartSteps(" + x.Row[0] + ")", Input = x.Row[0], Want = x.Row[1],
                 Unity = () => new JArray(OWCalendar.MonthStartSteps(x.Cfg, (long)x.Row[0]).Select(m => new JArray(m.Month, m.Name, m.Step))),
-            }), 1040);
+            }), 1280);
         }
 
         [Test]
@@ -237,7 +237,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                     Unity = () => OWCalendar.ApproxYearLength(cfg) is long l ? new JValue(l) : JValue.CreateNull(),
                 };
             });
-            Replay("approxYearLength", records, 52);
+            Replay("approxYearLength", records, 64);
         }
 
         [Test]
@@ -263,7 +263,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             {
                 Calendar = x.Name, Call = "FormatDuration(" + OWJsNumber.Format(SpanOf(x.Row)) + ")", Input = x.Row, Want = x.Row[1],
                 Unity = () => OWCalendar.FormatDuration(x.Cfg, SpanOf(x.Row)),
-            }), 2319);
+            }), 2955);
         }
 
         [Test]
@@ -275,7 +275,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 Calendar = x.Name, Call = "FormatDuration((long)" + x.Row[0] + ")", Input = x.Row, Want = x.Row[1],
                 Unity = () => OWCalendar.FormatDuration(x.Cfg, (long)x.Row[0]),
             }), whole.Count);
-            Assert.AreEqual(1529, whole.Count, "the whole spans (the other 790 are fractions)");
+            Assert.AreEqual(2009, whole.Count, "the whole spans (the other 946 are fractions)");
         }
 
         // ---- parse ----
@@ -293,7 +293,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                     var r = OWCalendar.ParseDate(x.Cfg, (string)x.Row[0], x.Row[1].Type == JTokenType.Null ? (long?)null : (long)x.Row[1]);
                     return r.IsError ? new JObject { ["error"] = r.Error } : new JObject { ["step"] = r.Step };
                 },
-            }), 15681, new Known
+            }), 19857, new Known
             {
                 Name = "npm-throws-on-a-non-string-abbrev",
                 Why = "npm's parseDate lowercases every era abbrev and throws a TypeError on one that is not a string; Unity's "
@@ -352,7 +352,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public void ValidateValue_AnswersAsNpm()
         {
             Assert.AreEqual(ValidateWhereNpmThrows.Count, Vectors["validate"].Count(r => r["answer"] is JObject), "every listed answer is a row where npm throws");
-            Replay("ValidateValue", ValidateRecords(value => () => new JArray(OWCalendar.ValidateValue(value))), 150);
+            Replay("ValidateValue", ValidateRecords(value => () => new JArray(OWCalendar.ValidateValue(value))), 162);
         }
 
         [Test]
@@ -361,7 +361,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             // The typed Validate sees only what ReadConfig reads, so its rows are the values the reader takes.
             var taken = ValidateRecords(value => () => new JArray(OWCalendar.Validate(OWCalendar.ReadConfig(value))))
                 .Where(r => OWCalendar.ReadConfig(r.Input) != null).ToList();
-            Replay("Validate(CalendarConfig)", taken, 52, new Known
+            Replay("Validate(CalendarConfig)", taken, 64, new Known
             {
                 Name = "version-1-leap-keys",
                 Why = "version 1 reads except and offset as unknown keys (the profile), so the typed reader drops them and the "
