@@ -180,6 +180,13 @@ namespace OnlyWorlds.Sdk
         /// (folder spec §4.8, ruled 2026-11-25). A folder's refusal carries it too, and so do a pack and a write.
         /// </summary>
         public const string NameCase = "name_case";
+
+        /// <summary>
+        /// <c>world.json</c> opens an object or array past 200, its own object at 1 (the folder format's OW-25): a world
+        /// file the reader cannot read, refused as an unparseable one is, by this cause. An element file that deep is
+        /// not a refusal but a file left out (<see cref="OWJson.TooDeep"/>). A folder's refusal carries it too.
+        /// </summary>
+        public const string TooDeep = OWJson.TooDeep;
     }
 
     /// <summary>
@@ -1691,10 +1698,11 @@ namespace OnlyWorlds.Sdk
                 {
                     read = OWFolderReader.ReadEntries(entries, includeLegacySpatial, archivePath);
                 }
-                catch (OWFolderFormatException e) when (e.Reason != OWWorldArchiveReason.NameCase)
+                catch (OWFolderFormatException e) when (e.Reason != OWWorldArchiveReason.NameCase && e.Reason != OWWorldArchiveReason.TooDeep)
                 {
                     // The folder read refuses only the world's own world.json: unparseable, not an object, no id. (A
-                    // fixed name in another case is refused above; one from the read would keep its own cause.)
+                    // fixed name in another case is refused above; one from the read keeps its own cause, and so does a
+                    // world.json past 200, too_deep.)
                     throw new OWFolderFormatException(OWWorldArchiveReason.NotAWorld, e.Message, e);
                 }
 
