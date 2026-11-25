@@ -288,6 +288,54 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsTrue(File.Exists(Path.Combine(_root, "Elements", "character", "a.json")));
         }
 
+        // -- A type folder in another case, at the writer (ruled 2026-11-23: a type folder is read as written) --------
+
+        [Test]
+        public void Writer_IntoATypeFolderInAnotherCase_IsRefused_TheFolderNamed_NothingWritten()
+        {
+            Write("world.json", World);
+            Write("elements/Character/old.json", "{\"id\": \"c-old\", \"name\": \"Old\"}");
+            var body = JObject.Parse("{\"id\": \"c-new\", \"type\": \"character\", \"name\": \"New\"}");
+            DiskFoldsCase();
+
+            AssertNameCase(() => OWFolderWriter.WriteElement(_root, body), "Character", "c-new");
+            AssertNameCase(() => OWFolderWriter.Write(_root, new[] { body }), "Character");
+            var e = Assert.Throws<OWFolderFormatException>(() => OWFolderWriter.WriteElement(_root, body));
+            StringAssert.Contains(Path.Combine(_root, "elements", "Character"), e.Message, "the folder is named by its path");
+            CollectionAssert.AreEqual(new[] { "old.json" },
+                Directory.GetFiles(Path.Combine(_root, "elements", "Character")).Select(Path.GetFileName).ToArray(),
+                "nothing landed in Character/ (on a disk that folds case, character/ would)");
+        }
+
+        [Test]
+        public void Writer_AnotherTypesFolderInAnotherCase_DoesNotStopThisWrite()
+        {
+            Write("world.json", World);
+            Write("elements/Location/old.json", "{\"id\": \"l-old\", \"name\": \"Old\"}");
+
+            OWFolderWriter.WriteElement(_root, JObject.Parse("{\"id\": \"c-new\", \"type\": \"character\", \"name\": \"New\"}"));
+
+            CollectionAssert.AreEqual(new[] { "c-new" }, OWFolderReader.Read(_root).Elements.Select(x => x.Id).ToArray());
+        }
+
+        [Test]
+        public void Writer_TheLegacyLayoutInAnotherCase_IsNotWhereTheElementLives()
+        {
+            // spatial/Pin/ is no pin folder, so the id it holds is no element the reader serves: the write goes to
+            // elements/pin/, never into spatial/Pin/ (which a disk that folds case would give a lookup of spatial/pin).
+            Write("world.json", World);
+            Write("spatial/Pin/well.json", "{\"id\": \"p-1\", \"name\": \"Old\"}");
+            var before = File.ReadAllBytes(Path.Combine(_root, "spatial", "Pin", "well.json"));
+
+            var path = OWFolderWriter.WriteElement(_root, JObject.Parse("{\"id\": \"p-1\", \"type\": \"pin\", \"name\": \"Well\"}"));
+
+            StringAssert.Contains(Path.Combine(_root, "elements", "pin"), path);
+            var read = OWFolderReader.Read(_root);
+            CollectionAssert.AreEqual(new[] { "p-1" }, read.Elements.Select(x => x.Id).ToArray());
+            CollectionAssert.AreEqual(before, File.ReadAllBytes(Path.Combine(_root, "spatial", "Pin", "well.json")),
+                "the unread file keeps its bytes");
+        }
+
         [Test]
         public void Writer_IntoANewFolder_WritesAsBefore()
         {

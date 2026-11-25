@@ -59,6 +59,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Fixed
 
+- **A write into a type folder spelled in another case is refused, the folder named.** `OWFolderWriter.WriteElement`
+  and `Write`, given a Character for a folder whose `elements/` holds `Character/` and no `character/`, wrote the file
+  inside `Character/` on Windows and macOS, where no reader reads it (a type folder is read as written, folder spec
+  §4.8, ruled 2026-11-23). They now refuse with `Reason` `name_case`, the message naming the folder's path, and write
+  nothing (a batch writes none of its bodies). A folder that holds both spellings writes into the one as written. And
+  an element whose id sits in the legacy `spatial/Pin/` (no pin folder) is written to `elements/pin/`, never into
+  `spatial/Pin/`: the legacy layout is found by its listed name, as the reader finds it.
 - **A tool's `world.json` under a dot-folder inside the world no longer refuses a world file** (folder spec §4.7,
   OW-5, ruled 2026-11-24). `OWWorldArchive.Read` refused `abbey/.atlas/world.json` as a second world
   (`more_than_one`); a dot-folder is never a world, wherever it sits (`..atlas/`, `elements/character/.trash/` too), so

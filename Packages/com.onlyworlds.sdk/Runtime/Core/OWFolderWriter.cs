@@ -103,7 +103,10 @@ namespace OnlyWorlds.Sdk
         /// U+FFFD, and the write would put that over the person's bytes (the message names the file). Or both
         /// names this element may take are files the writer cannot read as an element (below). Or the folder holds
         /// <c>world.json</c>, <c>elements/</c> or <c>spatial/</c> in another case and not as written, which its reader
-        /// refuses (<see cref="OWWorldArchiveReason.NameCase"/>; folder spec §4.8): nothing is written.
+        /// refuses (<see cref="OWWorldArchiveReason.NameCase"/>; folder spec §4.8): nothing is written. Or
+        /// <c>elements/</c> holds this element's type folder in another case and not as written
+        /// (<c>elements/Character/</c>), where a disk that folds case would put the file and no reader would read it: the
+        /// same reason, the folder named, nothing written.
         /// </exception>
         /// <remarks>
         /// <para>
@@ -135,10 +138,10 @@ namespace OnlyWorlds.Sdk
             RefuseFixedNameInAnotherCase(folder);
 
             var (id, type) = Validate(body);
+            var directory = DirectoryFor(folder, id, type);
             var undecodable = UndecodableFiles(folder, type);
             RefuseEditOverUndecodable(undecodable, id, body);
 
-            var directory = DirectoryFor(folder, id, type);
             var name = NameOf(body);
             var filename = ResolveFilename(directory, id, name);
             Directory.CreateDirectory(directory);
@@ -217,13 +220,14 @@ namespace OnlyWorlds.Sdk
             foreach (var body in list)
             {
                 var (id, type) = Validate(body);
+                var directory = DirectoryFor(folder, id, type);
                 if (!undecodableByType.TryGetValue(type, out var undecodable))
                     undecodableByType[type] = undecodable = UndecodableFiles(folder, type);
                 RefuseEditOverUndecodable(undecodable, id, body);
 
                 // A body whose every name is a file the writer could not read is refused here, before any is written.
                 // The batch's own writes add only files it reads, so the answer cannot change while it runs.
-                ResolveFilename(DirectoryFor(folder, id, type), id, NameOf(body));
+                ResolveFilename(directory, id, NameOf(body));
             }
 
             var ids = list.Select(body => IdOf(body)).ToList();
@@ -489,8 +493,16 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// The directory an element is written into: <c>elements/&lt;type&gt;/</c>, or the legacy <c>spatial/&lt;type&gt;/</c>
-        /// when the element already lives there and not in <c>elements/</c>.
+        /// when the element already lives there and not in <c>elements/</c>. Each folder is found by its listed name, as
+        /// written, never by the file system's lookup, which folds case on NTFS and APFS: <c>spatial/Pin/</c> is no pin
+        /// folder, and a write never lands in <c>elements/Character/</c> (below).
         /// </summary>
+        /// <exception cref="OWFolderFormatException">
+        /// The element would go to <c>elements/&lt;type&gt;/</c> and <c>elements/</c> holds that type folder in another
+        /// case and not as written (<c>elements/Character/</c>): on a disk that folds case the file would land there,
+        /// where no reader reads it (a type folder is read as written, folder spec §4.8, ruled 2026-11-23). The reason
+        /// is <see cref="OWWorldArchiveReason.NameCase"/>, the message names the folder; nothing is written.
+        /// </exception>
         private static string DirectoryFor(string folder, string id, string type)
         {
             var directory = Path.Combine(folder, "elements", type);
@@ -498,13 +510,40 @@ namespace OnlyWorlds.Sdk
             // its own file, so the folder never holds one id in both layouts. A new element goes to elements/.
             var legacy = Path.Combine(folder, "spatial", type);
             if (Array.IndexOf(OWFolderReader.LegacySpatialTypes, type) >= 0
+                && HoldsFolderAsWritten(Path.Combine(folder, "spatial"), type)
                 && FilesHoldingId(legacy, id).Count > 0
                 && (!Directory.Exists(directory) || FilesHoldingId(directory, id).Count == 0))
             {
-                directory = legacy;
+                return legacy;
             }
 
+            RefuseTypeFolderInAnotherCase(Path.Combine(folder, "elements"), id, type);
             return directory;
+        }
+
+        /// <summary>Whether <paramref name="parent"/> lists a folder named exactly <paramref name="name"/>.</summary>
+        private static bool HoldsFolderAsWritten(string parent, string name)
+            => Directory.Exists(parent)
+               && Directory.GetDirectories(parent).Any(d => string.Equals(Path.GetFileName(d), name, StringComparison.Ordinal));
+
+        /// <summary>
+        /// Refuses a write into <c>elements/&lt;type&gt;/</c> when <c>elements/</c> lists the type folder only in another
+        /// case (by the archive's fold, as the fixed names are compared). One that lists both (a disk that keeps case)
+        /// writes into the folder as written.
+        /// </summary>
+        private static void RefuseTypeFolderInAnotherCase(string elementsRoot, string id, string type)
+        {
+            if (!Directory.Exists(elementsRoot)) return;
+            var names = Directory.GetDirectories(elementsRoot).Select(Path.GetFileName).ToList();
+            if (OWFixedNames.Fault(names, new[] { type }) == null) return;
+
+            var key = OWWorldArchive.Fold(type);
+            var others = names.Where(n => OWWorldArchive.Fold(n) == key).ToList();
+            others.Sort(OWCodePointComparer.Instance);
+            throw new OWFolderFormatException(OWWorldArchiveReason.NameCase,
+                $"'{Path.Combine(elementsRoot, others[0])}' is the type folder '{type}' in another case, and there is no "
+                + $"'{type}' as written: a reader reads a type folder as written (folder spec §4.8), so element '{id}' "
+                + $"written into it would be read by no one. Rename the folder '{type}'; nothing was written.");
         }
 
         /// <summary>The body's name when it is a string, the one a filename is made from; otherwise null.</summary>
