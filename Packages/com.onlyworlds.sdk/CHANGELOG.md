@@ -16,6 +16,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
+- Schema pin to `v0.34.1-dist.146` (`7f29ae4`); canonical 00.34.01 unchanged (`OWSchemaPin.DistSerial` 146). The
+  generated files moved in their stamp only. The address fixture gains one prose case (219 in all) and the calendar
+  fixture one calendar (79 cases), each copied byte for byte under `Tests/Editor/Fixtures/` and answered with no
+  change. The `.owworld` set's new cases (a fixed name held only in another case, `spatial/`'s four types, a
+  dot-folder inside a world, what a share may carry) each get the set's verdict.
 - **`world.json`, `elements/` and `spatial/` are read as written, and one held in another case is refused, never
   read as an empty world** (folder spec §4.8, ruled 2026-11-25). A folder holding `Elements/`, `World.JSON` or
   `Spatial/` and not the name itself is refused by `OWFolderReader.Read` with `Reason` `name_case`, the message naming
