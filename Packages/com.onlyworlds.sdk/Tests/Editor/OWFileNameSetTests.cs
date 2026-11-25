@@ -15,14 +15,14 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </summary>
     /// <remarks>
     /// The cases (<c>Fixtures/file-names/file-names.fixture.json</c>) are the shared file-name set, held by their
-    /// sha256: 37 names, each slug the one the TypeScript package's folder writer and the Python package's
+    /// sha256: 38 names, each slug the one the TypeScript package's folder writer and the Python package's
     /// <c>slugify</c> both give.
     /// </remarks>
     public class OWFileNameSetTests
     {
-        private const string FixtureSha256 = "8b19110baf6c4c96cbe08f741c219a9e3803a1b495144aaadd91715fd5b7c741";
+        private const string FixtureSha256 = "0da1846641e116b2ff39269261779854e794db117388bd912e5aff68a243a91d";
 
-        private const int CaseCount = 37;
+        private const int CaseCount = 38;
 
         private const string Id = "019a9300-0000-7000-8000-0000000000c9";
 

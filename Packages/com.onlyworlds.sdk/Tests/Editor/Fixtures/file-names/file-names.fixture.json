@@ -23,6 +23,11 @@
       "slug": "jose"
     },
     {
+      "name": "acute-decomposed-inside-a-word",
+      "element_name": "Cafés Rún",
+      "slug": "cafes-run"
+    },
+    {
       "name": "caron-and-capitals",
       "element_name": "Žižkov",
       "slug": "zizkov"
