@@ -113,6 +113,27 @@ namespace OnlyWorlds.Sdk
             return all.Count == 1 ? all[0] : null;
         }
 
+        /// <summary>The World's key that names its calendar: the id of the element that carries it.</summary>
+        public const string WorldKey = "x_calendar";
+
+        /// <summary>
+        /// Which calendar speaks for a world (the calendar profile's "Which calendar speaks"). <paramref name="world"/>
+        /// is the World's own keys (world.json, or the body GET /world returns). Its <see cref="WorldKey"/> names the
+        /// element whose calendar speaks, by an id matched as written: when an element with that id carries a calendar
+        /// that reads, the first such one speaks; anything else named (an id no element has, the id in another letter
+        /// case, an element with no calendar or one that does not read, a value that is no string) gives null, never
+        /// another calendar in its place. Named none (the key absent or null): the world's only calendar, or null when
+        /// it holds several. A tool may keep its person's own pick over this (<see cref="ResolveLens"/>).
+        /// </summary>
+        public static WorldCalendar SpeakingCalendar(JObject world, IEnumerable<JObject> elements)
+        {
+            var named = world?[WorldKey];
+            if (named == null || named.Type == JTokenType.Null || named.Type == JTokenType.Undefined)
+                return ResolveLensNeverChosen(elements, fallbackToOnly: true);
+            if (named.Type != JTokenType.String) return null;
+            return ResolveLens(elements, (string)named);
+        }
+
         static string Text(JToken t)
         {
             if (t == null || t.Type == JTokenType.Null || t.Type == JTokenType.Undefined) return null;

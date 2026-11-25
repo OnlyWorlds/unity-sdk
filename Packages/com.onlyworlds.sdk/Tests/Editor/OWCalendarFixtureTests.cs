@@ -45,7 +45,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             var fixture = JObject.Parse(File.ReadAllText(FixturePath));
             var misses = new List<string>();
-            int refusals = 0, calendars = 0, steps = 0, founds = 0;
+            int refusals = 0, calendars = 0, steps = 0, founds = 0, speaking = 0;
             foreach (JObject c in fixture["cases"])
             {
                 var name = (string)c["name"];
@@ -93,16 +93,26 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                     var found = string.Join(", ", OWCalendarLens.WorldCalendars(elements.Cast<JObject>()).Select(w => w.Id));
                     var wantFound = string.Join(", ", c["found"].Select(t => (string)t));
                     if (found != wantFound) misses.Add($"{name}: found [{found}], the profile finds [{wantFound}]");
+
+                    // A case that carries the World's keys: which calendar speaks (null: none does).
+                    if (c["world"] is JObject world)
+                    {
+                        speaking++;
+                        var spoken = OWCalendarLens.SpeakingCalendar(world, elements.Cast<JObject>())?.Id ?? "none";
+                        var wantSpeaks = c["speaks"]?.Type == JTokenType.String ? (string)c["speaks"] : "none";
+                        if (spoken != wantSpeaks) misses.Add($"{name}: {spoken} speaks, the profile's {wantSpeaks}");
+                    }
                 }
             }
 
+            // The cases' answers first, so a fixture that moved still shows which case parts.
+            Assert.IsEmpty(misses, $"{refusals} refusals, {calendars} calendars, {steps} steps, {speaking} worlds:\n" + string.Join("\n", misses));
             Assert.AreEqual(79, refusals + calendars, "the dist.146 fixture holds 79 cases");
             Assert.AreEqual(43, refusals, "the dist.146 fixture holds 43 refusals");
             // The steps counted too, as the TypeScript SDK's fixture test does since 4.76.1: a dropped step reads green
             // under a case count alone.
             Assert.AreEqual(232, steps, "the dist.146 fixture's calendars read 232 steps");
             Assert.AreEqual(1, founds, "the dist.131 fixture holds one case with a world's elements");
-            Assert.IsEmpty(misses, $"{refusals} refusals, {calendars} calendars, {steps} steps:\n" + string.Join("\n", misses));
         }
     }
 }

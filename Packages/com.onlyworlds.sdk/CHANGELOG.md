@@ -6,6 +6,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Which calendar speaks for a world** (the calendar profile's paragraph of that name):
+  `OWCalendarLens.SpeakingCalendar(world, elements)` reads the World's `x_calendar`, the id of the element whose
+  calendar speaks, matched as written. A name that holds no calendar the reader reads gives none, never another in its
+  place; with none named, the world's only calendar speaks, and with several, none. The calendar fixture's world cases
+  are checked by `OWCalendarFixtureTests`.
+
 ### Fixed
 
 - **A new element's file name is the TypeScript and Python packages' on every runtime** (folder spec §3.2).
