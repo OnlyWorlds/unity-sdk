@@ -1032,6 +1032,35 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(1, read.Elements.Count, "records/ is never read as elements (§4.5 rule 4).");
         }
 
+        [Test]
+        public void Read_AWorldJsonUnderADotFolder_IsATools_NotASecondWorld()
+        {
+            // §4.7 OW-5, ruled 2026-11-24: a dot-folder is never a world, wherever it sits, so the second-world check
+            // does not look under a segment that starts with a dot (..atlas too). Every other check still reads them.
+            var archive = MakeZip("dot-folders.owworld",
+                ("abbey/world.json", WorldJson("0695db52-0000-7000-8000-0000000000aa", "Root")),
+                ("abbey/elements/character/one.json", ElementBody),
+                ("abbey/.atlas/world.json", WorldJson("0695db52-0000-7000-8000-0000000000bb", "Atlas's")),
+                ("abbey/..atlas/world.json", WorldJson("0695db52-0000-7000-8000-0000000000cc", "Dots")),
+                ("abbey/elements/character/.trash/world.json", WorldJson("0695db52-0000-7000-8000-0000000000dd", "Trash")));
+
+            var read = OWWorldArchive.Read(archive);
+            Assert.AreEqual("Root", read.WorldName);
+            Assert.AreEqual(1, read.Elements.Count, "nothing under a dot-folder is an element");
+        }
+
+        [Test]
+        public void Read_AWorldJsonDeeperThanTheWorld_IsStillASecondWorld()
+        {
+            // The skip is a dot-folder's only: a name that merely holds a dot (a.b/) is a folder like any other.
+            var archive = MakeZip("nested.owworld",
+                ("abbey/world.json", WorldJson("0695db52-0000-7000-8000-0000000000aa", "Root")),
+                ("abbey/a.b/world.json", WorldJson("0695db52-0000-7000-8000-0000000000bb", "Inner")));
+
+            var e = Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Read(archive));
+            Assert.AreEqual(OWWorldArchiveReason.MoreThanOne, e.Reason, e.Message);
+        }
+
         // -- Private records (folder spec §4.5 rule 11; §4.7, OW-8) ------------------
 
         private const string PrivateManifest =

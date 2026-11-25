@@ -1301,6 +1301,18 @@ namespace OnlyWorlds.Sdk
         /// <summary>A dot-prefixed name: a tool's private state or litter, never the world (spec, Rules for Tools).</summary>
         private static bool IsToolLitter(string name) => name.StartsWith(".", StringComparison.Ordinal);
 
+        /// <summary>
+        /// Whether a path sits under a folder whose name starts with a dot, at any depth (its last segment, the file, not
+        /// counted). The names are already plain paths (OW-16 refused a <c>.</c> or <c>..</c> segment).
+        /// </summary>
+        private static bool UnderADotFolder(string relative)
+        {
+            var parts = relative.Split('/');
+            for (var i = 0; i < parts.Length - 1; i++)
+                if (IsToolLitter(parts[i])) return true;
+            return false;
+        }
+
         private static byte[] WorldJsonBytes(string root, bool keepApiBlock)
         {
             var path = Path.Combine(root, WorldFile);
@@ -1475,7 +1487,7 @@ namespace OnlyWorlds.Sdk
         /// entry in another method is refused, never skipped); no Windows device name (<c>CON</c>, <c>nul.txt</c>,
         /// <c>COM1</c>...), trailing dot or space, <c>&lt;&gt;:"|?*</c> or control character in a name; and no
         /// non-ASCII name without the zip's UTF-8 flag. Inside the world, a second <c>world.json</c> anywhere but
-        /// under <c>records/</c> is a second world.
+        /// under <c>records/</c> or under a dot-folder (a tool's <c>.atlas/</c>, at any depth) is a second world.
         /// </para>
         /// <para>
         /// A <c>mimetype</c> entry at the archive's root is the marker (OW-6): never required, and when present it
@@ -1614,9 +1626,12 @@ namespace OnlyWorlds.Sdk
                     if (!path.StartsWith(root, StringComparison.Ordinal)) continue;
                     var relative = path.Substring(root.Length);
 
-                    // records/ is a producer's own data, which may hold a world.json; anywhere else it is a second world.
+                    // records/ is a producer's own data, which may hold a world.json; and a dot-folder is never a world,
+                    // wherever it sits (§4.7 OW-5, ruled 2026-11-24: a tool's abbey/.atlas/world.json, ..atlas/ too).
+                    // Anywhere else it is a second world. Only this check skips them: every other one reads their entries.
                     if (relative != WorldFile && relative.EndsWith("/" + WorldFile, StringComparison.Ordinal)
-                        && !relative.StartsWith(RecordsFolder + "/", StringComparison.Ordinal))
+                        && !relative.StartsWith(RecordsFolder + "/", StringComparison.Ordinal)
+                        && !UnderADotFolder(relative))
                     {
                         throw new OWFolderFormatException(OWWorldArchiveReason.MoreThanOne,
                             $"The archive holds a second world.json inside its world, at '{entry.FullName}'. One world "

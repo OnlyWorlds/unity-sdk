@@ -57,6 +57,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   reads to 200). An integer-like key (`"0"`, `"12"`) keeps its place in the object, where `JSON.stringify` would put
   it first.
 
+### Fixed
+
+- **A tool's `world.json` under a dot-folder inside the world no longer refuses a world file** (folder spec §4.7,
+  OW-5, ruled 2026-11-24). `OWWorldArchive.Read` refused `abbey/.atlas/world.json` as a second world
+  (`more_than_one`); a dot-folder is never a world, wherever it sits (`..atlas/`, `elements/character/.trash/` too), so
+  the second-world check no longer looks under one, as the folder reader never reads one. Every other check still
+  reads those entries. The fixture set's `pass-OW-5-dot-folder-inside` passes.
+
 ## [0.52.0] - 2026-11-24
 
 A stored calendar no longer sets what one date label costs: in 0.51.0 a calendar with long runs of spaces in its
