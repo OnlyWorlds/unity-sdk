@@ -68,6 +68,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Fixed
 
+- **The writer refuses a type that is not one of the 22 type slugs, exactly, and so can no longer write outside
+  `elements/`.** `OWFolderWriter.WriteElement` and `Write` take the type folder from the body's `type`, and took any
+  text there: `"Character"` wrote `elements/Character/` and `7` wrote `elements/7/`, folders no reader reads, and
+  `"../escape"` wrote the file beside `elements/`, `"../../x"` outside the world folder. Now a type other than the 22
+  as written is refused, the message naming it and the 22, and nothing is written (a batch none of its bodies), as
+  the TypeScript SDK's and the Python package's folder writers refuse it. A list or an object in `type` used to fail
+  as an `ArgumentException` about the path; it is this refusal now.
+
 - **A write into a type folder spelled in another case is refused, the folder named.** `OWFolderWriter.WriteElement`
   and `Write`, given a Character for a folder whose `elements/` holds `Character/` and no `character/`, wrote the file
   inside `Character/` on Windows and macOS, where no reader reads it (a type folder is read as written, folder spec

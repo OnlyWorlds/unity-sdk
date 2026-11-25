@@ -181,5 +181,100 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(18, asked, "the cases under elements/");
             Assert.IsEmpty(off, string.Join("; ", off));
         }
+
+        // -- The writer: a type outside the 22 is refused, as the TypeScript and Python writers refuse it ---------------
+
+        /// <summary>Every file and folder under the test's root, as relative paths with forward slashes, sorted.</summary>
+        private List<string> Tree()
+            => Directory.GetFileSystemEntries(_root, "*", SearchOption.AllDirectories)
+                .Select(p => p.Substring(_root.Length + 1).Replace('\\', '/'))
+                .OrderBy(p => p, StringComparer.Ordinal).ToList();
+
+        private string WorldFolder()
+        {
+            var folder = Path.Combine(_root, "world");
+            Directory.CreateDirectory(folder);
+            File.WriteAllText(Path.Combine(folder, "world.json"), World);
+            return folder;
+        }
+
+        private static readonly string[] NoTypes =
+        {
+            "\"Character\"", "\"CHARACTER\"", "\" character\"", "\"character \"", "\"\\u017fpecies\"", "\"widget\"",
+            "\"characters\"", "7", "true", "[\"character\"]", "{\"slug\":\"character\"}",
+        };
+
+        [Test]
+        public void Writer_ATypeOutsideThe22_IsRefusedNamingTheCause_AndNothingIsWritten()
+        {
+            var folder = WorldFolder();
+            var before = Tree();
+            foreach (var type in NoTypes)
+            {
+                var body = OWFolderWriter.Parse("{\"id\":\"w1\",\"name\":\"A\",\"type\":" + type + "}");
+                var e = Assert.Throws<OWFolderFormatException>(() => OWFolderWriter.WriteElement(folder, body), type);
+                StringAssert.Contains("not one of the 22 type slugs", e.Message, type);
+                Assert.AreEqual(before, Tree(), type + ": nothing written");
+            }
+        }
+
+        /// <summary>
+        /// The writer takes the type folder from the body: a type that is a path would write outside <c>elements/</c>,
+        /// and with <c>../../</c> outside the world.
+        /// </summary>
+        [Test]
+        public void Writer_ATypeThatIsAPath_IsRefused_AndNothingIsWrittenOutsideElements()
+        {
+            var folder = WorldFolder();
+            var before = Tree();
+            foreach (var type in new[] { "../escape", "../../escape", "character/../../escape", "..", "." })
+            {
+                var body = new JObject { ["id"] = "w1", ["name"] = "A", ["type"] = type };
+                var e = Assert.Throws<OWFolderFormatException>(() => OWFolderWriter.WriteElement(folder, body), type);
+                StringAssert.Contains("not one of the 22 type slugs", e.Message, type);
+                Assert.AreEqual(before, Tree(), type + ": nothing written");
+            }
+        }
+
+        [Test]
+        public void Writer_AnEmptyOrMissingType_IsRefused_AndNothingIsWritten()
+        {
+            var folder = WorldFolder();
+            var before = Tree();
+            foreach (var body in new[] { "{\"id\":\"w1\",\"type\":\"\"}", "{\"id\":\"w1\",\"type\":null}", "{\"id\":\"w1\"}" })
+            {
+                var e = Assert.Throws<OWFolderFormatException>(() => OWFolderWriter.WriteElement(folder, OWFolderWriter.Parse(body)), body);
+                StringAssert.Contains("declares no type", e.Message, body);
+                Assert.AreEqual(before, Tree(), body + ": nothing written");
+            }
+        }
+
+        [Test]
+        public void Writer_ABatchHoldingOneTypeOutsideThe22_WritesNothing()
+        {
+            var folder = WorldFolder();
+            var before = Tree();
+            var bodies = new[]
+            {
+                new JObject { ["id"] = "w1", ["name"] = "A", ["type"] = "character" },
+                new JObject { ["id"] = "w2", ["name"] = "B", ["type"] = "Location" },
+            };
+            var e = Assert.Throws<OWFolderFormatException>(() => OWFolderWriter.Write(folder, bodies));
+            StringAssert.Contains("'Location'", e.Message);
+            Assert.AreEqual(before, Tree());
+        }
+
+        [Test]
+        public void Writer_EachOfThe22_IsWrittenIntoItsOwnFolder()
+        {
+            var folder = WorldFolder();
+            foreach (var slug in OWElementTypes.Slugs)
+            {
+                var path = OWFolderWriter.WriteElement(folder, new JObject { ["id"] = slug + "-1", ["name"] = "N", ["type"] = slug });
+                Assert.AreEqual(Path.Combine(folder, "elements", slug), Path.GetDirectoryName(path), slug);
+            }
+
+            Assert.AreEqual(22, OWFolderReader.Read(folder).Elements.Count);
+        }
     }
 }

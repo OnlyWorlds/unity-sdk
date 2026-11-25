@@ -97,7 +97,8 @@ namespace OnlyWorlds.Sdk
         /// </param>
         /// <returns>Absolute path of the file written.</returns>
         /// <exception cref="OWFolderFormatException">
-        /// The body has no usable id, or declares no type. Identity and location are the two things
+        /// The body has no usable id, or declares no type, or declares a type that is not one of the 22 type slugs as
+        /// written (<c>"Character"</c>, <c>"widget"</c>, <c>7</c>, <c>"../x"</c>: the message names it). Identity and location are the two things
         /// a writer cannot invent, so both are refusals rather than guesses. Or a file of this id is not
         /// well-formed UTF-8 and the body is not the one the reader read there: the reader decoded it with
         /// U+FFFD, and the write would put that over the person's bytes (the message names the file). Or both
@@ -179,7 +180,7 @@ namespace OnlyWorlds.Sdk
         /// <param name="bodies">Element bodies, each carrying its own id and type.</param>
         /// <returns>Absolute paths written, in the order the bodies arrived.</returns>
         /// <exception cref="OWFolderFormatException">
-        /// A body has no usable id or no type, or one would be written over a file of its id that is not
+        /// A body has no usable id or no type, or a type that is not one of the 22 slugs as written, or one would be written over a file of its id that is not
         /// UTF-8 when it is not the body read there (see <see cref="WriteElement"/>), or the folder holds a fixed
         /// name in another case (<see cref="OWWorldArchiveReason.NameCase"/>). Every body is checked before the first is
         /// written, so a refused batch writes nothing.
@@ -266,13 +267,31 @@ namespace OnlyWorlds.Sdk
                     + "re-derived.");
             }
 
-            var type = body["type"]?.ToString();
-            if (string.IsNullOrEmpty(type))
+            var token = body["type"];
+            if (token == null || token.Type == JTokenType.Null
+                || (token.Type == JTokenType.String && ((string)token).Length == 0))
             {
                 throw new OWFolderFormatException(
                     $"Element '{id}' declares no type, and a writer has no directory to put it in. "
                     + "A reader may infer a type from the directory; a writer cannot run that "
                     + "inference backwards.");
+            }
+
+            // The type names the folder, so it is one of the 22 as written, or nothing is written: another case, an
+            // unknown word, a number or a path ("../x") would make a folder no reader reads, or one outside elements/.
+            var type = OWFolderReader.DeclaredType(body);
+            if (type == null)
+            {
+                var given = token.Type == JTokenType.String ? $"'{(string)token}'"
+                    : token.Type == JTokenType.Integer || token.Type == JTokenType.Float ? "a number"
+                    : token.Type == JTokenType.Boolean ? ((bool)token ? "true" : "false")
+                    : token.Type == JTokenType.Array ? "a list"
+                    : token.Type == JTokenType.Object ? "an object"
+                    : token.Type.ToString();
+                throw new OWFolderFormatException(
+                    $"Element '{id}' declares the type {given}, which is not one of the 22 type slugs as the standard "
+                    + $"spells them ({string.Join(", ", OWElementTypes.Slugs)}): a reader reads no other type folder, "
+                    + "so nothing was written.");
             }
 
             return (id, type);
