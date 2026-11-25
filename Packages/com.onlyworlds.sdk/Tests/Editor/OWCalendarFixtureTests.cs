@@ -9,15 +9,15 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// The <c>atlas_calendar</c> profile's conformance fixture (schema-dist <c>profiles/calendar.fixture.json</c>, tag
-    /// <c>v0.34.1-dist.146</c>, the profile's version 2: 79 cases, 43 of them refusals; serial 89 added 11 written from its
+    /// <c>v0.34.1-dist.147</c>, the profile's version 2: 91 cases, 43 of them refusals; serial 89 added 11 written from its
     /// rulings and turned <c>intercalary-after-month-out-of-range</c> into a refusal, serial 90 one refusal, an intercalary entry on a calendar with no months, serial 109 one, a <c>year_base</c> other than 0 or 1, serial 131 one calendar, <c>except</c> on a leap day that is not the year's last, and serial 146 one calendar), vendored byte for byte. It is
     /// generated from the TypeScript SDK's kernel (4.76.0) against the profile page: every reader refuses the same values and reads the same words, or one tool
     /// shows a calendar where another shows numbers. When the dist moves it, re-vendor and update the hash below.
     /// </summary>
     public class OWCalendarFixtureTests
     {
-        /// <summary>The fixture's sha256 as dist.146's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "1caef0003392b60b9f0cf960232c009417c85d374ac8574c3b9fcec55adda7a9";
+        /// <summary>The fixture's sha256 as dist.147's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "1ae922bc7af243453cac62053a31b2d10180e0ebb4843639dde9479f16e87206";
 
         private static string FixturePath
         {
@@ -107,12 +107,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             // The cases' answers first, so a fixture that moved still shows which case parts.
             Assert.IsEmpty(misses, $"{refusals} refusals, {calendars} calendars, {steps} steps, {speaking} worlds:\n" + string.Join("\n", misses));
-            Assert.AreEqual(79, refusals + calendars, "the dist.146 fixture holds 79 cases");
-            Assert.AreEqual(43, refusals, "the dist.146 fixture holds 43 refusals");
+            Assert.AreEqual(91, refusals + calendars, "the dist.147 fixture holds 91 cases");
+            Assert.AreEqual(43, refusals, "the dist.147 fixture holds 43 refusals");
             // The steps counted too, as the TypeScript SDK's fixture test does since 4.76.1: a dropped step reads green
             // under a case count alone.
-            Assert.AreEqual(232, steps, "the dist.146 fixture's calendars read 232 steps");
-            Assert.AreEqual(1, founds, "the dist.131 fixture holds one case with a world's elements");
+            Assert.AreEqual(256, steps, "the dist.147 fixture's calendars read 256 steps");
+            Assert.AreEqual(13, founds, "the dist.147 fixture holds 13 cases with a world's elements");
+            Assert.AreEqual(12, speaking, "the dist.147 fixture holds 12 cases with the World's keys");
         }
     }
 }

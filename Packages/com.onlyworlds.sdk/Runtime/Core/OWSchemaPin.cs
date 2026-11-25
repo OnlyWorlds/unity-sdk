@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.34.01";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 146;
+        public const int DistSerial = 147;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.34.1-dist.146";
+        public const string Tag = "v0.34.1-dist.147";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -550,9 +550,15 @@ namespace OnlyWorlds.Sdk
         /// answer on an existing case moved. The generated models and the views table changed in their serial and
         /// published stamps only.
         /// </para>
+        /// <para>
+        /// <b>146 -> 147 (2026-11-25)</b>: canonical unchanged. The calendar page names the World's <c>x_calendar</c>,
+        /// the id of the element whose calendar speaks, with twelve <c>world-names-</c> cases (91 cases, 256 steps); the
+        /// address page gains eleven cases (230: 109 parse, 83 prose); the <c>.owworld</c> set reaches 111 with the fold's
+        /// two cases; <c>fixtures/file-names.fixture.json</c> is new (38 cases). No answer on an existing case moved.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "1d948463a5e8c13026ac069dd4ae91c22ba3f5fc4ba81508a7d08a600638f367";
+            "beaa7093c2ae47b4f47afd8ce3672223f72015f3d014f7a890af5ebb15fecc8f";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.

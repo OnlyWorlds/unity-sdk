@@ -19,8 +19,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </summary>
     public class OWAddressTests
     {
-        /// <summary>The fixture's sha256 as dist.146's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "922182d418225234184c5a7e3a3a152e2fde8059c0fe2aa98596a7faa0aab487";
+        /// <summary>The fixture's sha256 as dist.147's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "4846f5dda7607efd9651bebb2f0b89b0df264b9d74496b01a35cca4c52d83895";
 
         private const string World = "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e0f";
         private const string Element = "019a1f3c-2b4e-7d10-8c3a-6f2e9b0d4a71";
@@ -81,12 +81,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsNotNull(Fixture, "the vendored address fixture was not found");
             Assert.AreEqual("address", (string)Fixture["profile"]);
             var cases = Fixture["cases"].Cast<JObject>().ToList();
-            Assert.AreEqual(219, cases.Count, "dist.146's fixture holds 219 cases");
+            Assert.AreEqual(230, cases.Count, "dist.147's fixture holds 230 cases");
             Assert.AreEqual(36, cases.Count(c => (string)c["kind"] == "format"));
-            Assert.AreEqual(104, cases.Count(c => (string)c["kind"] == "parse"));
-            Assert.AreEqual(77, cases.Count(c => (string)c["kind"] == "prose"), "an address found in prose (serial 123; four more at 126, fifteen at 127, one at 146)");
+            Assert.AreEqual(109, cases.Count(c => (string)c["kind"] == "parse"));
+            Assert.AreEqual(83, cases.Count(c => (string)c["kind"] == "prose"), "an address found in prose (serial 123; four more at 126, fifteen at 127, one at 146, six at 147)");
             Assert.AreEqual(2, cases.Count(c => (string)c["kind"] == "prose-all"), "every address in a text (serial 128)");
-            Assert.AreEqual(75, cases.Count(c => c["refuse"] != null), "20 format refusals and 55 parse refusals");
+            Assert.AreEqual(80, cases.Count(c => c["refuse"] != null), "20 format refusals and 60 parse refusals");
         }
 
         [Test]

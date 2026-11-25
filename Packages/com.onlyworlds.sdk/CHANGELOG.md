@@ -14,6 +14,15 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   place; with none named, the world's only calendar speaks, and with several, none. The calendar fixture's world cases
   are checked by `OWCalendarFixtureTests`.
 
+### Changed
+
+- Schema pin to `v0.34.1-dist.147` (`9d7fb97`); canonical 00.34.01 unchanged (`OWSchemaPin.DistSerial` 147). The
+  generated models and the views table moved in their stamp only. The calendar fixture gains twelve cases naming which
+  calendar speaks (91 cases, 48 calendars, 256 steps), answered by `SpeakingCalendar`; the address fixture gains
+  eleven (230: 109 parse, 83 prose), each answered with no change; the `.owworld` set's test copy gains its two fold
+  cases (111). The calendar's parity vectors are taken again from the Godot SDK, made from the TypeScript SDK 4.206.0
+  against the new fixture, and every row agrees.
+
 ### Fixed
 
 - **A new element's file name is the TypeScript and Python packages' on every runtime** (folder spec §3.2).

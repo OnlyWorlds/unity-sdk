@@ -42,7 +42,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         private const string FolderName = "owworld~";
 
         /// <summary><c>fixtures/owworld/verdicts.json</c>'s sha256 as dist.146's MANIFEST.json records it.</summary>
-        private const string VerdictsSha256 = "25d60a563ca822555c3202dffb7f8969f42490113444531af4f47264c885ace0";
+        private const string VerdictsSha256 = "c21b4ec6c355902a9cde1c45bd7f057e9833e31a3c6032a963cec9b801961693";
 
         private static string _dir;
         private static bool _vendored;
