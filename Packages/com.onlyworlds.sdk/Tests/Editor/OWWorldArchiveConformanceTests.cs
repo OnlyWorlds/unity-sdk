@@ -262,6 +262,23 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                     got = "returned " + strips;
                     said += $"; world.json came back with its '{strips}' block";
                 }
+
+                if (got == "accept" && fixture["left_out"] is JObject leftOut && fixture["side"] == null)
+                {
+                    // A reader's left_out (OW-25): by reason, the files the reader skipped with that word, by path. A
+                    // reader that reads a file the set leaves out (past 200 deep) fails here, where its verdict passes.
+                    foreach (var reason in leftOut.Properties())
+                    {
+                        var want = reason.Value.Select(x => (string)x).OrderBy(x => x, StringComparer.Ordinal).ToArray();
+                        var skipped = read.Skipped.Where(x => x.Reason != null && x.Reason.StartsWith(reason.Name + ":", StringComparison.Ordinal))
+                            .Select(x => x.Path).OrderBy(x => x, StringComparer.Ordinal).ToArray();
+                        if (!want.SequenceEqual(skipped))
+                        {
+                            got = $"left out as {reason.Name}: [{string.Join(", ", skipped)}]";
+                            said += $"; the set leaves out [{string.Join(", ", want)}] as {reason.Name}";
+                        }
+                    }
+                }
             }
             catch (OWFolderFormatException e)
             {
