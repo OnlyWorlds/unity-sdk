@@ -180,10 +180,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             yield return Edge("IntegerLikeKeys_KeepTheirOrder", "{\"id\":\"q\",\"b\":1,\"12\":2,\"0\":3,\"created_by\":\"u\"}",
                 "{\n  \"id\": \"q\",\n  \"b\": 1,\n  \"12\": 2,\n  \"0\": 3\n}\n");
 
-            // Depth: the TypeScript SDK reads to 200 deep (an object at the top is 1). Newtonsoft's reader stops at its
-            // own line, 64, and a file past it keeps its bytes here (an open difference, not built round).
+            // Depth: every reader reads to 200 deep (an object at the top is 1; the folder format's OW-25), Newtonsoft's
+            // own line of 64 raised to it, and a file past it keeps its bytes, as the TypeScript SDK keeps them.
             yield return Edge("Nested64_Rewritten", "{\"id\":\"u\",\"x_d\":" + Nested(64) + ",\"created_by\":\"u\"}", "rewritten");
-            yield return Edge("Nested65_KeepsItsBytes", "{\"id\":\"n\",\"x_d\":" + Nested(65) + ",\"created_by\":\"u\"}", null);
+            yield return Edge("Nested65_Rewritten", "{\"id\":\"n\",\"x_d\":" + Nested(65) + ",\"created_by\":\"u\"}", "rewritten");
+            yield return Edge("Nested200_Rewritten", "{\"id\":\"o\",\"x_d\":" + Nested(200) + ",\"created_by\":\"u\"}", "rewritten");
             yield return Edge("Nested201_KeepsItsBytes", "{\"id\":\"p\",\"x_d\":" + Nested(201) + ",\"created_by\":\"u\"}", null);
         }
 

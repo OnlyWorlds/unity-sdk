@@ -1216,7 +1216,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Write(root, "elements/character/yaml.json", "id: c-4\nhidden: true\n");
             Write(root, "elements/character/empty.json", "");
             Write(root, "elements/character/deep.json",
-                "{\"id\": \"c-5\", \"hidden\": true, \"x\": " + new string('[', 64) + new string(']', 64) + "}");
+                "{\"id\": \"c-5\", \"hidden\": true, \"x\": " + new string('[', 200) + new string(']', 200) + "}");
             Write(root, "elements/character/list.json", "[1,2]");
             Write(root, "elements/character/text.json", "\"text\"");
             Write(root, "elements/character/long.json", "{\"id\": \"c-6\", \"hidden\": true, \"n\": " + new string('7', 4301) + "}");

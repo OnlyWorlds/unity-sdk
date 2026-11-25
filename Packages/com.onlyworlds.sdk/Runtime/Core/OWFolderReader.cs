@@ -558,6 +558,10 @@ namespace OnlyWorlds.Sdk
             {
                 throw new OWFolderFormatException($"world.json in '{where}' is refused, {NumberOutOfRangeReason(e)}.", e);
             }
+            catch (OWTooDeepException e)
+            {
+                throw new OWFolderFormatException($"world.json in '{where}' is refused, {TooDeepReason}.", e);
+            }
             catch (OWContentAfterValueException e)
             {
                 throw new OWFolderFormatException($"world.json in '{where}' is refused, {ContentAfterValueReason(e)}.", e);
@@ -591,6 +595,10 @@ namespace OnlyWorlds.Sdk
         /// A skipped file's reason, and a refused file's words, for a number the reader cannot hold: the name first, so a
         /// caller can match it, then where it sits.
         /// </summary>
+        /// <summary>A skipped file's reason, and a refused file's words, for a text nested past the depth (OW-25).</summary>
+        internal static readonly string TooDeepReason =
+            $"{OWJson.TooDeep}: nested more than {OWJson.MaxDepth.ToString(System.Globalization.CultureInfo.InvariantCulture)} deep";
+
         internal static string NumberOutOfRangeReason(OWNumberOutOfRangeException e)
             => $"{OWJson.NumberOutOfRange}: holds a number too large for this reader to hold, at '{e.Path}'";
 
@@ -646,6 +654,13 @@ namespace OnlyWorlds.Sdk
                 // JSON, but holding a number no reader here holds: skipped by its name (the TypeScript SDK's and the Python
                 // package's word), never as "unparseable", and left on disk like any file skipped.
                 skipped.Add(new OWSkippedFile { Path = file, Reason = NumberOutOfRangeReason(e) });
+                return;
+            }
+            catch (OWTooDeepException)
+            {
+                // An object or array nested past the depth (OW-25): skipped by its name, as the TypeScript SDK and the
+                // Python package skip it, and left on disk like any file skipped.
+                skipped.Add(new OWSkippedFile { Path = file, Reason = TooDeepReason });
                 return;
             }
             catch (OWContentAfterValueException e)

@@ -50,7 +50,23 @@ namespace OnlyWorlds.Sdk
 
             DateParseHandling = DateParseHandling.None,
             Converters = { new SerializableNullableConverterFactory() },
+
+            // The standard's depth (OW-25), not Newtonsoft's default of 64: what the readers read, the typed models hold.
+            MaxDepth = MaxDepth,
         };
+
+        /// <summary>
+        /// The deepest an object or array may sit in a JSON text the SDK reads, the text's top value at 1 (the folder
+        /// format's OW-25; the TypeScript SDK's <c>OUTSIDE_JSON_MAX_DEPTH</c>). A text nested deeper is refused by name
+        /// (<see cref="TooDeep"/>).
+        /// </summary>
+        public const int MaxDepth = 200;
+
+        /// <summary>
+        /// The name of the refusal of a text nested past <see cref="MaxDepth"/> (<see cref="OWTooDeepException"/>): the
+        /// word the TypeScript SDK's and the Python package's folder readers skip such a file by.
+        /// </summary>
+        public const string TooDeep = "too_deep";
 
         /// <summary>
         /// Serializes with <see cref="Settings"/>, as <c>JsonConvert.SerializeObject</c> does, except that every
@@ -289,5 +305,29 @@ namespace OnlyWorlds.Sdk
 
         private static string Shown(char c)
             => c >= 0x21 && c <= 0x7E ? "'" + c + "'" : "U+" + ((int)c).ToString("X4", CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// A JSON text with an object or array nested past <see cref="OWJson.MaxDepth"/>, the text's top value at 1, refused
+    /// by name (<see cref="OWJson.TooDeep"/>) where Newtonsoft threw a bare <see cref="JsonReaderException"/> (its inner
+    /// exception).
+    /// </summary>
+    /// <remarks>
+    /// A folder or a <c>.owworld</c> skips such a file and serves the rest, its <see cref="OWSkippedFile.Reason"/> starting
+    /// with the word; a <c>world.json</c> or an export file nested that deep is refused by it. Objects and arrays both count,
+    /// so a plain value inside the 200th is read. The line is the folder format's OW-25, measured in every reader.
+    /// </remarks>
+    public sealed class OWTooDeepException : JsonReaderException
+    {
+        /// <summary>Always <see cref="OWJson.TooDeep"/>.</summary>
+        public string Reason => OWJson.TooDeep;
+
+        internal OWTooDeepException(string path, int lineNumber, int linePosition, Exception inner)
+            : base($"A JSON text nested more than {OWJson.MaxDepth.ToString(CultureInfo.InvariantCulture)} deep ({OWJson.TooDeep}), "
+                   + $"at line {lineNumber.ToString(CultureInfo.InvariantCulture)}, position "
+                   + $"{linePosition.ToString(CultureInfo.InvariantCulture)}: it is not read.",
+                path, lineNumber, linePosition, inner)
+        {
+        }
     }
 }

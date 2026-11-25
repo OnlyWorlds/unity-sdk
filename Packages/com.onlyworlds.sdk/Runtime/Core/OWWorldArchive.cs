@@ -856,7 +856,7 @@ namespace OnlyWorlds.Sdk
         internal static readonly string[] AuthorFields = { "created_by", "changed_by", "changed_via", "changed_client", "doors" };
 
         /// <summary>The deepest nesting the TypeScript SDK reads (its <c>OUTSIDE_JSON_MAX_DEPTH</c>): an object or array at the top is 1.</summary>
-        private const int OutsideJsonMaxDepth = 200;
+        private const int OutsideJsonMaxDepth = OWJson.MaxDepth;
 
         /// <summary>Whether a path inside the world sits under <c>elements/</c> or the legacy <c>spatial/</c>, as written.</summary>
         private static bool IsUnderElementFolders(string relative)
@@ -956,10 +956,26 @@ namespace OnlyWorlds.Sdk
         internal static bool IsOneJsonValue(string text)
         {
             var i = 0;
+            var tooDeep = false;
             SkipJsonWhite(text, ref i);
-            if (!JsonValueAt(text, ref i, 1)) return false;
+            if (!JsonValueAt(text, ref i, 1, ref tooDeep)) return false;
             SkipJsonWhite(text, ref i);
             return i == text.Length;
+        }
+
+        /// <summary>
+        /// Whether <paramref name="text"/>, read from its start, nests an object or array past
+        /// <see cref="OutsideJsonMaxDepth"/> before any fault of RFC 8259's grammar: the refusal a reader names
+        /// <see cref="OWJson.TooDeep"/>. A text that breaks the grammar first is not too deep but not JSON.
+        /// </summary>
+        internal static bool IsTooDeep(string text)
+        {
+            if (text == null) return false;
+            var i = 0;
+            var tooDeep = false;
+            SkipJsonWhite(text, ref i);
+            JsonValueAt(text, ref i, 1, ref tooDeep);
+            return tooDeep;
         }
 
         private static void SkipJsonWhite(string s, ref int i)
@@ -968,7 +984,7 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>One value from <paramref name="i"/>; <paramref name="depth"/> is the depth an object or array here would have.</summary>
-        private static bool JsonValueAt(string s, ref int i, int depth)
+        private static bool JsonValueAt(string s, ref int i, int depth, ref bool tooDeep)
         {
             if (i >= s.Length) return false;
             switch (s[i])
@@ -976,7 +992,12 @@ namespace OnlyWorlds.Sdk
                 case '{':
                 case '[':
                 {
-                    if (depth > OutsideJsonMaxDepth) return false;
+                    if (depth > OutsideJsonMaxDepth)
+                    {
+                        tooDeep = true;
+                        return false;
+                    }
+
                     var close = s[i] == '{' ? '}' : ']';
                     var isObject = close == '}';
                     i++;
@@ -998,7 +1019,7 @@ namespace OnlyWorlds.Sdk
                             SkipJsonWhite(s, ref i);
                         }
 
-                        if (!JsonValueAt(s, ref i, depth + 1)) return false;
+                        if (!JsonValueAt(s, ref i, depth + 1, ref tooDeep)) return false;
                         SkipJsonWhite(s, ref i);
                         if (i >= s.Length) return false;
                         if (s[i] == close)

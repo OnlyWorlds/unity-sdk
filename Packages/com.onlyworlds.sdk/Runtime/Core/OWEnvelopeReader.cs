@@ -73,6 +73,10 @@ namespace OnlyWorlds.Sdk
             {
                 throw new OWFolderFormatException($"{where} is refused, {OWFolderReader.NumberOutOfRangeReason(e)}.", e);
             }
+            catch (OWTooDeepException e)
+            {
+                throw new OWFolderFormatException($"{where} is refused, {OWFolderReader.TooDeepReason}.", e);
+            }
             catch (OWContentAfterValueException e)
             {
                 throw new OWFolderFormatException($"{where} is refused, {OWFolderReader.ContentAfterValueReason(e)}.", e);

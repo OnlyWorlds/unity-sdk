@@ -149,7 +149,7 @@ namespace OnlyWorlds.Sdk
             {
                 return OWPayload.IsKnownOf(OWJson.ParseObject(raw));
             }
-            catch (Newtonsoft.Json.JsonException e) when (!(e is OWNumberOutOfRangeException) && !(e is OWContentAfterValueException))
+            catch (Newtonsoft.Json.JsonException e) when (!(e is OWNumberOutOfRangeException) && !(e is OWContentAfterValueException) && !(e is OWTooDeepException))
             {
                 return false;
             }

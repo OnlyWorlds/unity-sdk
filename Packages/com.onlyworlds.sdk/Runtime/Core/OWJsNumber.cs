@@ -516,6 +516,7 @@ namespace OnlyWorlds.Sdk
         public OWExactReader(string text) : base(new StringReader(text ?? throw new ArgumentNullException(nameof(text))))
         {
             _text = text;
+            MaxDepth = OWJson.MaxDepth;
         }
 
         /// <summary>The exact double for a number token that has one; Newtonsoft's value for every other token.</summary>
@@ -562,13 +563,20 @@ namespace OnlyWorlds.Sdk
         /// Newtonsoft's exception, named when the number it stopped at is one the reader cannot hold: the text that ends
         /// where it stopped (its line and position, as <see cref="Capture"/> finds a number's text).
         /// </summary>
-        private bool Named(JsonReaderException e, out OWNumberOutOfRangeException refusal)
+        private bool Named(JsonReaderException e, out JsonReaderException refusal)
         {
             refusal = null;
-            if (e is OWNumberOutOfRangeException) return false;
+            if (e is OWNumberOutOfRangeException || e is OWTooDeepException) return false;
             var literal = NumberEndingAt(OffsetOf(e.LineNumber, e.LinePosition));
-            if (literal == null || !OWJsNumber.IsOutOfRange(literal)) return false;
-            refusal = OWNumberOutOfRangeException.Of(literal, e.Path, e.LineNumber, e.LinePosition, e);
+            if (literal != null && OWJsNumber.IsOutOfRange(literal))
+            {
+                refusal = OWNumberOutOfRangeException.Of(literal, e.Path, e.LineNumber, e.LinePosition, e);
+                return true;
+            }
+
+            // Past the depth before any fault of the grammar, read from the text itself, never from Newtonsoft's words.
+            if (!OWWorldArchive.IsTooDeep(_text)) return false;
+            refusal = new OWTooDeepException(e.Path, e.LineNumber, e.LinePosition, e);
             return true;
         }
 
