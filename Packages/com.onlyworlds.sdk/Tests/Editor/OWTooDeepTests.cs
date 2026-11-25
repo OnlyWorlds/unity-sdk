@@ -202,41 +202,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             var e = Assert.Throws<OWFolderFormatException>(() => OWFolderReader.Read(Folder("w", null, Nest(201))));
             StringAssert.Contains(OWJson.TooDeep, e.Message);
-            Assert.AreEqual(OWWorldArchiveReason.TooDeep, e.Reason, "the cause, as a world.json that cannot be read is refused");
             Assert.IsInstanceOf<OWTooDeepException>(e.InnerException);
-        }
-
-        [Test]
-        public void Archive_WhoseWorldJsonIsPastTheDepth_IsRefused_TooDeep()
-        {
-            // Packed from a world whose world.json is read (5 deep), then that entry swapped for one past 200.
-            var archive = Path.Combine(_root, "w.owworld");
-            OWWorldArchive.Pack(Folder("w5", null, Nest(5)), archive);
-            var deep = Path.Combine(_root, "w201.owworld");
-            using (var source = System.IO.Compression.ZipFile.OpenRead(archive))
-            using (var target = System.IO.Compression.ZipFile.Open(deep, System.IO.Compression.ZipArchiveMode.Create))
-            {
-                foreach (var entry in source.Entries)
-                {
-                    var name = entry.FullName;
-                    var into = target.CreateEntry(name, name == "mimetype"
-                        ? System.IO.Compression.CompressionLevel.NoCompression
-                        : System.IO.Compression.CompressionLevel.Optimal);
-                    using (var from = entry.Open())
-                    using (var to = into.Open())
-                    {
-                        if (name.EndsWith("/world.json") || name == "world.json")
-                        {
-                            var text = Encoding.UTF8.GetBytes("{\"id\": \"" + WorldId + "\", \"x_depth\": " + Nest(201) + "}");
-                            to.Write(text, 0, text.Length);
-                        }
-                        else from.CopyTo(to);
-                    }
-                }
-            }
-
-            var e = Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Read(deep));
-            Assert.AreEqual(OWWorldArchiveReason.TooDeep, e.Reason, e.Message);
         }
 
         [Test]

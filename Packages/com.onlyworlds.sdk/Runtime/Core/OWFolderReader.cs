@@ -560,7 +560,7 @@ namespace OnlyWorlds.Sdk
             }
             catch (OWTooDeepException e)
             {
-                throw new OWFolderFormatException(OWWorldArchiveReason.TooDeep, $"world.json in '{where}' is refused, {TooDeepReason}.", e);
+                throw new OWFolderFormatException($"world.json in '{where}' is refused, {TooDeepReason}.", e);
             }
             catch (OWContentAfterValueException e)
             {
