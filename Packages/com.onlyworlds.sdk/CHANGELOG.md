@@ -11,8 +11,10 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 - **A JSON text nested past 200 is refused by name, `too_deep`** (the folder format's OW-25): the depth of its deepest
   object or array, the text's top value at 1, objects and arrays both counted. A folder or a `.owworld` skips such an
   element file and serves the rest, its `OWSkippedFile.Reason` starting `too_deep`, as the TypeScript SDK's folder
-  reader skips it; a `world.json` or an export file nested that deep is refused by the word
-  (`OWTooDeepException`, a `JsonReaderException`). `OWJson.MaxDepth` (200) and `OWJson.TooDeep` name the line.
+  reader skips it; a `world.json` or an export file nested that deep is refused, its message naming the word (a
+  `.owworld` whose world.json is that deep is `not_a_world`, as any world.json it cannot read). The count is made in
+  the text as each object or array opens, so every value of a key given twice counts (`OWTooDeepException`, a
+  `JsonReaderException`). `OWJson.MaxDepth` (200) and `OWJson.TooDeep` name the line.
 
 ### Changed
 

@@ -206,6 +206,40 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public void Archive_WhoseWorldJsonIsPastTheDepth_IsNotAWorld_SayingWhy()
+        {
+            // A world.json the reader cannot read is no world (OW-3), whatever the cause; the message names too_deep.
+            var archive = Path.Combine(_root, "w.owworld");
+            OWWorldArchive.Pack(Folder("w5", null, Nest(5)), archive);
+            var deep = Path.Combine(_root, "w201.owworld");
+            using (var source = System.IO.Compression.ZipFile.OpenRead(archive))
+            using (var target = System.IO.Compression.ZipFile.Open(deep, System.IO.Compression.ZipArchiveMode.Create))
+            {
+                foreach (var entry in source.Entries)
+                {
+                    var name = entry.FullName;
+                    var into = target.CreateEntry(name, name == "mimetype"
+                        ? System.IO.Compression.CompressionLevel.NoCompression
+                        : System.IO.Compression.CompressionLevel.Optimal);
+                    using (var from = entry.Open())
+                    using (var to = into.Open())
+                    {
+                        if (name.EndsWith("/world.json") || name == "world.json")
+                        {
+                            var text = Encoding.UTF8.GetBytes("{\"id\": \"" + WorldId + "\", \"x_depth\": " + Nest(201) + "}");
+                            to.Write(text, 0, text.Length);
+                        }
+                        else from.CopyTo(to);
+                    }
+                }
+            }
+
+            var e = Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Read(deep));
+            Assert.AreEqual(OWWorldArchiveReason.NotAWorld, e.Reason, e.Message);
+            StringAssert.Contains(OWJson.TooDeep, e.Message);
+        }
+
+        [Test]
         public void Archive_SkipsTheFileAt201_ByName_AndServesTheRest()
         {
             var archive = Path.Combine(_root, "a.owworld");
