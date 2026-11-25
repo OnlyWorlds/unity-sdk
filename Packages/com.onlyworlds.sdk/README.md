@@ -197,7 +197,9 @@ by Unicode 15.1's simple folding) for an editor that only suggests. The rule, th
 - A name two elements share is never answered, and nothing inside it is: the text stays plain there. `find.Shared`
   lists every such name with the elements that hold it, so a tool can say why a name stays plain, or test that no
   two elements of a world share one.
-- Nothing is read inside an address or a Markdown link `[label](target)`.
+- Nothing is read inside an address, a Markdown link `[label](target)`, a bare web address (`https://…` to the next
+  white space or `<`) or an autolink (`<scheme:…>`). `find.Find(text, markdown: true)`, for a text you know is
+  Markdown, also passes over inline code, fenced code blocks, HTML tags and comments, and reference definitions.
 - Every mention is answered, in order. `Start` and `End` are C# string indexes (UTF-16 code units), as the
   TypeScript SDK counts them.
 

@@ -8,6 +8,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Added
 
+- **The name finder passes over web addresses, and over Markdown's code, HTML and definitions when told the text is
+  Markdown.** In any text a bare web address (`http://` or `https://` in any ASCII case, to the next white space or
+  `<`) and an autolink (`<scheme:…>`) are passed over. `OWNameFinder<T>.Find(text, markdown)` with `markdown` true
+  also reads nothing inside an inline code span, a fenced code block, an HTML tag or comment, or a reference
+  definition's line; `Find(text)` keeps a rich-text node's literal backticks as prose. Parity with the TypeScript SDK
+  4.208.0, its version 3 cases (84, 16 with the option, 14 timed) vendored byte for byte.
 - **A JSON text nested past 200 is refused by name, `too_deep`** (the folder format's OW-25): the depth of its deepest
   object or array, the text's top value at 1, objects and arrays both counted. A folder or a `.owworld` skips such an
   element file and serves the rest, its `OWSkippedFile.Reason` starting `too_deep`, as the TypeScript SDK's folder

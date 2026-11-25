@@ -280,9 +280,12 @@ namespace OnlyWorlds.Sdk
         /// <item>A name two elements share (by id) is never answered, and nothing inside it is: the text stays plain
         /// there (<see cref="Shared"/> lists it). One element listed twice, or found by two of its own names, is one
         /// element.</item>
-        /// <item>Nothing is read inside an address (what <see cref="OWAddress.FindLinks"/> finds) or a Markdown link
+        /// <item>Nothing is read inside an address (what <see cref="OWAddress.FindLinks"/> finds), a Markdown link
         /// <c>[label](target)</c> (a <c>[</c>, a label up to the first <c>]</c>, a <c>(</c> right after it, a target
-        /// up to the first <c>)</c>), and no name is read across the edge of one.</item>
+        /// up to the first <c>)</c>), a bare web address (<c>http://</c> or <c>https://</c> in any ASCII case, to the
+        /// next white space or <c>&lt;</c>) or an autolink (<c>&lt;scheme:…&gt;</c>), and no name is read across the
+        /// edge of one. <see cref="Find(string, bool)"/> with markdown true also passes over Markdown's code, HTML and
+        /// reference definitions.</item>
         /// <item>Text is compared as written: no Unicode normalisation (a letter and a combining mark are not the
         /// one-character letter), and a space in a name matches that one space.</item>
         /// </list>
@@ -291,12 +294,22 @@ namespace OnlyWorlds.Sdk
         /// the finder is made, grows with their total length.
         /// </remarks>
         /// <exception cref="ArgumentNullException"><paramref name="text"/> is null.</exception>
-        public IReadOnlyList<OWNameFound<T>> Find(string text)
+        public IReadOnlyList<OWNameFound<T>> Find(string text) => Find(text, false);
+
+        /// <summary>
+        /// <see cref="Find(string)"/>, told whether the text is Markdown. With <paramref name="markdown"/> true, nothing
+        /// is read inside an inline code span, a fenced code block, an HTML tag or comment, or a reference definition's
+        /// line either; false answers as <see cref="Find(string)"/>, so a rich-text node's literal backticks stay prose.
+        /// An indented code block, a fence inside a quote or a list, and a definition's title on the next line are read
+        /// as prose. The TypeScript SDK's <c>find(text, { markdown: true })</c> (4.208.0).
+        /// </summary>
+        /// <exception cref="ArgumentNullException"><paramref name="text"/> is null.</exception>
+        public IReadOnlyList<OWNameFound<T>> Find(string text, bool markdown)
         {
             if (text == null) throw new ArgumentNullException(nameof(text), "OWNameFinder: text must be a string");
             var found = new List<OWNameFound<T>>();
             if (_names == 0) return found;
-            var spans = PassedOver(text);
+            var spans = PassedOver(text, markdown);
             var length = text.Length;
 
             // Where a whole name starts and the longest one that does, as the backward pass meets them: last place first.
@@ -444,11 +457,251 @@ namespace OnlyWorlds.Sdk
             return spans;
         }
 
-        /// <summary>The stretches no name is read in: every address and every Markdown link, in order, none overlapping.</summary>
-        private static List<(int start, int end)> PassedOver(string text)
+        /// <summary>Unicode's White_Space code points, all in the BMP: the end of a bare web address and of an autolink.</summary>
+        private static bool IsWhiteSpace(int c) =>
+            (c >= 0x09 && c <= 0x0d) || c == 0x20 || c == 0x85 || c == 0xa0 || c == 0x1680
+            || (c >= 0x2000 && c <= 0x200a) || c == 0x2028 || c == 0x2029 || c == 0x202f || c == 0x205f || c == 0x3000;
+
+        private static bool IsAsciiLetter(int c) => (c >= 0x41 && c <= 0x5a) || (c >= 0x61 && c <= 0x7a);
+
+        /// <summary>The UTF-16 unit at <paramref name="i"/>, or -1 past the text's end.</summary>
+        private static int At(string text, int i) => i >= 0 && i < text.Length ? text[i] : -1;
+
+        private static int IndexFrom(string text, char c, int from) => from >= text.Length ? -1 : text.IndexOf(c, from);
+
+        private static int IndexFrom(string text, string s, int from) =>
+            from > text.Length ? -1 : text.IndexOf(s, from, StringComparison.Ordinal);
+
+        /// <summary>
+        /// Every bare web address and every autolink, in any text. A bare address starts at <c>http://</c> or
+        /// <c>https://</c> (the scheme in any ASCII case) and runs to just before the first white space or <c>&lt;</c>.
+        /// An autolink is <c>&lt;</c>, a scheme (an ASCII letter, then 1 to 31 of letters, digits, <c>+</c>, <c>.</c> or
+        /// <c>-</c>), <c>:</c>, then anything but white space, a control character, <c>&lt;</c> or <c>&gt;</c>, up to the
+        /// closing <c>&gt;</c>. The TypeScript SDK's webAddresses (4.208.0).
+        /// </summary>
+        private static List<(int start, int end)> WebAddresses(string text)
+        {
+            var spans = new List<(int start, int end)>();
+            var i0 = 0;
+            while (i0 < text.Length)
+            {
+                var at = SchemeAt(text, i0);
+                if (at == -1) break;
+                var end = at + (At(text, at + 4) == 's' || At(text, at + 4) == 'S' ? 8 : 7);
+                while (end < text.Length && !IsWhiteSpace(text[end]) && text[end] != '<') end++;
+                spans.Add((at, end));
+                i0 = end;
+            }
+
+            var open = text.IndexOf('<');
+            while (open != -1)
+            {
+                var i = open + 1;
+                if (IsAsciiLetter(At(text, i)))
+                {
+                    var n = 1;
+                    i++;
+                    while (i < text.Length && n < 32 && IsSchemeChar(text[i])) { i++; n++; }
+                    if (n >= 2 && At(text, i) == ':')
+                    {
+                        i++;
+                        var c = At(text, i);
+                        while (i < text.Length && c != '>' && c != '<' && c >= 0x20 && c != 0x7f && !IsWhiteSpace(c)) c = At(text, ++i);
+                        if (i < text.Length && c == '>')
+                        {
+                            spans.Add((open, i + 1));
+                            open = IndexFrom(text, '<', i + 1);
+                            continue;
+                        }
+                    }
+                }
+
+                open = IndexFrom(text, '<', open + 1);
+            }
+
+            return spans;
+        }
+
+        private static bool IsSchemeChar(char c) =>
+            (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '+' || c == '.' || c == '-';
+
+        /// <summary>The first place at or after <paramref name="from"/> where <c>http://</c> or <c>https://</c> starts,
+        /// the letters in ASCII case alone; -1 when none does.</summary>
+        private static int SchemeAt(string text, int from)
+        {
+            for (var i = from; i + 7 <= text.Length; i++)
+            {
+                if ((text[i] | 0x20) != 'h' || (text[i + 1] | 0x20) != 't' || (text[i + 2] | 0x20) != 't' || (text[i + 3] | 0x20) != 'p') continue;
+                var j = i + 4;
+                if ((text[j] | 0x20) == 's') j++;
+                if (j + 3 <= text.Length && text[j] == ':' && text[j + 1] == '/' && text[j + 2] == '/') return i;
+            }
+
+            return -1;
+        }
+
+        /// <summary>A line's fence, after at most three spaces: a run of three or more backticks or tildes, or null.</summary>
+        private static (int ch, int length, int after)? FenceOf(string text, int start, int end)
+        {
+            var i = start;
+            while (i < end && i - start < 3 && text[i] == ' ') i++;
+            var ch = At(text, i);
+            if (ch != '`' && ch != '~') return null;
+            var j = i;
+            while (j < end && text[j] == ch) j++;
+            return j - i >= 3 ? (ch, j - i, j) : ((int, int, int)?)null;
+        }
+
+        /// <summary>
+        /// The Markdown stretches no name is read in (markdown true). Fenced code blocks first: a line whose fence opens
+        /// one (a backtick fence holds no backtick in the rest of its line) runs to a later line holding only a fence of
+        /// the same character, at least as long, and spaces or tabs after it, or to the end of the text. Outside them: an
+        /// inline code span (a run of backticks to the next run of exactly as many; a run with none is prose), an HTML
+        /// comment (<c>&lt;!--</c> to the first <c>--&gt;</c>), an HTML tag (<c>&lt;</c>, an optional <c>/</c>, an ASCII
+        /// letter, to the first <c>&gt;</c>), and a reference definition's line (after at most three spaces, <c>[</c>, a
+        /// label, and the line's first <c>]</c> followed by <c>:</c>). The TypeScript SDK's markdownStretches (4.208.0).
+        /// </summary>
+        private static List<(int start, int end)> MarkdownStretches(string text)
+        {
+            var spans = new List<(int start, int end)>();
+            var lines = new List<(int start, int end)>();
+            for (var start = 0; ;)
+            {
+                var nl = IndexFrom(text, '\n', start);
+                if (nl == -1) { lines.Add((start, text.Length)); break; }
+                lines.Add((start, nl));
+                start = nl + 1;
+            }
+
+            var outside = new List<(int start, int end)>();
+            var segStart = 0;
+            var bracket = -2; // the next ] at or after the place last asked about, searched for once per place passed
+            for (var k = 0; k < lines.Count; k++)
+            {
+                var (ls, le) = lines[k];
+                var open = FenceOf(text, ls, le);
+                var tick = open != null && open.Value.ch == '`' ? IndexFrom(text, '`', open.Value.after) : -1;
+                if (open == null || (tick != -1 && tick < le))
+                {
+                    var i = ls;
+                    while (i < le && i - ls < 3 && text[i] == ' ') i++;
+                    if (At(text, i) == '[')
+                    {
+                        if (bracket != -1 && bracket < i + 1) bracket = IndexFrom(text, ']', i + 1);
+                        var close = bracket;
+                        if (close != -1 && close < le && close > i + 1 && At(text, close + 1) == ':') spans.Add((ls, le));
+                    }
+
+                    continue;
+                }
+
+                var m = k + 1;
+                for (; m < lines.Count; m++)
+                {
+                    var (cs, ce) = lines[m];
+                    var shut = FenceOf(text, cs, ce);
+                    if (shut == null || shut.Value.ch != open.Value.ch || shut.Value.length < open.Value.length) continue;
+                    var j = shut.Value.after;
+                    while (j < ce && (text[j] == ' ' || text[j] == '\t' || text[j] == '\r')) j++;
+                    if (j == ce) break;
+                }
+
+                var blockEnd = m < lines.Count ? lines[m].end : text.Length;
+                if (ls > segStart) outside.Add((segStart, ls));
+                spans.Add((ls, blockEnd));
+                segStart = blockEnd;
+                k = m;
+            }
+
+            if (segStart < text.Length) outside.Add((segStart, text.Length));
+            foreach (var (s, e) in outside)
+            {
+                // Inline code spans: every maximal backtick run, then each opening run to the next run of its length.
+                var runs = new List<(int at, int n)>();
+                var t = IndexFrom(text, '`', s);
+                while (t != -1 && t < e)
+                {
+                    var j = t;
+                    while (j < e && text[j] == '`') j++;
+                    runs.Add((t, j - t));
+                    t = IndexFrom(text, '`', j);
+                }
+
+                var byLength = new Dictionary<int, List<int>>();
+                for (var idx = 0; idx < runs.Count; idx++)
+                {
+                    if (!byLength.TryGetValue(runs[idx].n, out var l)) byLength[runs[idx].n] = l = new List<int>();
+                    l.Add(idx);
+                }
+
+                var cursor = new Dictionary<int, int>();
+                var r = 0;
+                while (r < runs.Count)
+                {
+                    var (at, n) = runs[r];
+                    var list = byLength[n];
+                    cursor.TryGetValue(n, out var c);
+                    while (c < list.Count && list[c] <= r) c++;
+                    cursor[n] = c;
+                    if (c < list.Count)
+                    {
+                        spans.Add((at, runs[list[c]].at + n));
+                        r = list[c] + 1;
+                    }
+                    else
+                    {
+                        r++;
+                    }
+                }
+
+                // HTML comments and tags.
+                var gt = -2;
+                var commentEnd = -2;
+                var lt = IndexFrom(text, '<', s);
+                while (lt != -1 && lt < e)
+                {
+                    if (string.CompareOrdinal(text, lt, "<!--", 0, 4) == 0 && lt + 4 <= text.Length)
+                    {
+                        if (commentEnd != -1 && commentEnd < lt + 4) commentEnd = IndexFrom(text, "-->", lt + 4);
+                        if (commentEnd != -1 && commentEnd + 3 <= e)
+                        {
+                            spans.Add((lt, commentEnd + 3));
+                            lt = IndexFrom(text, '<', commentEnd + 3);
+                            continue;
+                        }
+                    }
+                    else
+                    {
+                        var name = At(text, lt + 1) == '/' ? lt + 2 : lt + 1;
+                        if (IsAsciiLetter(At(text, name)))
+                        {
+                            if (gt != -1 && gt < name) gt = IndexFrom(text, '>', name);
+                            if (gt != -1 && gt < e)
+                            {
+                                spans.Add((lt, gt + 1));
+                                lt = IndexFrom(text, '<', gt + 1);
+                                continue;
+                            }
+                        }
+                    }
+
+                    lt = IndexFrom(text, '<', lt + 1);
+                }
+            }
+
+            return spans;
+        }
+
+        /// <summary>
+        /// The stretches no name is read in, in order, none overlapping: every address, every Markdown link, every bare
+        /// web address and autolink, and with <paramref name="markdown"/> the Markdown stretches too.
+        /// </summary>
+        private static List<(int start, int end)> PassedOver(string text, bool markdown)
         {
             var spans = MarkdownLinks(text);
             foreach (var a in OWAddress.FindLinks(text)) spans.Add((a.Start, a.End));
+            spans.AddRange(WebAddresses(text));
+            if (markdown) spans.AddRange(MarkdownStretches(text));
             spans.Sort((a, b) => a.start != b.start ? a.start.CompareTo(b.start) : a.end.CompareTo(b.end));
             var merged = new List<(int start, int end)>(spans.Count);
             foreach (var s in spans)

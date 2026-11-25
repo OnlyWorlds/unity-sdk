@@ -1,8 +1,8 @@
 // OWNameFinder: a world's element names found in prose. The shared cases (Fixtures/name-finder/name-finder.cases.json,
-// version 2, the same bytes as the TypeScript SDK's test/fixtures/name-finder.cases.json and the Python package's copy,
+// version 3, the same bytes as the TypeScript SDK's test/fixtures/name-finder.cases.json and the Python package's copy,
 // its sha256 pinned here): what Find answers and what Shared lists, then the timed recipes, then what the cases cannot
 // hold: C# string indexes, the objects answered, purity, the refusals, and the one fact about folding the matcher
-// stands on. Ported from @onlyworlds/sdk 4.194.0 and 4.198.0, test/name-finder.test.mjs.
+// stands on. Ported from @onlyworlds/sdk 4.194.0, 4.198.0 and 4.208.0, test/name-finder.test.mjs.
 
 using System;
 using System.Collections.Generic;
@@ -19,11 +19,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     public class OWNameFinderTests
     {
         /// <summary>The cases file's sha256, as both packages' suites hold it.</summary>
-        private const string CasesSha256 = "8e91e79981830511055976011f9fc6d4f4b62fb0183c29bad61c2d05fd4b13e4";
+        private const string CasesSha256 = "9c6fcf52eaa7a435b88f7524fdd1020a696b97ecc31d2a1efcf9431a49384b57";
 
-        private const int CaseCount = 62;
+        private const int CaseCount = 84;
 
-        private const int TimedCount = 10;
+        private const int TimedCount = 14;
 
         private static JObject _fixture;
 
@@ -86,7 +86,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var nameCase = (string)c["case"] == "folded" ? OWNameCase.Folded : (string)c["case"] == "exact" ? OWNameCase.Exact : (OWNameCase)0;
             var text = (string)c["text"];
             var got = new JArray();
-            foreach (var f in OWNameFinder.For((JArray)c["elements"], nameCase, NamesOf).Find(text))
+            foreach (var f in OWNameFinder.For((JArray)c["elements"], nameCase, NamesOf).Find(text, (bool?)c["markdown"] == true))
                 got.Add(new JObject { ["at"] = Points(text, 0, f.Start), ["length"] = Points(text, f.Start, f.End), ["id"] = f.Element["id"] });
             return got;
         }
@@ -100,7 +100,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(CasesSha256, hash,
                 "the vendored cases are not the packages' bytes: re-vendor them (a checkout's line endings change the bytes)");
-            Assert.AreEqual(2, (int)Fixture["version"]);
+            Assert.AreEqual(3, (int)Fixture["version"]);
+            Assert.AreEqual(16, Fixture["cases"].Count(c => (bool?)c["markdown"] == true), "version 3 carries 16 cases with the markdown option");
         }
 
         [Test]
@@ -232,7 +233,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 var (elements, text) = Build(recipe);
                 var find = OWNameFinder.For(elements, OWNameCase.Exact);
                 var watch = Stopwatch.StartNew();
-                var found = find.Find(text);
+                var found = find.Find(text, (bool?)recipe["markdown"] == true);
                 watch.Stop();
                 TestContext.WriteLine($"{recipe["name"]}: {found.Count} found in {watch.ElapsedMilliseconds} ms (text {text.Length} units)");
                 Assert.AreEqual((int)recipe["count"], found.Count, (string)recipe["name"]);
