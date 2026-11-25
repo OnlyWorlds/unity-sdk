@@ -110,6 +110,19 @@ def verify_test_fixtures() -> int:
             print(f"FAIL: {copy.relative_to(CODEGEN.parent).as_posix()} is not the pinned dist's profiles/{copy.name}")
             print("      Copy the dist's bytes over it and move the test's sha256 with it.")
             problems += 1
+    # The .owworld set's copy, file for file both ways: the copy sat at dist.60 through every repin to 146, and the
+    # gate on Actions, which reads only the copy, skipped every case added since (the share's writer half among them).
+    set_copy, set_dist = fixtures / "owworld~", DIST_DIR / "fixtures" / "owworld"
+    if set_copy.is_dir() and set_dist.is_dir():
+        mine = {p.name for p in set_copy.iterdir() if p.is_file()}
+        theirs = {p.name for p in set_dist.iterdir() if p.is_file()}
+        checked += 1
+        stale = sorted(n for n in mine & theirs if (set_copy / n).read_bytes() != (set_dist / n).read_bytes())
+        if mine != theirs or stale:
+            print(f"FAIL: {set_copy.relative_to(CODEGEN.parent).as_posix()} is not the pinned dist's fixtures/owworld/:"
+                  f" {len(theirs - mine)} missing, {len(mine - theirs)} extra, {len(stale)} differ")
+            print("      Replace the copy wholesale from the dist and move the test's verdicts sha256 with it.")
+            problems += 1
     if problems == 0:
         print(f"test fixtures OK: {checked} copies are the pinned dist's bytes")
     return problems
