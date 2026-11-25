@@ -19,16 +19,17 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// Held to the packages' own fixture (<c>Fixtures/author-fields/author-fields.fixture.json</c>, the same bytes as the
     /// TypeScript SDK's <c>test/fixtures/author-fields.fixture.json</c> and the Python package's copy, its sha256 pinned
     /// here), every case replayed whole: each entry compared byte for byte, and the count. Then the edges the fixture
-    /// does not hold: the TypeScript SDK's verdict on each (4.203.1, measured), and the two places this package keeps a
-    /// file's bytes where the TypeScript SDK rewrites it (an integer it would write rounded, a file nested past
-    /// Newtonsoft's depth). Ported from @onlyworlds/sdk 4.203.1 (6794d27), test/world-file.test.mjs, "author fields".
+    /// does not hold: the TypeScript SDK's verdict on each (4.203.1, measured; the integer edges again on 4.205.0), and
+    /// the place this package keeps a file's bytes where the TypeScript SDK rewrites it (a file nested past Newtonsoft's
+    /// depth). Ported from @onlyworlds/sdk 4.203.1 (6794d27), test/world-file.test.mjs, "author fields"; the fixture
+    /// at 4.203.2 (55aad63), whose case 8 holds an integer no double holds.
     /// </remarks>
     public class OWWorldArchiveAuthorFieldsTests
     {
         /// <summary>The fixture's sha256, as the TypeScript and Python suites hold it.</summary>
-        private const string Sha256 = "6943ce5a8c2cd7bf69f82facb6f1d545d87d68f5ea0104cc4d711d94e035898a";
+        private const string Sha256 = "33835ede8b407868da8fef2857699c53e763879ad4bef7909376c75b31c48645";
 
-        private const int CaseCount = 7;
+        private const int CaseCount = 8;
 
         private static readonly string[] Fields = { "created_by", "changed_by", "changed_via", "changed_client", "doors" };
 
@@ -144,8 +145,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 "{\n  \"id\": \"d\",\n  \"n\": 9007199254740991,\n  \"m\": 0\n}\n");
             yield return Edge("AnIntegerPast2To53_JavaScriptWritesTheSame", "{\"id\":\"c\",\"n\":18014398509481984,\"created_by\":\"u\"}",
                 "{\n  \"id\": \"c\",\n  \"n\": 18014398509481984\n}\n");
-            // The TypeScript SDK rewrites these two as 12345678901234567000 and 9007199254740992: a value the file does
-            // not hold. Here the file keeps its bytes.
+            // The file keeps its bytes, as in the TypeScript SDK since 4.203.2 (measured on 4.205.0): a rewrite would
+            // write a value the file does not hold.
             yield return Edge("AnIntegerJavaScriptWouldRound_KeepsItsBytes", "{\"id\":\"a\",\"n\":12345678901234567891,\"created_by\":\"u\"}", null);
             yield return Edge("AnIntegerOnePast2To53_KeepsItsBytes", "{\"id\":\"b\",\"n\":9007199254740993,\"created_by\":\"u\"}", null);
             yield return Edge("AnIntegerNoDoubleHolds_KeepsItsBytes", "{\"id\":\"e\",\"n\":" + new string('9', 400) + ",\"created_by\":\"u\"}", null);
