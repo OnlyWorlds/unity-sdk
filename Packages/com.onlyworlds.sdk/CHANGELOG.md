@@ -6,6 +6,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.54.0] - 2026-11-25
+
+A world says which of its calendars speaks, by the World's `x_calendar`, and a new element's file name is the one the
+TypeScript and Python packages give it on every runtime, Mono included. Pinned to schema-dist serial 147. A minor
+release because it adds public API (below).
+
 ### Added
 
 - **Which calendar speaks for a world** (the calendar profile's paragraph of that name):
