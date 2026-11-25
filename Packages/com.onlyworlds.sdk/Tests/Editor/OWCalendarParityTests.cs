@@ -11,12 +11,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// <see cref="OWCalendar"/> and <see cref="OWCalendarLens"/> against the TypeScript SDK's own answers:
-    /// <c>Fixtures/calendar/calendar_parity.json</c>, vendored byte for byte from the Godot SDK (commit <c>e3b81ce</c>,
+    /// <c>Fixtures/calendar/calendar_parity.json</c>, vendored byte for byte from the Godot SDK (commit <c>1eda4ff</c>,
     /// <c>tests/data/calendar_parity.json</c>), which made it with <c>codegen/generate_calendar_parity.mjs</c> from the built
-    /// code of <c>@onlyworlds/sdk</c> 4.133.2 at commit <c>595dbf6</c>. It holds, for every calendar the profile fixture
+    /// code of <c>@onlyworlds/sdk</c> 4.205.0 at commit <c>8ef7535</c>. It holds, for every calendar the profile fixture
     /// reads as one (named by case, so its value is read from <c>calendar.fixture.json</c> beside it) and for sixteen
     /// calendars written for the traps: year and mid labels, month starts, the year length, durations (a fraction carries
-    /// its IEEE 754 bits), era years and about 15,000 parses; then 149 validations and 784 resolutions.
+    /// its IEEE 754 bits), era years and about 15,000 parses; then 150 validations and 784 resolutions.
     /// </summary>
     /// <remarks>
     /// Every record is replayed. Where Unity answers otherwise on purpose, a <see cref="Known"/> entry names the
@@ -29,7 +29,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     public class OWCalendarParityTests
     {
         /// <summary>The vectors' sha256 at godot-sdk e3b81ce.</summary>
-        private const string VectorsSha256 = "14c7cb020eb1251db16f273d44fe765f9b5cc45f0ef24430ffbdcaa00e887e30";
+        private const string VectorsSha256 = "6a4e4435bbf6021a52196bdb6ac396d4f965dd118d22ef4f11599ddea9c10a68";
 
         // ---- the documents ----
 
@@ -164,7 +164,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual("595dbf6", (string)Vectors["npm"]["commit"]);
             Assert.AreEqual(Sha256(PathOf("calendar.fixture.json")), (string)Vectors["fixture_sha256"],
                 "the vectors were made from another profile fixture than the one vendored here");
-            Assert.AreEqual(35, Vectors["calendars"].Count(c => c["case"] != null), "every calendar of the fixture");
+            Assert.AreEqual(36, Vectors["calendars"].Count(c => c["case"] != null), "every calendar of the fixture");
             Assert.AreEqual(51, Vectors["calendars"].Count());
         }
 
@@ -352,7 +352,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public void ValidateValue_AnswersAsNpm()
         {
             Assert.AreEqual(ValidateWhereNpmThrows.Count, Vectors["validate"].Count(r => r["answer"] is JObject), "every listed answer is a row where npm throws");
-            Replay("ValidateValue", ValidateRecords(value => () => new JArray(OWCalendar.ValidateValue(value))), 149);
+            Replay("ValidateValue", ValidateRecords(value => () => new JArray(OWCalendar.ValidateValue(value))), 150);
         }
 
         [Test]
