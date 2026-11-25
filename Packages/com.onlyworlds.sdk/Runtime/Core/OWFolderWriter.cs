@@ -433,45 +433,53 @@ namespace OnlyWorlds.Sdk
         /// <returns>The slug, or an empty string when the name yields none.</returns>
         /// <remarks>
         /// <para>
-        /// Diacritics are decomposed and their combining marks dropped before the alphanumeric
-        /// pass, so an accented e becomes a plain one. Doing it in the other order leaves a
-        /// trailing hyphen instead, because the mark is then just another non-alphanumeric
-        /// character.
+        /// The folder format's rule (section 3.2): the name in NFKD; U+0300 to U+036F dropped and no other mark;
+        /// lowercased; every run outside a-z and 0-9 one hyphen, none at either end; cut at 40 and the hyphens the cut
+        /// leaves dropped. An accented e becomes a plain one, a ligature its letters, a full-width or mathematical
+        /// letter its plain one, and a mark outside U+0300 to U+036F is a break, as the TypeScript and Python
+        /// packages give.
         /// </para>
         /// <para>
-        /// The cap is applied last and the result re-trimmed, so a name cut mid-word never leaves a
-        /// trailing hyphen -- which would make the <c>--</c> separator ambiguous.
+        /// The decompositions are the SDK's own table (<c>OWSlugData</c>, from Unicode's UnicodeData.txt), never the
+        /// runtime's: Mono's <c>string.Normalize</c> leaves a ligature and the mathematical letters whole.
         /// </para>
         /// </remarks>
         public static string Slugify(string name)
         {
             if (string.IsNullOrEmpty(name)) return string.Empty;
 
-            var decomposed = name.Normalize(NormalizationForm.FormKD);
-
-            var builder = new StringBuilder(decomposed.Length);
+            var builder = new StringBuilder(name.Length);
             var pendingSeparator = false;
 
-            foreach (var c in decomposed)
+            for (var i = 0; i < name.Length; i++)
             {
-                // Combining marks are dropped, not separated: the mark belongs to the letter before
-                // it, and treating it as a break splits one word into two.
-                if (CharUnicodeInfo.GetUnicodeCategory(c) == UnicodeCategory.NonSpacingMark) continue;
-
-                var lower = char.ToLowerInvariant(c);
-                var isAlphanumeric = (lower >= 'a' && lower <= 'z') || (lower >= '0' && lower <= '9');
-
-                if (isAlphanumeric)
+                int cp = name[i];
+                if (char.IsHighSurrogate(name[i]) && i + 1 < name.Length && char.IsLowSurrogate(name[i + 1]))
                 {
+                    cp = char.ConvertToUtf32(name[i], name[i + 1]);
+                    i++;
+                }
+
+                var at = Array.BinarySearch(OWSlugData.CodePoints, cp);
+                string part;
+                if (at >= 0) part = OWSlugData.Parts[at];
+                else if (cp >= 0x300 && cp <= 0x36F) part = string.Empty;
+                else if (cp >= 'A' && cp <= 'Z') part = ((char)(cp + 32)).ToString();
+                else if ((cp >= 'a' && cp <= 'z') || (cp >= '0' && cp <= '9')) part = ((char)cp).ToString();
+                else part = "-";
+
+                foreach (var c in part)
+                {
+                    if (c == '-')
+                    {
+                        pendingSeparator = true;
+                        continue;
+                    }
                     // Runs of separators collapse to a single hyphen, and a leading run emits
                     // nothing at all -- so a slug can never contain "--" and never starts with one.
                     if (pendingSeparator && builder.Length > 0) builder.Append('-');
                     pendingSeparator = false;
-                    builder.Append(lower);
-                }
-                else
-                {
-                    pendingSeparator = true;
+                    builder.Append(c);
                 }
             }
 
