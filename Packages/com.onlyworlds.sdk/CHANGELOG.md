@@ -6,6 +6,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.53.0] - 2026-11-25
+
+A world file now leaves out who wrote each element unless asked. A world folder's fixed names (`world.json`,
+`elements/`, `spatial/`) are read as written, and one held only in another case is refused with the name to fix,
+never read as an empty world. An element's declared type counts only when it is one of the 22 type slugs exactly,
+and the writer refuses a type that is not one, which closes a write outside `elements/`. Pinned to schema-dist
+serial 146. A minor release because it adds public API (below).
+
 ### Added
 
 - **`OWWorldArchivePackOptions.IncludeAuthorFields` and `AuthorFieldsLeftOut`.** Pass `IncludeAuthorFields = true`
