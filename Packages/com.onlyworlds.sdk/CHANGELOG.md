@@ -27,6 +27,10 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 - Every reader and the typed models read to 200 deep, where Newtonsoft's own line was 64: a file nested 65 to 200 deep,
   skipped as unparseable before, is read, and a world file packed as a share rewrites it without its author fields.
   Tests: `OWTooDeepTests`.
+- Schema pin to `v0.34.1-dist.148` (`93e7232`); canonical 00.34.01 unchanged (`OWSchemaPin.DistSerial` 148). The
+  generated models and the views table moved in their stamp only. The `.owworld` set's test copy gains OW-25's nine
+  depth cases (120), each answered with its reader-side `left_out`. `OWFolderExport.FormatVersion` is 0.3.25, the
+  dist's folder lint's: a file nested past 200 is not read. A writer's bytes are otherwise unchanged.
 
 ## [0.54.0] - 2026-11-25
 

@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.34.01";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 147;
+        public const int DistSerial = 148;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.34.1-dist.147";
+        public const string Tag = "v0.34.1-dist.148";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -556,9 +556,15 @@ namespace OnlyWorlds.Sdk
         /// address page gains eleven cases (230: 109 parse, 83 prose); the <c>.owworld</c> set reaches 111 with the fold's
         /// two cases; <c>fixtures/file-names.fixture.json</c> is new (38 cases). No answer on an existing case moved.
         /// </para>
+        /// <para>
+        /// <b>147 -> 148 (2026-11-26)</b>: canonical unchanged. The folder format is 0.3.25: an element file with an
+        /// object or array more than 200 levels deep is left out, <c>too_deep</c>, counted in the text as each opens (a
+        /// bracket in a string opens nothing), and a <c>world.json</c> that deep refuses the world, <c>not_a_world</c>. The
+        /// <c>.owworld</c> set reaches 120 with OW-25's nine cases. No answer on an existing case moved.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "beaa7093c2ae47b4f47afd8ce3672223f72015f3d014f7a890af5ebb15fecc8f";
+            "4cbe4d923e47d9f1899d9a3f865d3b0169dede546921dfc89557bce215577c1a";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.
@@ -572,7 +578,7 @@ namespace OnlyWorlds.Sdk
             "af84662c29628b6e90b923c9541f68f5924563adce397cebbadfdbf0f06e5f18";
 
         /// <summary>When these constants were last verified against the published dist.</summary>
-        public const string PinnedOn = "2026-11-25";
+        public const string PinnedOn = "2026-11-26";
 
         /// <summary>
         /// ⚑ Rulings that bind THIS SDK and any emitter generating into it. Read the row, not the key.

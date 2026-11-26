@@ -109,11 +109,11 @@ namespace OnlyWorlds.Sdk
     {
         /// <summary>
         /// The OW Folder Format version an export declares in <c>world.json</c>: the dist's folder lint's
-        /// <c>FORMAT_VERSION</c> (schema-dist serial 128). 0.3.23 points the in-prose reference line at the address profile
-        /// and 0.3.24 says a multi-link names each element once; neither changes a writer's bytes, and this package builds
-        /// no link list of its own, so only this stamp moved.
+        /// <c>FORMAT_VERSION</c> (schema-dist serial 128). 0.3.23 points the in-prose reference line at the address profile,
+        /// 0.3.24 says a multi-link names each element once, and 0.3.25 that a file nested past 200 is not read; none
+        /// changes a writer's bytes, and this package builds no link list of its own, so only this stamp moved.
         /// </summary>
-        public const string FormatVersion = "0.3.24";
+        public const string FormatVersion = "0.3.25";
 
         /// <summary>The name this package publishes under: the <c>tool</c> of the <c>producer</c> line it writes.</summary>
         public const string ProducerTool = "com.onlyworlds.sdk";
