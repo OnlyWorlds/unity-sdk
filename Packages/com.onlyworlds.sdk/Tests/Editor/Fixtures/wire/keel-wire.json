@@ -5,7 +5,7 @@
     "X-Session-Token",
     "Authorization"
   ],
-  "document_sha256": "d13ae467cba658b31c8a22563c0f7c62da4bec2dc9e95e03fbae7843d8974543",
+  "document_sha256": "7ef7860703bbdcba1616944b4e2336f8f6e460025421f261f5b914bd7d8087ba",
   "error_codes": {
     "already_member": 409,
     "already_reported": 409,
@@ -46,6 +46,7 @@
     "lens_is_template": 422,
     "media_unavailable": 503,
     "method_not_allowed": 405,
+    "narratives_only": 403,
     "not_a_lens": 422,
     "not_author": 403,
     "not_co_builder": 403,
@@ -95,7 +96,7 @@
     "write_failed": 502,
     "wrong_audience": 401
   },
-  "fetched": "2026-11-24T15:48+01:00",
+  "fetched": "2026-11-26T04:02+01:00",
   "openapi_version": "2.0",
   "paths": {
     "/api/v2/ability": {
