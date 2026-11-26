@@ -6,6 +6,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.55.0] - 2026-11-26
+
+A file nested more than 200 levels deep is left out of the world by name, `too_deep`, counted in its text as every
+OnlyWorlds reader counts it, and every reader reads to 200 where Newtonsoft's own line was 64. The name finder
+passes over web addresses, and over Markdown's code, HTML and definitions when told the text is Markdown. Pinned to
+schema-dist serial 148 (the folder format 0.3.25). A minor release because it adds public API (below).
+
 ### Added
 
 - **The name finder passes over web addresses, and over Markdown's code, HTML and definitions when told the text is
