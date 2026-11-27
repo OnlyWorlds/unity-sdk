@@ -13,6 +13,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   on an agent's or a player's link (where keel sends no such key). `OWWorldLinkCreate.Character` is documented for a
   person link for one contributor or co-builder too, and `OWWorldLink.Character` for a person link that names one;
   nothing the client sends changes. Parity with the TypeScript SDK 4.211.0, its preview read with and without the key.
+- **A world file refused for a `world.json` it cannot read says what is wrong with it**:
+  `OWFolderFormatException.WorldFault` is `too_deep` (nested past 200 levels) or `not_json` (the values of
+  `OWWorldFault`, the folder read report's words), beside the reason `not_a_world`; a tool reads the field, never the
+  message. It is null on every other refusal: no `world.json`, one that is JSON but no object, one with no id. A
+  `world.json` holding a number too large for a double, which this reader refuses where the TypeScript reader does not,
+  says `number_out_of_range`. A folder's refusal of its `world.json` carries the same field. Parity with the TypeScript
+  SDK 4.212.0, its test vector ported.
 
 ## [0.56.0] - 2026-11-27
 

@@ -556,19 +556,22 @@ namespace OnlyWorlds.Sdk
             }
             catch (OWNumberOutOfRangeException e)
             {
-                throw new OWFolderFormatException($"world.json in '{where}' is refused, {NumberOutOfRangeReason(e)}.", e);
+                throw new OWFolderFormatException(null, $"world.json in '{where}' is refused, {NumberOutOfRangeReason(e)}.", e,
+                    OWWorldFault.NumberOutOfRange);
             }
             catch (OWTooDeepException e)
             {
-                throw new OWFolderFormatException($"world.json in '{where}' is refused, {TooDeepReason}.", e);
+                throw new OWFolderFormatException(null, $"world.json in '{where}' is refused, {TooDeepReason}.", e, OWWorldFault.TooDeep);
             }
             catch (OWContentAfterValueException e)
             {
-                throw new OWFolderFormatException($"world.json in '{where}' is refused, {ContentAfterValueReason(e)}.", e);
+                throw new OWFolderFormatException(null, $"world.json in '{where}' is refused, {ContentAfterValueReason(e)}.", e,
+                    OWWorldFault.NotJson);
             }
             catch (Exception e)
             {
-                throw new OWFolderFormatException($"world.json in '{where}' is not valid JSON.", e);
+                throw new OWFolderFormatException(null, $"world.json in '{where}' is not valid JSON.", e,
+                    text == null || IsJson(text) ? null : OWWorldFault.NotJson);
             }
 
             if (WorldIdOf(world) == null)
@@ -579,6 +582,16 @@ namespace OnlyWorlds.Sdk
             }
 
             return world;
+        }
+
+        /// <summary>
+        /// True when <paramref name="text"/> is JSON of another kind than an object (an array, a string): a
+        /// <c>world.json</c> that reads but is no world, so no <see cref="OWFolderFormatException.WorldFault"/>.
+        /// </summary>
+        private static bool IsJson(string text)
+        {
+            try { OWJson.ParseToken(text); return true; }
+            catch (Exception) { return false; }
         }
 
         /// <summary>
@@ -866,6 +879,13 @@ namespace OnlyWorlds.Sdk
             Reason = reason;
         }
 
+        /// <summary>A refusal of a <c>world.json</c> that is there and cannot be read, with what is wrong with it.</summary>
+        internal OWFolderFormatException(string reason, string message, Exception inner, string worldFault) : base(message, inner)
+        {
+            Reason = reason;
+            WorldFault = worldFault;
+        }
+
         /// <summary>
         /// Why an <c>.owworld</c> was refused, by the cause's name in folder spec §4.7's shared list (the values of
         /// <see cref="OWWorldArchiveReason"/>, such as <c>"unsafe_path"</c> or <c>"collision"</c>).
@@ -874,5 +894,15 @@ namespace OnlyWorlds.Sdk
         /// null otherwise.
         /// </summary>
         public string Reason { get; }
+
+        /// <summary>
+        /// For a <c>world.json</c> that is there but cannot be read, what is wrong with it, in the folder read report's
+        /// words (one of <see cref="OWWorldFault"/>): <c>too_deep</c>, <c>not_json</c> or <c>number_out_of_range</c>.
+        /// An archive's <see cref="OWWorldArchiveReason.NotAWorld"/> carries it (the TypeScript SDK's
+        /// <c>OwWorldFileError.worldFault</c>), and so does a folder's refusal of its <c>world.json</c>. Null on every
+        /// other refusal: no <c>world.json</c>, one that is JSON but no object, one with no id. A tool reads this, never
+        /// the message.
+        /// </summary>
+        public string WorldFault { get; }
     }
 }

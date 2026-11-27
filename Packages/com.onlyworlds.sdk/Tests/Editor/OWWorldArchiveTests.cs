@@ -2065,6 +2065,49 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual("elements/character/one.json", OWWorldArchive.Read(archive).Elements.Single().Path);
         }
 
+        // -- A world.json that is there and cannot be read says why (WorldFault) -------------------------
+
+        // The TypeScript SDK's world file vectors (4.212.0, OwWorldFileError.worldFault): too_deep (nested past 200) or
+        // not_json, the folder read report's words, beside not_a_world; absent on every other not_a_world (no
+        // world.json, one with no id, one that is JSON but no object). Kills: the fault left unset, set on a refusal
+        // that has none, or the two words swapped.
+        [Test]
+        public void Read_AWorldJsonThatCannotBeRead_SaysWhyInWorldFault_AnyOtherNotAWorldHasNone()
+        {
+            int n = 0;
+            string Fault(params (string name, string text)[] entries)
+            {
+                var e = Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Read(MakeZip("fault" + n++ + ".owworld", entries)));
+                Assert.AreEqual(OWWorldArchiveReason.NotAWorld, e.Reason, e.Message);
+                return e.WorldFault;
+            }
+
+            var deep = "{\"id\":\"" + WId + "\",\"name\":\"Deep\",\"x\":" + new string('[', 200) + new string(']', 200) + "}";
+            Assert.AreEqual(OWWorldFault.TooDeep, Fault(("w/world.json", deep)));
+            Assert.AreEqual("too_deep", OWWorldFault.TooDeep);
+            Assert.AreEqual(OWWorldFault.NotJson, Fault(("w/world.json", "{nope")));
+            Assert.AreEqual("not_json", OWWorldFault.NotJson);
+            Assert.IsNull(Fault(("w/elements/a.json", "{}")), "no world.json");
+            Assert.IsNull(Fault(("w/world.json", "{\"name\":\"no id\"}")), "a world.json with no id");
+            Assert.IsNull(Fault(("w/world.json", "[\"" + WId + "\"]")), "JSON, but no object");
+
+            // Two causes this reader refuses that the TypeScript reader's JSON.parse does not meet: a value after the
+            // object is no JSON, and a number past a double is the folder read report's third word.
+            Assert.AreEqual(OWWorldFault.NotJson, Fault(("w/world.json", "{\"id\":\"" + WId + "\"} x")));
+            Assert.AreEqual(OWWorldFault.NumberOutOfRange, Fault(("w/world.json", "{\"id\":\"" + WId + "\",\"x\":1e400}")));
+            Assert.AreEqual("number_out_of_range", OWWorldFault.NumberOutOfRange);
+
+            // Any other refusal has none.
+            Assert.IsNull(Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Read(MakeZip("two.owworld",
+                ("a/world.json", WorldJson(WId, "A")), ("b/world.json", WorldJson(WId, "B"))))).WorldFault);
+
+            // A folder's refusal of its world.json carries the same word, with no archive reason.
+            var folder = Assert.Throws<OWFolderFormatException>(() => OWFolderReader.ReadEntries(
+                new[] { new KeyValuePair<string, string>("world.json", deep) }));
+            Assert.AreEqual(OWWorldFault.TooDeep, folder.WorldFault);
+            Assert.IsNull(folder.Reason);
+        }
+
         // -- Entries that land safely on any disk (owworld-as-tests OW-5, OW-17 to OW-22) ----------------
 
         private const string WId = "0695db52-0000-7000-8000-0000000000aa";
