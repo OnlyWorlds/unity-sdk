@@ -234,9 +234,30 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 }
             }
 
+            // The TypeScript SDK 4.212.3: a world file's refusal says it in words, and the code is the field.
             var e = Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Read(deep));
             Assert.AreEqual(OWWorldArchiveReason.NotAWorld, e.Reason, e.Message);
-            StringAssert.Contains(OWJson.TooDeep, e.Message);
+            Assert.AreEqual(OWWorldFault.TooDeep, e.WorldFault, e.Message);
+            StringAssert.DoesNotContain(OWJson.TooDeep, e.Message);
+            StringAssert.EndsWith("nested more than 200 deep.", e.Message);
+        }
+
+        [Test]
+        public void Pack_OfAWorldJsonPastTheDepth_IsRefused_InWords_TheCodeTheField()
+        {
+            // The TypeScript SDK's writeWorldFile refuses such a world.json, by the words its reader gives (4.212.3), and so
+            // does the pack: a file whose world.json no reader reads is no world to hand on. Never "not valid JSON".
+            var archive = Path.Combine(_root, "w201.owworld");
+            foreach (var includeHidden in new[] { true, false })
+            {
+                var e = Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Pack(Folder("pack" + includeHidden, null, Nest(201)),
+                    archive, new OWWorldArchivePackOptions { IncludeHidden = includeHidden }));
+                Assert.AreEqual(OWWorldFault.TooDeep, e.WorldFault, e.Message);
+                StringAssert.DoesNotContain(OWJson.TooDeep, e.Message);
+                StringAssert.DoesNotContain("not valid JSON", e.Message);
+                StringAssert.EndsWith("nested more than 200 deep.", e.Message);
+                Assert.IsFalse(File.Exists(archive), "nothing is written");
+            }
         }
 
         [Test]

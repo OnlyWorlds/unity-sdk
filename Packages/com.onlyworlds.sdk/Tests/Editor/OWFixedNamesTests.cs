@@ -242,6 +242,58 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public void Pack_SpatialInAnotherCaseBesideElements_IsRefused_InACopyAndInAShare_NothingWritten()
+        {
+            // The TypeScript SDK 4.212.3's vectors: Spatial/ (or a long s) beside elements/ was dropped from npm's copy and
+            // emptied its share; a pack that lists the folder refuses both, and the names as written pack as before.
+            var at = Path.GetDirectoryName(_root);
+            var n = 0;
+            string Folder(string spatial, string elements = "elements")
+            {
+                var root = Path.Combine(at, "case" + n++, "w");
+                foreach (var (rel, json) in new[]
+                         {
+                             ("world.json", World),
+                             (elements + "/character/ada--c1.json", "{\"id\": \"c-1\", \"name\": \"Ada\"}"),
+                             (spatial == null ? null : spatial + "/pin/p--p1.json", "{\"id\": \"p-1\", \"name\": \"P\"}"),
+                         })
+                {
+                    if (rel == null) continue;
+                    var path = Path.Combine(root, rel);
+                    Directory.CreateDirectory(Path.GetDirectoryName(path));
+                    File.WriteAllText(path, json);
+                }
+
+                return root;
+            }
+
+            foreach (var includeHidden in new[] { true, false })
+            {
+                var options = new OWWorldArchivePackOptions { IncludeHidden = includeHidden };
+                var mode = includeHidden ? "copy" : "share";
+                foreach (var spatial in new[] { "Spatial", "ſpatial" })
+                {
+                    var archive = Path.Combine(_scratch, $"{mode}-{n}.owworld");
+                    AssertNameCase(() => OWWorldArchive.Pack(Folder(spatial), archive, options), "'" + spatial + "'", "spatial");
+                    Assert.IsFalse(File.Exists(archive), $"{mode}, {spatial}: nothing is written");
+                }
+
+                var alone = Path.Combine(_scratch, $"{mode}-elements.owworld");
+                AssertNameCase(() => OWWorldArchive.Pack(Folder(null, "Elements"), alone, options), "'Elements'", "elements");
+                Assert.IsFalse(File.Exists(alone), $"{mode}, Elements/ alone: nothing is written");
+
+                // The control: the names as written, a share carrying the element and the legacy pin both.
+                var control = Path.Combine(_scratch, $"{mode}-control.owworld");
+                CollectionAssert.AreEqual(
+                    new[] { "mimetype", "w/elements/character/ada--c1.json", "w/spatial/pin/p--p1.json", "w/world.json" },
+                    OWWorldArchive.Pack(Folder("spatial"), control, options), mode);
+                var back = OWWorldArchive.Read(control);
+                Assert.AreEqual(1, back.Elements.Count, mode);
+                Assert.AreEqual(1, back.LegacyElements.Count, mode);
+            }
+        }
+
+        [Test]
         public void Pack_AFolderHoldingWorldJsonInAnotherCase_IsRefused()
         {
             Write("World.json", World);
