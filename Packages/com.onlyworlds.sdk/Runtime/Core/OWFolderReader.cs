@@ -899,8 +899,9 @@ namespace OnlyWorlds.Sdk
         /// Why an <c>.owworld</c> was refused, by the cause's name in folder spec §4.7's shared list (the values of
         /// <see cref="OWWorldArchiveReason"/>, such as <c>"unsafe_path"</c> or <c>"collision"</c>).
         /// <see cref="OWWorldArchive.Read"/> and <c>LoadInto</c> always set it. A folder's refusal, a pack's and a
-        /// write's set it only for <see cref="OWWorldArchiveReason.NameCase"/> (a fixed name in another case), and are
-        /// null otherwise.
+        /// write's set it only for <see cref="OWWorldArchiveReason.NameCase"/> (a fixed name in another case), and a
+        /// pack's also for <see cref="OWWorldArchiveReason.NotAWorld"/> on a <c>world.json</c> nested past the depth (as
+        /// the TypeScript SDK's <c>writeWorldFile</c> refuses it), and are null otherwise.
         /// </summary>
         public string Reason { get; }
 
@@ -908,10 +909,10 @@ namespace OnlyWorlds.Sdk
         /// For a <c>world.json</c> that is there but cannot be read, what is wrong with it, in the folder read report's
         /// words (one of <see cref="OWWorldFault"/>): <c>too_deep</c>, <c>not_json</c> or <c>number_out_of_range</c>.
         /// An archive's <see cref="OWWorldArchiveReason.NotAWorld"/> carries it (the TypeScript SDK's
-        /// <c>OwWorldFileError.worldFault</c>), and so does a folder's refusal of its <c>world.json</c>, and a pack's of one
-        /// nested past the depth (<c>too_deep</c>, as npm's <c>writeWorldFile</c> refuses it). Null on every
-        /// other refusal: no <c>world.json</c>, one that is JSON but no object, one with no id. A tool reads this, never
-        /// the message.
+        /// <c>OwWorldFileError.worldFault</c>), and so does a folder's refusal of its <c>world.json</c>, and a pack's of
+        /// one nested past the depth (<c>too_deep</c>, beside <c>not_a_world</c>, as npm's <c>writeWorldFile</c> refuses
+        /// it). Null on every other refusal: no <c>world.json</c>, one that is JSON but no object, one with no id. A tool
+        /// reads this, never the message.
         /// </summary>
         public string WorldFault { get; }
     }

@@ -252,6 +252,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             {
                 var e = Assert.Throws<OWFolderFormatException>(() => OWWorldArchive.Pack(Folder("pack" + includeHidden, null, Nest(201)),
                     archive, new OWWorldArchivePackOptions { IncludeHidden = includeHidden }));
+                Assert.AreEqual(OWWorldArchiveReason.NotAWorld, e.Reason, e.Message);
                 Assert.AreEqual(OWWorldFault.TooDeep, e.WorldFault, e.Message);
                 StringAssert.DoesNotContain(OWJson.TooDeep, e.Message);
                 StringAssert.DoesNotContain("not valid JSON", e.Message);
