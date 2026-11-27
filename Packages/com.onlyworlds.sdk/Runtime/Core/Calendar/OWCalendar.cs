@@ -406,7 +406,8 @@ namespace OnlyWorlds.Sdk
         /// The TypeScript <c>boundsProblem</c> on a raw value: the first of the profile's size bounds it is past, in the
         /// TypeScript's order, or null. Only lists count as lists here (a string in place of one holds nothing), only
         /// strings as names, only numbers as lengths; <c>except</c> counts in version 2 alone, and the longest year (the
-        /// months' lengths plus every entry in <c>intercalary</c>) is summed as JavaScript sums it, in doubles.
+        /// months' lengths plus every entry in <c>intercalary</c>, or with no months <c>year.steps</c>) is summed as
+        /// JavaScript sums it, in doubles.
         /// </summary>
         static string RawBoundsProblem(JToken value)
         {
@@ -436,6 +437,9 @@ namespace OnlyWorlds.Sdk
                 foreach (var l in lengths) if (Js.IsNumber(l)) longest += Js.Num(l);
                 if (longest > MaxSafe) return YearBound;
             }
+            else if (Js.Truthy(Js.Get(bundles, "year")) && Js.IsNumber(Js.Get(Js.Get(bundles, "year"), "steps"))
+                && Js.Num(Js.Get(Js.Get(bundles, "year"), "steps")) > MaxSafe)
+                return YearBound; // with no months a year is year.steps, held to the same line (npm 4.212.2)
             return null;
         }
 
@@ -699,7 +703,7 @@ namespace OnlyWorlds.Sdk
         /// months, a week of 64 steps and 64 names, 16 entries in <c>intercalary</c>, an <c>except</c> of 8, and
         /// templates and names of 256 code points, counted on the string as decoded, untrimmed and not normalised; and
         /// the longest year (the months' lengths plus every entry in <c>intercalary</c>, whether or not one year earns
-        /// them all) at most 2^53 - 1.
+        /// them all, or with no months <c>year.steps</c>) at most 2^53 - 1.
         /// </summary>
         static bool WithinBounds(CalendarConfig cfg) => BoundsProblem(cfg) == null;
 
@@ -742,6 +746,8 @@ namespace OnlyWorlds.Sdk
                 foreach (var l in months.Lengths) longest += l;
                 if (longest > MaxSafe) return YearBound;
             }
+            else if (cfg.Bundles?.Year != null && cfg.Bundles.Year.Steps > MaxSafe)
+                return YearBound; // with no months a year is year.steps, held to the same line (npm 4.212.2)
             return null;
         }
 
@@ -1370,9 +1376,9 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// A duration of a span that need not be whole (the TypeScript <c>formatDuration</c> takes any number): as the
-        /// <see cref="FormatDuration(CalendarConfig, long)"/> overload, with the step count rounded to two decimals as
-        /// JavaScript's <c>Math.round</c> rounds ("2.5 days", "0.13 days" for 0.125) and every number written as
-        /// JavaScript writes it. The sign is dropped.
+        /// <see cref="FormatDuration(CalendarConfig, long)"/> overload, with a whole count shown as it is and any other
+        /// rounded to two decimals as JavaScript's <c>Math.round</c> rounds ("2.5 days", "0.13 days" for 0.125), every
+        /// number written as JavaScript writes it. The sign is dropped.
         /// </summary>
         public static string FormatDuration(CalendarConfig cfg, double steps)
         {
@@ -1380,7 +1386,8 @@ namespace OnlyWorlds.Sdk
             string unit = StepWord(cfg);
             long? yearLen = DurationYearLength(cfg, unit);
             if (yearLen != null && yearLen.Value > 1 && n >= yearLen.Value) return YearsSpoken(n / yearLen.Value);
-            double shown = JsRound(n * 100) / 100;
+            // A whole count is shown as it is: n * 100 is not exact past 2^53 / 100 (npm 4.212.1).
+            double shown = Math.Floor(n) == n ? n : JsRound(n * 100) / 100;
             return JsNumber(shown) + " " + (shown == 1 ? unit : unit + "s");
         }
 

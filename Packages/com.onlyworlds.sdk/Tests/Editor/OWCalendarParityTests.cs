@@ -467,12 +467,21 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
-        public void KnownDifference_FormatDuration_AStepNameNotAString_ReadsTheGrain()
+        public void FormatDuration_AStepNameNotAString_ReadsAsAbsent_AndAWholeCountIsExact()
         {
-            // npm throws a TypeError (it trims the value); Unity's reader reads a non-string step_name as absent, as Godot's does.
-            var cfg = OWCalendarLens.ReadCalendarValue(JObject.Parse("{\"version\":1,\"grain\":\"day\",\"step_name\":5}"));
-            Assert.AreEqual("3 days", OWCalendar.FormatDuration(cfg, 3L));
-            Assert.AreEqual("2.5 days", OWCalendar.FormatDuration(cfg, 2.5));
+            // npm 4.212.1's vectors (sdk 0ac4694): a step_name of the wrong kind reads as absent, the duration worded in
+            // the grain, and a whole count is shown as it is (n * 100 is not exact past 2^53 / 100).
+            CalendarConfig Day(string stepName) =>
+                OWCalendarLens.ReadCalendarValue(JObject.Parse("{\"version\":2,\"grain\":\"day\"" + stepName + "}"));
+            Assert.AreEqual("3 days", OWCalendar.FormatDuration(Day(",\"step_name\":5"), 3L));
+            Assert.AreEqual("3 days", OWCalendar.FormatDuration(Day(",\"step_name\":5"), 3.0));
+            Assert.AreEqual("1 day", OWCalendar.FormatDuration(Day(",\"step_name\":null"), 1.0));
+            Assert.AreEqual("2 days", OWCalendar.FormatDuration(Day(",\"step_name\":[\"sol\"]"), 2.0));
+            Assert.AreEqual("9007199254740990 days", OWCalendar.FormatDuration(Day(""), 9007199254740990.0));
+            Assert.AreEqual("9007199254740991 days", OWCalendar.FormatDuration(Day(""), 9007199254740991.0));
+            Assert.AreEqual("9007199254740990 days", OWCalendar.FormatDuration(Day(""), 9007199254740990L));
+            Assert.AreEqual("0.33 days", OWCalendar.FormatDuration(Day(""), 0.333));
+            Assert.AreEqual("2.5 days", OWCalendar.FormatDuration(Day(",\"step_name\":5"), 2.5));
         }
 
         [Test]

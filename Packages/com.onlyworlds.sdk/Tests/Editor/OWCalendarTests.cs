@@ -631,6 +631,28 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public void Validation_NamesTheYearBound_OnACalendarWithNoMonths()
+        {
+            // As @onlyworlds/sdk 4.212.2 (sdk 002211c): with no months a year is year.steps, held to the same line.
+            JObject Steps(long steps) => new JObject
+            {
+                ["version"] = 2, ["grain"] = "day", ["bundles"] = new JObject { ["year"] = new JObject { ["steps"] = steps } },
+            };
+            const long safe = 9007199254740991L;
+            var yearBound = new[] { "A year holds at most 2^53 - 1 steps" };
+
+            CollectionAssert.AreEqual(yearBound, OWCalendar.ValidateValue(Steps(safe + 1)), "year.steps of 2^53: past the line");
+            CollectionAssert.IsEmpty(OWCalendar.ValidateValue(Steps(safe)), "year.steps of 2^53 - 1: at it");
+            Assert.IsNull(OWCalendarLens.ReadCalendarValue(Steps(safe + 1)), "the reader refuses it, as npm's does");
+
+            // The typed twin, on a config built in code.
+            var cfg = OWCalendarLens.ReadCalendarValue(Steps(safe));
+            CollectionAssert.IsEmpty(OWCalendar.Validate(cfg));
+            cfg.Bundles.Year.Steps = safe + 1;
+            CollectionAssert.AreEqual(yearBound, OWCalendar.Validate(cfg));
+        }
+
+        [Test]
         public void Validation_AllFixtureCalendarsValidateClean()
         {
             foreach (var json in AllFixtureJson)
