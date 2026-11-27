@@ -60,3 +60,7 @@ secrets/
 
 # Python bytecode, written when a script under tools/ or codegen/ is imported.
 __pycache__/
+
+# The promise check's name reader (tools/PublicNames) is a project of its own, not one Unity generates.
+!/tools/PublicNames/PublicNames.csproj
+/tools/PublicNames/bin/

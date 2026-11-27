@@ -2963,15 +2963,18 @@ namespace OnlyWorlds.Sdk
         // keel's AI proxy, metered per account: one token rating a day that ask, sort and the Council spend from
         // (AllowanceAsync reads it). A refusal does not count. Mirrors the TypeScript SDK's ask (4.13.0), sort (4.18.0)
         // and allowance (4.21.0). Ask and sort are deprecated in favour of the AI door's uses of the same names
-        // (AiAsync, below), as the TypeScript SDK deprecates them in 4.139.0; both keep working.
+        // (AiAsync, below), as the TypeScript SDK deprecates them in 4.139.0; both keep working until 1.0, where they
+        // leave (marked since 0.37.0).
 
         private const string AskDeprecated =
-            "Use AiAsync(new OWAiAskBody { WorldId, Question, Context }, idempotencyKey): the same answer, with the use's "
-            + "meter (UseRemaining), and a retry under the same idempotency key is never billed twice. AskAsync keeps working.";
+            "Since 0.37.0. Leaves in 1.0. Use AiAsync(new OWAiAskBody { WorldId, Question, Context }, idempotencyKey): the "
+            + "same answer, with the use's meter (UseRemaining), and a retry under the same idempotency key is never billed "
+            + "twice. AskAsync keeps working until then.";
 
         private const string SortDeprecated =
-            "Use AiAsync(new OWAiSortBody { WorldId, Notes, Slice }, idempotencyKey): the same answer, with the use's "
-            + "meter (UseRemaining), and a retry under the same idempotency key is never billed twice. SortAsync keeps working.";
+            "Since 0.37.0. Leaves in 1.0. Use AiAsync(new OWAiSortBody { WorldId, Notes, Slice }, idempotencyKey): the "
+            + "same answer, with the use's meter (UseRemaining), and a retry under the same idempotency key is never billed "
+            + "twice. SortAsync keeps working until then.";
 
         /// <summary>
         /// POST /account/ask -- a question about a world the account owns or is in, answered by keel's AI proxy from
@@ -2999,8 +3002,8 @@ namespace OnlyWorlds.Sdk
         /// token rating is spent, an account that saved its own AI key on its account page is answered on that key, billed
         /// by its provider: <see cref="OWAskAnswer.PaidBy"/> says <c>own_key</c> (else <c>rating</c>). Mirrors the
         /// TypeScript SDK's <c>ask</c> (4.13.0; the own key 4.131.0; deprecated in 4.139.0).
-        /// Deprecated: use <see cref="AiAsync(OWAiAskBody, string, CancellationToken)"/>, the same answer with the use's meter
-        /// and an idempotency key. This method keeps working, unchanged.
+        /// Deprecated since 0.37.0, leaves in 1.0: use <see cref="AiAsync(OWAiAskBody, string, CancellationToken)"/>, the same
+        /// answer with the use's meter and an idempotency key. Until then this method keeps working, unchanged.
         /// </remarks>
         [Obsolete(AskDeprecated)]
         public Task<OWAskAnswer> AskAsync(
@@ -3047,9 +3050,9 @@ namespace OnlyWorlds.Sdk
         /// <remarks>
         /// The same account token, token rating (it spends the tokens it uses), own AI key and
         /// <see cref="OWSortAnswer.PaidBy"/> as <see cref="AskAsync"/>. Mirrors the
-        /// TypeScript SDK's <c>sort</c> (4.18.0; deprecated in 4.139.0). Deprecated: use
+        /// TypeScript SDK's <c>sort</c> (4.18.0; deprecated in 4.139.0). Deprecated since 0.37.0, leaves in 1.0: use
         /// <see cref="AiAsync(OWAiSortBody, string, CancellationToken)"/>, the same answer with the use's meter and an
-        /// idempotency key. This method keeps working, unchanged.
+        /// idempotency key. Until then this method keeps working, unchanged.
         /// </remarks>
         [Obsolete(SortDeprecated)]
         public Task<OWSortAnswer> SortAsync(
