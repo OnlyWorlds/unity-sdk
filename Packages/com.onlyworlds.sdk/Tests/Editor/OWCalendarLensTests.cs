@@ -79,9 +79,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsNull(OWCalendarLens.ReadCalendarValue(42));
         }
 
-        // ---- resolveCalendarLens ----
+        // ---- resolveCalendarLens (deprecated since 0.58.0: these hold the old names to their answers) ----
         // TS tells "never chosen" (undefined) from "explicitly none" (null). C# has one null, so "never chosen"
         // is its own call, ResolveLensNeverChosen; ResolveLens takes a choice, null meaning "no calendar".
+#pragma warning disable CS0618
 
         [Test]
         public void ResolveLens_ResolvesALiveId_AndDegradesDanglingOrNullToBareNumbers()
@@ -117,6 +118,50 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public void ResolveLens_IsOptIn_WithoutFallbackToOnlyAnUnchosenCalendarStaysBareNumbers()
         {
             Assert.IsNull(OWCalendarLens.ResolveLensNeverChosen(Elements));
+        }
+#pragma warning restore CS0618
+
+        // ---- resolveCalendar, npm 5.0's name for resolveCalendarLens (the TypeScript SDK's src/calendar/index.ts) ----
+
+        [Test]
+        public void ResolveCalendar_ResolvesALiveId_AndDegradesDanglingOrNullToBareNumbers()
+        {
+            Assert.AreEqual("Imperial", OWCalendarLens.ResolveCalendar(Elements, "c1")?.Name);
+            Assert.IsNull(OWCalendarLens.ResolveCalendar(Elements, "gone"));
+            Assert.IsNull(OWCalendarLens.ResolveCalendar(Elements, null), "an explicit no-calendar choice, even with one calendar");
+            Assert.IsNull(OWCalendarLens.ResolveCalendar(new List<JObject>(), "c1"));
+            Assert.IsNull(OWCalendarLens.ResolveCalendar(null, "c1"));
+        }
+
+        [Test]
+        public void ResolveCalendarNeverChosen_TakesTheOnlyCalendar_OnlyWhenAskedAndOnlyWhenThereIsOne()
+        {
+            Assert.AreEqual("Imperial", OWCalendarLens.ResolveCalendarNeverChosen(Elements, fallbackToOnly: true)?.Name);
+            Assert.IsNull(OWCalendarLens.ResolveCalendarNeverChosen(Elements), "opt-in");
+            var two = Elements.Concat(new[] { El("c2", "construct", "Guild", CONFIG) }).ToList();
+            Assert.IsNull(OWCalendarLens.ResolveCalendarNeverChosen(two, fallbackToOnly: true), "never a guess");
+        }
+
+        [Test]
+        public void ResolveCalendar_IdMatchesOnlyATextId()
+        {
+            var numbered = new List<JObject> { El("c1", "construct", "Imperial", CONFIG) };
+            numbered[0]["id"] = 5;
+            Assert.IsNull(OWCalendarLens.ResolveCalendar(numbered, "5"));
+        }
+
+        [Test]
+        public void TheLensNames_AreDeprecatedInFavourOfTheCalendarNames_AsAWarning()
+        {
+            foreach (var (old, use) in new[] { ("ResolveLens", "ResolveCalendar"), ("ResolveLensNeverChosen", "ResolveCalendarNeverChosen") })
+            {
+                var obsolete = (System.ObsoleteAttribute)System.Attribute.GetCustomAttribute(
+                    typeof(OWCalendarLens).GetMethod(old), typeof(System.ObsoleteAttribute), false);
+                Assert.IsNotNull(obsolete, $"{old} is not marked [Obsolete]");
+                Assert.IsFalse(obsolete.IsError, $"{old}: a warning, not an error");
+                StringAssert.StartsWith($"Since 0.58.0. Leaves in 1.0. Use {use}(", obsolete.Message, old);
+                Assert.IsNull(System.Attribute.GetCustomAttribute(typeof(OWCalendarLens).GetMethod(use), typeof(System.ObsoleteAttribute)), use);
+            }
         }
 
         [Test]

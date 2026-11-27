@@ -7,13 +7,13 @@ namespace OnlyWorlds.Sdk
 {
     /// <summary>
     /// A colour word the presentation sidecar does not list in <c>colors.order</c>: on a type, as a colour's key, or asked
-    /// of <see cref="OWPresentation.ColorOfFamily"/>. Or a word it lists whose colour is missing (no
+    /// of <see cref="OWPresentation.ColorOfGroup"/>. Or a word it lists whose colour is missing (no
     /// <c>colors.families</c> entry, no <c>light</c> or <c>dark</c>) or not a <c>#rrggbb</c> hex. The reader fails,
     /// naming the word (and the hex), and never draws a default colour (the lens profile's Nodes bullet and the
     /// sidecar's <c>_meta.groups</c> line, schema-dist serial 87).
     /// </summary>
     /// <remarks>
-    /// A sidecar that fails this way fails every later read of it the same way (<see cref="OWPresentation.FamilyOf"/>,
+    /// A sidecar that fails this way fails every later read of it the same way (<see cref="OWPresentation.GroupOf"/>,
     /// <see cref="OWPresentation.IconOf"/>, <see cref="OWPresentation.ColorFor"/>, a graph node), until it is re-vendored
     /// and <see cref="OWPresentation.Reload"/> runs. Most often it is a copy that kept an older serial's words (before
     /// serial 86 the groups were <c>agents</c>, <c>world</c>, <c>abstract</c> and <c>temporal</c>).
@@ -50,18 +50,59 @@ namespace OnlyWorlds.Sdk
         public string Type { get; }
     }
 
-    /// <summary>A family's colour in both surface modes.</summary>
-    public struct OWFamilyColor
+    /// <summary>A colour group's colour in both surface modes (the TypeScript SDK's <c>GROUP_COLORS</c> entry).</summary>
+    public struct OWGroupColor
     {
+        /// <summary>The colour on a light surface.</summary>
         public Color Light;
+
+        /// <summary>The colour on a dark surface.</summary>
         public Color Dark;
 
         /// <summary>Picks the variant for the surface being drawn on.</summary>
         public Color For(bool darkSurface) => darkSurface ? Dark : Light;
     }
 
+    /// <summary>The old name of <see cref="OWGroupColor"/>, the same two colours.</summary>
+    /// <remarks>
+    /// Deprecated since 0.58.0, leaves in 1.0, as the TypeScript SDK 5.0 drops its family names. A value of
+    /// <see cref="OWGroupColor"/> converts to this one, so a caller that typed this struct keeps compiling, with a warning.
+    /// </remarks>
+    [Obsolete(GroupNames.Struct)]
+    public struct OWFamilyColor
+    {
+        /// <summary>The colour on a light surface.</summary>
+        [Obsolete(GroupNames.Light)]
+        public Color Light;
+
+        /// <summary>The colour on a dark surface.</summary>
+        [Obsolete(GroupNames.Dark)]
+        public Color Dark;
+
+        /// <summary>Picks the variant for the surface being drawn on.</summary>
+        [Obsolete(GroupNames.For)]
+        public Color For(bool darkSurface) => darkSurface ? Dark : Light;
+
+        /// <summary>The same two colours, under the old name.</summary>
+        [Obsolete(GroupNames.Struct)]
+        public static implicit operator OWFamilyColor(OWGroupColor group) =>
+            new OWFamilyColor { Light = group.Light, Dark = group.Dark };
+    }
+
+    /// <summary>The words of the family names' marks, one const each, so each mark is a string a reader can check.</summary>
+    internal static class GroupNames
+    {
+        internal const string Struct = "Since 0.58.0. Leaves in 1.0. Use OWGroupColor, the same two colours under the TypeScript SDK's group name.";
+        internal const string Light = "Since 0.58.0. Leaves in 1.0. Use OWGroupColor.Light.";
+        internal const string Dark = "Since 0.58.0. Leaves in 1.0. Use OWGroupColor.Dark.";
+        internal const string For = "Since 0.58.0. Leaves in 1.0. Use OWGroupColor.For, the same pick.";
+        internal const string Of = "Since 0.58.0. Leaves in 1.0. Use GroupOf, the same colour word (the TypeScript SDK's groupOf).";
+        internal const string Order = "Since 0.58.0. Leaves in 1.0. Use GroupOrder, the same order (the TypeScript SDK's GROUP_ORDER).";
+        internal const string ColorOf = "Since 0.58.0. Leaves in 1.0. Use ColorOfGroup, the same colours (the TypeScript SDK's GROUP_COLORS).";
+    }
+
     /// <summary>
-    /// Presentation defaults: which family a type belongs to, its icon, and family colours.
+    /// Presentation defaults: which colour group a type belongs to, its icon, and each group's colours.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -75,7 +116,7 @@ namespace OnlyWorlds.Sdk
     /// legitimate. A default a tool may replace is a different thing from a value a tool must invent.
     /// </para>
     /// <para>
-    /// THE GOVERNING RULE: **colour carries the FAMILY; the icon carries the TYPE.** Dark-mode pairs
+    /// THE GOVERNING RULE: **colour carries the GROUP; the icon carries the TYPE.** Dark-mode pairs
     /// land in the 6-8 deltaE floor band, so icon and label are REQUIRED alongside colour, never
     /// optional. A viewer distinguishing 22 types by colour alone cannot work and was never meant to.
     /// </para>
@@ -86,29 +127,46 @@ namespace OnlyWorlds.Sdk
 
         private static Dictionary<string, string> _familyByType;
         private static Dictionary<string, string> _iconByType;
-        private static Dictionary<string, OWFamilyColor> _colorByFamily;
+        private static Dictionary<string, OWGroupColor> _colorByFamily;
         private static string[] _familyOrder = Array.Empty<string>();
         private static bool _loaded;
         private static OWPresentationException _failure;
 
         /// <summary>
-        /// Family names in their published order.
+        /// The colour groups' words in their published order (<c>blue</c>, <c>green</c>, <c>pink</c>, <c>amber</c> at
+        /// this serial): the TypeScript SDK's <c>GROUP_ORDER</c>.
         /// </summary>
         /// <remarks>
         /// **The order is not cosmetic** -- it is the CVD-safety mechanism of the source palette.
         /// Preserve it when rendering legends and pickers.
         /// </remarks>
-        public static IReadOnlyList<string> FamilyOrder
+        public static IReadOnlyList<string> GroupOrder
         {
             get { EnsureLoaded(); return _familyOrder; }
         }
 
-        /// <summary>The family a type belongs to, or null if the type is unknown.</summary>
-        public static string FamilyOf(string typeSlug)
+        /// <summary>The old name of <see cref="GroupOrder"/>, the same words in the same order.</summary>
+        /// <remarks>Deprecated since 0.58.0, leaves in 1.0.</remarks>
+        [Obsolete(GroupNames.Order)]
+        public static IReadOnlyList<string> FamilyOrder => GroupOrder;
+
+        /// <summary>
+        /// The colour group a type belongs to, its word (<c>blue</c> for a Character), or null if the type is unknown:
+        /// the TypeScript SDK's <c>groupOf</c>.
+        /// </summary>
+        public static string GroupOf(string typeSlug)
         {
             EnsureLoaded();
             return typeSlug != null && _familyByType.TryGetValue(typeSlug, out var f) ? f : null;
         }
+
+        /// <summary>The old name of <see cref="GroupOf"/>, the same colour word.</summary>
+        /// <remarks>
+        /// Deprecated since 0.58.0, leaves in 1.0. It always answered the colour words, as <see cref="GroupOf"/> does; the
+        /// TypeScript SDK's own <c>familyOf</c> answers the words before its 4.102.0 (<c>agents</c>, <c>world</c>, ...).
+        /// </remarks>
+        [Obsolete(GroupNames.Of)]
+        public static string FamilyOf(string typeSlug) => GroupOf(typeSlug);
 
         /// <summary>
         /// The Material Symbols icon name for a type, or null.
@@ -124,19 +182,32 @@ namespace OnlyWorlds.Sdk
             return typeSlug != null && _iconByType.TryGetValue(typeSlug, out var i) ? i : null;
         }
 
-        /// <summary>Colour for a family, or null for no family (a null word) or when the sidecar did not load.</summary>
+        /// <summary>
+        /// A colour group's colours, or null for no group (a null word) or when the sidecar did not load: the TypeScript
+        /// SDK's <c>GROUP_COLORS</c> entry.
+        /// </summary>
         /// <exception cref="OWPresentationException">The word is not in <c>colors.order</c>.</exception>
-        public static OWFamilyColor? ColorOfFamily(string family)
+        public static OWGroupColor? ColorOfGroup(string group)
         {
             EnsureLoaded();
-            if (family == null) return null;
-            if (Array.IndexOf(_familyOrder, family) < 0) throw new OWPresentationException(family, null, _familyOrder);
-            if (_colorByFamily.TryGetValue(family, out var c)) return c;
+            if (group == null) return null;
+            if (Array.IndexOf(_familyOrder, group) < 0) throw new OWPresentationException(group, null, _familyOrder);
+            if (_colorByFamily.TryGetValue(group, out var c)) return c;
             return null;
         }
 
-        /// <summary>Colour for a type, resolved through its family.</summary>
-        public static OWFamilyColor? ColorOfType(string typeSlug) => ColorOfFamily(FamilyOf(typeSlug));
+        /// <summary>The old name of <see cref="ColorOfGroup"/>, the same colours.</summary>
+        /// <remarks>Deprecated since 0.58.0, leaves in 1.0.</remarks>
+        /// <exception cref="OWPresentationException">The word is not in <c>colors.order</c>.</exception>
+        [Obsolete(GroupNames.ColorOf)]
+        public static OWFamilyColor? ColorOfFamily(string family) => ColorOfGroup(family);
+
+        /// <summary>Colour for a type, resolved through its group.</summary>
+        /// <remarks>
+        /// An <see cref="OWGroupColor"/> since 0.58.0 (an <c>OWFamilyColor</c> before), which converts to the old struct,
+        /// so a caller that typed the old one keeps compiling, with a warning.
+        /// </remarks>
+        public static OWGroupColor? ColorOfType(string typeSlug) => ColorOfGroup(GroupOf(typeSlug));
 
         /// <summary>
         /// Convenience: the colour to draw a type in, with a neutral fallback.
@@ -162,7 +233,7 @@ namespace OnlyWorlds.Sdk
 
             _familyByType = new Dictionary<string, string>();
             _iconByType = new Dictionary<string, string>();
-            _colorByFamily = new Dictionary<string, OWFamilyColor>();
+            _colorByFamily = new Dictionary<string, OWGroupColor>();
 
             var asset = Resources.Load<TextAsset>(ResourcePath);
             if (asset == null)
@@ -255,7 +326,7 @@ namespace OnlyWorlds.Sdk
             foreach (var word in _familyOrder)
             {
                 var entry = (JObject)families[word];
-                _colorByFamily[word] = new OWFamilyColor
+                _colorByFamily[word] = new OWGroupColor
                 {
                     Light = ParseHex(word, "light", (string)entry["light"]),
                     Dark = ParseHex(word, "dark", (string)entry["dark"]),
@@ -309,7 +380,7 @@ namespace OnlyWorlds.Sdk
             _loaded = true;
             _familyByType = new Dictionary<string, string>();
             _iconByType = new Dictionary<string, string>();
-            _colorByFamily = new Dictionary<string, OWFamilyColor>();
+            _colorByFamily = new Dictionary<string, OWGroupColor>();
             _familyOrder = Array.Empty<string>();
             _failure = null;
             try

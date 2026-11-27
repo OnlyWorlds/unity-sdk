@@ -129,6 +129,21 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.That(OWElementTypes.Slugs.OrderBy(s => s, StringComparer.Ordinal), Is.EqualTo(OWLayout.GroupRank.Keys.OrderBy(s => s, StringComparer.Ordinal)));
         }
 
+        // The TypeScript SDK 4.177.0 marks both answers' version key: the layout profile's mark carries none, and a
+        // method's word is its version. Nothing replaces it. by-links-3d's Version stays, as npm's BY_LINKS_3D_VERSION.
+        [Test]
+        public void TheTwoLayoutVersions_AreDeprecatedWithNoReplacement_AsAWarning()
+        {
+            foreach (var type in new[] { typeof(OWLayoutByKind), typeof(OWLayoutAround) })
+            {
+                var obsolete = (ObsoleteAttribute)Attribute.GetCustomAttribute(type.GetProperty("Version"), typeof(ObsoleteAttribute), false);
+                Assert.IsNotNull(obsolete, $"{type.Name}.Version is not marked [Obsolete]");
+                Assert.IsFalse(obsolete.IsError, $"{type.Name}.Version: a warning, not an error");
+                Assert.AreEqual("Since 0.58.0. Leaves in 1.0. The layout profile's mark carries no version key.", obsolete.Message, type.Name);
+            }
+            Assert.IsNull(Attribute.GetCustomAttribute(typeof(OWLayoutByLinks3d).GetProperty("Version"), typeof(ObsoleteAttribute)), "by-links-3d's stays");
+        }
+
         [TestCaseSource(nameof(ByKindCases))]
         public void LayoutByKind_GivesTheFixturesPoints_Exactly(string name)
         {
@@ -136,7 +151,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var c = Case(name);
             var got = OWLayout.LayoutByKind(Graph(c));
             Assert.That(got.Method, Is.EqualTo("by-kind"));
+#pragma warning disable CS0618 // deprecated, and still 1 until it leaves
             Assert.That(got.Version, Is.EqualTo(1));
+#pragma warning restore CS0618
             var want = (JArray)c["want"];
             var nodes = (JArray)c["graph"]["nodes"];
             Assert.That(got.Points.Count, Is.EqualTo(want.Count));
@@ -204,7 +221,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var c = Around(name);
             var got = OWLayout.LayoutAround(Graph(c), (string)c["focus"], (int)c["steps"]);
             Assert.That(got.Method, Is.EqualTo("around"));
+#pragma warning disable CS0618 // deprecated, and still 1 until it leaves
             Assert.That(got.Version, Is.EqualTo(1));
+#pragma warning restore CS0618
             var want = (JArray)c["want"];
             Assert.That(got.Points.Select(p => p.Id + ":" + p.Depth), Is.EqualTo(want.Select(w => (string)w[0] + ":" + (int)w[1])));
             for (var k = 0; k < want.Count; k++)
@@ -321,7 +340,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             string family = null;
             try
             {
-                family = OWPresentation.FamilyOf("character");
+                family = OWPresentation.GroupOf("character");
             }
             catch (Exception)
             {

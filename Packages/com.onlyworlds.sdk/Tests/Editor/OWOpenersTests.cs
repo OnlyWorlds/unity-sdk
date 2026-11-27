@@ -582,7 +582,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             string family = null;
             try
             {
-                family = OWPresentation.FamilyOf("character");
+                family = OWPresentation.GroupOf("character");
             }
             catch (Exception)
             {
