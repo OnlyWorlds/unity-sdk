@@ -269,6 +269,9 @@ namespace OnlyWorlds.Sdk
                 if (era.IsDown && era.End != null && era.End.Value >= era.Start)
                     errors.Add("Era \"" + era.Name + "\": a counting-down era must end below its start");
             }
+            // The first size bound past its line, once (a config the reader took is inside them all).
+            var bound = BoundsProblem(cfg);
+            if (bound != null) errors.Add(bound);
             // Overlap check over resolved domains.
             var domains = ResolveEraDomains(eras);
             for (int i = 0; i < domains.Count; i++)
@@ -384,6 +387,8 @@ namespace OnlyWorlds.Sdk
                 if (DirectionIs(direction, "down") && !Js.Nullish(end) && Js.Less(end, start) == false)
                     errors.Add("Era \"" + name + "\": a counting-down era must end below its start");
             }
+            var bound = RawBoundsProblem(value);
+            if (bound != null) errors.Add(bound);
             var domains = RawEraDomains(eras);
             for (int i = 0; i < domains.Count; i++)
             {
@@ -396,6 +401,47 @@ namespace OnlyWorlds.Sdk
             }
             return errors;
         }
+
+        /// <summary>
+        /// The TypeScript <c>boundsProblem</c> on a raw value: the first of the profile's size bounds it is past, in the
+        /// TypeScript's order, or null. Only lists count as lists here (a string in place of one holds nothing), only
+        /// strings as names, only numbers as lengths; <c>except</c> counts in version 2 alone, and the longest year (the
+        /// months' lengths plus every entry in <c>intercalary</c>) is summed as JavaScript sums it, in doubles.
+        /// </summary>
+        static string RawBoundsProblem(JToken value)
+        {
+            var bundles = Js.Get(value, "bundles");
+            var months = Js.Get(bundles, "months");
+            var week = Js.Get(bundles, "week");
+            var eras = ListOf(Js.Get(value, "eras"));
+            var inter = ListOf(Js.Get(value, "intercalary"));
+            var monthNames = ListOf(Js.Get(months, "names"));
+            var dayNames = ListOf(Js.Get(week, "names"));
+            if (eras.Count > MaxEras) return ErasBound;
+            if (monthNames.Count > MaxMonths) return MonthsBound;
+            var weekLength = Js.Get(week, "length");
+            if ((Js.IsNumber(weekLength) && Js.Num(weekLength) > MaxWeek) || dayNames.Count > MaxWeek) return WeekBound;
+            if (inter.Count > MaxIntercalary) return FestivalBound;
+            var version = Js.Get(value, "version");
+            if (Js.IsNumber(version) && Js.Num(version) == 2
+                && inter.Any(ic => Js.Get(ic, "except") is JArray ex && ex.Count > MaxExcept)) return ExceptBound;
+            if (RawTooLong(Js.Get(value, "grain")) || RawTooLong(Js.Get(value, "step_name"))
+                || RawTooLong(Js.Get(value, "format")) || RawTooLong(Js.Get(value, "format_intercalary"))
+                || eras.Any(e => RawTooLong(Js.Get(e, "name")) || RawTooLong(Js.Get(e, "abbrev")))
+                || monthNames.Any(RawTooLong) || dayNames.Any(RawTooLong) || inter.Any(ic => RawTooLong(Js.Get(ic, "name"))))
+                return TextBound;
+            if (Js.Truthy(months) && Js.Get(months, "lengths") is JArray lengths)
+            {
+                double longest = inter.Count;
+                foreach (var l in lengths) if (Js.IsNumber(l)) longest += Js.Num(l);
+                if (longest > MaxSafe) return YearBound;
+            }
+            return null;
+        }
+
+        static JArray ListOf(JToken v) => v as JArray ?? new JArray();
+
+        static bool RawTooLong(JToken v) => v != null && v.Type == JTokenType.String && TooLong((string)v);
 
         /// <summary>The TypeScript <c>leapRuleProblem</c> on a raw entry: why its version-2 keys cannot be read, or null.</summary>
         static string RawLeapRuleProblem(JToken ic)
@@ -655,34 +701,48 @@ namespace OnlyWorlds.Sdk
         /// the longest year (the months' lengths plus every entry in <c>intercalary</c>, whether or not one year earns
         /// them all) at most 2^53 - 1.
         /// </summary>
-        static bool WithinBounds(CalendarConfig cfg)
+        static bool WithinBounds(CalendarConfig cfg) => BoundsProblem(cfg) == null;
+
+        const string ErasBound = "A calendar holds at most 256 eras";
+        const string MonthsBound = "A calendar holds at most 64 months";
+        const string WeekBound = "A week holds at most 64 steps and 64 names";
+        const string FestivalBound = "A calendar holds at most 16 festival days";
+        const string ExceptBound = "An except list holds at most 8 numbers";
+        const string TextBound = "A name or template holds at most 256 characters";
+        const string YearBound = "A year holds at most 2^53 - 1 steps";
+
+        /// <summary>
+        /// The first of the size bounds a config is past, worded as the TypeScript SDK's <c>boundsProblem</c> words it and
+        /// in its order (eras, months, the week, festival days, an <c>except</c>, a name or template, the longest year), or
+        /// null. A config built in code may hold what the reader never makes (null lists, an <c>except</c> in version 1,
+        /// lengths past the safe integers): null lists hold nothing, <c>except</c> counts in version 2 alone, as the
+        /// TypeScript's does, and the longest year is summed exactly.
+        /// </summary>
+        static string BoundsProblem(CalendarConfig cfg)
         {
-            if (cfg.Eras.Count > MaxEras || cfg.Intercalary.Count > MaxIntercalary) return false;
-            if (TooLong(cfg.Grain) || TooLong(cfg.StepName) || TooLong(cfg.Format) || TooLong(cfg.FormatIntercalary)) return false;
-            foreach (var era in cfg.Eras)
-                if (TooLong(era.Name) || TooLong(era.Abbrev)) return false;
+            var eras = cfg.Eras ?? new List<CalendarEra>();
+            var inter = cfg.Intercalary ?? new List<CalendarIntercalary>();
             var months = cfg.Bundles?.Months;
-            if (months != null)
-            {
-                if (months.Names.Count > MaxMonths) return false;
-                foreach (var n in months.Names) if (TooLong(n)) return false;
-                // Each length is at most 2^53 - 1 and there are at most 64 of them, so the sum stays inside a long.
-                long longest = cfg.Intercalary.Count;
-                foreach (var l in months.Lengths) longest += l;
-                if (longest > MaxSafe) return false;
-            }
             var week = cfg.Bundles?.Week;
-            if (week != null)
+            var monthNames = months?.Names ?? new List<string>();
+            var dayNames = week?.Names ?? new List<string>();
+            if (eras.Count > MaxEras) return ErasBound;
+            if (monthNames.Count > MaxMonths) return MonthsBound;
+            if ((week != null && week.Length > MaxWeek) || dayNames.Count > MaxWeek) return WeekBound;
+            if (inter.Count > MaxIntercalary) return FestivalBound;
+            if (cfg.Version == 2 && inter.Any(ic => ic?.Except != null && ic.Except.Count > MaxExcept)) return ExceptBound;
+            if (TooLong(cfg.Grain) || TooLong(cfg.StepName) || TooLong(cfg.Format) || TooLong(cfg.FormatIntercalary)
+                || eras.Any(e => e != null && (TooLong(e.Name) || TooLong(e.Abbrev)))
+                || monthNames.Any(TooLong) || dayNames.Any(TooLong) || inter.Any(ic => ic != null && TooLong(ic.Name)))
+                return TextBound;
+            if (months?.Lengths != null)
             {
-                if (week.Length > MaxWeek || week.Names.Count > MaxWeek) return false;
-                foreach (var n in week.Names) if (TooLong(n)) return false;
+                // Exact: a decimal holds the sum of any list of longs a calendar could carry.
+                decimal longest = inter.Count;
+                foreach (var l in months.Lengths) longest += l;
+                if (longest > MaxSafe) return YearBound;
             }
-            foreach (var ic in cfg.Intercalary)
-            {
-                if (TooLong(ic.Name)) return false;
-                if (ic.Except != null && ic.Except.Count > MaxExcept) return false;
-            }
-            return true;
+            return null;
         }
 
         /// <summary>Longer than 256 Unicode code points (a pair of surrogates is one, a lone surrogate one).</summary>
