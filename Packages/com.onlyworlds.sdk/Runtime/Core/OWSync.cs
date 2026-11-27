@@ -198,53 +198,66 @@ namespace OnlyWorlds.Sdk
             var epoch = tip.Epoch;
             var walkedToTheEnd = false;
 
-            try
+            while (true)
             {
-                while (true)
+                ct.ThrowIfCancellationRequested();
+
+                // A 409 resync_required resets only from a feed page: keel names it for the feed (param since). The
+                // read by id below answers its own error as it is, a 409 too, the copy and its cursor unmoved.
+                OWChangesPage page;
+                try
                 {
-                    ct.ThrowIfCancellationRequested();
+                    page = await client.ChangesAsync(since, ct: ct).ConfigureAwait(OWAwait.OnCaller);
+                }
+                catch (OWApiError e) when (e.IsResyncRequired)
+                {
+                    return await ResetAsync(client, cache, e.ResyncReason, ct).ConfigureAwait(OWAwait.OnCaller);
+                }
 
-                    var page = await client.ChangesAsync(since, ct: ct).ConfigureAwait(OWAwait.OnCaller);
-                    if (page?.Changes == null) break;
+                if (page?.Changes == null) break;
 
-                    // A page that says "no more" is the only honest end of the feed.
-                    if (!page.HasMore) walkedToTheEnd = true;
-                    epoch = page.Epoch;
+                // A page that says "no more" is the only honest end of the feed.
+                if (!page.HasMore) walkedToTheEnd = true;
+                epoch = page.Epoch;
 
-                    foreach (var change in page.Changes)
+                foreach (var change in page.Changes)
+                {
+                    // A WATERMARK MAXIMUM ONLY -- never an identity or a dedupe key. The published
+                    // ruling table (change-seq-not-unique) records that a bulk import stamps every
+                    // element it creates with a single seq: one measured world had all 164 elements
+                    // at seq 1. Anything keying on seq breaks on exactly that world. Taking the max
+                    // is safe because it asks "how far have we read", not "which element is this".
+                    if (change.ChangeSeq > highest) highest = change.ChangeSeq;
+
+                    if (IsDelete(change.Op))
                     {
-                        // A WATERMARK MAXIMUM ONLY -- never an identity or a dedupe key. The published
-                        // ruling table (change-seq-not-unique) records that a bulk import stamps every
-                        // element it creates with a single seq: one measured world had all 164 elements
-                        // at seq 1. Anything keying on seq breaks on exactly that world. Taking the max
-                        // is safe because it asks "how far have we read", not "which element is this".
-                        if (change.ChangeSeq > highest) highest = change.ChangeSeq;
-
-                        if (IsDelete(change.Op))
-                        {
-                            if (cache.Remove(change.Id)) removed++;
-                            continue;
-                        }
-
-                        // An upsert carries the element whole. The GET is only for an op that doesn't.
-                        var element = change.Element ?? await client
-                            .GetAsync<JObject>(change.Type, change.Id, ct)
-                            .ConfigureAwait(OWAwait.OnCaller);
-
-                        if (element == null) continue;
-
-                        cache.Upsert(change.Id, change.Type, OWJson.Write(element));
-                        fetched++;
+                        if (cache.Remove(change.Id)) removed++;
+                        continue;
                     }
 
-                    // The server's cursor is the resume point, as is; keep the last one it gave.
-                    if (!string.IsNullOrEmpty(page.Cursor)) since = page.Cursor;
-                    if (!page.HasMore || string.IsNullOrEmpty(page.Cursor)) break;
+                    // An upsert carries the element whole. The GET is only for an op that doesn't.
+                    var element = change.Element ?? await client
+                        .GetAsync<JObject>(change.Type, change.Id, ct)
+                        .ConfigureAwait(OWAwait.OnCaller);
+
+                    if (element == null) continue;
+
+                    // Held under the id its body carries, so a model read from the cache names the id it is held
+                    // under; a body with none takes the row's, written into it.
+                    var id = element["id"]?.ToString();
+                    if (string.IsNullOrEmpty(id))
+                    {
+                        id = change.Id;
+                        element["id"] = id;
+                    }
+
+                    cache.Upsert(id, change.Type, OWJson.Write(element));
+                    fetched++;
                 }
-            }
-            catch (OWApiError e) when (e.IsResyncRequired)
-            {
-                return await ResetAsync(client, cache, e.ResyncReason, ct).ConfigureAwait(OWAwait.OnCaller);
+
+                // The server's cursor is the resume point, as is; keep the last one it gave.
+                if (!string.IsNullOrEmpty(page.Cursor)) since = page.Cursor;
+                if (!page.HasMore || string.IsNullOrEmpty(page.Cursor)) break;
             }
 
             // Only claim the tip if we actually reached the end of the feed. If the loop broke on

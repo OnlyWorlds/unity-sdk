@@ -375,6 +375,51 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public void Incremental_ABodilessUpserts409_IsThatGetsError_NotAReset()
+        {
+            // keel names resync_required for the feed (the changes page, param since): a 409 from a feed page resets.
+            // One from the read by id of an upsert with no body is that read's error, answered as it is: the copy and
+            // its cursor unmoved, and no walk after it.
+            CacheTwo(100, "100:x", null);
+            _transport.Then(200, Head(102));
+            _transport.Then(200,
+                $@"{{""cursor"":""102:{IdA}"",""has_more"":false,""head"":102,""epoch"":null,
+                   ""changes"":[{{""op"":""upsert"",""type"":""character"",""id"":""{IdA}"",""change_seq"":102}}]}}");
+            _transport.Then(409, Resync("view"));
+
+            var ex = Assert.ThrowsAsync<OWApiError>(() => OWSync.IncrementalAsync(Client(), _cache),
+                "the GET's 409 is the answer, not a reset");
+
+            Assert.IsTrue(ex.IsResyncRequired);
+            Assert.AreEqual(3, _transport.Calls.Count, "no walk after it: the tip, the page, the GET");
+            Assert.AreEqual(2, _cache.Count);
+            Assert.AreEqual("100:x", _cache.CursorToken);
+            Assert.AreEqual(100, _cache.Cursor);
+        }
+
+        [Test]
+        public async Task Incremental_ABodyWithNoId_TakesItsRows_AndOneWithAnId_IsHeldUnderItsOwn()
+        {
+            // The cache holds an element under the id its body carries, so the model read from it names the id it is
+            // held under. A body with none takes the row's, written into the body.
+            _cache.SetCursor(100, "t");
+            _transport.Bodies.Enqueue(Head(102));
+            _transport.Bodies.Enqueue(
+                @"{""cursor"":""102:z"",""has_more"":false,""head"":102,""epoch"":null,""changes"":[
+                    {""op"":""upsert"",""type"":""character"",""id"":""row-1"",""change_seq"":101,""element"":{""name"":""No id""}},
+                    {""op"":""upsert"",""type"":""character"",""id"":""row-2"",""change_seq"":102,
+                     ""element"":{""id"":""body-2"",""name"":""Its own""}}]}");
+
+            var result = await OWSync.IncrementalAsync(Client(), _cache);
+
+            Assert.AreEqual(2, result.Fetched);
+            Assert.AreEqual("row-1", _cache.Get<OWCharacter>("row-1")?.Id, "the row's id written into the body");
+            Assert.IsTrue(_cache.Contains("body-2"), "held under the body's own id");
+            Assert.IsFalse(_cache.Contains("row-2"), "not under the row's");
+            Assert.AreEqual("body-2", _cache.Get<OWCharacter>("body-2").Id, "the model names the id it is held under");
+        }
+
+        [Test]
         public async Task Incremental_ADeleteRowForAHide_IsDropped()
         {
             // A contributor learns of a hide from a delete op with reason hidden: dropped, as for view.

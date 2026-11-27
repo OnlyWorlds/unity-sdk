@@ -6,6 +6,20 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **`OWSync.IncrementalAsync` holds an upserted element under the id its body carries.** It held every upsert under
+  the change row's id, so a body whose own `id` differed was held under an id the element read from the cache did
+  not name, and a body with no `id` came back as a model with none. Now the body's own `id` is the key, and a body
+  with none takes the row's, written into it, so the cache and the models read from it agree on one id. The Godot
+  and Unreal SDKs hold it the same way.
+- **A 409 `resync_required` on the read by id of an upsert with no body is that read's error, not a reset.**
+  `OWSync.IncrementalAsync` walked the world again on any 409 `resync_required` during the walk, the read of a
+  bodiless upsert's element included. The API names that answer for the changes feed only (its `since` parameter), so
+  a reset now follows only a feed page's 409; one from the read by id is thrown as the `OWApiError` it is, with the
+  cursor left where it was, as any other error from that read already left it, and the next sync reads from there
+  again. The Godot and Unreal SDKs answer it the same way.
+
 ## [0.58.0] - 2026-11-27
 
 The package makes a written promise about what a release may change, checked on every push, and takes the names
