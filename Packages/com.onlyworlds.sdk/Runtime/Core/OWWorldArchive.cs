@@ -183,6 +183,23 @@ namespace OnlyWorlds.Sdk
     }
 
     /// <summary>
+    /// What is wrong with a <c>world.json</c> that is there but cannot be read: the values of
+    /// <see cref="OWFolderFormatException.WorldFault"/>, the folder read report's words (the TypeScript SDK's
+    /// <c>OwFolderWorldFault</c>).
+    /// </summary>
+    public static class OWWorldFault
+    {
+        /// <summary>Nested more than <see cref="OWJson.MaxDepth"/> deep.</summary>
+        public const string TooDeep = OWJson.TooDeep;
+
+        /// <summary>Not JSON: broken, or something after its one value.</summary>
+        public const string NotJson = "not_json";
+
+        /// <summary>It holds a number too large for a double, which no answer could carry as written.</summary>
+        public const string NumberOutOfRange = OWJson.NumberOutOfRange;
+    }
+
+    /// <summary>
     /// A world folder as one file: the spec's world zip, named <c>.owworld</c>.
     /// </summary>
     /// <remarks>
@@ -1695,7 +1712,7 @@ namespace OnlyWorlds.Sdk
                 {
                     // The folder read refuses only the world's own world.json: unparseable, not an object, no id. (A
                     // fixed name in another case is refused above; one from the read would keep its own cause.)
-                    throw new OWFolderFormatException(OWWorldArchiveReason.NotAWorld, e.Message, e);
+                    throw new OWFolderFormatException(OWWorldArchiveReason.NotAWorld, e.Message, e, e.WorldFault);
                 }
 
                 // OW-10: an archive is a copy made to be shared, so an api block in it is a key in the wrong place.

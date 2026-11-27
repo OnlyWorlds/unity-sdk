@@ -177,6 +177,16 @@ namespace OnlyWorlds.Sdk
         public string Note;
 
         /// <summary>
+        /// A person's link only: the name of the Character the person would play once they join, when the link names one
+        /// (<see cref="OWWorldLinkCreate.Character"/>) and joining now would set it. Null when the link names none, or when
+        /// that Character has since been deleted, hidden or taken by someone else: joining then goes on as if the link
+        /// named none. Read it again at every preview; show it as text, never as markup. Absent on an agent's or a
+        /// player's link, read as null.
+        /// </summary>
+        [JsonProperty("character_name")]
+        public string CharacterName;
+
+        /// <summary>
         /// A glimpse of the world, for a link whose role reads it (<c>contributor</c> or <c>co_builder</c>): up to five things by name
         /// and type and the links among them. Null for a guest's link, and so for every player's, and when no two things
         /// a visitor could see are linked. Keel always sends the key.

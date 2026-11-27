@@ -40,8 +40,11 @@ namespace OnlyWorlds.Sdk
         public bool? WithCharacter;
 
         /// <summary>
-        /// A player link for one only: the Character's id the player reads as, or <c>new</c> (the default) for a fresh
-        /// one. A table takes none, not even <c>new</c> (422, <see cref="OWApiError.Param"/> <c>character</c>).
+        /// On a player link for one: the Character's id the player reads as, or <c>new</c> (the default) for a fresh
+        /// one. A table takes none, not even <c>new</c> (422, <see cref="OWApiError.Param"/> <c>character</c>). On a
+        /// person link for one contributor or co-builder: the id of the Character they will play once they join (not
+        /// hidden, not the owner's, played by no one), left null for none; <see cref="OWJoin.PreviewAsync"/> answers its
+        /// name as <see cref="OWJoinPreview.CharacterName"/>.
         /// </summary>
         [JsonProperty("character")]
         public string Character;
@@ -149,8 +152,10 @@ namespace OnlyWorlds.Sdk
         public bool? Preview;
 
         /// <summary>
-        /// A player link only: the Character the player reads as; null while a link for a fresh Character is unused, and
-        /// always on a table.
+        /// A player link: the Character the player reads as; null while a link for a fresh Character is unused, and
+        /// always on a table. A person link has this key only while it names a Character: the one it names for its
+        /// person, which the join sets if it is still free then; once used, the one its join set; a link whose join could
+        /// not set it has none (null).
         /// </summary>
         [JsonProperty("character")]
         public OWWorldLinkCharacter Character;
@@ -192,7 +197,7 @@ namespace OnlyWorlds.Sdk
         public string Line;
     }
 
-    /// <summary>A player link's Character: its id, and its name, null when it was deleted since.</summary>
+    /// <summary>A link's Character (a player link's, or the one a person link names): its id, and its name, null when it was deleted since.</summary>
     [Serializable]
     public class OWWorldLinkCharacter
     {
