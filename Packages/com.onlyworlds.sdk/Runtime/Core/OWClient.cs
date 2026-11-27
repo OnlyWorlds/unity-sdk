@@ -2674,8 +2674,10 @@ namespace OnlyWorlds.Sdk
         /// </exception>
         /// <exception cref="OWSignInError">
         /// <c>state_mismatch</c> (no sign-in pending, another state or none, or the wrong page; nothing sent),
-        /// <c>invalid_grant</c> (keel's 400: the code used, expired, or another tool's), <c>rate_limited</c>,
-        /// <c>offline</c>, <c>failed</c>.
+        /// <c>cancelled</c> (the person pressed Cancel on onlyworlds.com: the return carries this sign-in's state,
+        /// <c>error=access_denied</c> and no code; nothing sent, the sign-in ended), <c>invalid_grant</c> (keel's 400: the
+        /// code used, expired, or another tool's), <c>rate_limited</c>, <c>offline</c>, <c>failed</c> (also a return
+        /// with another <c>error</c> and no code, that error as <see cref="OWSignInError.Code"/>; nothing sent).
         /// </exception>
         /// <remarks>
         /// <para>
@@ -2684,8 +2686,9 @@ namespace OnlyWorlds.Sdk
         /// forged one must not cancel a sign-in in flight. The body is <c>{grant_type, code, code_verifier, client_id,
         /// redirect_uri}</c>, with <c>Content-Type</c> and nothing else of this client's, on any client. The SDK keeps no
         /// token: the caller does. Mirrors the TypeScript SDK's <c>completeSignIn</c> (4.46.0; <c>expiresAt</c> from
-        /// 4.94.0; <c>aiUses</c> and <c>aiLifetimeMinutes</c> from 4.138.0; <c>scope</c> from 4.164.0), whose storage and
-        /// address bar are the caller's here.
+        /// 4.94.0; <c>aiUses</c> and <c>aiLifetimeMinutes</c> from 4.138.0; <c>scope</c> from 4.164.0; <c>cancelled</c>
+        /// from 4.213.0), whose storage and address bar are the caller's here. Its error's <c>resume</c> has no twin:
+        /// the caller holds <paramref name="pending"/> and whatever it kept beside it.
         /// </para>
         /// <para>
         /// <see cref="OWSignInResult.Scope"/> is the scope the server granted: <c>world:read</c> when its answer says so,
@@ -2736,16 +2739,26 @@ namespace OnlyWorlds.Sdk
             }
 
             pending.Pending = false;
-            if (string.IsNullOrEmpty(code))
-            {
-                throw new OWSignInError(OWSignInReason.StateMismatch,
-                    "This page was not reached from the sign-in that was started here: start again.");
-            }
-
             if (!OWSignIn.SamePage(url, pending.RedirectUri))
             {
                 throw new OWSignInError(OWSignInReason.StateMismatch,
                     "This page is not the return address the sign-in was started with.");
+            }
+
+            // keel's Cancel comes back with error=access_denied, this sign-in's state and no code: the person said no, so
+            // the sign-in ends and nothing is sent. Any other error a return carries ends it as failed, its code kept.
+            var returned = OWSignIn.QueryValue(url, "error");
+            if (string.IsNullOrEmpty(code) && returned != null)
+            {
+                if (returned == "access_denied")
+                    throw new OWSignInError(OWSignInReason.Cancelled, "The sign-in was cancelled on onlyworlds.com: nothing changed.");
+                throw new OWSignInError(OWSignInReason.Failed, "The sign-in came back without signing in.", code: returned);
+            }
+
+            if (string.IsNullOrEmpty(code))
+            {
+                throw new OWSignInError(OWSignInReason.StateMismatch,
+                    "This page was not reached from the sign-in that was started here: start again.");
             }
 
             return CompleteSignInCoreAsync(pending, code, ai, ct);

@@ -25,6 +25,12 @@ namespace OnlyWorlds.Sdk
         /// </summary>
         public const string StateMismatch = "state_mismatch";
 
+        /// <summary>
+        /// <see cref="OWClient.CompleteSignInAsync"/>: the person pressed Cancel on onlyworlds.com, so the return carries
+        /// this sign-in's state and no code. Nothing was sent and the sign-in has ended; put them back where they were.
+        /// </summary>
+        public const string Cancelled = "cancelled";
+
         /// <summary>The account's email address is not confirmed yet: the link is in the mail onlyworlds.com sent.</summary>
         public const string EmailUnverified = "email_unverified";
 

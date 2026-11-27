@@ -6,6 +6,17 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Parity with the TypeScript SDK 4.213.0: a press of Cancel is `cancelled`.** keel's consent page answers Cancel by
+  returning to the registered address with `error=access_denied`, the sign-in's state and no code.
+  `OWClient.CompleteSignInAsync` refused that return as `state_mismatch`, which says the page was not reached from this
+  sign-in. It now throws `OWSignInError` with the new reason **`OWSignInReason.Cancelled`** (`"cancelled"`): nothing is
+  sent and the sign-in has ended, so a game can put the player back where they were. A return with another `error` and
+  no code is `failed`, that error as `Code`. A Cancel with another state, or at another page, is still
+  `state_mismatch`. The TypeScript SDK's error also hands back the `resume` its storage kept; here the caller holds the
+  pending sign-in and whatever it kept beside it, so there is nothing to hand back.
+
 ### Changed
 
 - **Parity with the TypeScript SDK 4.212.0: the validator names the size bounds.** `OWCalendar.ValidateValue` and
