@@ -1,0 +1,32 @@
+# The written promise (the docs' Stability page) on every push and pull request: no public name gone within a major,
+# every public name listed in tools/public-names.json, and every [Obsolete] saying since which release and the release
+# it leaves in (tools/verify_promise.py). The names are read from the package's source by Roslyn's parser
+# (tools/PublicNames, from NuGet), so this needs .NET and Python, no Unity install and no secret. A change that adds
+# public names runs `python tools/verify_promise.py --write` and commits the file. The second step watches the first
+# fail once for each rule.
+name: promise
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  names:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: python tools/verify_promise.py
+      - run: python tools/mutants_promise.py

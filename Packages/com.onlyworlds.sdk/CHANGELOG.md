@@ -8,6 +8,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Added
 
+- **The package's written promise, held on every change.** A patch release fixes and a minor release adds; neither
+  removes nor renames a public name, and the package keeps to this while it is 0.x. A name that will go is marked first,
+  saying since which release, what to use instead and the release it leaves in, and goes no sooner than six months
+  later, in 1.0. The README's Versions line says so and links the docs' Stability page. The mark is `[Obsolete("Since
+  X.Y.Z. Leaves in 1.0. Use Y.")]`, a warning. `tools/verify_promise.py` holds the package's public names, listed in
+  `tools/public-names.json`, and their marks to the promise in a new workflow on every push and pull request, which
+  needs no Unity install: Roslyn's parser reads the names from the source (`tools/PublicNames`).
+  `tools/mutants_promise.py` watches it fail once for each rule. No release so far has removed or renamed a public name.
 - **Parity with the TypeScript SDK 4.213.0: a press of Cancel is `cancelled`.** keel's consent page answers Cancel by
   returning to the registered address with `error=access_denied`, the sign-in's state and no code.
   `OWClient.CompleteSignInAsync` refused that return as `state_mismatch`, which says the page was not reached from this
@@ -30,6 +38,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
+- **`OWClient.AskAsync` and `OWClient.SortAsync` say when they leave.** Each `[Obsolete]` message now opens `Since
+  0.37.0. Leaves in 1.0.` before the call to use instead, `AiAsync`. Both are still a warning, never an error, and keep
+  working, unchanged, until 1.0.
 - **Parity with the TypeScript SDK 4.212.0: the validator names the size bounds.** `OWCalendar.ValidateValue` and
   `OWCalendar.Validate` now say which of the calendar profile's size bounds a value is past, in the TypeScript SDK's
   words: "A calendar holds at most 256 eras", "A calendar holds at most 64 months", "A week holds at most 64 steps and

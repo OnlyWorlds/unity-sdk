@@ -334,6 +334,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
         // 4.139.0: ask() and sort() deprecated in favour of ai('ask') and ai('sort'), as a warning that names the call to
         // use instead, never an error, so a present caller keeps compiling (OWAskRouteTests holds that they keep working).
+        // The message says since which release and the release it leaves in, first, as tools/verify_promise.py reads it.
         [Test]
         public void AskAndSort_AreDeprecatedInFavourOfTheirUses_AsAWarning()
         {
@@ -343,7 +344,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                     .Cast<ObsoleteAttribute>().SingleOrDefault();
                 Assert.IsNotNull(obsolete, $"{name} is not marked [Obsolete]");
                 Assert.IsFalse(obsolete.IsError, $"{name}: a warning, not an error");
-                StringAssert.StartsWith($"Use AiAsync(new {body} ", obsolete.Message, name);
+                StringAssert.StartsWith($"Since 0.37.0. Leaves in 1.0. Use AiAsync(new {body} ", obsolete.Message, name);
             }
         }
 
