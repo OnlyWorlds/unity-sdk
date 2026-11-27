@@ -5,7 +5,7 @@
     "X-Session-Token",
     "Authorization"
   ],
-  "document_sha256": "f921dd878e35543c1b0346875215d78b478e272a8042fafc7705d79286b2d66d",
+  "document_sha256": "d2bf956a0e36253d58ab04cdf24422ed08659806fbb5d949762d6e1414be4c23",
   "error_codes": {
     "already_member": 409,
     "already_reported": 409,
@@ -97,7 +97,7 @@
     "write_not_granted": 403,
     "wrong_audience": 401
   },
-  "fetched": "2026-11-26T19:37+01:00",
+  "fetched": "2026-11-27T06:16+01:00",
   "openapi_version": "2.0",
   "paths": {
     "/api/v2/ability": {
@@ -7090,6 +7090,7 @@
         "header": [],
         "query": [],
         "response": [
+          "character_name",
           "characters",
           "characters[].id",
           "characters[].image_url",
