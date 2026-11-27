@@ -662,18 +662,20 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             }
         }
 
-        // A wrong state, a wrong page, a cancelled sign-in and a spent one are state_mismatch before sending; a wrong
-        // state leaves the sign-in pending, a matching one ends it. Kills: the code traded from a page the sign-in did not
-        // start, a forged return cancelling a real one, a sign-in completed twice.
+        // A wrong state, a wrong page (a Cancel's return included) and a spent sign-in are state_mismatch before sending;
+        // a wrong state leaves the sign-in pending, a matching one ends it. Kills: the code traded from a page the sign-in
+        // did not start, a forged return cancelling a real one, a sign-in completed twice. The TypeScript SDK's vectors
+        // (4.213.0).
         [Test]
-        public void CompleteSignIn_RefusesAWrongStateAWrongPageACancelledOrASpentSignIn_BeforeSending()
+        public void CompleteSignIn_RefusesAWrongStateAWrongPageOrASpentSignIn_BeforeSending()
         {
             foreach (var (url, why, kept) in new (string, string, bool)[]
             {
                 ("https://atlas.onlyworlds.com/signin/callback?code=c1&state=other", "state", true),
                 ("https://atlas.onlyworlds.com/signin/callback?code=c1", "no state", true),
                 ("https://evil.example/signin/callback?code=c1&state=STATE", "page", false),
-                ("https://atlas.onlyworlds.com/signin/callback?error=access_denied&state=STATE", "cancelled", false),
+                ("https://evil.example/signin/callback?error=access_denied&state=STATE", "a cancel at another page", false),
+                ("https://atlas.onlyworlds.com/signin/callback?error=access_denied&state=other", "a cancel with another state", true),
             })
             {
                 var p = Begun();
@@ -730,6 +732,30 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                     Assert.AreEqual(OWSignInReason.StateMismatch, e.Reason, what);
                     Assert.IsEmpty(t.Calls, what);
                 }
+            }
+        }
+
+        // keel's Cancel comes back to the registered address with error=access_denied and the sign-in's state, no code: the
+        // person said no. The TypeScript SDK's vectors (4.213.0). Kills: a Cancel read as a forged return, a Cancel that
+        // leaves the sign-in pending, any send on a return that carries no code, another error's code lost.
+        [Test]
+        public void CompleteSignIn_ReadsKeelsCancelAsCancelled_AnotherErrorAsFailedWithItsCode_SendingNothing_AndEndsTheSignIn()
+        {
+            foreach (var (query, reason, code) in new (string, string, string)[]
+            {
+                ("error=access_denied&state=STATE", OWSignInReason.Cancelled, null),
+                ("state=STATE&error=access_denied", OWSignInReason.Cancelled, null),
+                ("error=server_error&state=STATE", OWSignInReason.Failed, "server_error"),
+            })
+            {
+                var p = Begun();
+                var t = new Script();
+                var e = Refused(() => Client(t).CompleteSignInAsync(p, "https://atlas.onlyworlds.com/signin/callback?" + query.Replace("STATE", p.State)), p.Verifier);
+                Assert.AreEqual(reason, e.Reason, query);
+                Assert.AreEqual(code, e.Code, query);
+                Assert.IsNull(e.Status, query);
+                Assert.IsEmpty(t.Calls, query);
+                Assert.IsFalse(p.Pending, query);
             }
         }
 
