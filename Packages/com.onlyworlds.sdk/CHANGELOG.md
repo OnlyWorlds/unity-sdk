@@ -25,17 +25,6 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   `state_mismatch`. The TypeScript SDK's error also hands back the `resume` its storage kept; here the caller holds the
   pending sign-in and whatever it kept beside it, so there is nothing to hand back.
 
-### Fixed
-
-- **`OWWorldArchive.Pack` refuses to write a world file its own reader would refuse for a name**, as the folder
-  format's writer rules ask (§4.7: OW-16, OW-18, OW-19, OW-22) and as the TypeScript SDK's `writeWorldFile` refuses
-  it. Before a byte is written, every entry name goes through the reader's checks: a name some disk cannot hold (a
-  Windows device name such as `media/aux.png`, a name ending in a dot or a space, a reserved or control character)
-  is refused `name`; two names that are one after case folding are refused `collision`; a path that would be a file
-  and a folder is refused `unsafe_path`, and so is a world folder named `mimetype` (the marker's name), while one
-  named `MimeType` is refused `collision`. `OWFolderFormatException.Reason` carries the cause and nothing is written.
-  Before, such a folder was packed into a file that `OWWorldArchive.Read` then refused.
-
 ### Changed
 
 - **`OWClient.AskAsync` and `OWClient.SortAsync` say when they leave.** Each `[Obsolete]` message now opens `Since
@@ -67,6 +56,17 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 - `Pack` already refused a folder holding `Spatial/` (or `spatial/` with a long s) beside `elements/`, as a copy and as
   a share, with the cause `name_case` and nothing written; the TypeScript SDK 4.212.3's writer now refuses it too, and
   a test holds the shape.
+
+### Fixed
+
+- **`OWWorldArchive.Pack` refuses to write a world file its own reader would refuse for a name**, as the folder
+  format's writer rules ask (§4.7: OW-16, OW-18, OW-19, OW-22) and as the TypeScript SDK's `writeWorldFile` refuses
+  it. Before a byte is written, every entry name goes through the reader's checks: a name some disk cannot hold (a
+  Windows device name such as `media/aux.png`, a name ending in a dot or a space, a reserved or control character)
+  is refused `name`; two names that are one after case folding are refused `collision`; a path that would be a file
+  and a folder is refused `unsafe_path`, and so is a world folder named `mimetype` (the marker's name), while one
+  named `MimeType` is refused `collision`. `OWFolderFormatException.Reason` carries the cause and nothing is written.
+  Before, such a folder was packed into a file that `OWWorldArchive.Read` then refused.
 
 ## [0.57.0] - 2026-11-27
 
