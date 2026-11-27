@@ -1,6 +1,6 @@
 {
   "name": "com.onlyworlds.sdk",
-  "version": "0.57.0",
+  "version": "0.58.0",
   "displayName": "OnlyWorlds SDK",
   "description": "OnlyWorlds for Unity: a world's characters, locations and laws as typed objects in your game. An API client, world folders and .owworld files on disk, C# models for all 22 element types, and a world cache you can browse in the Editor.",
   "unity": "6000.0",

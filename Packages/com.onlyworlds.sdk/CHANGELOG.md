@@ -6,6 +6,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.58.0] - 2026-11-27
+
+The package makes a written promise about what a release may change, checked on every push, and takes the names
+the TypeScript SDK keeps in its 5.0: `GroupOf`, `GroupOrder`, `ColorOfGroup`, `OWGroupColor` and `ResolveCalendar`,
+with the old names marked to leave in 1.0. Parity with the TypeScript SDK 4.212.0 to 4.213.0 on calendar bounds,
+too-deep world files and a press of Cancel, and every pack now refuses a name its own reader refuses. A minor release
+because it adds public API (below).
+
 ### Added
 
 - **The names the TypeScript SDK keeps in its 5.0: `groupOf`, `GROUP_ORDER`, `GROUP_COLORS` and `resolveCalendar`.**
