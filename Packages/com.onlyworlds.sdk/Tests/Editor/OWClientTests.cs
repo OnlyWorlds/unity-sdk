@@ -1936,6 +1936,132 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             }
         }
 
+        // -- Size limits: the envelope's `limit` (the TypeScript SDK's 4.219.0 vector) --------------
+
+        /// <summary>A 422 <c>invalid_request</c> envelope, with <paramref name="limit"/> as raw JSON when given.</summary>
+        private static string SizeRefusal(string limitJson, string code = "invalid_request")
+            => @"{""error"":{""type"":""invalid_request"",""code"":""" + code + @""",""message"":""m"",""param"":null,"
+               + @"""doc_url"":""https://example.test/e""" + (limitJson == null ? "" : @",""limit"":" + limitJson) + "}}";
+
+        private static OWApiError CreateRefused(int status, string body)
+        {
+            var t = new FakeTransport { Status = status, ResponseBody = body };
+            return Assert.ThrowsAsync<OWApiError>(() => Make(t).CreateAsync<JObject>("character", new JObject { ["name"] = "K" }));
+        }
+
+        [TestCase("element_bytes")]
+        [TestCase("element_link_ids")]
+        [TestCase("extensions_bytes")]
+        public void Limit_NamesTheSizeLimitA422Passed_AndTheThreePredicatesReadIt(string limit)
+        {
+            var e = CreateRefused(422, SizeRefusal("\"" + limit + "\""));
+
+            Assert.AreEqual("invalid_request", e.Code);
+            Assert.AreEqual(limit, e.Limit);
+            Assert.AreEqual(limit == "element_bytes", e.IsElementTooLarge, "IsElementTooLarge");
+            Assert.AreEqual(limit == "element_link_ids", e.IsElementTooManyLinks, "IsElementTooManyLinks");
+            Assert.AreEqual(limit == "extensions_bytes", e.IsExtensionsTooLarge, "IsExtensionsTooLarge");
+        }
+
+        [Test]
+        public void Limit_IsAnOpenString_NoneWithoutOne_AndNeverOffA422()
+        {
+            // a value the package does not know is read, and no predicate claims it
+            var later = CreateRefused(422, SizeRefusal("\"element_fields\""));
+            Assert.AreEqual("element_fields", later.Limit);
+            Assert.IsFalse(later.IsElementTooLarge || later.IsElementTooManyLinks || later.IsExtensionsTooLarge);
+
+            var plain = CreateRefused(422, SizeRefusal(null));
+            Assert.IsNull(plain.Limit);
+            Assert.IsFalse(plain.IsElementTooLarge);
+
+            // a `limit` that is not a string is not one
+            var number = CreateRefused(422, SizeRefusal("5"));
+            Assert.IsNull(number.Limit);
+            Assert.IsFalse(number.IsElementTooLarge || number.IsElementTooManyLinks || number.IsExtensionsTooLarge);
+
+            // never off a 422: a 409 resync_required carries `reason`, and a `limit` there is not read
+            var t = new FakeTransport { Status = 409, ResponseBody = SizeRefusal("\"element_bytes\"", "resync_required") };
+            var resync = Assert.ThrowsAsync<OWApiError>(() => Make(t).ChangesAsync("12:abc"));
+            Assert.IsNull(resync.Limit);
+            Assert.IsFalse(resync.IsElementTooLarge);
+        }
+
+        [Test]
+        public async Task Limit_IsOnABulkSlotsError()
+        {
+            var t = new FakeTransport
+            {
+                ResponseBody = @"{""errors"":true,""items"":[{""status"":201,""id"":""a""},{""status"":422,""error"":"
+                    + @"{""type"":""invalid_request"",""code"":""invalid_request"",""message"":""m"",""param"":null,"
+                    + @"""doc_url"":""https://example.test/e"",""limit"":""element_link_ids""}}]}",
+            };
+            var result = await Make(t).BulkAsync(new[]
+            {
+                new OWBulkItem("character", new JObject { ["name"] = "A" }),
+                new OWBulkItem("character", new JObject { ["name"] = "B" }),
+            });
+
+            Assert.IsNull(result.Items[0].Error);
+            Assert.AreEqual("element_link_ids", result.Items[1].Error.Limit);
+            Assert.AreEqual("invalid_request", result.Items[1].Error.Code);
+        }
+
+        // -- A body JSON cannot hold (the TypeScript SDK's 4.219.1 vector) ------------------------------
+
+        [Test]
+        public void ABodyJsonCannotHold_ThrowsItsOwnError_NotOWTransportError_AndNothingIsSent()
+        {
+            var t = new FakeTransport();
+            var cyclic = new Dictionary<string, object> { ["name"] = "K" };
+            cyclic["self"] = cyclic;
+
+            foreach (var call in new Func<Task>[]
+            {
+                () => Make(t).PatchWorldAsync(new Dictionary<string, object> { ["x_tool"] = cyclic }),
+                () => Make(t).PatchAsync<JObject>("character", "11111111-2222-4333-8444-555555555555",
+                    new Dictionary<string, object> { ["x_tool"] = cyclic }),
+            })
+            {
+                Exception thrown = null;
+                try
+                {
+                    call().GetAwaiter().GetResult();
+                }
+                catch (Exception e)
+                {
+                    thrown = e;
+                }
+
+                Assert.IsNotNull(thrown, "a throw");
+                Assert.IsNotInstanceOf<OWTransportError>(thrown, thrown.ToString());
+                Assert.IsInstanceOf<Newtonsoft.Json.JsonSerializationException>(thrown, thrown.ToString());
+            }
+
+            Assert.AreEqual(0, t.Calls.Count, "nothing sent");
+        }
+
+        // -- NaN and the infinities in a request body: null, as JSON.stringify writes them ---------------
+
+        [Test]
+        public async Task ANonFiniteNumberInARequestBody_IsWrittenNull_AsJsonStringifyWritesIt()
+        {
+            var t = new FakeTransport { ResponseBody = @"{""id"":""11111111-2222-4333-8444-555555555555""}" };
+            var c = Make(t);
+
+            await c.PatchAsync<JObject>("character", "11111111-2222-4333-8444-555555555555", new JObject
+            {
+                ["x_nan"] = double.NaN, ["x_up"] = double.PositiveInfinity, ["x_down"] = double.NegativeInfinity,
+                ["x_float"] = float.NaN, ["x_list"] = new JArray(1.5, double.NaN), ["x_fine"] = 0.1,
+            });
+            Assert.AreEqual(
+                @"{""x_nan"":null,""x_up"":null,""x_down"":null,""x_float"":null,""x_list"":[1.5,null],""x_fine"":0.1}",
+                t.Calls[0].Body);
+
+            await c.PatchWorldAsync(new Dictionary<string, object> { ["x_tool"] = double.NaN });
+            Assert.AreEqual(@"{""x_tool"":null}", t.Calls[1].Body, "a typed body too");
+        }
+
         // -- World settings: PATCH /world (npm 4.65.0's and Python 0.34.0's vectors) ------------
 
         private static readonly JObject Origin = JObject.Parse(

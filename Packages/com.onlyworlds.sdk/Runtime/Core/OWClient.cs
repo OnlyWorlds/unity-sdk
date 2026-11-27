@@ -2428,7 +2428,7 @@ namespace OnlyWorlds.Sdk
                 Method = "POST",
                 Url = auth + "/auth/login",
                 Headers = new Dictionary<string, string> { ["Content-Type"] = "application/json" },
-                Body = OWJson.Write(credentials),
+                Body = OWJson.WriteBody(credentials),
             }, "OnlyWorlds could not be reached: signing in needs a connection.", ct).ConfigureAwait(OWAwait.OnCaller);
 
             var retryAfter = OWApiError.ParseRetryAfter(ReadHeader(res, "Retry-After"), DateTimeOffset.UtcNow);
@@ -2509,7 +2509,7 @@ namespace OnlyWorlds.Sdk
                 if (tokenName != null)
                 {
                     mint.Headers["Content-Type"] = "application/json";
-                    mint.Body = OWJson.Write(new JObject { ["name"] = tokenName });
+                    mint.Body = OWJson.WriteBody(new JObject { ["name"] = tokenName });
                 }
 
                 var minted = await SendSignInAsync(mint, "The connection dropped after signing in: no token was made. Try again.", ct)
@@ -2782,7 +2782,7 @@ namespace OnlyWorlds.Sdk
                 Method = "POST",
                 Url = BaseUrl + "/auth/token",
                 Headers = new Dictionary<string, string> { ["Content-Type"] = "application/json" },
-                Body = OWJson.Write(body),
+                Body = OWJson.WriteBody(body),
             }, "OnlyWorlds could not be reached: signing in needs a connection.", ct).ConfigureAwait(OWAwait.OnCaller);
 
             var retryAfter = OWApiError.ParseRetryAfter(ReadHeader(res, "Retry-After"), DateTimeOffset.UtcNow);
@@ -3682,7 +3682,7 @@ namespace OnlyWorlds.Sdk
                 Method = method,
                 Url = url,
                 Headers = headers,
-                Body = body == null ? null : OWJson.Write(body),
+                Body = body == null ? null : OWJson.WriteBody(body),
             };
 
             OWResponse response;

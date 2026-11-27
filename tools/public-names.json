@@ -1,6 +1,6 @@
 {
  "about": "Every public name of the OnlyWorlds Unity SDK and its deprecation: written by tools/verify_promise.py --write, read by it in CI. A name leaves this file only in a major.",
- "version": "0.57.0",
+ "version": "0.58.1",
  "major": 0,
  "names": {
   "OnlyWorlds.Sdk.CalendarBundles": {},
@@ -254,6 +254,9 @@
   "OnlyWorlds.Sdk.OWApiError.IsCharacterInvalid": {},
   "OnlyWorlds.Sdk.OWApiError.IsCharacterPlayed": {},
   "OnlyWorlds.Sdk.OWApiError.IsCharacterTaken": {},
+  "OnlyWorlds.Sdk.OWApiError.IsElementTooLarge": {},
+  "OnlyWorlds.Sdk.OWApiError.IsElementTooManyLinks": {},
+  "OnlyWorlds.Sdk.OWApiError.IsExtensionsTooLarge": {},
   "OnlyWorlds.Sdk.OWApiError.IsFieldNotVisible": {},
   "OnlyWorlds.Sdk.OWApiError.IsFileTooLarge": {},
   "OnlyWorlds.Sdk.OWApiError.IsFilesFull": {},
@@ -283,6 +286,7 @@
   "OnlyWorlds.Sdk.OWApiError.IsValidationError": {},
   "OnlyWorlds.Sdk.OWApiError.IsWorldFull": {},
   "OnlyWorlds.Sdk.OWApiError.IsWrongAudience": {},
+  "OnlyWorlds.Sdk.OWApiError.Limit": {},
   "OnlyWorlds.Sdk.OWApiError.Param": {},
   "OnlyWorlds.Sdk.OWApiError.ParseRetryAfter": {},
   "OnlyWorlds.Sdk.OWApiError.RawBody": {},
@@ -295,6 +299,7 @@
   "OnlyWorlds.Sdk.OWApiErrorBody": {},
   "OnlyWorlds.Sdk.OWApiErrorBody.Code": {},
   "OnlyWorlds.Sdk.OWApiErrorBody.DocUrl": {},
+  "OnlyWorlds.Sdk.OWApiErrorBody.Limit": {},
   "OnlyWorlds.Sdk.OWApiErrorBody.Message": {},
   "OnlyWorlds.Sdk.OWApiErrorBody.Param": {},
   "OnlyWorlds.Sdk.OWApiErrorBody.ToString": {},

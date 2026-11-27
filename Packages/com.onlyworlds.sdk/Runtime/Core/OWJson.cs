@@ -94,8 +94,8 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// A token as compact JSON text, as <c>token.ToString(Formatting.None)</c> writes it, except that every finite
-        /// double and float is written as <c>JSON.stringify</c> writes it. Every request body, and every text the SDK
-        /// keeps and reads back (the cache, an extension's raw JSON), is written through this.
+        /// double and float is written as <c>JSON.stringify</c> writes it. Every text the SDK keeps and reads back (the
+        /// cache, an extension's raw JSON) is written through this; a request body through <see cref="WriteBody"/>.
         /// </summary>
         /// <remarks>
         /// Writer and reader go together: once <see cref="ParseObject"/> reads exactly, a text written with the
@@ -111,6 +111,34 @@ namespace OnlyWorlds.Sdk
             }
 
             return buffer.ToString();
+        }
+
+        /// <summary>
+        /// A request body as compact JSON text: <see cref="Write"/>, except that a NaN or an infinity is written
+        /// <c>null</c>, as <c>JSON.stringify</c> writes it (and the Godot and Unreal SDKs), never Newtonsoft's quoted
+        /// <c>"NaN"</c> or <c>"Infinity"</c>, a string where a number was due. Every body the client sends is written
+        /// through this; what the SDK keeps and reads back is <see cref="Write"/>'s.
+        /// </summary>
+        internal static string WriteBody(JToken token)
+        {
+            if (token == null) throw new ArgumentNullException(nameof(token));
+            var buffer = new StringWriter(CultureInfo.InvariantCulture);
+            using (var writer = new BodyWriter(buffer) { Formatting = Formatting.None })
+            {
+                token.WriteTo(writer);
+            }
+
+            return buffer.ToString();
+        }
+
+        /// <summary>The request body's writer: a non-finite number is <c>null</c>.</summary>
+        private sealed class BodyWriter : OWJsNumberWriter
+        {
+            public BodyWriter(TextWriter writer) : base(writer) { }
+
+            protected override void WriteNonFinite(double value) => WriteNull();
+
+            protected override void WriteNonFinite(float value) => WriteNull();
         }
 
         /// <summary>

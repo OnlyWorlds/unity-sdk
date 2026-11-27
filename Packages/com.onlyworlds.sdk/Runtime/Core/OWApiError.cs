@@ -281,6 +281,51 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
+        /// Which size limit a write passed, from the envelope's <c>limit</c>: a key of the API document's
+        /// <c>info.x-ow-limits</c>, where its number and unit are. Set on a 422 <c>invalid_request</c> only, and only for
+        /// the limits keel names this way (an element's size, its links, its extension fields); a full world, a file too
+        /// large or a request body too large keep their own codes. An open string: more values may come. Null for any
+        /// other error, when the server sends none, or when it is not a string. Mirrors the TypeScript SDK's
+        /// <c>limit</c>.
+        /// </summary>
+        public string Limit
+        {
+            get
+            {
+                if (StatusCode != 422 || string.IsNullOrEmpty(RawBody)) return null;
+
+                try
+                {
+                    var limit = (JObject.Parse(RawBody)["error"] as JObject)?["limit"] as JValue;
+                    return limit?.Type == JTokenType.String ? (string)limit : null;
+                }
+                catch (Exception)
+                {
+                    return null;
+                }
+            }
+        }
+
+        /// <summary>
+        /// A write would make the element larger than an element may be (422, <see cref="Limit"/>
+        /// <c>element_bytes</c>). Nothing is saved. Mirrors the TypeScript SDK's <c>isElementTooLarge</c>.
+        /// </summary>
+        public bool IsElementTooLarge => Limit == "element_bytes";
+
+        /// <summary>
+        /// A write would give the element more link ids, across all its link fields, than it may hold (422,
+        /// <see cref="Limit"/> <c>element_link_ids</c>). Nothing is saved. Mirrors the TypeScript SDK's
+        /// <c>isElementTooManyLinks</c>.
+        /// </summary>
+        public bool IsElementTooManyLinks => Limit == "element_link_ids";
+
+        /// <summary>
+        /// A write would put an element's or the World's extension fields past their cap (422, <see cref="Limit"/>
+        /// <c>extensions_bytes</c>). Nothing is saved. Mirrors the TypeScript SDK's <c>isExtensionsTooLarge</c>.
+        /// </summary>
+        public bool IsExtensionsTooLarge => Limit == "extensions_bytes";
+
+        /// <summary>
         /// On a 422 whose <see cref="Param"/> is <c>fields</c>, when a read's <c>fields</c> list named fields its type
         /// does not have: every unknown name in the order sent, for each one another element type has, those types, and
         /// the names this type takes. The server refuses the whole list once, so the list is corrected in one try. Null

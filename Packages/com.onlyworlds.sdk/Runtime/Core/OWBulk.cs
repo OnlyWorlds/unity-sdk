@@ -89,6 +89,14 @@ namespace OnlyWorlds.Sdk
         [JsonProperty("doc_url")]
         public string DocUrl;
 
+        /// <summary>
+        /// On a 422 <c>invalid_request</c> for a size limit only: which limit the item passed, as a key of the API
+        /// document's <c>info.x-ow-limits</c> (<c>element_bytes</c>, <c>element_link_ids</c>, <c>extensions_bytes</c>);
+        /// null otherwise. An open string: more values may come. <see cref="OWApiError.Limit"/> on a thrown error.
+        /// </summary>
+        [JsonProperty("limit")]
+        public string Limit;
+
         public override string ToString()
             => string.IsNullOrEmpty(Param) ? $"{Code}: {Message}" : $"{Code} ({Param}): {Message}";
     }

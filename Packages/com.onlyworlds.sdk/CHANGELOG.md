@@ -6,6 +6,31 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **`OWApiError.Limit` names the size limit a write passed, and three predicates read it**: `IsElementTooLarge`
+  (`element_bytes`), `IsElementTooManyLinks` (`element_link_ids`) and `IsExtensionsTooLarge` (`extensions_bytes`), and
+  `OWApiErrorBody.Limit` for a failed item of a bulk write. The OnlyWorlds API will add `limit` to its three 422
+  `invalid_request` refusals for size (an element's size, its links, its extension fields), as a key of the API
+  document's `info.x-ow-limits`, where the number and its unit are; the code, `Param` and the message stay as they
+  are. `Limit` is an open string, so a value this release does not know is read and no predicate claims it. Until the
+  API sends the key, `Limit` is null and the predicates are false: read the message as before. Parity with the
+  TypeScript SDK 4.219.0, its test vector ported.
+
+### Changed
+
+- **A body JSON cannot hold is pinned to throw its own error, with nothing sent.** A body that holds itself (a
+  dictionary inside itself) throws Newtonsoft's `JsonSerializationException` from the call before any request, never
+  an `OWTransportError`, which means a request that got no answer. The package already did this; a test now holds it.
+  Parity with the TypeScript SDK 4.219.1, its test vector ported.
+
+### Fixed
+
+- **NaN and the infinities in a request body are sent as `null`**, as `JSON.stringify` writes them and the Godot and
+  Unreal SDKs send them. They were sent as the strings `"NaN"`, `"Infinity"` and `"-Infinity"`, a string where a
+  number was due. What the SDK keeps and reads back (the cache) is written as before, and the folder writer still
+  refuses them.
+
 ## [0.58.1] - 2026-11-27
 
 `OWSync` holds an upserted element under its own id, and a 409 from the read of a bodiless upsert is that read's
