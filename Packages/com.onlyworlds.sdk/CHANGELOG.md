@@ -8,6 +8,15 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Added
 
+- **The names the TypeScript SDK keeps in its 5.0: `groupOf`, `GROUP_ORDER`, `GROUP_COLORS` and `resolveCalendar`.**
+  `OWPresentation.GroupOf(type)` answers a type's colour group, its word (`blue` for a Character);
+  `OWPresentation.GroupOrder` the four words in the sidecar's order; `OWPresentation.ColorOfGroup(word)` a group's two
+  colours as the new struct `OWGroupColor` (`Light`, `Dark`, `For(darkSurface)`). `OWCalendarLens.ResolveCalendar(elements,
+  activeId)` resolves a chosen calendar and `OWCalendarLens.ResolveCalendarNeverChosen(elements, fallbackToOnly)` one
+  never chosen. Each answers exactly as the name it replaces, which now calls it (see Deprecated). The family names
+  always answered the colour words, as `groupOf` does; the TypeScript SDK's own `familyOf` answers its words from
+  before 4.102.0 (`agents`, `world`, `abstract`, `temporal`), so the group names are the true twins.
+
 - **The package's written promise, held on every change.** A patch release fixes and a minor release adds; neither
   removes nor renames a public name, and the package keeps to this while it is 0.x. A name that will go is marked first,
   saying since which release, what to use instead and the release it leaves in, and goes no sooner than six months
@@ -27,6 +36,9 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ### Changed
 
+- **`OWPresentation.ColorOfType` returns `OWGroupColor?`** (it returned `OWFamilyColor?`), the same two colours. The
+  old struct converts from the new one, so `OWFamilyColor? c = OWPresentation.ColorOfType(t)` still compiles, with the
+  old struct's deprecation warning. `OWGraph`'s node `Family` is filled by `GroupOf`, the same word.
 - **`OWClient.AskAsync` and `OWClient.SortAsync` say when they leave.** Each `[Obsolete]` message now opens `Since
   0.37.0. Leaves in 1.0.` before the call to use instead, `AiAsync`. Both are still a warning, never an error, and keep
   working, unchanged, until 1.0.
@@ -56,6 +68,19 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 - `Pack` already refused a folder holding `Spatial/` (or `spatial/` with a long s) beside `elements/`, as a copy and as
   a share, with the cause `name_case` and nothing written; the TypeScript SDK 4.212.3's writer now refuses it too, and
   a test holds the shape.
+
+### Deprecated
+
+Each is marked `[Obsolete("Since 0.58.0. Leaves in 1.0. ...")]`, a warning, never an error. Each keeps working,
+unchanged, and leaves in 1.0, no sooner than six months after 0.58.0, as the TypeScript SDK drops them in its 5.0.
+
+- **`OWPresentation.FamilyOf`, `FamilyOrder` and `ColorOfFamily`**, in favour of `GroupOf`, `GroupOrder` and
+  `ColorOfGroup`: the same words and colours.
+- **The struct `OWFamilyColor`** (and its `Light`, `Dark` and `For`), in favour of `OWGroupColor`, the same two colours.
+- **`OWCalendarLens.ResolveLens` and `ResolveLensNeverChosen`**, in favour of `ResolveCalendar` and
+  `ResolveCalendarNeverChosen`: the same answers ("lens" now names a cut of a world, not a chosen calendar).
+- **`OWLayoutByKind.Version` and `OWLayoutAround.Version`**, with nothing in their place: the layout profile's mark
+  carries no version key, and a method's word is its version, so read `Method`. `OWLayoutByLinks3d.Version` stays.
 
 ### Fixed
 

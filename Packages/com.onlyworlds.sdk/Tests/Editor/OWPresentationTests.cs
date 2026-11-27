@@ -6,8 +6,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// <summary>
     /// The presentation sidecar, as vendored. These assert against the SHIPPED file rather than a
     /// fixture -- if a re-vendor drops the colors block or changes a family, that is exactly the
-    /// regression worth failing on.
+    /// regression worth failing on. They read the family names, deprecated since 0.58.0, and hold them to their answers
+    /// until 1.0 (the group names' own tests: <see cref="OWPresentationWordTests"/>).
     /// </summary>
+#pragma warning disable CS0618
     public class OWPresentationTests
     {
         [Test]
@@ -117,4 +119,5 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             }
         }
     }
+#pragma warning restore CS0618
 }

@@ -367,8 +367,20 @@
   "OnlyWorlds.Sdk.OWCalendarLens.CalendarSupertype": {},
   "OnlyWorlds.Sdk.OWCalendarLens.ReadCalendarValue": {},
   "OnlyWorlds.Sdk.OWCalendarLens.ReadElementCalendar": {},
-  "OnlyWorlds.Sdk.OWCalendarLens.ResolveLens": {},
-  "OnlyWorlds.Sdk.OWCalendarLens.ResolveLensNeverChosen": {},
+  "OnlyWorlds.Sdk.OWCalendarLens.ResolveCalendar": {},
+  "OnlyWorlds.Sdk.OWCalendarLens.ResolveCalendarNeverChosen": {},
+  "OnlyWorlds.Sdk.OWCalendarLens.ResolveLens": {
+   "deprecated": {
+    "since": "0.58.0",
+    "leaves": "1.0"
+   }
+  },
+  "OnlyWorlds.Sdk.OWCalendarLens.ResolveLensNeverChosen": {
+   "deprecated": {
+    "since": "0.58.0",
+    "leaves": "1.0"
+   }
+  },
   "OnlyWorlds.Sdk.OWCalendarLens.SpeakingCalendar": {},
   "OnlyWorlds.Sdk.OWCalendarLens.WorldCalendars": {},
   "OnlyWorlds.Sdk.OWCalendarLens.WorldKey": {},
@@ -706,10 +718,36 @@
   "OnlyWorlds.Sdk.OWFamily.Spirit": {},
   "OnlyWorlds.Sdk.OWFamily.Traditions": {},
   "OnlyWorlds.Sdk.OWFamily.Traits": {},
-  "OnlyWorlds.Sdk.OWFamilyColor": {},
-  "OnlyWorlds.Sdk.OWFamilyColor.Dark": {},
-  "OnlyWorlds.Sdk.OWFamilyColor.For": {},
-  "OnlyWorlds.Sdk.OWFamilyColor.Light": {},
+  "OnlyWorlds.Sdk.OWFamilyColor": {
+   "deprecated": {
+    "since": "0.58.0",
+    "leaves": "1.0"
+   }
+  },
+  "OnlyWorlds.Sdk.OWFamilyColor.Dark": {
+   "deprecated": {
+    "since": "0.58.0",
+    "leaves": "1.0"
+   }
+  },
+  "OnlyWorlds.Sdk.OWFamilyColor.For": {
+   "deprecated": {
+    "since": "0.58.0",
+    "leaves": "1.0"
+   }
+  },
+  "OnlyWorlds.Sdk.OWFamilyColor.Light": {
+   "deprecated": {
+    "since": "0.58.0",
+    "leaves": "1.0"
+   }
+  },
+  "OnlyWorlds.Sdk.OWFamilyColor.op implicit OWFamilyColor": {
+   "deprecated": {
+    "since": "0.58.0",
+    "leaves": "1.0"
+   }
+  },
   "OnlyWorlds.Sdk.OWFieldsRefusal": {},
   "OnlyWorlds.Sdk.OWFieldsRefusal.AllowedFields": {},
   "OnlyWorlds.Sdk.OWFieldsRefusal.TypesWithField": {},
@@ -896,6 +934,10 @@
   "OnlyWorlds.Sdk.OWGraphOptions.Rooms": {},
   "OnlyWorlds.Sdk.OWGraphRefusedException": {},
   "OnlyWorlds.Sdk.OWGraphRefusedException.Flag": {},
+  "OnlyWorlds.Sdk.OWGroupColor": {},
+  "OnlyWorlds.Sdk.OWGroupColor.Dark": {},
+  "OnlyWorlds.Sdk.OWGroupColor.For": {},
+  "OnlyWorlds.Sdk.OWGroupColor.Light": {},
   "OnlyWorlds.Sdk.OWHiddenRow": {},
   "OnlyWorlds.Sdk.OWHiddenRow.Id": {},
   "OnlyWorlds.Sdk.OWHiddenRow.SetAt": {},
@@ -1098,7 +1140,12 @@
   "OnlyWorlds.Sdk.OWLayoutAround": {},
   "OnlyWorlds.Sdk.OWLayoutAround.Method": {},
   "OnlyWorlds.Sdk.OWLayoutAround.Points": {},
-  "OnlyWorlds.Sdk.OWLayoutAround.Version": {},
+  "OnlyWorlds.Sdk.OWLayoutAround.Version": {
+   "deprecated": {
+    "since": "0.58.0",
+    "leaves": "1.0"
+   }
+  },
   "OnlyWorlds.Sdk.OWLayoutAroundPoint": {},
   "OnlyWorlds.Sdk.OWLayoutAroundPoint.Depth": {},
   "OnlyWorlds.Sdk.OWLayoutAroundPoint.Id": {},
@@ -1107,7 +1154,12 @@
   "OnlyWorlds.Sdk.OWLayoutByKind": {},
   "OnlyWorlds.Sdk.OWLayoutByKind.Method": {},
   "OnlyWorlds.Sdk.OWLayoutByKind.Points": {},
-  "OnlyWorlds.Sdk.OWLayoutByKind.Version": {},
+  "OnlyWorlds.Sdk.OWLayoutByKind.Version": {
+   "deprecated": {
+    "since": "0.58.0",
+    "leaves": "1.0"
+   }
+  },
   "OnlyWorlds.Sdk.OWLayoutByLinks3d": {},
   "OnlyWorlds.Sdk.OWLayoutByLinks3d.Centres": {},
   "OnlyWorlds.Sdk.OWLayoutByLinks3d.Method": {},
@@ -1586,10 +1638,28 @@
   "OnlyWorlds.Sdk.OWPinsKnownTo.Unknown": {},
   "OnlyWorlds.Sdk.OWPresentation": {},
   "OnlyWorlds.Sdk.OWPresentation.ColorFor": {},
-  "OnlyWorlds.Sdk.OWPresentation.ColorOfFamily": {},
+  "OnlyWorlds.Sdk.OWPresentation.ColorOfFamily": {
+   "deprecated": {
+    "since": "0.58.0",
+    "leaves": "1.0"
+   }
+  },
+  "OnlyWorlds.Sdk.OWPresentation.ColorOfGroup": {},
   "OnlyWorlds.Sdk.OWPresentation.ColorOfType": {},
-  "OnlyWorlds.Sdk.OWPresentation.FamilyOf": {},
-  "OnlyWorlds.Sdk.OWPresentation.FamilyOrder": {},
+  "OnlyWorlds.Sdk.OWPresentation.FamilyOf": {
+   "deprecated": {
+    "since": "0.58.0",
+    "leaves": "1.0"
+   }
+  },
+  "OnlyWorlds.Sdk.OWPresentation.FamilyOrder": {
+   "deprecated": {
+    "since": "0.58.0",
+    "leaves": "1.0"
+   }
+  },
+  "OnlyWorlds.Sdk.OWPresentation.GroupOf": {},
+  "OnlyWorlds.Sdk.OWPresentation.GroupOrder": {},
   "OnlyWorlds.Sdk.OWPresentation.IconOf": {},
   "OnlyWorlds.Sdk.OWPresentation.Reload": {},
   "OnlyWorlds.Sdk.OWPresentationException": {},

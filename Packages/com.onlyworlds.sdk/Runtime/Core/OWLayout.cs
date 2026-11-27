@@ -67,7 +67,15 @@ namespace OnlyWorlds.Sdk
         /// <summary><c>by-kind</c>.</summary>
         public string Method => "by-kind";
 
-        /// <summary>The method's version, 1, so a saved layout can say what made it.</summary>
+        /// <summary>
+        /// Always 1. A method's word is its version: a method that changes takes a new word, so read
+        /// <see cref="Method"/>, never this number.
+        /// </summary>
+        /// <remarks>
+        /// Deprecated since 0.58.0, leaves in 1.0, as the TypeScript SDK deprecates its <c>version</c> key (4.177.0).
+        /// Nothing replaces it.
+        /// </remarks>
+        [Obsolete("Since 0.58.0. Leaves in 1.0. The layout profile's mark carries no version key.")]
         public int Version => 1;
 
         /// <summary>One point per node, in the order the nodes were handed in.</summary>
@@ -82,7 +90,15 @@ namespace OnlyWorlds.Sdk
         /// <summary><c>around</c>.</summary>
         public string Method => "around";
 
-        /// <summary>The method's version, 1.</summary>
+        /// <summary>
+        /// Always 1. A method's word is its version: a method that changes takes a new word, so read
+        /// <see cref="Method"/>, never this number.
+        /// </summary>
+        /// <remarks>
+        /// Deprecated since 0.58.0, leaves in 1.0, as the TypeScript SDK deprecates its <c>version</c> key (4.177.0).
+        /// Nothing replaces it.
+        /// </remarks>
+        [Obsolete("Since 0.58.0. Leaves in 1.0. The layout profile's mark carries no version key.")]
         public int Version => 1;
 
         /// <summary>The focus and every element within the steps, in the order the nodes were handed in.</summary>

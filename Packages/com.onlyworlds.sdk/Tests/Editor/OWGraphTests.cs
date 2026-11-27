@@ -56,7 +56,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             string family = null;
             try
             {
-                family = OWPresentation.FamilyOf("character");
+                family = OWPresentation.GroupOf("character");
             }
             catch (Exception)
             {
@@ -849,7 +849,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var node = OWGraph.Read(new JArray(JObject.Parse(@"{""id"":""a"",""type"":""Character"",""name"":""Ada""}")),
                 OWLensReader.Owner()).Nodes.Single();
             Assert.AreEqual("Character", node.Type);
-            Assert.AreEqual(OWPresentation.FamilyOf("character"), node.Family);
+            Assert.AreEqual(OWPresentation.GroupOf("character"), node.Family);
             // The packages' twin run met a padded type too: as stored, its padding kept.
             var padded = OWGraph.Read(new JArray(JObject.Parse(@"{""id"":""a"",""type"":"" character "",""name"":""Ada""}")),
                 OWLensReader.Public()).Nodes.Single();

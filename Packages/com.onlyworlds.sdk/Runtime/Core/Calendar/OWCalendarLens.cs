@@ -87,12 +87,12 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>
         /// Resolve a CHOSEN calendar id against the elements. A null id (an explicit "no calendar"), a dangling
-        /// id or an invalid config resolve to null: bare numbers. (TS resolveCalendarLens with a string or null
-        /// activeId; for "never chosen", the TS `undefined`, use <see cref="ResolveLensNeverChosen"/>.) The id matches an
-        /// element's id only when that is a string, as the TS `===` compares: an element whose id is the number 5 is not
-        /// chosen by "5".
+        /// id or an invalid config resolve to null: bare numbers. (The TypeScript SDK's resolveCalendar with a string or
+        /// null activeId; for "never chosen", the TS `undefined`, use <see cref="ResolveCalendarNeverChosen"/>.) The id
+        /// matches an element's id only when that is a string, as the TS `===` compares: an element whose id is the
+        /// number 5 is not chosen by "5".
         /// </summary>
-        public static WorldCalendar ResolveLens(IEnumerable<JObject> elements, string activeId)
+        public static WorldCalendar ResolveCalendar(IEnumerable<JObject> elements, string activeId)
         {
             if (string.IsNullOrEmpty(activeId) || elements == null) return null;
             var withTextIds = elements.Where(el => el != null && el["id"]?.Type == JTokenType.String);
@@ -106,12 +106,32 @@ namespace OnlyWorlds.Sdk
         /// <paramref name="fallbackToOnly"/> and exactly one calendar in the world, use it; with several, nothing
         /// is guessed; without the flag, bare numbers.
         /// </summary>
-        public static WorldCalendar ResolveLensNeverChosen(IEnumerable<JObject> elements, bool fallbackToOnly = false)
+        public static WorldCalendar ResolveCalendarNeverChosen(IEnumerable<JObject> elements, bool fallbackToOnly = false)
         {
             if (!fallbackToOnly) return null;
             var all = WorldCalendars(elements);
             return all.Count == 1 ? all[0] : null;
         }
+
+        private const string LensDeprecated =
+            "Since 0.58.0. Leaves in 1.0. Use ResolveCalendar(elements, activeId), the same answers under the TypeScript "
+            + "SDK's name (\"lens\" now names a cut of a world, not a chosen calendar).";
+
+        private const string LensNeverChosenDeprecated =
+            "Since 0.58.0. Leaves in 1.0. Use ResolveCalendarNeverChosen(elements, fallbackToOnly), the same answers under "
+            + "the TypeScript SDK's name (\"lens\" now names a cut of a world, not a chosen calendar).";
+
+        /// <summary>The old name of <see cref="ResolveCalendar"/>, with the same answers.</summary>
+        /// <remarks>Deprecated since 0.58.0, leaves in 1.0, as the TypeScript SDK's resolveCalendarLens.</remarks>
+        [Obsolete(LensDeprecated)]
+        public static WorldCalendar ResolveLens(IEnumerable<JObject> elements, string activeId) =>
+            ResolveCalendar(elements, activeId);
+
+        /// <summary>The old name of <see cref="ResolveCalendarNeverChosen"/>, with the same answers.</summary>
+        /// <remarks>Deprecated since 0.58.0, leaves in 1.0, as the TypeScript SDK's resolveCalendarLens.</remarks>
+        [Obsolete(LensNeverChosenDeprecated)]
+        public static WorldCalendar ResolveLensNeverChosen(IEnumerable<JObject> elements, bool fallbackToOnly = false) =>
+            ResolveCalendarNeverChosen(elements, fallbackToOnly);
 
         /// <summary>The World's key that names its calendar: the id of the element that carries it.</summary>
         public const string WorldKey = "x_calendar";
@@ -123,15 +143,15 @@ namespace OnlyWorlds.Sdk
         /// that reads, the first such one speaks; anything else named (an id no element has, the id in another letter
         /// case, an element with no calendar or one that does not read, a value that is no string) gives null, never
         /// another calendar in its place. Named none (the key absent or null): the world's only calendar, or null when
-        /// it holds several. A tool may keep its person's own pick over this (<see cref="ResolveLens"/>).
+        /// it holds several. A tool may keep its person's own pick over this (<see cref="ResolveCalendar"/>).
         /// </summary>
         public static WorldCalendar SpeakingCalendar(JObject world, IEnumerable<JObject> elements)
         {
             var named = world?[WorldKey];
             if (named == null || named.Type == JTokenType.Null || named.Type == JTokenType.Undefined)
-                return ResolveLensNeverChosen(elements, fallbackToOnly: true);
+                return ResolveCalendarNeverChosen(elements, fallbackToOnly: true);
             if (named.Type != JTokenType.String) return null;
-            return ResolveLens(elements, (string)named);
+            return ResolveCalendar(elements, (string)named);
         }
 
         static string Text(JToken t)

@@ -182,7 +182,7 @@ namespace OnlyWorlds.Sdk
         /// <summary>The stored name, null when absent: nothing invented (the profile's ruling G3).</summary>
         private readonly JToken _name;
 
-        /// <summary>The type's family, from the presentation sidecar (<see cref="OWPresentation.FamilyOf"/>).</summary>
+        /// <summary>The type's colour group, its word, from the presentation sidecar (<see cref="OWPresentation.GroupOf"/>).</summary>
         public string Family { get; }
 
         /// <summary>The type's icon name, from the presentation sidecar (<see cref="OWPresentation.IconOf"/>).</summary>
@@ -466,7 +466,7 @@ namespace OnlyWorlds.Sdk
                 var type = view.TypeOf(id);
                 var marks = KindsOf(id).Where(k => OWGraphMark.All.Contains(k)).ToList();
                 return new OWGraphNode(id, StringOf(view.Els[id]["type"]), view.Els[id]["name"],
-                    OWPresentation.FamilyOf(type), OWPresentation.IconOf(type),
+                    OWPresentation.GroupOf(type), OWPresentation.IconOf(type),
                     marks, view.KnownOf.Contains(id));
             }).ToList();
 

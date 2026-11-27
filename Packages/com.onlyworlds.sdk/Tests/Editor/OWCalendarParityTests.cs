@@ -401,7 +401,12 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                     Input = row, Want = row["answer"],
                     Unity = () =>
                     {
-                        var c = active == null ? OWCalendarLens.ResolveLensNeverChosen(elements, fallback) : OWCalendarLens.ResolveLens(elements, (string)active);
+                        // npm 5.0's names, replayed; the old names (deprecated since 0.58.0) must answer the same.
+                        var c = active == null ? OWCalendarLens.ResolveCalendarNeverChosen(elements, fallback) : OWCalendarLens.ResolveCalendar(elements, (string)active);
+#pragma warning disable CS0618
+                        var old = active == null ? OWCalendarLens.ResolveLensNeverChosen(elements, fallback) : OWCalendarLens.ResolveLens(elements, (string)active);
+#pragma warning restore CS0618
+                        if (old?.Id != c?.Id || old?.Name != c?.Name) return new JValue("the old names answer otherwise: " + (old?.Id ?? "null"));
                         return c == null ? JValue.CreateNull() : new JObject { ["id"] = c.Id, ["name"] = c.Name };
                     },
                 };
