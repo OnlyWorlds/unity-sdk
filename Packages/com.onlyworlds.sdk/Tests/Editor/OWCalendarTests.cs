@@ -591,6 +591,46 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         }
 
         [Test]
+        public void Validation_NamesTheSizeBound_PastItsLineAndNotAtIt()
+        {
+            // As @onlyworlds/sdk 4.212.0's validateCalendarConfig: 256 eras and a year of 2^53 - 1 steps are inside the
+            // profile's bounds (serial 149), 257 eras and a year one step longer are past them, and both validators say so.
+            JObject Eras(int n)
+            {
+                var eras = new JArray();
+                for (int i = 0; i < n; i++) eras.Add(new JObject { ["name"] = "E" + i, ["start"] = i * 10, ["end"] = i * 10 + 5 });
+                return new JObject { ["version"] = 1, ["grain"] = "year", ["eras"] = eras };
+            }
+            JObject Year(params long[] lengths) => new JObject
+            {
+                ["version"] = 1, ["grain"] = "day",
+                ["bundles"] = new JObject { ["months"] = new JObject
+                {
+                    ["names"] = new JArray(lengths.Select((_, i) => (object)("M" + i)).ToArray()),
+                    ["lengths"] = new JArray(lengths.Cast<object>().ToArray()),
+                } },
+            };
+            const long safe = 9007199254740991L;
+            var eraBound = new[] { "A calendar holds at most 256 eras" };
+            var yearBound = new[] { "A year holds at most 2^53 - 1 steps" };
+
+            CollectionAssert.IsEmpty(OWCalendar.ValidateValue(Eras(256)), "256 eras: at the line");
+            CollectionAssert.AreEqual(eraBound, OWCalendar.ValidateValue(Eras(257)), "257 eras: past it");
+            CollectionAssert.IsEmpty(OWCalendar.ValidateValue(Year(safe)), "a year of 2^53 - 1 steps: at the line");
+            CollectionAssert.AreEqual(yearBound, OWCalendar.ValidateValue(Year(safe, 1)), "a year one step longer: past it");
+
+            // The typed twin, on configs built in code (the reader refuses the ones past a bound).
+            var eras = OWCalendar.ReadConfigPastTheBounds(Eras(257));
+            CollectionAssert.AreEqual(eraBound, OWCalendar.Validate(eras));
+            eras.Eras.RemoveAt(256);
+            CollectionAssert.IsEmpty(OWCalendar.Validate(eras));
+            var year = OWCalendar.ReadConfigPastTheBounds(Year(safe, 1));
+            CollectionAssert.AreEqual(yearBound, OWCalendar.Validate(year));
+            year.Bundles.Months.Lengths[0] = safe - 1;
+            CollectionAssert.IsEmpty(OWCalendar.Validate(year));
+        }
+
+        [Test]
         public void Validation_AllFixtureCalendarsValidateClean()
         {
             foreach (var json in AllFixtureJson)
