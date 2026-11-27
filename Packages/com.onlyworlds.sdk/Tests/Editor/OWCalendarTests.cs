@@ -841,5 +841,18 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             foreach (var step in new long[] { -1, -5, 0, 3 })
                 Assert.AreEqual(step, Step(OWCalendar.ParseDate(boundary, OWCalendar.FormatStep(boundary, step))), "boundary round trip at " + step);
         }
+
+        [Test]
+        public void Profile_ADatePastTheExactRange_IsAPlainNumberInEveryLabel()
+        {
+            // An era starting at -(2^53 - 1): step 0 shows year 2^53 there, past the safe integers (serial 149's
+            // era-starting-at-the-line case). The fixture reads FormatStep and BreakdownStep; the two labels follow it.
+            var cfg = Read(@"{""version"": 1, ""grain"": ""year"", ""eras"": [{""name"": ""Long"", ""abbrev"": ""L"", ""start"": -9007199254740991}]}");
+            Assert.IsTrue(OWCalendar.IsPastExactRange(cfg, 0));
+            Assert.AreEqual("0", OWCalendar.FormatYearLabel(cfg, 0), "the year label is the plain step, never a rounded year");
+            Assert.AreEqual("0", OWCalendar.FormatMidLabel(cfg, 0), "the mid label too");
+            Assert.IsFalse(OWCalendar.IsPastExactRange(cfg, -9007199254740991L), "the era's first year is inside the range");
+            Assert.AreEqual("1 L", OWCalendar.FormatYearLabel(cfg, -9007199254740991L), "and is worded");
+        }
     }
 }

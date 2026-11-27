@@ -9,15 +9,15 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// The <c>atlas_calendar</c> profile's conformance fixture (schema-dist <c>profiles/calendar.fixture.json</c>, tag
-    /// <c>v0.34.1-dist.147</c>, the profile's version 2: 91 cases, 43 of them refusals; serial 89 added 11 written from its
-    /// rulings and turned <c>intercalary-after-month-out-of-range</c> into a refusal, serial 90 one refusal, an intercalary entry on a calendar with no months, serial 109 one, a <c>year_base</c> other than 0 or 1, serial 131 one calendar, <c>except</c> on a leap day that is not the year's last, and serial 146 one calendar), vendored byte for byte. It is
+    /// <c>v0.34.1-dist.149</c>, the profile's version 2: 191 cases, 96 of them refusals; serial 89 added 11 written from its
+    /// rulings and turned <c>intercalary-after-month-out-of-range</c> into a refusal, serial 90 one refusal, an intercalary entry on a calendar with no months, serial 109 one, a <c>year_base</c> other than 0 or 1, serial 131 one calendar, <c>except</c> on a leap day that is not the year's last, and serial 146 one calendar, serial 149 a hundred for the size bounds, the year's length and dates past the exact range), vendored byte for byte. It is
     /// generated from the TypeScript SDK's kernel (4.76.0) against the profile page: every reader refuses the same values and reads the same words, or one tool
     /// shows a calendar where another shows numbers. When the dist moves it, re-vendor and update the hash below.
     /// </summary>
     public class OWCalendarFixtureTests
     {
-        /// <summary>The fixture's sha256 as dist.147's MANIFEST.json records it.</summary>
-        private const string DistSha256 = "1ae922bc7af243453cac62053a31b2d10180e0ebb4843639dde9479f16e87206";
+        /// <summary>The fixture's sha256 as dist.149's MANIFEST.json records it.</summary>
+        private const string DistSha256 = "97c22793bdcb66d71b3cdb068941d22621ffc9939518e148356533092ed207d9";
 
         private static string FixturePath
         {
@@ -37,7 +37,7 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             using var sha = SHA256.Create();
             var hash = System.BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(FixturePath))).Replace("-", "").ToLowerInvariant();
             Assert.AreEqual(DistSha256, hash,
-                "the vendored fixture is not dist.147's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
+                "the vendored fixture is not dist.149's: re-vendor it from schema-dist (a checkout's line endings change the bytes)");
         }
 
         [Test]
@@ -107,13 +107,13 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 
             // The cases' answers first, so a fixture that moved still shows which case parts.
             Assert.IsEmpty(misses, $"{refusals} refusals, {calendars} calendars, {steps} steps, {speaking} worlds:\n" + string.Join("\n", misses));
-            Assert.AreEqual(91, refusals + calendars, "the dist.147 fixture holds 91 cases");
-            Assert.AreEqual(43, refusals, "the dist.147 fixture holds 43 refusals");
+            Assert.AreEqual(191, refusals + calendars, "the dist.149 fixture holds 191 cases");
+            Assert.AreEqual(96, refusals, "the dist.149 fixture holds 96 refusals");
             // The steps counted too, as the TypeScript SDK's fixture test does since 4.76.1: a dropped step reads green
             // under a case count alone.
-            Assert.AreEqual(256, steps, "the dist.147 fixture's calendars read 256 steps");
-            Assert.AreEqual(13, founds, "the dist.147 fixture holds 13 cases with a world's elements");
-            Assert.AreEqual(12, speaking, "the dist.147 fixture holds 12 cases with the World's keys");
+            Assert.AreEqual(402, steps, "the dist.149 fixture's calendars read 402 steps");
+            Assert.AreEqual(13, founds, "the dist.149 fixture holds 13 cases with a world's elements");
+            Assert.AreEqual(12, speaking, "the dist.149 fixture holds 12 cases with the World's keys");
         }
     }
 }

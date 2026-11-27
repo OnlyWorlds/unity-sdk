@@ -119,8 +119,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         {
             Assert.IsNotNull(Fixture, "the vendored calendar cost cases were not found");
             var c = Fixture["cases"].Cast<JObject>().Single(x => (string)x["name"] == name);
-            var cfg = OWCalendar.ReadConfig(Expand(c["cfg"]));
-            Assert.IsNotNull(cfg, "the case is a calendar the reader accepts");
+            // Past the size bounds since serial 149 (five of the eight cases hold a template or a name of thousands of
+            // characters): the formatter is measured on the config as read without them, since one built in code never
+            // meets them.
+            var cfg = OWCalendar.ReadConfigPastTheBounds(Expand(c["cfg"]));
+            Assert.IsNotNull(cfg, "the case is a calendar the reader accepts, the size bounds aside");
             var step = (long)c["step"];
             var call = (string)c["call"];
             var watch = Stopwatch.StartNew();
@@ -157,7 +160,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public void AStepWordWithALongRunOfWhiteSpaceInside_IsTrimmedInsideTheBound()
         {
             var name = "a" + new string(' ', 20000) + "b";
-            var cfg = OWCalendar.ReadConfig(new JObject { ["version"] = 1, ["grain"] = "day", ["step_name"] = "  " + name + "\u3000" });
+            var value = new JObject { ["version"] = 1, ["grain"] = "day", ["step_name"] = "  " + name + "\u3000" };
+            Assert.IsNull(OWCalendar.ReadConfig(value), "a step_name past 256 code points is not a calendar (serial 149)");
+            var cfg = OWCalendar.ReadConfigPastTheBounds(value);
             Assert.IsNotNull(cfg);
             var watch = Stopwatch.StartNew();
             var got = OWCalendar.FormatDuration(cfg, 5L);

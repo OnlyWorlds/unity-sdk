@@ -32,10 +32,10 @@ namespace OnlyWorlds.Sdk
         public const string CanonicalVersion = "00.34.01";
 
         /// <summary>Distribution serial within that canonical version.</summary>
-        public const int DistSerial = 148;
+        public const int DistSerial = 149;
 
         /// <summary>Tag form of the pin. Mutable -- never trust it alone.</summary>
-        public const string Tag = "v0.34.1-dist.148";
+        public const string Tag = "v0.34.1-dist.149";
 
         /// <summary>
         /// sha256 of the pinned MANIFEST.json itself. The immutable half of the pin.
@@ -562,9 +562,16 @@ namespace OnlyWorlds.Sdk
         /// bracket in a string opens nothing), and a <c>world.json</c> that deep refuses the world, <c>not_a_world</c>. The
         /// <c>.owworld</c> set reaches 120 with OW-25's nine cases. No answer on an existing case moved.
         /// </para>
+        /// <para>
+        /// <b>148 -> 149 (2026-11-27)</b>: canonical unchanged; only <c>profiles/calendar.md</c> and its fixture move. A
+        /// calendar past a size bound (256 eras, 64 months, a week of 64 steps and 64 names, 16 entries in
+        /// <c>intercalary</c>, an <c>except</c> of 8, templates and names of 256 code points) or whose longest year is
+        /// longer than 2^53 - 1 is not a calendar, and a date whose step, year index plus an offset, or shown year lies
+        /// outside the safe integers is a plain number. The fixture reaches 191 cases; the 91 earlier ones unchanged.
+        /// </para>
         /// </remarks>
         public const string ManifestSha256 =
-            "4cbe4d923e47d9f1899d9a3f865d3b0169dede546921dfc89557bce215577c1a";
+            "5d71d4c9bae2c8e7b55ada9c88093769059d677f56e08c6aaa5e4c063c599dda";
 
         /// <summary>
         /// sha256 of <c>presentation.json</c> as the pinned MANIFEST lists it.
@@ -578,7 +585,7 @@ namespace OnlyWorlds.Sdk
             "af84662c29628b6e90b923c9541f68f5924563adce397cebbadfdbf0f06e5f18";
 
         /// <summary>When these constants were last verified against the published dist.</summary>
-        public const string PinnedOn = "2026-11-26";
+        public const string PinnedOn = "2026-11-27";
 
         /// <summary>
         /// ⚑ Rulings that bind THIS SDK and any emitter generating into it. Read the row, not the key.

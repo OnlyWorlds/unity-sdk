@@ -123,14 +123,19 @@ namespace OnlyWorlds.Sdk
         public string FormatIntercalary { get; set; }
     }
 
-    /// <summary>A step, taken apart. Fields are null when the structure doesn't exist.</summary>
+    /// <summary>
+    /// A step, taken apart. Fields are null when the structure doesn't exist, and every field but <see cref="Step"/>
+    /// is null for a date past the exact range (<see cref="OWCalendar.IsPastExactRange"/>), which is shown as a plain
+    /// number.
+    /// </summary>
     public sealed class StepBreakdown
     {
         public long Step { get; set; }
-        /// <summary>Absolute year index (zero-based from step 0).</summary>
-        public long AbsYear { get; set; }
-        /// <summary>The era-local display year (restart arithmetic applied), or AbsYear when no era / restart false.</summary>
-        public long Year { get; set; }
+        /// <summary>Absolute year index (zero-based from step 0); null for a date past the exact range.</summary>
+        public long? AbsYear { get; set; }
+        /// <summary>The era-local display year (restart arithmetic applied), or AbsYear when no era / restart false;
+        /// null for a date past the exact range.</summary>
+        public long? Year { get; set; }
         public CalendarEra Era { get; set; }
         /// <summary>1-based month index, or null (intercalary day / no months).</summary>
         public int? Month { get; set; }
@@ -468,11 +473,22 @@ namespace OnlyWorlds.Sdk
         /// </summary>
         public static CalendarConfig ReadConfig(JToken value)
         {
-            try { return ReadConfigCore(value); }
+            try { return ReadConfigCore(value, bounded: true); }
             catch (Exception) { return null; } // never throw: an unusable value is no calendar
         }
 
-        static CalendarConfig ReadConfigCore(JToken value)
+        /// <summary>
+        /// <see cref="ReadConfig"/> without the size bounds and the longest year: for the cost tests, whose shared cases
+        /// hold templates and names far past 256 code points. A <see cref="CalendarConfig"/> built in code never meets the
+        /// bounds, so what a label costs is still the formatter's to keep linear.
+        /// </summary>
+        internal static CalendarConfig ReadConfigPastTheBounds(JToken value)
+        {
+            try { return ReadConfigCore(value, bounded: false); }
+            catch (Exception) { return null; }
+        }
+
+        static CalendarConfig ReadConfigCore(JToken value, bool bounded)
         {
             if (!(value is JObject o)) return null;
             if (!TryNumber(o["version"], out double version) || (version != 1 && version != 2)) return null;
@@ -623,7 +639,78 @@ namespace OnlyWorlds.Sdk
                     cfg.Intercalary.Add(ic);
                 }
             }
-            return cfg;
+            return !bounded || WithinBounds(cfg) ? cfg : null;
+        }
+
+        /// <summary>The largest whole number the profile reads, 2^53 - 1 (Number.MAX_SAFE_INTEGER).</summary>
+        const long MaxSafe = 9007199254740991L;
+
+        /// <summary>The profile's size bounds (schema-dist serial 149): past one of them a value is not a calendar.</summary>
+        const int MaxEras = 256, MaxMonths = 64, MaxWeek = 64, MaxIntercalary = 16, MaxExcept = 8, MaxText = 256;
+
+        /// <summary>
+        /// The size bounds and the longest year, the profile's last two refusals (serial 149): at most 256 eras, 64
+        /// months, a week of 64 steps and 64 names, 16 entries in <c>intercalary</c>, an <c>except</c> of 8, and
+        /// templates and names of 256 code points, counted on the string as decoded, untrimmed and not normalised; and
+        /// the longest year (the months' lengths plus every entry in <c>intercalary</c>, whether or not one year earns
+        /// them all) at most 2^53 - 1.
+        /// </summary>
+        static bool WithinBounds(CalendarConfig cfg)
+        {
+            if (cfg.Eras.Count > MaxEras || cfg.Intercalary.Count > MaxIntercalary) return false;
+            if (TooLong(cfg.Grain) || TooLong(cfg.StepName) || TooLong(cfg.Format) || TooLong(cfg.FormatIntercalary)) return false;
+            foreach (var era in cfg.Eras)
+                if (TooLong(era.Name) || TooLong(era.Abbrev)) return false;
+            var months = cfg.Bundles?.Months;
+            if (months != null)
+            {
+                if (months.Names.Count > MaxMonths) return false;
+                foreach (var n in months.Names) if (TooLong(n)) return false;
+                // Each length is at most 2^53 - 1 and there are at most 64 of them, so the sum stays inside a long.
+                long longest = cfg.Intercalary.Count;
+                foreach (var l in months.Lengths) longest += l;
+                if (longest > MaxSafe) return false;
+            }
+            var week = cfg.Bundles?.Week;
+            if (week != null)
+            {
+                if (week.Length > MaxWeek || week.Names.Count > MaxWeek) return false;
+                foreach (var n in week.Names) if (TooLong(n)) return false;
+            }
+            foreach (var ic in cfg.Intercalary)
+            {
+                if (TooLong(ic.Name)) return false;
+                if (ic.Except != null && ic.Except.Count > MaxExcept) return false;
+            }
+            return true;
+        }
+
+        /// <summary>Longer than 256 Unicode code points (a pair of surrogates is one, a lone surrogate one).</summary>
+        static bool TooLong(string s)
+        {
+            if (s == null || s.Length <= MaxText) return false;
+            int points = s.Length;
+            for (int i = 0; i + 1 < s.Length; i++)
+                if (char.IsHighSurrogate(s[i]) && char.IsLowSurrogate(s[i + 1])) { points--; i++; }
+            return points > MaxText;
+        }
+
+        /// <summary>
+        /// True when a date is past the exact range (the profile, serial 149): its step, its year index plus each leap
+        /// rule's offset, or the year it shows in its era lies outside -(2^53 - 1) to 2^53 - 1. Such a date is shown as
+        /// a plain number, every field of its breakdown null; the calendar stays a calendar.
+        /// </summary>
+        public static bool IsPastExactRange(CalendarConfig cfg, long step)
+        {
+            if (step < -MaxSafe || step > MaxSafe) return true;
+            long absYear = AbsoluteYear(cfg, step);
+            foreach (var r in YearShape(cfg).Rules)
+            {
+                long shifted = absYear + r.Offset;
+                if (shifted < -MaxSafe || shifted > MaxSafe) return true;
+            }
+            long year = DisplayYear(cfg, step, EraForStep(cfg, step));
+            return year < -MaxSafe || year > MaxSafe;
         }
 
         /// <summary>
@@ -1030,6 +1117,7 @@ namespace OnlyWorlds.Sdk
         /// <summary>A step, taken apart: absolute and display year, era, month, day, intercalary day, weekday.</summary>
         public static StepBreakdown BreakdownStep(CalendarConfig cfg, long step)
         {
+            if (IsPastExactRange(cfg, step)) return new StepBreakdown { Step = step };
             var pos = PositionOf(cfg, step);
             var era = EraForStep(cfg, step);
             var months = cfg.Bundles?.Months;
@@ -1158,12 +1246,13 @@ namespace OnlyWorlds.Sdk
         public static string FormatStep(CalendarConfig cfg, long step)
         {
             var b = BreakdownStep(cfg, step);
+            if (b.Year == null) return Str(step); // past the exact range: a plain number
             var values = new Dictionary<string, string>
             {
                 ["day"] = b.Day != null ? Str(b.Day.Value) : null,
                 ["month"] = b.MonthName,
                 ["weekday"] = b.Weekday,
-                ["year"] = Str(b.Year),
+                ["year"] = Str(b.Year.Value),
                 ["era"] = b.Era != null ? (b.Era.Abbrev ?? b.Era.Name) : null,
                 ["step"] = Str(step),
                 ["intercalary"] = b.Intercalary,
@@ -1180,6 +1269,7 @@ namespace OnlyWorlds.Sdk
         /// </summary>
         public static string FormatYearLabel(CalendarConfig cfg, long step)
         {
+            if (IsPastExactRange(cfg, step)) return Str(step);
             var era = EraForStep(cfg, step);
             long year = DisplayYear(cfg, step, era);
             string eraLabel = era != null ? (era.Abbrev ?? era.Name) : "";
@@ -1289,8 +1379,9 @@ namespace OnlyWorlds.Sdk
         public static string FormatMidLabel(CalendarConfig cfg, long step)
         {
             var b = BreakdownStep(cfg, step);
-            if (b.Intercalary != null) return b.Intercalary + " " + Str(b.Year);
-            if (b.MonthName != null && b.Day != null) return Str(b.Day.Value) + " " + b.MonthName + " " + Str(b.Year);
+            if (b.Year == null) return Str(step); // past the exact range: a plain number
+            if (b.Intercalary != null) return b.Intercalary + " " + Str(b.Year.Value);
+            if (b.MonthName != null && b.Day != null) return Str(b.Day.Value) + " " + b.MonthName + " " + Str(b.Year.Value);
             return FormatYearLabel(cfg, step);
         }
 

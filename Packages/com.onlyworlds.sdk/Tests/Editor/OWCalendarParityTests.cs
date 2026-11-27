@@ -31,6 +31,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         /// <summary>The vectors' sha256 at godot-sdk e3b81ce.</summary>
         private const string VectorsSha256 = "2afe82704c4a2a0d287cbe0cb45595121f9bded4755f1749a25bdc37e238c235";
 
+        /// <summary>The profile fixture the vectors were made from: dist.148's (and dist.147's) calendar.fixture.json.</summary>
+        private const string Dist148FixtureSha256 = "1ae922bc7af243453cac62053a31b2d10180e0ebb4843639dde9479f16e87206";
+
         // ---- the documents ----
 
         private static JObject _vectors;
@@ -162,8 +165,11 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual("@onlyworlds/sdk", (string)Vectors["npm"]["package"]);
             Assert.AreEqual("4.206.0", (string)Vectors["npm"]["version"]);
             Assert.AreEqual("a18e65a", (string)Vectors["npm"]["commit"]);
-            Assert.AreEqual(Sha256(PathOf("calendar.fixture.json")), (string)Vectors["fixture_sha256"],
-                "the vectors were made from another profile fixture than the one vendored here");
+            // Made from dist.148's fixture, not the vendored dist.149 one: serial 149's hundred new cases are bounds and
+            // dates past the exact range, which npm does not hold yet, so its answers there would be the old reading.
+            // The vectors move when npm takes serial 149; the 91 cases they cover are unchanged in dist.149.
+            Assert.AreEqual(Dist148FixtureSha256, (string)Vectors["fixture_sha256"],
+                "the vectors were made from another profile fixture than dist.148's");
             Assert.AreEqual(48, Vectors["calendars"].Count(c => c["case"] != null), "every calendar of the fixture");
             Assert.AreEqual(64, Vectors["calendars"].Count());
         }
