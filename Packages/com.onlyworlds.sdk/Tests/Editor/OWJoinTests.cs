@@ -256,6 +256,30 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual("Sam", p.InvitedBy, "the note is not the inviter's name");
         }
 
+        // The TypeScript SDK's OwJoinPreview.character_name (4.211.0): a person's link that names the Character its person
+        // will play answers that Character's name; null when it names none or the Character was since deleted, hidden or
+        // taken; absent on an agent's or a player's link. Kills: the key left unread, read under another key (the owner's
+        // Character), or absent read as anything but null.
+        [Test]
+        public async Task APersonLinksPreview_ReadsTheCharacterItNames_NullOrAbsentReadNone()
+        {
+            var named = PersonPreview
+                .Replace(@"""owner_character"":null", @"""owner_character"":""The Mapmaker""")
+                .Replace(@"""glimpse"":null}", @"""glimpse"":null,""character_name"":""Ada""}");
+            var p = await OWJoin.PreviewAsync(Code, new FakeTransport { ResponseBody = named }, Base);
+            Assert.AreEqual("Ada", p.CharacterName);
+            Assert.AreEqual("The Mapmaker", p.OwnerCharacter, "the Character the link names is not the owner's");
+
+            var none = PersonPreview.Replace(@"""glimpse"":null}", @"""glimpse"":null,""character_name"":null}");
+            Assert.IsNull((await OWJoin.PreviewAsync(Code, new FakeTransport { ResponseBody = none }, Base)).CharacterName,
+                "null: the link names none, or its Character was deleted, hidden or taken");
+
+            Assert.IsNull((await OWJoin.PreviewAsync(Code, new FakeTransport { ResponseBody = PersonPreview }, Base)).CharacterName,
+                "absent reads as none");
+            Assert.IsNull((await OWJoin.PreviewAsync(Code, new FakeTransport { ResponseBody = Preview }, Base)).CharacterName,
+                "a player's link has no such key");
+        }
+
         // The TypeScript SDK's previewJoin glimpse vector (4.189.0): the group comes back as it was sent, and null reads
         // null. Written back out, the group is the JSON that came in, key for key, so a thing read with an id, a link
         // without its label or a key read under another name fails here (npm's deepEqual). keel's document holds

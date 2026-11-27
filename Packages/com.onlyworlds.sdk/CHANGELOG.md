@@ -6,6 +6,14 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **A person's invite link can name the Character its person will play.** `OWJoinPreview.CharacterName` is that
+  Character's name, or null when the link names none, when that Character has since been deleted, hidden or taken, and
+  on an agent's or a player's link (where keel sends no such key). `OWWorldLinkCreate.Character` is documented for a
+  person link for one contributor or co-builder too, and `OWWorldLink.Character` for a person link that names one;
+  nothing the client sends changes. Parity with the TypeScript SDK 4.211.0, its preview read with and without the key.
+
 ## [0.56.0] - 2026-11-27
 
 A calendar has size bounds, and a date past the exact range of whole numbers is shown as a plain number, as the
