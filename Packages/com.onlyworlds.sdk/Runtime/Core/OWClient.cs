@@ -1543,7 +1543,8 @@ namespace OnlyWorlds.Sdk
         /// <summary>
         /// GET /world/proposals -- the world's queue, newest first by <c>created_at</c>: every row for the owner's and a
         /// co-builder's keys, a member's own for any other; <see cref="OWProposalQuery.Element"/> keeps one element's rows.
-        /// Any member key, a read key included; a read key with no member (a demo key, the owner's read key) gets a 404.
+        /// Any member key, a read key included; the owner's read key, or its write key with no PIN, reads every row. A
+        /// demo-range key and the keyless public view get a 404.
         /// </summary>
         /// <remarks>
         /// Two kinds of row in one order, told apart by <see cref="OWProposal.Kind"/>: a proposed change to an
