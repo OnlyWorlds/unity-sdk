@@ -255,6 +255,13 @@ spelled as `JSON.stringify` spells them (`1`, never `1.0`). Renaming an element 
 `OWFolderWriter.Parse` rather than `JObject.Parse` for anything you'll write back: `JObject.Parse` rewrites
 timestamps into the local timezone, which changes every file.
 
+**In a WebGL build, a world folder is kept only if your page syncs it.** Write it under
+`Application.persistentDataPath`, and turn on `config.autoSyncPersistentDataPath = true;` in your template's
+`index.html` (Unity's default template has it commented out). Without that line, the folder is gone after a reload in
+Chromium, Firefox and WebKit alike. With it, the folder is read back after a reload, but in Chromium and WebKit a
+reload or a closed tab in the moment right after a write can lose that write. Measured with Unity 6000.4.0f1
+(the unity-sdk repository's `Assets/ReloadProbe/`).
+
 **Five fields belong to the server**: `world`, `type`, `created_at`, `updated_at` and `change_seq`. They're stripped
 from every write, so a body you read can be written straight back.
 
