@@ -23,9 +23,9 @@ account. The [CHANGELOG](Packages/com.onlyworlds.sdk/CHANGELOG.md) lists what ea
 **Versions.** A patch release fixes and a minor release adds; neither removes nor renames a public name, and the
 package keeps to this while it is 0.x. A name that will go is marked deprecated first, saying since which release,
 what to use instead and the release it leaves in; it stays at least six months after that release and goes only in
-1.0. It is the promise the TypeScript SDK and the Python package make on the docs'
+1.0. It is the same promise as on the docs'
 [Stability page](https://onlyworlds.github.io/docs/development/api/stability#the-standard-the-packages-and-this-site), and a check in CI
-holds the public names to it on every change.
+holds the public names to it on every change; it reads names, not a call's parameters or what it does.
 
 ## Working on the SDK
 
@@ -46,11 +46,11 @@ The 22 element models are generated from the [schema distribution](https://githu
 `codegen/generate_models.py`, and `codegen/check_drift.py` checks that they still match it.
 
 **Deprecating a name.** Mark it `[Obsolete("Since X.Y.Z. Leaves in 1.0. Use Y.")]`, a warning, never `error: true`,
-with X.Y.Z the release that first carries the mark and the message a literal or a const string. `tools/verify_promise.py`
-holds the package's public names, kept in `tools/public-names.json`, and their marks to the promise on every push and
-pull request (`.github/workflows/promise.yml`, with no Unity install: Roslyn's parser reads the source). A change that
-adds a public name or a mark runs `python tools/verify_promise.py --write` and commits the file;
-`python tools/mutants_promise.py` watches the check fail once for each rule. Both need the .NET SDK 8 or later.
+with X.Y.Z the release that first carries the mark and the message a literal or a const string. Then run
+`python tools/verify_promise.py --write` and commit `tools/public-names.json`, which lists every public name and its
+mark. CI runs `verify_promise.py` on every push and pull request (`.github/workflows/promise.yml`, with no Unity
+install: Roslyn's parser reads the source), and `python tools/mutants_promise.py` watches the check fail once for each
+rule. Both need the .NET SDK 8 or later.
 
 ## OnlyWorlds
 
