@@ -6,6 +6,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.56.0] - 2026-11-27
+
+A calendar has size bounds, and a date past the exact range of whole numbers is shown as a plain number, as the
+calendar profile now says. Pinned to schema-dist serial 149. A minor release because it adds public API and
+changes a type (below).
+
 ### Added
 
 - **A calendar has size bounds, and a date past the exact range is a plain number** (the calendar profile at
