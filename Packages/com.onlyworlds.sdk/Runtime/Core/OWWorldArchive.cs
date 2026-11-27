@@ -356,7 +356,10 @@ namespace OnlyWorlds.Sdk
         /// <c>elements/</c> or <c>spatial/</c> in another case and not as written, which its reader refuses
         /// (<see cref="OWWorldArchiveReason.NameCase"/>); or a <c>world.json</c> nested past 200 levels, refused in
         /// words with <see cref="OWWorldArchiveReason.NotAWorld"/> and <see cref="OWFolderFormatException.WorldFault"/>
-        /// <c>too_deep</c>, as the TypeScript SDK's <c>writeWorldFile</c> refuses it: nothing is written.
+        /// <c>too_deep</c>, as the TypeScript SDK's <c>writeWorldFile</c> refuses it; or an entry name the reader would
+        /// refuse (folder spec §4.7's writer rules: an unsafe path, a name some disk cannot hold, two names one after the
+        /// fold, a file and a folder at one path, a top folder named <c>mimetype</c> in any case), with the reader's
+        /// cause in <see cref="OWFolderFormatException.Reason"/>: nothing is written.
         /// </exception>
         /// <exception cref="ArgumentException"><paramref name="archivePath"/> is inside the folder.</exception>
         public static List<string> Pack(string worldFolder, string archivePath, bool keepApiBlock = false)
@@ -504,6 +507,13 @@ namespace OnlyWorlds.Sdk
 
             var top = Path.GetFileName(root);
             if (string.IsNullOrEmpty(top)) top = "world";
+
+            // Folder spec §4.7: a writer never emits a file its reader refuses for a name (OW-16 to OW-19, OW-22), so the
+            // names about to be written go through the reader's own checks first, and nothing is written on a fault.
+            var entryNames = new List<string>(plan.Count + 1) { MarkerEntry };
+            entryNames.AddRange(plan.Select(entry => top + "/" + entry.relative));
+            var nameFault = EntryNamesFault(entryNames, out var nameReason);
+            if (nameFault != null) throw new OWFolderFormatException(nameReason, nameFault);
 
             var dir = Path.GetDirectoryName(archive);
             if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
@@ -1621,7 +1631,8 @@ namespace OnlyWorlds.Sdk
 
                     if (!names.Add(isFolder ? path + "/" : path))
                         throw Hostile(OWWorldArchiveReason.Duplicate, entry.FullName, $"is a second entry named '{path}'");
-                    CheckCollision(path, entry.FullName, folded);
+                    var collision = CollisionFault(path, folded);
+                    if (collision != null) throw Hostile(OWWorldArchiveReason.Collision, entry.FullName, collision);
                     AddFolders(path, isFolder, folderPaths);
                     if (!isFolder) filePaths.Add(path);
 
@@ -1924,6 +1935,48 @@ namespace OnlyWorlds.Sdk
             => new OWFolderFormatException(reason, $"The archive's entry '{entryName}' {why}; refusing the archive.");
 
         /// <summary>
+        /// Why a world file holding <paramref name="entryNames"/> (each as a writer writes it: the marker, then every
+        /// file under its top folder, no folder entries) would be refused for a name by this package's reader, in words
+        /// ending "nothing was written", or null; the cause in <paramref name="reason"/>.
+        /// </summary>
+        /// <remarks>
+        /// The reader's own checks, in its order (folder spec §4.7, whose fixture marks every such file
+        /// <c>writer: refuse</c>): <see cref="PathFault"/> (<c>unsafe_path</c>, OW-16), <see cref="NameFault"/>
+        /// (<c>name</c>, OW-22), a name given twice (<c>unsafe_path</c>, the TypeScript SDK's
+        /// <c>writeWorldFile</c>'s cause, where a reader answers <c>duplicate</c>, OW-17), two names or folders that
+        /// are one after <see cref="Fold"/> (<c>collision</c>, OW-18) and a path that is a file and a folder
+        /// (<c>unsafe_path</c>, OW-19). A top folder named <c>mimetype</c> is a file and a folder beside the marker, and
+        /// <c>MimeType</c> one name with it, as the TypeScript SDK refuses them.
+        /// </remarks>
+        internal static string EntryNamesFault(IEnumerable<string> entryNames, out string reason)
+        {
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            var folders = new HashSet<string>(StringComparer.Ordinal);
+            var folded = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var name in entryNames)
+            {
+                string fault;
+                if ((fault = PathFault(name)) != null) reason = OWWorldArchiveReason.UnsafePath;
+                else if ((fault = NameFault(name)) != null) reason = OWWorldArchiveReason.Name;
+                else if (!names.Add(name)) (reason, fault) = (OWWorldArchiveReason.UnsafePath, "is listed twice");
+                else if ((fault = CollisionFault(name, folded)) != null) reason = OWWorldArchiveReason.Collision;
+                else reason = null;
+                if (fault != null) return $"The world file's entry '{name}' {fault}; nothing was written.";
+                AddFolders(name, false, folders);
+            }
+
+            foreach (var folder in folders)
+            {
+                if (!names.Contains(folder)) continue;
+                reason = OWWorldArchiveReason.UnsafePath;
+                return $"The world file's path '{folder}' would be both a file and a folder; nothing was written.";
+            }
+
+            reason = null;
+            return null;
+        }
+
+        /// <summary>
         /// Why an entry's name (a folder's without its one trailing <c>/</c>) is not a plain relative path, or null:
         /// a backslash, a root (<c>/x</c>, <c>//server/x</c>), a drive (<c>C:x</c>), or an empty, <c>.</c> or
         /// <c>..</c> segment.
@@ -2039,10 +2092,11 @@ namespace OnlyWorlds.Sdk
             StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
-        /// Refuses a path (or any folder above it) that is another one once case and Unicode normalization are
-        /// ignored: one file on Windows and on macOS. <paramref name="folded"/> maps each fold to the first spelling.
+        /// Why a path (or any folder above it) is another one once case and Unicode normalization are ignored, one file on
+        /// Windows and on macOS, or null. <paramref name="folded"/> maps each fold to the first spelling; the reader and
+        /// <see cref="EntryNamesFault"/> both ask it.
         /// </summary>
-        private static void CheckCollision(string path, string entryName, Dictionary<string, string> folded)
+        private static string CollisionFault(string path, Dictionary<string, string> folded)
         {
             var at = 0;
             while (at >= 0)
@@ -2056,11 +2110,12 @@ namespace OnlyWorlds.Sdk
                 }
                 else if (!string.Equals(first, prefix, StringComparison.Ordinal))
                 {
-                    throw Hostile(OWWorldArchiveReason.Collision, entryName,
-                        $"names '{prefix}', which is '{first}' once case and Unicode normalization are ignored (one name on "
-                        + "Windows and macOS)");
+                    return $"names '{prefix}', which is '{first}' once case and Unicode normalization are ignored (one name on "
+                           + "Windows and macOS)";
                 }
             }
+
+            return null;
         }
 
         /// <summary>

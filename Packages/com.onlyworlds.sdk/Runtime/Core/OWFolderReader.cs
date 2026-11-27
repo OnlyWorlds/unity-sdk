@@ -900,8 +900,9 @@ namespace OnlyWorlds.Sdk
         /// <see cref="OWWorldArchiveReason"/>, such as <c>"unsafe_path"</c> or <c>"collision"</c>).
         /// <see cref="OWWorldArchive.Read"/> and <c>LoadInto</c> always set it. A folder's refusal, a pack's and a
         /// write's set it only for <see cref="OWWorldArchiveReason.NameCase"/> (a fixed name in another case), and a
-        /// pack's also for <see cref="OWWorldArchiveReason.NotAWorld"/> on a <c>world.json</c> nested past the depth (as
-        /// the TypeScript SDK's <c>writeWorldFile</c> refuses it), and are null otherwise.
+        /// pack's also for <see cref="OWWorldArchiveReason.NotAWorld"/> on a <c>world.json</c> nested past the depth and
+        /// for <c>unsafe_path</c>, <c>name</c> or <c>collision</c> on a name the reader would refuse (as the TypeScript
+        /// SDK's <c>writeWorldFile</c> refuses them), and are null otherwise.
         /// </summary>
         public string Reason { get; }
 

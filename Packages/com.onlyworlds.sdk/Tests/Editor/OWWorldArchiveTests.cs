@@ -2397,5 +2397,72 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Write(root, "world.json", WorldJson("0695db52-0000-7000-8000-0000000000aa", ""));
             Assert.AreEqual("000000aa.owworld", OWWorldArchive.DefaultArchiveName(root));
         }
+
+        // -- The writer refuses a name its reader refuses (folder spec §4.7's writer rules) -------------------------
+
+        /// <summary>
+        /// The TypeScript SDK's writeWorldFile vectors as the entry names a pack would write (the marker, then each file
+        /// under its top folder), with its causes: the fixture marks every such file <c>writer: refuse</c>.
+        /// </summary>
+        private static IEnumerable<TestCaseData> UnwritableNames()
+        {
+            TestCaseData Case(string label, string reason, params string[] files)
+                => new TestCaseData(new[] { "mimetype" }.Concat(files).ToArray(), reason).SetName("EntryNamesFault_" + label);
+            yield return Case("ADotDotSegment_UnsafePath", "unsafe_path", "w/world.json", "w/../x");
+            yield return Case("ATopOfDotDot_UnsafePath", "unsafe_path", "../w/world.json");
+            yield return Case("ABackslash_UnsafePath", "unsafe_path", "w/world.json", "w/media\\a.png");
+            yield return Case("ListedTwice_UnsafePath", "unsafe_path", "w/world.json", "w/world.json");
+            yield return Case("AWindowsDeviceName_Name", "name", "w/world.json", "w/media/aux.png");
+            yield return Case("ATopEndingInADot_Name", "name", "w./world.json");
+            yield return Case("AReservedCharacter_Name", "name", "w/world.json", "w/media/a?.png");
+            yield return Case("TwoNamesOneByTheFold_Collision", "collision", "w/world.json", "w/media/A.png", "w/media/a.png");
+            yield return Case("AFileAndAFolder_UnsafePath", "unsafe_path", "w/world.json", "w/media/a", "w/media/a/b.png");
+            yield return Case("ATopNamedMimetype_UnsafePath", "unsafe_path", "mimetype/world.json");
+            yield return Case("ATopNamedMimeType_Collision", "collision", "MimeType/world.json");
+        }
+
+        [TestCaseSource(nameof(UnwritableNames))]
+        public void EntryNamesFault_RefusesWhatTheReaderRefuses_ByTheWriterCause(string[] names, string reason)
+        {
+            var fault = OWWorldArchive.EntryNamesFault(names, out var got);
+            Assert.IsNotNull(fault, "refused");
+            Assert.AreEqual(reason, got, fault);
+            StringAssert.EndsWith("nothing was written.", fault);
+        }
+
+        [Test]
+        public void EntryNamesFault_PassesAWorldAsWritten()
+        {
+            Assert.IsNull(OWWorldArchive.EntryNamesFault(
+                new[] { "mimetype", "w/elements/character/a.json", "w/media/a.png", "w/world.json" }, out var reason));
+            Assert.IsNull(reason);
+        }
+
+        [Test]
+        public void Pack_OfAFolderNamedMimetypeOrMimeType_IsRefused_ByTheWritersCause_NothingWritten()
+        {
+            // The door calls the check: a top folder named as the marker is a file and a folder beside it, and one in
+            // another case is one name with it, as writeWorldFile refuses both (npm's vectors for topDir), copy and share.
+            foreach (var (top, reason) in new[] { ("mimetype", "unsafe_path"), ("MimeType", "collision") })
+            {
+                foreach (var copy in new[] { true, false })
+                {
+                    var root = Path.Combine(_temp, (copy ? "copy-" : "share-") + (top == "mimetype" ? "lower" : "upper"), top);
+                    Write(root, "world.json", WorldJson("0695db52-0000-7000-8000-0000000000aa", "W"));
+                    var archive = Path.Combine(_temp, top + copy + ".owworld");
+                    var e = Assert.Throws<OWFolderFormatException>(() =>
+                        OWWorldArchive.Pack(root, archive, new OWWorldArchivePackOptions { IncludeHidden = copy }));
+                    Assert.AreEqual(reason, e.Reason, e.Message);
+                    StringAssert.EndsWith("nothing was written.", e.Message);
+                    Assert.IsFalse(File.Exists(archive), "nothing is written");
+                }
+            }
+
+            var plain = Path.Combine(_temp, "control", "w");
+            Write(plain, "world.json", WorldJson("0695db52-0000-7000-8000-0000000000aa", "W"));
+            Write(plain, "media/a.png", "PNG");
+            var ok = Path.Combine(_temp, "w.owworld");
+            CollectionAssert.AreEqual(new[] { "mimetype", "w/media/a.png", "w/world.json" }, OWWorldArchive.Pack(plain, ok));
+        }
     }
 }
