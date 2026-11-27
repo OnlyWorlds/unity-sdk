@@ -6,6 +6,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.57.0] - 2026-11-27
+
+A join preview names the Character a person's invite link offers, and a world file or folder refused for its
+`world.json` says what is wrong with it. A minor release because it adds public API (below).
+
 ### Added
 
 - **A person's invite link can name the Character its person will play.** `OWJoinPreview.CharacterName` is that
