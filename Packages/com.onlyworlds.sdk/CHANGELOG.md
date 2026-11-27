@@ -22,6 +22,17 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   double)` showed a whole count past 2^53 / 100 rounded through `n * 100`, so 9007199254740990 steps read
   9007199254740989 days; a whole count is now shown as it is (the `long` overload already did). A `step_name` that is
   not a string already read as absent here; the TypeScript SDK now reads it the same way, so the two agree.
+- **Parity with the TypeScript SDK 4.212.3: a world file refused for a `world.json` nested past 200 levels says it in
+  words alone.** The message of `OWWorldArchive.Read`'s refusal no longer carries the `too_deep:` mark; it ends
+  "world.json in '…' is nested more than 200 deep.", and the code is `OWFolderFormatException.WorldFault`, which a tool
+  reads. The folder reader's refusal and a skipped file's reason keep `too_deep` in their text, as the TypeScript SDK's
+  folder route and skip reasons do.
+- **`OWWorldArchive.Pack` refuses a `world.json` nested past 200 levels in the same words**, with `WorldFault` set to
+  `too_deep`, as the TypeScript SDK's `writeWorldFile` refuses it. It said "is not valid JSON." before, of a text that
+  is valid JSON.
+- `Pack` already refused a folder holding `Spatial/` (or `spatial/` with a long s) beside `elements/`, as a copy and as
+  a share, with the cause `name_case` and nothing written; the TypeScript SDK 4.212.3's writer now refuses it too, and
+  a test holds the shape.
 
 ## [0.57.0] - 2026-11-27
 

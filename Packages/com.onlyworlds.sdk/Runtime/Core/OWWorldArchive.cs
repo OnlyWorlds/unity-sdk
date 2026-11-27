@@ -1366,6 +1366,12 @@ namespace OnlyWorlds.Sdk
             {
                 throw new OWFolderFormatException($"world.json in '{root}' is refused, {OWFolderReader.ContentAfterValueReason(e)}.", e);
             }
+            catch (OWTooDeepException e)
+            {
+                // As the TypeScript SDK's writeWorldFile refuses it (4.212.3): the words of the world file's refusal, the
+                // code the field. Valid JSON all the same, so never "not valid JSON".
+                throw new OWFolderFormatException(null, OWFolderReader.TooDeepWorldJson(root), e, OWWorldFault.TooDeep);
+            }
             catch (Exception e)
             {
                 throw new OWFolderFormatException($"world.json in '{root}' is not valid JSON.", e);
@@ -1711,8 +1717,11 @@ namespace OnlyWorlds.Sdk
                 catch (OWFolderFormatException e) when (e.Reason != OWWorldArchiveReason.NameCase)
                 {
                     // The folder read refuses only the world's own world.json: unparseable, not an object, no id. (A
-                    // fixed name in another case is refused above; one from the read would keep its own cause.)
-                    throw new OWFolderFormatException(OWWorldArchiveReason.NotAWorld, e.Message, e, e.WorldFault);
+                    // fixed name in another case is refused above; one from the read would keep its own cause.) Too deep, the
+                    // world file says it in words alone, the code being WorldFault (the TypeScript SDK 4.212.3); the folder
+                    // reader's refusal keeps its too_deep mark, as npm's folder route keeps it.
+                    var message = e.WorldFault == OWWorldFault.TooDeep ? OWFolderReader.TooDeepWorldJson(archivePath) : e.Message;
+                    throw new OWFolderFormatException(OWWorldArchiveReason.NotAWorld, message, e, e.WorldFault);
                 }
 
                 // OW-10: an archive is a copy made to be shared, so an api block in it is a key in the wrong place.

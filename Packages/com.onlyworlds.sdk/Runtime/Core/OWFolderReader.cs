@@ -609,8 +609,17 @@ namespace OnlyWorlds.Sdk
         /// caller can match it, then where it sits.
         /// </summary>
         /// <summary>A skipped file's reason, and a refused file's words, for a text nested past the depth (OW-25).</summary>
-        internal static readonly string TooDeepReason =
-            $"{OWJson.TooDeep}: nested more than {OWJson.MaxDepth.ToString(System.Globalization.CultureInfo.InvariantCulture)} deep";
+        internal static readonly string TooDeepReason = $"{OWJson.TooDeep}: {TooDeepWords}";
+
+        /// <summary>
+        /// A world file's refusal of its <c>world.json</c> nested past the depth, in words alone: the code is the refusal's
+        /// <see cref="OWFolderFormatException.WorldFault"/> (the TypeScript SDK 4.212.3's world file says it so). The pack
+        /// refuses such a <c>world.json</c> in the same words.
+        /// </summary>
+        internal static string TooDeepWorldJson(string where) => $"world.json in '{where}' is {TooDeepWords}.";
+
+        private static string TooDeepWords
+            => $"nested more than {OWJson.MaxDepth.ToString(System.Globalization.CultureInfo.InvariantCulture)} deep";
 
         internal static string NumberOutOfRangeReason(OWNumberOutOfRangeException e)
             => $"{OWJson.NumberOutOfRange}: holds a number too large for this reader to hold, at '{e.Path}'";
@@ -899,7 +908,8 @@ namespace OnlyWorlds.Sdk
         /// For a <c>world.json</c> that is there but cannot be read, what is wrong with it, in the folder read report's
         /// words (one of <see cref="OWWorldFault"/>): <c>too_deep</c>, <c>not_json</c> or <c>number_out_of_range</c>.
         /// An archive's <see cref="OWWorldArchiveReason.NotAWorld"/> carries it (the TypeScript SDK's
-        /// <c>OwWorldFileError.worldFault</c>), and so does a folder's refusal of its <c>world.json</c>. Null on every
+        /// <c>OwWorldFileError.worldFault</c>), and so does a folder's refusal of its <c>world.json</c>, and a pack's of one
+        /// nested past the depth (<c>too_deep</c>, as npm's <c>writeWorldFile</c> refuses it). Null on every
         /// other refusal: no <c>world.json</c>, one that is JSON but no object, one with no id. A tool reads this, never
         /// the message.
         /// </summary>
