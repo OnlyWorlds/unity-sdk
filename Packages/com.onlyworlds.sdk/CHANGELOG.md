@@ -6,6 +6,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.58.1] - 2026-11-27
+
+`OWSync` holds an upserted element under its own id, and a 409 from the read of a bodiless upsert is that read's
+error rather than a reset, as the Godot and Unreal SDKs do. A patch release: no public name changes.
+
 ### Changed
 
 - **`OWSync.IncrementalAsync` holds an upserted element under the id its body carries.** It held every upsert under
