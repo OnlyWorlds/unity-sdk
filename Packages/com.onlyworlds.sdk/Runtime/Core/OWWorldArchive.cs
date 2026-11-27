@@ -354,7 +354,9 @@ namespace OnlyWorlds.Sdk
         /// cannot be read (not UTF-8 JSON, not an array of objects, a private entry whose producer is not one
         /// directory name), so which producers are private cannot be told; or the folder holds <c>world.json</c>,
         /// <c>elements/</c> or <c>spatial/</c> in another case and not as written, which its reader refuses
-        /// (<see cref="OWWorldArchiveReason.NameCase"/>): nothing is written.
+        /// (<see cref="OWWorldArchiveReason.NameCase"/>); or a <c>world.json</c> nested past 200 levels, refused in
+        /// words with <see cref="OWWorldArchiveReason.NotAWorld"/> and <see cref="OWFolderFormatException.WorldFault"/>
+        /// <c>too_deep</c>, as the TypeScript SDK's <c>writeWorldFile</c> refuses it: nothing is written.
         /// </exception>
         /// <exception cref="ArgumentException"><paramref name="archivePath"/> is inside the folder.</exception>
         public static List<string> Pack(string worldFolder, string archivePath, bool keepApiBlock = false)
@@ -1370,7 +1372,8 @@ namespace OnlyWorlds.Sdk
             {
                 // As the TypeScript SDK's writeWorldFile refuses it (4.212.3): the words of the world file's refusal, the
                 // code the field. Valid JSON all the same, so never "not valid JSON".
-                throw new OWFolderFormatException(null, OWFolderReader.TooDeepWorldJson(root), e, OWWorldFault.TooDeep);
+                throw new OWFolderFormatException(OWWorldArchiveReason.NotAWorld, OWFolderReader.TooDeepWorldJson(root), e,
+                    OWWorldFault.TooDeep);
             }
             catch (Exception e)
             {
