@@ -685,6 +685,7 @@ namespace OnlyWorlds.Sdk
         {
             var raw = JObject.FromObject(element, Newtonsoft.Json.JsonSerializer.Create(OWJson.Settings));
             RefuseKnownOf(raw, "create", nameof(element));
+            RefuseKinds(raw, type, "create");
             var body = Sanitize(raw, type);
 
             if (body["id"] == null || string.IsNullOrEmpty(body["id"].ToString()))
@@ -724,6 +725,7 @@ namespace OnlyWorlds.Sdk
 
             var raw = JObject.FromObject(element, Newtonsoft.Json.JsonSerializer.Create(OWJson.Settings));
             RefuseKnownOf(raw, "upsert", nameof(element));
+            RefuseKinds(raw, type, "upsert");
             return RequestAsync<T>("PUT", $"/{Seg("type", type)}/{Seg("id", id)}/", body: Sanitize(raw, type), write: true, ct: ct, proposable: true);
         }
 
@@ -758,6 +760,7 @@ namespace OnlyWorlds.Sdk
             RefuseNegative(ifMatch);
             var raw = JObject.FromObject(partial, Newtonsoft.Json.JsonSerializer.Create(OWJson.Settings));
             RefuseKnownOf(raw, "patch", nameof(partial));
+            RefuseKinds(raw, type, "patch");
             return RequestAsync<T>("PATCH", $"/{Seg("type", type)}/{Seg("id", id)}/", body: Sanitize(raw, type), write: true, ct: ct, ifMatch: ifMatch, proposable: true);
         }
 
@@ -844,6 +847,7 @@ namespace OnlyWorlds.Sdk
                 }
 
                 RefuseKnownOf(item.Element, $"bulk: items[{count}]", nameof(items));
+                RefuseKinds(item.Element, item.Type, $"bulk: items[{count}]");
                 var element = Sanitize(item.Element != null ? (JObject)item.Element.DeepClone() : new JObject(), item.Type);
 
                 if (element["id"] == null || string.IsNullOrEmpty(element["id"].ToString()))
@@ -1513,6 +1517,7 @@ namespace OnlyWorlds.Sdk
 
             var raw = JObject.FromObject(fields, Newtonsoft.Json.JsonSerializer.Create(OWJson.Settings));
             RefuseKnownOf(raw, "propose", nameof(fields));
+            RefuseKinds(raw, type, "propose");
 
             var body = new JObject { ["fields"] = Sanitize(raw, type), ["evidence"] = evidence };
             if (expires.HasValue) body["expires"] = Utc(expires.Value);
@@ -3846,6 +3851,62 @@ namespace OnlyWorlds.Sdk
         /// (<c>refuseKnownOf</c>) and the Python package (<c>_refuse_known_of</c>) refuse the same bodies
         /// with the same words.
         /// </remarks>
+        /// <summary>
+        /// Refuses, before sending, a value the server would store as something else, as the TypeScript SDK's
+        /// <c>checkKinds</c> (4.220.0) and the Python package's <c>check_kinds</c> do: the server takes it with a 200
+        /// and changes it (<c>2.5</c>, <c>"7"</c> or <c>true</c> in an integer field stored as 2, 7 or 1, a list or a
+        /// number in a text field as its text). An integer field (<see cref="OWElementTypes.IsIntegerField"/>) takes a
+        /// whole number, <c>2.0</c> included, never a boolean; a text field (<see cref="OWElementTypes.IsTextField"/>)
+        /// a string; each or <c>null</c>. The body's own keys only; an extension, a link field and a type outside the
+        /// standard are not checked. The value is named as <c>JSON.stringify</c> writes it, a NaN as <c>null</c>.
+        /// </summary>
+        /// <exception cref="ArgumentException">A value of another kind; nothing was sent.</exception>
+        private static void RefuseKinds(JObject body, string type, string where)
+        {
+            if (body == null || !OWElementTypes.IsKnown(type)) return;
+            foreach (var property in body.Properties())
+            {
+                var value = property.Value;
+                if (value == null || value.Type == JTokenType.Null || value.Type == JTokenType.Undefined) continue;
+                if (OWElementTypes.IsIntegerField(type, property.Name) && !IsWhole(value))
+                {
+                    throw new ArgumentException(
+                        $"{where}: {type}.{property.Name} is an integer field; {AsJsonStringify(value)} would be stored as "
+                        + "another value. Nothing was sent.");
+                }
+
+                if (OWElementTypes.IsTextField(type, property.Name) && value.Type != JTokenType.String)
+                {
+                    throw new ArgumentException(
+                        $"{where}: {type}.{property.Name} is a text field; {AsJsonStringify(value)} is not a string. "
+                        + "Nothing was sent.");
+                }
+            }
+        }
+
+        /// <summary>A whole number: an integer token, or a finite float with no fraction (<c>2.0</c>).</summary>
+        private static bool IsWhole(JToken value)
+        {
+            if (value.Type == JTokenType.Integer) return true;
+            if (value.Type != JTokenType.Float) return false;
+            var raw = ((JValue)value).Value;
+            if (raw is decimal m) return decimal.Truncate(m) == m;
+            var d = Convert.ToDouble(raw, CultureInfo.InvariantCulture);
+            return !double.IsNaN(d) && !double.IsInfinity(d) && Math.Floor(d) == d;
+        }
+
+        /// <summary>A value as <c>JSON.stringify</c> writes it: compact, and a NaN or an infinity as <c>null</c>.</summary>
+        private static string AsJsonStringify(JToken value)
+        {
+            if (value.Type == JTokenType.Float && ((JValue)value).Value is var raw && !(raw is decimal))
+            {
+                var d = Convert.ToDouble(raw, CultureInfo.InvariantCulture);
+                if (double.IsNaN(d) || double.IsInfinity(d)) return "null";
+            }
+
+            return OWJson.Write(value);
+        }
+
         private static void RefuseKnownOf(JObject body, string where, string paramName)
         {
             if (!OWPayload.IsKnownOf(body)) return;

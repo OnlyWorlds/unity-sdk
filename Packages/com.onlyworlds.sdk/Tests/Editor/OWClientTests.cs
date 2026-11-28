@@ -2171,6 +2171,65 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(@"{""x_list"":[1.5,0.1],""x_fine"":0.1,""x_null"":null,""x_top"":{""a b"":1}}", t.Calls[0].Body);
         }
 
+        // -- A value the server would store as another (the TypeScript SDK's 4.220.0 vector) ---------
+
+        [Test]
+        public async Task AValueKeelWouldStoreAsAnother_IsRefusedBeforeSending_AsPythonCheckKindsRefusesIt()
+        {
+            var t = new FakeTransport();
+            var c = Make(t);
+            // Each one keel takes with a 200 and stores as something else (measured on production 2026-11-28).
+            foreach (var (call, want) in new (Func<Task>, string)[]
+            {
+                (() => c.CreateAsync<JObject>("character", new JObject { ["name"] = "K", ["height"] = 2.5 }),
+                    "create: character.height is an integer field; 2.5 would be stored as another value"),
+                (() => c.UpsertAsync<JObject>("character", NonFiniteId, new JObject { ["name"] = "K", ["height"] = "7" }),
+                    "upsert: character.height is an integer field; \"7\" would be stored as another value"),
+                (() => c.PatchAsync<JObject>("character", NonFiniteId, new JObject { ["height"] = true }),
+                    "patch: character.height is an integer field; true would be stored"),
+                (() => c.PatchAsync<JObject>("character", NonFiniteId, new JObject { ["supertype"] = new JArray("a", "b") }),
+                    "patch: character.supertype is a text field; [\"a\",\"b\"] is not a string"),
+                (() => c.BulkAsync(new[]
+                {
+                    new OWBulkItem("character", new JObject { ["name"] = "K" }),
+                    new OWBulkItem("character", new JObject { ["name"] = "L", ["supertype"] = 12 }),
+                }), "bulk: items[1]: character.supertype is a text field; 12 is not a string"),
+                (() => c.ProposeAsync("character", NonFiniteId, new JObject { ["height"] = 1.5 }, "a source"),
+                    "propose: character.height is an integer field; 1.5 would be stored"),
+                // Beyond the TypeScript SDK's: the generic link's type key is text; a NaN in an integer field is the
+                // kind's refusal, named as JSON.stringify names it (null); a Guid is not a string; a dictionary too.
+                (() => c.PatchAsync<JObject>("pin", NonFiniteId, new JObject { ["element_type"] = 12 }),
+                    "patch: pin.element_type is a text field; 12 is not a string"),
+                (() => c.PatchAsync<JObject>("character", NonFiniteId, new JObject { ["height"] = double.NaN }),
+                    "patch: character.height is an integer field; null would be stored as another value"),
+                (() => c.PatchAsync<JObject>("character", NonFiniteId, new Dictionary<string, object> { ["supertype"] = Guid.Empty }),
+                    "patch: character.supertype is a text field; \"00000000-0000-0000-0000-000000000000\" is not a string"),
+                (() => c.PatchAsync<JObject>("character", NonFiniteId, new Dictionary<string, object> { ["weight"] = "heavy" }),
+                    "patch: character.weight is an integer field; \"heavy\" would be stored"),
+            })
+            {
+                var e = await Refused(call);
+                StringAssert.StartsWith(want, e.Message);
+            }
+
+            Assert.AreEqual(0, t.Calls.Count, "nothing sent");
+
+            // What it lets through: a whole number (2.0 is one), null, a string in a text field, an extension of any kind,
+            // a link field, and a type outside the schema.
+            t.ResponseBody = @"{""id"":""11111111-2222-4333-8444-555555555555""}";
+            await c.PatchAsync<JObject>("character", NonFiniteId, new JObject
+            {
+                ["height"] = 2.0, ["weight"] = null, ["supertype"] = "hero", ["x_tool"] = new JArray(1.5, true), ["species"] = new JArray(),
+            });
+            await c.PatchAsync<JObject>("notatype", NonFiniteId, new JObject { ["height"] = 2.5 });
+            Assert.AreEqual(2, t.Calls.Count);
+            // Ours: a typed model holds its kinds, a float 2.0 is whole, the generic link's type key takes a string.
+            await c.PatchAsync<JObject>("character", NonFiniteId, new OWCharacter { Name = "K", Height = 7 });
+            await c.PatchAsync<JObject>("character", NonFiniteId, new Dictionary<string, object> { ["height"] = 2.0f });
+            await c.PatchAsync<JObject>("pin", NonFiniteId, new JObject { ["element_type"] = "character", ["x"] = 3 });
+            Assert.AreEqual(5, t.Calls.Count);
+        }
+
         // -- World settings: PATCH /world (npm 4.65.0's and Python 0.34.0's vectors) ------------
 
         private static readonly JObject Origin = JObject.Parse(

@@ -262,6 +262,43 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 "An unknown type still has the base strings.");
         }
 
+        [Test]
+        public void TheKindTables_AreTheVendoredSchemasIntegerAndTextFields()
+        {
+            // The vendored schema-dist copy at the repository's root (codegen/schema-dist/schema.json), two folders above
+            // the package: a project that installed the package has no such folder, and the test says so.
+            var root = TestPackage.Root();
+            var path = root == null ? null : System.IO.Path.GetFullPath(System.IO.Path.Combine(root, "..", "..", "codegen", "schema-dist", "schema.json"));
+            if (path == null || !System.IO.File.Exists(path)) Assert.Ignore("No vendored schema.json beside the package (an installed copy).");
+
+            var schema = JObject.Parse(System.IO.File.ReadAllText(path));
+            var types = (JObject)schema["types"];
+            Assert.AreEqual(22, types.Count);
+            var baseText = ((JArray)schema["base"]).Where(f => (string)f["kind"] == "scalar_str")
+                .Select(f => (string)f["name"]).Where(n => n != "id" && n != "world").ToList();
+            foreach (var type in types.Properties())
+            {
+                var fields = (JArray)type.Value;
+                var integers = fields.Where(f => (string)f["kind"] == "scalar_int").Select(f => (string)f["name"]).ToList();
+                var texts = fields.Where(f => (string)f["kind"] == "scalar_str").Select(f => (string)f["name"])
+                    .Concat(fields.Where(f => (string)f["kind"] == "generic").Select(f => (string)f["type_key"]))
+                    .Concat(baseText).ToList();
+                CollectionAssert.AreEquivalent(integers, OWElementTypes.IntegerFieldNames[type.Name], type.Name + ": integers");
+                foreach (var f in integers) Assert.IsTrue(OWElementTypes.IsIntegerField(type.Name, f), $"{type.Name}.{f}");
+                foreach (var f in texts) Assert.IsTrue(OWElementTypes.IsTextField(type.Name, f), $"{type.Name}.{f} is text");
+                foreach (var f in fields.Select(x => (string)x["name"]).Where(n => !texts.Contains(n) && !integers.Contains(n)))
+                {
+                    Assert.IsFalse(OWElementTypes.IsTextField(type.Name, f), $"{type.Name}.{f} is not text");
+                    Assert.IsFalse(OWElementTypes.IsIntegerField(type.Name, f), $"{type.Name}.{f} is not an integer");
+                }
+            }
+
+            Assert.IsFalse(OWElementTypes.IsTextField("archipelago", "description"), "A type outside the standard: nothing is text.");
+            Assert.IsFalse(OWElementTypes.IsIntegerField("archipelago", "height"));
+            Assert.IsFalse(OWElementTypes.IsTextField("character", "id"), "Identity is not checked.");
+            Assert.IsFalse(OWElementTypes.IsTextField("pin", "element_id"), "The generic link's id half is a link.");
+        }
+
         // -- Round trips, every type ------------------------------------------
 
         [Test]

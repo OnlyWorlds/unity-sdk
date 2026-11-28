@@ -6,6 +6,25 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **`OWElementTypes.IntegerFieldNames`, `IsIntegerField(slug, field)` and `IsTextField(slug, field)`: the kinds a write
+  is checked against.** Generated from the schema beside `StringFieldNames`: the integer fields per type, and whether
+  a field is an integer or a text field of a type in the standard. `IsTextField` is `IsStringField` plus the pin's
+  `element_type`, which the wire carries as text, and answers false for a type outside the standard (where
+  `IsStringField` answers the base fields).
+
+### Fixed
+
+- **A value the server would store as another is refused before sending.** The server takes a value of the wrong
+  kind with a 200 and changes it: an integer field stores `2.5` as `2`, `"7"` as `7` and `true` as `1`; a text field
+  stores a list as `"['a', 'b']"` and `12` as `"12"`. `CreateAsync`, `UpsertAsync`, `PatchAsync`, `BulkAsync` and
+  `ProposeAsync` now throw `ArgumentException: patch: character.height is an integer field; 2.5 would be stored as
+  another value. Nothing was sent.` (and `... is a text field; 12 is not a string`), the value as `JSON.stringify`
+  writes it (a NaN as `null`). An integer field takes a whole number (`2.0` is one) or `null`, a text field a string
+  or `null`; extensions, link fields and a type outside the standard are not checked. A typed model already holds
+  its kinds. Parity with the TypeScript SDK 4.220.0, its test vector ported.
+
 ## [0.59.1] - 2026-11-28
 
 A request body holding a NaN or an infinity is refused by name, where 0.59.0 sent it as `null`, and a body nested past

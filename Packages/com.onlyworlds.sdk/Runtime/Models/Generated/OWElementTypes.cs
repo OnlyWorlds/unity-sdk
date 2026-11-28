@@ -218,6 +218,64 @@ namespace OnlyWorlds.Sdk
         }
 
         /// <summary>
+        /// The integer fields each generated model carries, per slug (the schema's <c>scalar_int</c>; the
+        /// shared base fields hold none). A type with no integer field maps to an empty array.
+        /// </summary>
+        /// <remarks>
+        /// The kinds a write is checked against before sending (<see cref="IsIntegerField"/>,
+        /// <see cref="IsTextField"/>): the server stores a value of another kind as something else.
+        /// </remarks>
+        public static readonly IReadOnlyDictionary<string, string[]> IntegerFieldNames =
+            new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            { "ability", new string[] { "duration", "potency", "range" } },
+            { "collective", new string[] { "count", "formation_date" } },
+            { "character", new string[] { "height", "weight", "birth_date", "charisma", "coercion", "competence", "compassion", "creativity", "courage", "level", "hit_points", "STR", "DEX", "CON", "INT", "WIS", "CHA" } },
+            { "construct", new string[] { "start_date", "end_date" } },
+            { "creature", new string[] { "weight", "height", "birth_date", "challenge_rating", "hit_points", "armor_class", "speed" } },
+            { "event", new string[] { "start_date", "end_date" } },
+            { "family", new string[0] },
+            { "institution", new string[] { "founding_date" } },
+            { "language", new string[0] },
+            { "law", new string[] { "date" } },
+            { "location", new string[] { "founding_date", "elevation" } },
+            { "map", new string[] { "hierarchy", "width", "height", "depth" } },
+            { "marker", new string[] { "x", "y", "z", "order" } },
+            { "narrative", new string[] { "start_date", "end_date", "order" } },
+            { "object", new string[] { "weight", "amount" } },
+            { "phenomenon", new string[] { "duration" } },
+            { "pin", new string[] { "x", "y", "z" } },
+            { "relation", new string[] { "start_date", "end_date", "intensity" } },
+            { "species", new string[] { "life_span", "weight", "aggression" } },
+            { "title", new string[] { "grant_date", "revoke_date" } },
+            { "trait", new string[] { "charisma", "coercion", "competence", "compassion", "creativity", "courage" } },
+            { "zone", new string[] { "start_date", "end_date" } },
+        };
+
+        /// <summary>
+        /// True when <paramref name="field"/> is an integer field of this type in the standard; false for a
+        /// slug outside the standard.
+        /// </summary>
+        public static bool IsIntegerField(string slug, string field)
+        {
+            return !string.IsNullOrEmpty(slug) && !string.IsNullOrEmpty(field)
+                && IntegerFieldNames.TryGetValue(slug, out var names)
+                && Array.IndexOf(names, field) >= 0;
+        }
+
+        /// <summary>
+        /// True when <paramref name="field"/> is a text field of this type in the standard: a scalar string,
+        /// base fields included, or a generic link's type key (<c>pin.element_type</c>), which the wire carries as text. False for a
+        /// slug outside the standard, unlike <see cref="IsStringField"/>.
+        /// </summary>
+        public static bool IsTextField(string slug, string field)
+        {
+            if (string.IsNullOrEmpty(field) || !StringFieldNames.ContainsKey(slug ?? "")) return false;
+            if (string.Equals(slug, "pin", StringComparison.OrdinalIgnoreCase) && field == "element_type") return true;
+            return IsStringField(slug, field);
+        }
+
+        /// <summary>
         /// The type each link field points at, per slug: the field's wire name to the target's slug,
         /// in the schema's field order -- NOT including the shared base fields.
         /// </summary>
