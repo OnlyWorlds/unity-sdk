@@ -6,6 +6,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.59.1] - 2026-11-28
+
+A request body holding a NaN or an infinity is refused by name, where 0.59.0 sent it as `null`, and a body nested past
+256 levels is refused before sending. Parity with the TypeScript SDK 4.219.2 and 4.219.3. A patch release: no public
+name moves.
+
 ### Changed
 
 - **A NaN or an infinity in a request body is refused before sending, by name and with its place**, where 0.59.0 sent
