@@ -6,6 +6,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.61.0] - 2026-11-28
+
+A game can poll the proposals queue cheaply: an unchanged queue answers without its rows. And the wrong-kind refusal
+names a NaN or an infinity by its own name. Parity with the TypeScript SDK 4.221.0 and 4.220.2. A minor release
+because it adds public API (below).
+
 ### Added
 
 - **A poll of the proposals lists costs little when nothing moved.** `ListProposalsAsync` and `WorldProposalsAsync`
