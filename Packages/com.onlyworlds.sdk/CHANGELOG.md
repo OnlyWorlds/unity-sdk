@@ -24,6 +24,17 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
   writes it (a NaN as `null`). An integer field takes a whole number (`2.0` is one) or `null`, a text field a string
   or `null`; extensions, link fields and a type outside the standard are not checked. A typed model already holds
   its kinds. Parity with the TypeScript SDK 4.220.0, its test vector ported.
+- **A date written with its weekday parses back.** `OWCalendar.ParseDate` read era, month and intercalary names and
+  never a weekday's, so a world whose `format` prints `{weekday}` could not read its own dates: `"Moonday, 3 Frost
+  454"` answered `unrecognized: "moonday"`. A weekday name is now read after every other name, longest first, as a
+  whole word: a word that is both a month's and a weekday's still reads as the month, a name that reads as a number
+  is never tried, and a calendar whose names do not match its week's length (it prints no weekday) reads none. A
+  weekday that is not the date's own is refused, naming both (`that date falls on Tresk, not Ondel`; `that date has
+  no weekday, not 1st` for a day outside the week), and a weekday alone names no date. The separators are unchanged,
+  and nothing that parsed before parses differently. Parity with the TypeScript SDK 4.220.1, its test vectors
+  ported, with its answers over 400 random calendars with a week (`Tests/Editor/Fixtures/calendar/weekday-parse.json`).
+  The calendar parity vectors are re-vendored from the Godot SDK, made from npm 4.220.1 over the same fixture: 132
+  parse vectors move, each a weekday's date that now reads.
 
 ## [0.59.1] - 2026-11-28
 

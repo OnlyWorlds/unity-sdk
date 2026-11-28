@@ -1502,6 +1502,8 @@ namespace OnlyWorlds.Sdk
         ///   "Frostwane 454" / "12 Frostwane 454" (+ era)
         ///   "Shieldmeet 1372" (+ era)           -> intercalary day
         ///   "Frostwane 12" (no year)            -> resolved against the now's year
+        ///   "Moonday, 12 Frostwane 454"         -> a weekday beside a whole date: refused when it is not that date's
+        ///                                          own, and naming no date alone
         /// Partial dates snap to the period's first step. A missing year with no now is an error (never guess).
         /// P(F(n)) == n is NOT promised; F(P(F(n))) == F(n) is.
         /// </summary>
@@ -1555,6 +1557,31 @@ namespace OnlyWorlds.Sdk
                 {
                     if (Eat(months.Names[m - 1])) { monthIndex = m; break; }
                 }
+            }
+
+            // A weekday name last, longest first, and only from a calendar that prints one (as many names as the week's
+            // length): a word that is a month's and a weekday's reads as the month, and a name that reads as a number is
+            // never tried. It names no date alone; the date must be whole without it, and a weekday that is not that
+            // date's own is refused (Checked below), never guessed past. The TypeScript SDK 4.220.1's parseDate.
+            string weekday = null;
+            var week = cfg.Bundles?.Week;
+            if (week != null && week.Length >= 1 && week.Names != null && week.Names.Count == week.Length)
+            {
+                var dayNames = week.Names
+                    .Where(n => n != null && JsTrim(Normalize(n)).Length > 0 && !IntRx.IsMatch(JsTrim(Normalize(n))))
+                    .OrderByDescending(n => n.Length) // stable, as JS sort is
+                    .ToList();
+                foreach (var n in dayNames) if (Eat(n)) { weekday = n; break; }
+            }
+
+            ParseResult Checked(ParseResult r)
+            {
+                if (weekday == null || r.IsError) return r;
+                string own = WeekdayForStep(cfg, r.Step);
+                if (own == weekday) return r;
+                return ParseResult.Fail(own == null
+                    ? "that date has no weekday, not " + weekday
+                    : "that date falls on " + own + ", not " + weekday);
             }
 
             // What remains must be numbers only.
@@ -1623,25 +1650,25 @@ namespace OnlyWorlds.Sdk
             if (year == null)
             {
                 if (now == null) return ParseResult.Fail("add a year (the world clock has no now set)");
-                return ResolveInYear(AbsoluteYear(cfg, now.Value));
+                return Checked(ResolveInYear(AbsoluteYear(cfg, now.Value)));
             }
 
             var target = era ?? DefaultEra(cfg, now);
-            if (target == null) return ResolveInYear(year.Value);
+            if (target == null) return Checked(ResolveInYear(year.Value));
 
             // Era arithmetic first; if the resulting step falls OUTSIDE the era's own domain (e.g. "S.R. -10":
             // format shows absolute years outside era domains, often under a literal era word in the template),
             // fall back to the absolute-year reading so Format(Parse(Format(n))) stays stable.
             var viaEra = ResolveInYear(AbsYearForEraYear(cfg, target, year.Value));
             if (viaEra.IsError) return viaEra;
-            if (ReferenceEquals(EraForStep(cfg, viaEra.Step), target)) return viaEra;
+            if (ReferenceEquals(EraForStep(cfg, viaEra.Step), target)) return Checked(viaEra);
             var viaAbs = ResolveInYear(year.Value);
             // A typed era names the date's era: an absolute reading that lands in an era is a date the input never
             // named ("10 Thaw, 1 BG" read as "10 Thaw, 2 AG" when year 1 BG holds only 1 to 5 Frost). Refused; the
             // fallback stays for a step in no era, where format prints the absolute year (npm 4.42.4, Temper).
             if (era != null && !viaAbs.IsError && EraForStep(cfg, viaAbs.Step) != null)
                 return ParseResult.Fail("not a date in " + era.Name);
-            return viaAbs;
+            return Checked(viaAbs);
         }
 
         /// <summary>True when a parse failed (the TS type guard isParseError).</summary>

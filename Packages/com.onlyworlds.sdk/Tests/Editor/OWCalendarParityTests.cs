@@ -11,9 +11,9 @@ namespace OnlyWorlds.Sdk.Tests.Editor
 {
     /// <summary>
     /// <see cref="OWCalendar"/> and <see cref="OWCalendarLens"/> against the TypeScript SDK's own answers:
-    /// <c>Fixtures/calendar/calendar_parity.json</c>, vendored byte for byte from the Godot SDK (commit <c>1eda4ff</c>,
+    /// <c>Fixtures/calendar/calendar_parity.json</c>, vendored byte for byte from the Godot SDK (commit <c>99b6074</c>,
     /// <c>tests/data/calendar_parity.json</c>), which made it with <c>codegen/generate_calendar_parity.mjs</c> from the built
-    /// code of <c>@onlyworlds/sdk</c> 4.206.0 at commit <c>a18e65a</c>. It holds, for every calendar the profile fixture
+    /// code of <c>@onlyworlds/sdk</c> 4.220.1 at commit <c>7e754d6</c>. It holds, for every calendar the profile fixture
     /// reads as one (named by case, so its value is read from <c>calendar.fixture.json</c> beside it) and for sixteen
     /// calendars written for the traps: year and mid labels, month starts, the year length, durations (a fraction carries
     /// its IEEE 754 bits), era years and about 20,000 parses; then 162 validations and 784 resolutions.
@@ -28,8 +28,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
     /// </remarks>
     public class OWCalendarParityTests
     {
-        /// <summary>The vectors' sha256 at godot-sdk e3b81ce.</summary>
-        private const string VectorsSha256 = "2afe82704c4a2a0d287cbe0cb45595121f9bded4755f1749a25bdc37e238c235";
+        /// <summary>The vectors' sha256 at godot-sdk 99b6074.</summary>
+        private const string VectorsSha256 = "7a8fa0c8ef6a85946e406e2dd3575fedf9c807651900076f184c71aff8b8e789";
 
         /// <summary>The profile fixture the vectors were made from: dist.148's (and dist.147's) calendar.fixture.json.</summary>
         private const string Dist148FixtureSha256 = "1ae922bc7af243453cac62053a31b2d10180e0ebb4843639dde9479f16e87206";
@@ -161,10 +161,10 @@ namespace OnlyWorlds.Sdk.Tests.Editor
         public void TheVectors_AreTheGodotSdksBytes_MadeFromTheVendoredFixture()
         {
             Assert.AreEqual(VectorsSha256, Sha256(PathOf("calendar_parity.json")),
-                "the vendored vectors are not godot-sdk e3b81ce's: re-vendor them byte for byte (a checkout's line endings change the bytes)");
+                "the vendored vectors are not godot-sdk 99b6074's: re-vendor them byte for byte (a checkout's line endings change the bytes)");
             Assert.AreEqual("@onlyworlds/sdk", (string)Vectors["npm"]["package"]);
-            Assert.AreEqual("4.206.0", (string)Vectors["npm"]["version"]);
-            Assert.AreEqual("a18e65a", (string)Vectors["npm"]["commit"]);
+            Assert.AreEqual("4.220.1", (string)Vectors["npm"]["version"]);
+            Assert.AreEqual("7e754d6", (string)Vectors["npm"]["commit"]);
             // Made from dist.148's fixture, not the vendored dist.149 one: serial 149's hundred new cases are bounds and
             // dates past the exact range, which npm does not hold yet, so its answers there would be the old reading.
             // The vectors move when npm takes serial 149; the 91 cases they cover are unchanged in dist.149.
