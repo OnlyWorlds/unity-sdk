@@ -6,6 +6,18 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **An answer cut off while its body is read says so.** `UnityWebRequestTransport` already answered such an answer
+  (a body short of its `Content-Length`, a chunked body with no last chunk) as an `OWTransportError`, the TypeScript
+  SDK 4.223.1's `OwNetworkError`, but in UnityWebRequest's own words, `Unknown Error`. When a status had been read
+  before the connection was lost, the transport's failure (the `InnerException` of the client's `OWTransportError`)
+  now reads `GET <url> failed: the answer was lost while it was read (status 200, Unknown Error)`; a request that got
+  no status keeps its words (`Cannot connect to destination host`). New tests, `OWCutBodyTests`, hold that a cut-off
+  answer is a transport failure, never a value or a parse error, the image upload host's too, against a real socket on
+  127.0.0.1; a whole answer read to the end of the connection is the value, and a whole body that is not JSON keeps
+  its own error.
+
 ## [0.61.0] - 2026-11-28
 
 A game can poll the proposals queue cheaply: an unchanged queue answers without its rows. And the wrong-kind refusal

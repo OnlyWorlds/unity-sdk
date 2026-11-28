@@ -120,11 +120,17 @@ namespace OnlyWorlds.Sdk
                     // ProtocolError DOES have a response -- a 422 with a full error envelope is a
                     // ProtocolError, and swallowing it here would lose the very thing the client
                     // needs to build a typed error.
+                    // A status already read means an answer had begun: the connection was lost while its body
+                    // came in (a body short of its Content-Length, a chunked body with no last chunk), and
+                    // UnityWebRequest's own words for that are only "Unknown Error".
                     if (uwr.result == UnityWebRequest.Result.ConnectionError ||
                         uwr.result == UnityWebRequest.Result.DataProcessingError)
                     {
+                        var why = uwr.responseCode > 0
+                            ? $"the answer was lost while it was read (status {uwr.responseCode}, {uwr.error})"
+                            : uwr.error;
                         tcs.TrySetException(new OWTransportError(
-                            $"{request.Method} {request.Url} failed: {uwr.error}"));
+                            $"{request.Method} {request.Url} failed: {why}"));
                         return;
                     }
 
