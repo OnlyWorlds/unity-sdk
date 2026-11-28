@@ -1,6 +1,6 @@
 {
  "about": "Every public name of the OnlyWorlds Unity SDK and its deprecation: written by tools/verify_promise.py --write, read by it in CI. A name leaves this file only in a major.",
- "version": "0.59.1",
+ "version": "0.60.0",
  "major": 0,
  "names": {
   "OnlyWorlds.Sdk.CalendarBundles": {},

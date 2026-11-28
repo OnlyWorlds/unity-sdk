@@ -6,6 +6,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.60.0] - 2026-11-28
+
+A standard field's value of the wrong kind is refused before sending (2.5, "7" or `true` in an integer field; a
+non-string in a text field), where the server took it and stored another value. Parity with the TypeScript SDK
+4.220.0. A minor release because it adds public API (below).
+
 ### Added
 
 - **`OWElementTypes.IntegerFieldNames`, `IsIntegerField(slug, field)` and `IsTextField(slug, field)`: the kinds a write
