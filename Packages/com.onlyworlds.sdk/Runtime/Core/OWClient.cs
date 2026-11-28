@@ -1532,7 +1532,7 @@ namespace OnlyWorlds.Sdk
         /// co-builder's keys, a member's own for any other. Any member key that reads the element, a read key included.
         /// </summary>
         /// <exception cref="ArgumentException">The query names <see cref="OWProposalQuery.Element"/>, the world queue's alone; nothing was sent.</exception>
-        public Task<OWPage<OWProposal>> ListProposalsAsync(
+        public Task<OWProposalPage> ListProposalsAsync(
             string type, string id, OWProposalQuery query = default, CancellationToken ct = default)
         {
             if (query.Element != null)
@@ -1542,7 +1542,7 @@ namespace OnlyWorlds.Sdk
                     nameof(query));
             }
 
-            return RequestAsync<OWPage<OWProposal>>("GET", ProposalsPath(type, id), query: ProposalQuery(query), ct: ct);
+            return TaggedListAsync("listProposals", ProposalsPath(type, id), query, ct);
         }
 
         /// <summary>
@@ -1558,8 +1558,44 @@ namespace OnlyWorlds.Sdk
         /// <c>accepted</c> or <c>declined</c>; settled with <see cref="ReviewNewElementAsync"/>). keel reads at most the
         /// 500 newest marked elements. The page's <c>next_cursor</c> is opaque: pass it back as it came.
         /// </remarks>
-        public Task<OWPage<OWProposal>> WorldProposalsAsync(OWProposalQuery query = default, CancellationToken ct = default)
-            => RequestAsync<OWPage<OWProposal>>("GET", "/world/proposals", query: ProposalQuery(query), ct: ct);
+        public Task<OWProposalPage> WorldProposalsAsync(OWProposalQuery query = default, CancellationToken ct = default)
+            => TaggedListAsync("worldProposals", "/world/proposals", query, ct);
+
+        /// <summary>
+        /// One list read that may be conditional (the TypeScript SDK's <c>taggedList</c>, 4.221.0): the page with keel's
+        /// <c>ETag</c>, or, on keel's 304 to <see cref="OWProposalQuery.IfNoneMatch"/>, an <see cref="OWProposalPage.Unchanged"/>
+        /// page with no rows. An empty tag is refused before sending; a 304 to a read that sent none is an
+        /// <see cref="OWApiError"/> (status 304): there is no list to return.
+        /// </summary>
+        private async Task<OWProposalPage> TaggedListAsync(string name, string path, OWProposalQuery query, CancellationToken ct)
+        {
+            var tag = query.IfNoneMatch;
+            if (tag != null && tag.Length == 0)
+            {
+                throw new ArgumentException(
+                    name + ": ifNoneMatch is the etag of an earlier read, a non-empty string; got \"\". Nothing was sent.");
+            }
+
+            var (page, response) = await RequestWithResponseAsync<OWProposalPage>(
+                "GET", path, query: ProposalQuery(query), ct: ct, ifNoneMatch: tag, notModified: true)
+                .ConfigureAwait(OWAwait.OnCaller);
+            var etag = ReadHeader(response, "ETag");
+            if (response.Status == 304)
+            {
+                if (tag == null)
+                {
+                    throw new OWApiError((HttpStatusCode)304,
+                        "GET " + path + " answered 304 Not Modified to a read that sent no If-None-Match: there is no "
+                        + "list to return", rawBody: response.Body);
+                }
+
+                return new OWProposalPage { Data = null, HasMore = false, NextCursor = null, Etag = etag ?? tag, Unchanged = true };
+            }
+
+            page.Etag = etag;
+            page.Unchanged = false;
+            return page;
+        }
 
         /// <summary>
         /// POST /{type}/{id}/proposals/{pid}/accept -- write the proposal's fields to the element as one ordinary write

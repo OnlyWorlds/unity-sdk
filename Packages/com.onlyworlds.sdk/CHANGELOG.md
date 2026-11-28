@@ -6,6 +6,21 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **A poll of the proposals lists costs little when nothing moved.** `ListProposalsAsync` and `WorldProposalsAsync`
+  now answer an `OWProposalPage`, the page they answered (`OWPage<OWProposal>`) with two members: `Etag`, keel's ETag
+  exactly as sent (or null), and `Unchanged`, false on every 200. Pass the tag back as `OWProposalQuery.IfNoneMatch`
+  and, while nothing in the list moved, keel answers 304 with no body, refunded against the request budget, and the
+  call answers `Unchanged` true with no rows: `Data` is **null**, `HasMore` false and `NextCursor` null, so a caller
+  who skips `Unchanged` fails at its first read of the rows, never shows an empty queue (the TypeScript SDK's 304
+  answer carries no rows either). keel's tag covers the key's whole visible list whatever `State`, `Since`, `Element`
+  or `Cursor` asks; a new proposal or mark, a settled one or a lapse moves it. The caller holds the tag; the client
+  keeps none, unlike the tip read. An empty `IfNoneMatch` is an `ArgumentException` before anything is sent, and a 304
+  to a read that sent no tag is an `OWApiError` (status 304). A caller that names `Task<OWPage<OWProposal>>` itself
+  names `Task<OWProposalPage>` now; `var` and `OWPage<OWProposal>` callers compile as before. Parity with the
+  TypeScript SDK 4.221.0, its test vectors ported.
+
 ### Fixed
 
 - **The wrong-kind refusal names a number that is not finite by its own name.** A NaN or an infinity in an integer or

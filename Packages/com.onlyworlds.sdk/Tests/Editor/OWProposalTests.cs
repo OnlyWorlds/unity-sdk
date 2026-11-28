@@ -174,6 +174,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(Pid, page.Data[0].Id);
             Assert.IsTrue(page.HasMore);
             Assert.AreEqual("c2", page.NextCursor);
+            Assert.IsNull(page.Etag, "no ETag in this answer: Etag null");
+            Assert.IsFalse(page.Unchanged);
             Assert.AreEqual($"{Api}/location/{El}/proposals", PathOf(t.Last));
             Assert.AreEqual("GET", t.Last.Method);
             CollectionAssert.AreEquivalent(new Dictionary<string, string>
@@ -212,6 +214,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             });
 
             Assert.AreEqual(Pid, page.Data[0].Id);
+            Assert.IsNull(page.Etag);
+            Assert.IsFalse(page.Unchanged);
             Assert.AreEqual($"{Api}/world/proposals", PathOf(t.Last));
             Assert.AreEqual("GET", t.Last.Method);
             CollectionAssert.AreEquivalent(new Dictionary<string, string>
@@ -241,6 +245,8 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             var page = await c.WorldProposalsAsync(new OWProposalQuery { State = "all" });
 
             CollectionAssert.AreEqual(new[] { "new_element", "proposal" }, page.Data.Select(r => r.Kind));
+            Assert.IsNull(page.Etag);
+            Assert.IsFalse(page.Unchanged);
             CollectionAssert.AreEqual(new[] { true, false }, page.Data.Select(r => r.IsNewElement));
             var marked = page.Data[0];
             Assert.AreEqual(NewEl, marked.Id);
@@ -266,6 +272,76 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             // An old bare proposal id still reads as a cursor: sent as given.
             await c.WorldProposalsAsync(new OWProposalQuery { Cursor = Pid });
             Assert.AreEqual(Pid, QueryOf(t.Last)["cursor"]);
+        }
+
+        // -- a conditional poll of either list (the TypeScript SDK's 4.221.0 vectors) ---------------------------------
+
+        private const string Tag = "W/\"2026-11-28T04:38:17.066832Z:1:0\"";
+
+        private static IEnumerable<Func<OWClient, OWProposalQuery, Task<OWProposalPage>>> BothLists() => new Func<OWClient, OWProposalQuery, Task<OWProposalPage>>[]
+        {
+            (c, q) => c.ListProposalsAsync("location", El, q),
+            (c, q) => c.WorldProposalsAsync(q),
+        };
+
+        [Test]
+        public async Task AConditionalPollOfEitherList_The200HandsBackTheTag_TheSameTagAnswersUnchangedWithNoRows()
+        {
+            foreach (var read in BothLists())
+            {
+                // keel's rule as measured on production: 304 to its own tag, 200 to any other
+                var t = new FakeTransport();
+                t.Then(200, List(), Tag);
+                t.Then(304, "", Tag);
+                t.Then(200, List(), Tag);
+                var c = Make(t);
+
+                var first = await read(c, new OWProposalQuery { State = "open" });
+                Assert.AreEqual(Tag, first.Etag);
+                Assert.IsFalse(first.Unchanged);
+                Assert.AreEqual(Pid, first.Data.Single().Id);
+                Assert.IsFalse(t.Calls[0].Headers.ContainsKey("If-None-Match"));
+
+                var again = await read(c, new OWProposalQuery { State = "all", IfNoneMatch = first.Etag });
+                Assert.IsTrue(again.Unchanged);
+                Assert.AreEqual(Tag, again.Etag);
+                Assert.IsNull(again.Data, "a 304 carries no rows: a caller who skips Unchanged fails, never sees an empty queue");
+                Assert.IsFalse(again.HasMore);
+                Assert.IsNull(again.NextCursor);
+                Assert.AreEqual(Tag, t.Calls[1].Headers["If-None-Match"], "sent exactly as it came, W/ and quotes");
+                Assert.IsFalse(QueryOf(t.Calls[1]).ContainsKey("ifNoneMatch"));
+                Assert.IsFalse(QueryOf(t.Calls[1]).ContainsKey("if_none_match"));
+
+                var moved = await read(c, new OWProposalQuery { IfNoneMatch = "W/\"older\"" });
+                Assert.IsFalse(moved.Unchanged);
+                Assert.AreEqual(Pid, moved.Data.Single().Id);
+                Assert.AreEqual("W/\"older\"", t.Calls[2].Headers["If-None-Match"]);
+            }
+        }
+
+        [Test]
+        public async Task AConditionalPoll_RefusesATagThatIsNotOne_AndA304NobodyAskedForIsAnError()
+        {
+            var t = new FakeTransport { ResponseBody = List() };
+            var empty = Assert.ThrowsAsync<ArgumentException>(() => Make(t).WorldProposalsAsync(new OWProposalQuery { IfNoneMatch = "" }));
+            StringAssert.StartsWith("worldProposals: ifNoneMatch is the etag of an earlier read, a non-empty string; got \"\". Nothing was sent.", empty.Message);
+            Assert.ThrowsAsync<ArgumentException>(() => Make(t).ListProposalsAsync("location", El, new OWProposalQuery { IfNoneMatch = "" }));
+            Assert.AreEqual(0, t.Calls.Count);
+
+            foreach (var read in BothLists())
+            {
+                var unasked = new FakeTransport();
+                unasked.Then(304, "", "W/\"t\"");
+                var err = Assert.ThrowsAsync<OWApiError>(async () => await read(Make(unasked), default));
+                Assert.AreEqual(304, (int)err.StatusCode);
+                StringAssert.Contains("sent no If-None-Match", err.Message);
+            }
+
+            // Without a 304 nothing moves: an ETag-less 200 still answers its rows with Etag null.
+            var plain = await Make(new FakeTransport { ResponseBody = List() }).WorldProposalsAsync();
+            Assert.IsNull(plain.Etag);
+            Assert.IsFalse(plain.Unchanged);
+            await Task.CompletedTask;
         }
 
         // -- a new element's evidence and expires, as stored (npm 4.156.0) -----

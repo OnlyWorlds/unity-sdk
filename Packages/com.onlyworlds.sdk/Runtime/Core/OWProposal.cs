@@ -276,6 +276,45 @@ namespace OnlyWorlds.Sdk
 
         /// <summary>The world queue's alone (<see cref="OWClient.WorldProposalsAsync"/>): one element's rows, by id.</summary>
         public string Element;
+
+        /// <summary>
+        /// The <see cref="OWProposalPage.Etag"/> of an earlier read of this list, exactly as it came, sent as
+        /// <c>If-None-Match</c>. While nothing in the list moved, keel answers 304 with no body, refunded against the
+        /// request budget, and the call answers <see cref="OWProposalPage.Unchanged"/> with no rows. keel's tag covers the
+        /// key's whole visible list, whatever <see cref="State"/>, <see cref="Since"/>, <see cref="Element"/> or
+        /// <see cref="Cursor"/> asks, so one tag serves every query on the list. Null sends none; an empty string is
+        /// refused before sending. The TypeScript SDK's <c>ifNoneMatch</c> (4.221.0).
+        /// </summary>
+        public string IfNoneMatch;
+    }
+
+    /// <summary>
+    /// A page of <see cref="OWClient.ListProposalsAsync"/> or <see cref="OWClient.WorldProposalsAsync"/>: the rows, and the
+    /// list's tag for a poll that costs little when nothing moved (the TypeScript SDK's <c>OwListTagged</c> and
+    /// <c>OwListUnchanged</c>, 4.221.0).
+    /// </summary>
+    /// <remarks>
+    /// Pass <see cref="Etag"/> back as <see cref="OWProposalQuery.IfNoneMatch"/>. While nothing in the list moved (a new
+    /// proposal or mark, a settled one or a lapse moves it), the answer is <see cref="Unchanged"/>: keel's 304 carries no
+    /// rows, so <see cref="OWPage{T}.Data"/> is <b>null</b>, <see cref="OWPage{T}.HasMore"/> false and
+    /// <see cref="OWPage{T}.NextCursor"/> null. Read <see cref="Unchanged"/> before the rows: a caller who does not fails at
+    /// its first read of them, never shows an empty queue. The caller holds the tag; the client keeps none.
+    /// </remarks>
+    public class OWProposalPage : OWPage<OWProposal>
+    {
+        /// <summary>
+        /// keel's <c>ETag</c> for the list, exactly as sent (<c>W/</c> and quotes included), or null when none came; on an
+        /// <see cref="Unchanged"/> answer the 304's tag, else the one sent. Never on the wire.
+        /// </summary>
+        [JsonIgnore]
+        public string Etag;
+
+        /// <summary>
+        /// True when keel answered 304 to <see cref="OWProposalQuery.IfNoneMatch"/>: nothing in the list moved, and the
+        /// page holds no rows (<see cref="OWPage{T}.Data"/> is null). False on every 200. Never on the wire.
+        /// </summary>
+        [JsonIgnore]
+        public bool Unchanged;
     }
 
     /// <summary>
