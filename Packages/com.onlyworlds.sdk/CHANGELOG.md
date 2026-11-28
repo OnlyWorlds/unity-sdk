@@ -6,6 +6,23 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **A NaN or an infinity in a request body is refused before sending, by name and with its place**, where 0.59.0 sent
+  it as `null`, which cleared the field without a word: keel could not tell it from a `null` that was meant. Any write
+  now throws `ArgumentException: a request body holds NaN at x_score, which JSON cannot carry: send a finite number,
+  or null to clear the field. Nothing was sent.` The place is read in the body as sent, a list index in brackets
+  (`items[1].element.x_weight` in a `BulkAsync`, `fields.x_score` in a `ProposeAsync`). Parity with the TypeScript
+  SDK 4.219.2, its test vector ported.
+- **A request body nested more than 256 deep is refused before sending**, its top counted as 1, where onlyworlds.com
+  stops reading a body: `ArgumentException: a request body is nested more than 256 deep (an object or list at the top
+  is depth 1), past what onlyworlds.com reads. Nothing was sent.` It was sent, and answered 422. The envelope counts:
+  a bulk item's element sits at depth 4, so an element 200 deep, the most the server stores counted from the
+  element, is a body 203 deep and is sent. A value past 200 in an element is still refused by the server, with a 422
+  that names its key. A body with both faults is refused for its depth. Parity with the TypeScript SDK 4.219.3, its
+  test vector ported (its 200,000-deep case at 10,000: a caller's value past some tens of thousands of levels exhausts
+  the runtime's stack in Newtonsoft's own conversion, before the client sees it).
+
 ## [0.59.0] - 2026-11-28
 
 An error names the size limit a write passed, on its own and in a bulk item's slot, and a NaN or an infinity in a

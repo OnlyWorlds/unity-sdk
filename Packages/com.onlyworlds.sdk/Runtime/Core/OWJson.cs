@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -113,32 +114,93 @@ namespace OnlyWorlds.Sdk
             return buffer.ToString();
         }
 
+        /// <summary>The deepest request body keel's reader takes, its top counted as 1 (it answers 422 past it).</summary>
+        internal const int BodyMaxDepth = 256;
+
         /// <summary>
-        /// A request body as compact JSON text: <see cref="Write"/>, except that a NaN or an infinity is written
-        /// <c>null</c>, as <c>JSON.stringify</c> writes it (and the Godot and Unreal SDKs), never Newtonsoft's quoted
-        /// <c>"NaN"</c> or <c>"Infinity"</c>, a string where a number was due. Every body the client sends is written
-        /// through this; what the SDK keeps and reads back is <see cref="Write"/>'s.
+        /// A request body as compact JSON text, as <see cref="Write"/> writes it, or an <see cref="ArgumentException"/>
+        /// before anything is sent, in the TypeScript SDK's words (4.219.2 and 4.219.3), for the two bodies keel cannot
+        /// read as written:
+        /// <list type="bullet">
+        /// <item>nested more than <see cref="BodyMaxDepth"/> (256) deep, an object or array at the top at 1: keel's reader
+        /// of a body takes no more. What keel stores is held to the standard's 200, counted from the element a value sits
+        /// in (inside a bulk item too), and keel refuses past that by name, so no value keel would store is refused
+        /// here.</item>
+        /// <item>a NaN or an infinity anywhere in it, named with its place (a dotted path, a list index in brackets:
+        /// <c>items[1].element.x_weight</c>). Written as <c>null</c>, it would clear the field without a word.</item>
+        /// </list>
+        /// A body with both is refused for its depth. Every body the client sends is written through this.
         /// </summary>
         internal static string WriteBody(JToken token)
         {
             if (token == null) throw new ArgumentNullException(nameof(token));
-            var buffer = new StringWriter(CultureInfo.InvariantCulture);
-            using (var writer = new BodyWriter(buffer) { Formatting = Formatting.None })
-            {
-                token.WriteTo(writer);
-            }
-
-            return buffer.ToString();
+            RefuseBody(token);
+            return Write(token);
         }
 
-        /// <summary>The request body's writer: a non-finite number is <c>null</c>.</summary>
-        private sealed class BodyWriter : OWJsNumberWriter
+        /// <summary>
+        /// The body walked with a stack of its own, in the order it is written: past <see cref="BodyMaxDepth"/> it is
+        /// refused at once; the first non-finite number met is refused after the whole walk.
+        /// </summary>
+        private static void RefuseBody(JToken body)
         {
-            public BodyWriter(TextWriter writer) : base(writer) { }
+            string nonFinite = null;
+            var stack = new Stack<(JToken Value, int Parent, string Place)>();
+            stack.Push((body, 0, ""));
+            while (stack.Count > 0)
+            {
+                var (value, parent, place) = stack.Pop();
+                if (value is JContainer container)
+                {
+                    var depth = parent + 1;
+                    if (depth > BodyMaxDepth)
+                    {
+                        throw new ArgumentException(
+                            $"a request body is nested more than {BodyMaxDepth.ToString(CultureInfo.InvariantCulture)} deep (an "
+                            + "object or list at the top is depth 1), past what onlyworlds.com reads. Nothing was sent.");
+                    }
 
-            protected override void WriteNonFinite(double value) => WriteNull();
+                    if (container is JObject obj)
+                    {
+                        var properties = new List<JProperty>(obj.Properties());
+                        for (var i = properties.Count - 1; i >= 0; i--)
+                        {
+                            var key = properties[i].Name;
+                            stack.Push((properties[i].Value, depth, place.Length == 0 ? key : place + "." + key));
+                        }
+                    }
+                    else if (container is JArray array)
+                    {
+                        for (var i = array.Count - 1; i >= 0; i--)
+                            stack.Push((array[i], depth, place + "[" + i.ToString(CultureInfo.InvariantCulture) + "]"));
+                    }
+                }
+                else if (nonFinite == null && value is JValue number && NonFiniteText(number.Value) is string text)
+                {
+                    nonFinite = text + " at " + (place.Length == 0 ? "the top" : place);
+                }
+            }
 
-            protected override void WriteNonFinite(float value) => WriteNull();
+            if (nonFinite != null)
+            {
+                throw new ArgumentException(
+                    $"a request body holds {nonFinite}, which JSON cannot carry: send a finite number, or null to clear the "
+                    + "field. Nothing was sent.");
+            }
+        }
+
+        /// <summary>A NaN or an infinity as JavaScript's <c>String(value)</c> spells it, or null for any other value.</summary>
+        private static string NonFiniteText(object value)
+        {
+            double d;
+            if (value is double asDouble) d = asDouble;
+            else if (value is float asFloat) d = asFloat;
+            else return null;
+
+            if (double.IsNaN(d)) return "NaN";
+            if (double.IsPositiveInfinity(d)) return "Infinity";
+            if (double.IsNegativeInfinity(d)) return "-Infinity";
+            return null;
         }
 
         /// <summary>

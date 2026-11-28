@@ -2041,25 +2041,134 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.AreEqual(0, t.Calls.Count, "nothing sent");
         }
 
-        // -- NaN and the infinities in a request body: null, as JSON.stringify writes them ---------------
+        // -- A body holding a non-finite number, or nested past 256 (the TypeScript SDK's 4.219.2 and 4.219.3) --
+
+        private const string NonFiniteId = "11111111-2222-4333-8444-555555555555";
+
+        /// <summary><paramref name="levels"/> - 1 arrays around 1: the object that holds it is <paramref name="levels"/> deep.</summary>
+        private static JToken Nest(int levels)
+        {
+            JToken v = new JValue(1);
+            for (var i = 1; i < levels; i++) v = new JArray(v);
+            return v;
+        }
+
+        /// <summary>How deep a JSON text's objects and arrays open, its top value at 1.</summary>
+        private static int TextDepth(string text)
+        {
+            int depth = 0, most = 0;
+            bool inString = false, escaped = false;
+            foreach (var c in text)
+            {
+                if (inString)
+                {
+                    if (escaped) escaped = false;
+                    else if (c == '\\') escaped = true;
+                    else if (c == '"') inString = false;
+                }
+                else if (c == '"') inString = true;
+                else if (c == '{' || c == '[') most = Math.Max(most, ++depth);
+                else if (c == '}' || c == ']') depth--;
+            }
+
+            return most;
+        }
+
+        /// <summary>The refusal a call ends in: an <see cref="ArgumentException"/> whose message says nothing was sent.</summary>
+        private static async Task<ArgumentException> Refused(Func<Task> call)
+        {
+            try
+            {
+                await call();
+            }
+            catch (ArgumentException e)
+            {
+                StringAssert.EndsWith("Nothing was sent.", e.Message);
+                return e;
+            }
+
+            Assert.Fail("expected an ArgumentException");
+            return null;
+        }
 
         [Test]
-        public async Task ANonFiniteNumberInARequestBody_IsWrittenNull_AsJsonStringifyWritesIt()
+        public async Task ANonFiniteNumberAnywhereInABody_IsRefusedByName_WithItsPlace_AndNothingIsSent()
+        {
+            var t = new FakeTransport();
+            var c = Make(t);
+            foreach (var (call, want) in new (Func<Task>, string)[]
+            {
+                (() => c.PatchAsync<JObject>("character", NonFiniteId, new Dictionary<string, object> { ["x_score"] = double.NaN }),
+                    "NaN at x_score"),
+                (() => c.PatchWorldAsync(new JObject { ["x_tool"] = new JObject { ["scale"] = new JArray(1, 2, double.PositiveInfinity) } }),
+                    "Infinity at x_tool.scale[2]"),
+                (() => c.BulkAsync(new[]
+                {
+                    new OWBulkItem("pin", new JObject { ["id"] = NonFiniteId, ["x"] = 1 }),
+                    new OWBulkItem("pin", new JObject { ["id"] = NonFiniteId, ["x_weight"] = double.NegativeInfinity }),
+                }), "-Infinity at items[1].element.x_weight"),
+                // Beyond the TypeScript SDK's: a float, and a proposal's envelope.
+                (() => c.PatchAsync<JObject>("character", NonFiniteId, new Dictionary<string, object> { ["x_f"] = float.NaN }),
+                    "NaN at x_f"),
+                (() => c.ProposeAsync("character", NonFiniteId, new Dictionary<string, object> { ["x_score"] = double.NaN }, "a source"),
+                    "NaN at fields.x_score"),
+            })
+            {
+                var e = await Refused(call);
+                StringAssert.Contains(
+                    $"a request body holds {want}, which JSON cannot carry: send a finite number, or null to clear the field.", e.Message);
+            }
+
+            Assert.AreEqual(0, t.Calls.Count, "nothing sent");
+        }
+
+        [Test]
+        public async Task ABodyNestedPast256_PastWhatKeelReads_IsRefusedByName_AndNothingIsSent_256IsSent()
+        {
+            var t = new FakeTransport();
+            var c = Make(t);
+            const string tooDeep =
+                "a request body is nested more than 256 deep (an object or list at the top is depth 1), past what onlyworlds.com reads.";
+
+            StringAssert.Contains(tooDeep, (await Refused(() => c.PatchWorldAsync(new JObject { ["x_tool"] = Nest(257) }))).Message);
+            // Far past the line, the same refusal. The TypeScript SDK's vector is 200,000 deep; here the runtime's own stack
+            // gives out in Newtonsoft's conversion of the caller's value between 10,000 and 50,000, before the client is reached.
+            StringAssert.Contains(tooDeep, (await Refused(() => c.PatchWorldAsync(new JObject { ["x_tool"] = Nest(10000) }))).Message);
+            // Past the line and holding NaN: the depth is named.
+            StringAssert.Contains(tooDeep,
+                (await Refused(() => c.PatchWorldAsync(new JObject { ["x_score"] = double.NaN, ["x_tool"] = Nest(257) }))).Message);
+            Assert.AreEqual(0, t.Calls.Count, "nothing sent");
+
+            await c.PatchWorldAsync(new JObject { ["x_tool"] = Nest(256) });
+            Assert.AreEqual(1, t.Calls.Count);
+            Assert.AreEqual(256, TextDepth(t.Last.Body), "256 deep, sent whole");
+
+            // A bulk item's element 200 deep, counted from the element as keel stores it, is sent: the element sits at
+            // depth 4 of the body ({items: [{element}]}), so the body is 203 deep.
+            t.ResponseBody = @"{""errors"":false,""items"":[]}";
+            await c.BulkAsync(new[] { new OWBulkItem("character", new JObject { ["id"] = NonFiniteId, ["name"] = "K", ["x_tool"] = Nest(200) }) });
+            Assert.AreEqual(2, t.Calls.Count);
+            Assert.AreEqual(203, TextDepth(t.Last.Body), "the element whole, under the envelope");
+
+            // The envelope counts: an element 253 deep is a body 256 deep, sent; 254 is 257, refused.
+            await c.BulkAsync(new[] { new OWBulkItem("character", new JObject { ["id"] = NonFiniteId, ["x_tool"] = Nest(253) }) });
+            Assert.AreEqual(3, t.Calls.Count);
+            StringAssert.Contains(tooDeep, (await Refused(() => c.BulkAsync(new[]
+            {
+                new OWBulkItem("character", new JObject { ["id"] = NonFiniteId, ["x_tool"] = Nest(254) }),
+            }))).Message);
+            Assert.AreEqual(3, t.Calls.Count, "the 257-deep bulk not sent");
+        }
+
+        [Test]
+        public async Task AFiniteBody_IsWrittenAsBefore()
         {
             var t = new FakeTransport { ResponseBody = @"{""id"":""11111111-2222-4333-8444-555555555555""}" };
-            var c = Make(t);
-
-            await c.PatchAsync<JObject>("character", "11111111-2222-4333-8444-555555555555", new JObject
+            await Make(t).PatchAsync<JObject>("character", NonFiniteId, new JObject
             {
-                ["x_nan"] = double.NaN, ["x_up"] = double.PositiveInfinity, ["x_down"] = double.NegativeInfinity,
-                ["x_float"] = float.NaN, ["x_list"] = new JArray(1.5, double.NaN), ["x_fine"] = 0.1,
+                ["x_list"] = new JArray(1.5, 0.1), ["x_fine"] = 0.1, ["x_null"] = null, ["x_top"] = new JObject { ["a b"] = 1 },
             });
-            Assert.AreEqual(
-                @"{""x_nan"":null,""x_up"":null,""x_down"":null,""x_float"":null,""x_list"":[1.5,null],""x_fine"":0.1}",
-                t.Calls[0].Body);
-
-            await c.PatchWorldAsync(new Dictionary<string, object> { ["x_tool"] = double.NaN });
-            Assert.AreEqual(@"{""x_tool"":null}", t.Calls[1].Body, "a typed body too");
+            Assert.AreEqual(@"{""x_list"":[1.5,0.1],""x_fine"":0.1,""x_null"":null,""x_top"":{""a b"":1}}", t.Calls[0].Body);
         }
 
         // -- World settings: PATCH /world (npm 4.65.0's and Python 0.34.0's vectors) ------------
