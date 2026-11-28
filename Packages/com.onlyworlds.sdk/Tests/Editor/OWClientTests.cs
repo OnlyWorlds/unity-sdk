@@ -2196,12 +2196,19 @@ namespace OnlyWorlds.Sdk.Tests.Editor
                 }), "bulk: items[1]: character.supertype is a text field; 12 is not a string"),
                 (() => c.ProposeAsync("character", NonFiniteId, new JObject { ["height"] = 1.5 }, "a source"),
                     "propose: character.height is an integer field; 1.5 would be stored"),
-                // Beyond the TypeScript SDK's: the generic link's type key is text; a NaN in an integer field is the
-                // kind's refusal, named as JSON.stringify names it (null); a Guid is not a string; a dictionary too.
+                // A number that is not finite is named by its own name, never the null JSON writes in its place (4.220.2).
+                (() => c.CreateAsync<JObject>("character", new JObject { ["name"] = "K", ["height"] = double.NaN }),
+                    "create: character.height is an integer field; NaN would be stored"),
+                (() => c.PatchAsync<JObject>("character", NonFiniteId, new JObject { ["height"] = double.NegativeInfinity }),
+                    "patch: character.height is an integer field; -Infinity would be stored"),
+                (() => c.PatchAsync<JObject>("character", NonFiniteId, new JObject { ["supertype"] = double.PositiveInfinity }),
+                    "patch: character.supertype is a text field; Infinity is not a string"),
+                // Beyond the TypeScript SDK's: the generic link's type key is text; a float NaN is named as a double's;
+                // a Guid is not a string; a dictionary too.
                 (() => c.PatchAsync<JObject>("pin", NonFiniteId, new JObject { ["element_type"] = 12 }),
                     "patch: pin.element_type is a text field; 12 is not a string"),
-                (() => c.PatchAsync<JObject>("character", NonFiniteId, new JObject { ["height"] = double.NaN }),
-                    "patch: character.height is an integer field; null would be stored as another value"),
+                (() => c.PatchAsync<JObject>("character", NonFiniteId, new Dictionary<string, object> { ["height"] = float.NaN }),
+                    "patch: character.height is an integer field; NaN would be stored as another value"),
                 (() => c.PatchAsync<JObject>("character", NonFiniteId, new Dictionary<string, object> { ["supertype"] = Guid.Empty }),
                     "patch: character.supertype is a text field; \"00000000-0000-0000-0000-000000000000\" is not a string"),
                 (() => c.PatchAsync<JObject>("character", NonFiniteId, new Dictionary<string, object> { ["weight"] = "heavy" }),

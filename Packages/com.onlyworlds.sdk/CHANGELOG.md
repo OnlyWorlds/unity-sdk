@@ -6,6 +6,13 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **The wrong-kind refusal names a number that is not finite by its own name.** A NaN or an infinity in an integer or
+  a text field was named `null`, as JSON writes it, which read as if `null` had been sent: `create: character.height
+  is an integer field; null would be stored as another value.` It now says `NaN would be stored`, and `Infinity` or
+  `-Infinity` for the infinities. Parity with the TypeScript SDK 4.220.2, its test vector ported.
+
 ## [0.60.1] - 2026-11-28
 
 A date written with its weekday parses back, and a weekday that is not the date's own is refused, naming both.

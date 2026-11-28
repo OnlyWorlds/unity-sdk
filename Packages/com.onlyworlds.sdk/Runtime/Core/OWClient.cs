@@ -3869,7 +3869,7 @@ namespace OnlyWorlds.Sdk
         /// number in a text field as its text). An integer field (<see cref="OWElementTypes.IsIntegerField"/>) takes a
         /// whole number, <c>2.0</c> included, never a boolean; a text field (<see cref="OWElementTypes.IsTextField"/>)
         /// a string; each or <c>null</c>. The body's own keys only; an extension, a link field and a type outside the
-        /// standard are not checked. The value is named as <c>JSON.stringify</c> writes it, a NaN as <c>null</c>.
+        /// standard are not checked. The value is named as JSON writes it, a NaN or an infinity by its own name.
         /// </summary>
         /// <exception cref="ArgumentException">A value of another kind; nothing was sent.</exception>
         private static void RefuseKinds(JObject body, string type, string where)
@@ -3882,14 +3882,14 @@ namespace OnlyWorlds.Sdk
                 if (OWElementTypes.IsIntegerField(type, property.Name) && !IsWhole(value))
                 {
                     throw new ArgumentException(
-                        $"{where}: {type}.{property.Name} is an integer field; {AsJsonStringify(value)} would be stored as "
+                        $"{where}: {type}.{property.Name} is an integer field; {ShownValue(value)} would be stored as "
                         + "another value. Nothing was sent.");
                 }
 
                 if (OWElementTypes.IsTextField(type, property.Name) && value.Type != JTokenType.String)
                 {
                     throw new ArgumentException(
-                        $"{where}: {type}.{property.Name} is a text field; {AsJsonStringify(value)} is not a string. "
+                        $"{where}: {type}.{property.Name} is a text field; {ShownValue(value)} is not a string. "
                         + "Nothing was sent.");
                 }
             }
@@ -3906,13 +3906,19 @@ namespace OnlyWorlds.Sdk
             return !double.IsNaN(d) && !double.IsInfinity(d) && Math.Floor(d) == d;
         }
 
-        /// <summary>A value as <c>JSON.stringify</c> writes it: compact, and a NaN or an infinity as <c>null</c>.</summary>
-        private static string AsJsonStringify(JToken value)
+        /// <summary>
+        /// A value as a refusal names it, the TypeScript SDK's <c>shownValue</c> (4.220.2): compact, as JSON writes it, but a
+        /// number that is not finite by its own name (<c>NaN</c>, <c>Infinity</c>, <c>-Infinity</c>), never the <c>null</c>
+        /// JSON would write in its place.
+        /// </summary>
+        private static string ShownValue(JToken value)
         {
             if (value.Type == JTokenType.Float && ((JValue)value).Value is var raw && !(raw is decimal))
             {
                 var d = Convert.ToDouble(raw, CultureInfo.InvariantCulture);
-                if (double.IsNaN(d) || double.IsInfinity(d)) return "null";
+                if (double.IsNaN(d)) return "NaN";
+                if (double.IsPositiveInfinity(d)) return "Infinity";
+                if (double.IsNegativeInfinity(d)) return "-Infinity";
             }
 
             return OWJson.Write(value);
