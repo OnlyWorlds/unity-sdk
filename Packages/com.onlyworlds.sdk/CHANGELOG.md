@@ -6,6 +6,11 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.61.1] - 2026-11-28
+
+An answer whose connection drops while its body comes in says so in the transport's words: the answer was lost
+while it was read, with its status. It was already a transport failure, now held by tests against a real socket.
+
 ### Fixed
 
 - **An answer cut off while its body is read says so.** `UnityWebRequestTransport` already answered such an answer
