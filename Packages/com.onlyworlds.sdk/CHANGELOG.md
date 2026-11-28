@@ -6,6 +6,12 @@ All notable changes to the OnlyWorlds Unity SDK. Format follows
 
 ## [Unreleased]
 
+## [0.59.0] - 2026-11-28
+
+An error names the size limit a write passed, on its own and in a bulk item's slot, and a NaN or an infinity in a
+request body is sent as `null`, not as a quoted string. Parity with the TypeScript SDK 4.219.0 and 4.219.1. A minor
+release because it adds public API (below).
+
 ### Added
 
 - **`OWApiError.Limit` names the size limit a write passed, and three predicates read it**: `IsElementTooLarge`
