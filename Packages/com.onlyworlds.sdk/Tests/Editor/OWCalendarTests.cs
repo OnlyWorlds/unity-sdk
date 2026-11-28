@@ -494,6 +494,120 @@ namespace OnlyWorlds.Sdk.Tests.Editor
             Assert.IsTrue(!OWCalendar.IsParseError(r) && r.Step == -108);
         }
 
+        // ---- A weekday in a written date (the TypeScript SDK's 4.220.1 vectors) ----
+
+        static string Said(ParseResult r) => r == null ? "null" : r.ToString();
+
+        [Test]
+        public void Parser_AWeekdayBesideAWholeDateIsRead_AndOneThatIsNotTheDatesOwnIsRefusedNamingBoth()
+        {
+            var k = KIRROWMOSS;
+            var own = OWCalendar.WeekdayForStep(k, 7603);
+            Assert.AreEqual("Tresk", own);
+            foreach (var s in new[] { own + ", 14 Thistlewane, Year 22 FT", own + " 14 Thistlewane Year 22 FT", "14 Thistlewane, " + own.ToUpperInvariant() + ". Year 22 FT" })
+            {
+                Assert.AreEqual("step 7603", Said(OWCalendar.ParseDate(k, s)), s);
+            }
+
+            Assert.AreEqual("error: that date falls on Tresk, not Ondel", Said(OWCalendar.ParseDate(k, "Ondel, 14 Thistlewane, Year 22 FT")));
+            // With no year the date reads in the now's year, and is checked there.
+            Assert.AreEqual("step 7603", Said(OWCalendar.ParseDate(k, own + ", Thistlewane 14", now: 7900)));
+            Assert.AreEqual("error: that date falls on Tresk, not Volk", Said(OWCalendar.ParseDate(k, "Volk, Thistlewane 14", now: 7900)));
+            // A refusal the date already had comes first.
+            Assert.AreEqual("error: add a year (the world clock has no now set)", Said(OWCalendar.ParseDate(k, own + ", Thistlewane 14")));
+        }
+
+        [Test]
+        public void Parser_AWeekdayNamesNoDateAlone_AndADayOutsideTheWeekHasNoneToMatch()
+        {
+            Assert.IsTrue(OWCalendar.IsParseError(OWCalendar.ParseDate(KIRROWMOSS, "Tresk")));
+            Assert.IsTrue(OWCalendar.IsParseError(OWCalendar.ParseDate(KIRROWMOSS, "Tresk FT")));
+            // Harptos' week is nested in the months: Shieldmeet, between them, has no weekday.
+            var h = HARPTOS;
+            Assert.IsFalse(OWCalendar.IsParseError(OWCalendar.ParseDate(h, "Shieldmeet 1372")));
+            Assert.AreEqual("error: that date has no weekday, not 1st", Said(OWCalendar.ParseDate(h, "1st, Shieldmeet 1372")));
+            Assert.AreEqual(Said(OWCalendar.ParseDate(h, "3 Hammer 1372")), Said(OWCalendar.ParseDate(h, "3rd, 3 Hammer 1372")));
+            Assert.AreEqual("error: that date falls on 1st, not 3rd", Said(OWCalendar.ParseDate(h, "3rd Hammer 1372")));
+        }
+
+        [Test]
+        public void Parser_WeekdayNamesAreTriedLast_NeverWhenTheyReadAsNumbers_AndOnlyFromACalendarThatPrintsOne()
+        {
+            CalendarConfig Cfg(string names) => Read(
+                @"{""version"": 1, ""grain"": ""day"", ""bundles"": {""months"": {""names"": [""Frost"", ""Thaw""], ""lengths"": [10, 10]}, "
+                + @"""week"": {""length"": 2, ""names"": " + names + "}}}");
+            // A word that is a month's and a weekday's reads as the month.
+            Assert.AreEqual("step 82", Said(OWCalendar.ParseDate(Cfg(@"[""Frost"", ""Sunday""]"), "3 Frost 4")));
+            // A name that reads as a number is never tried: "1 Frost 4" stays day 1.
+            Assert.AreEqual("step 80", Said(OWCalendar.ParseDate(Cfg(@"[""1"", ""2""]"), "1 Frost 4")));
+            // Fewer or more names than the week's length print no weekday, and read none.
+            foreach (var names in new[] { @"[""Moonday""]", @"[""Moonday"", ""Sunday"", ""Starday""]" })
+            {
+                Assert.AreEqual("error: unrecognized: \"moonday\"", Said(OWCalendar.ParseDate(Cfg(names), "Moonday, 1 Frost 4")), names);
+            }
+        }
+
+        [Test]
+        public void Parser_ATemplateWithTheWeekdayParsesBack_EveryStepOfThreeYears()
+        {
+            foreach (var format in new[] { "{weekday}, {day} {month}, Year {year} {era}", "{weekday} {day} {month} {year} {era}", "{day} {month} {year} {era}, {weekday}" })
+            {
+                var cfg = With(KirrowmossJson, "format", format);
+                for (long n = 7200; n < 7200 + 3 * 360; n++)
+                {
+                    var p = OWCalendar.ParseDate(cfg, OWCalendar.FormatStep(cfg, n));
+                    if (OWCalendar.IsParseError(p) || p.Step != n) Assert.Fail($"{format} at {n}: {Said(p)}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// The TypeScript SDK's answers over 400 random calendars with a week (Fixtures/calendar/weekday-parse.json, made
+        /// from a seeded generator and npm 4.220.1's own formatStep and parseDate): each formatted step, its parse, and
+        /// the parse of texts with a random weekday name.
+        /// </summary>
+        [Test]
+        public void Parser_RandomCalendarsWithAWeek_AnswerAsTheTypeScriptSdk()
+        {
+            var root = TestPackage.Root();
+            var path = root == null ? null : System.IO.Path.Combine(root, "Tests", "Editor", "Fixtures", "calendar", "weekday-parse.json");
+            if (path == null || !System.IO.File.Exists(path)) Assert.Ignore("No fixture beside the package.");
+            var file = JObject.Parse(System.IO.File.ReadAllText(path));
+            Assert.AreEqual("7e754d6", (string)file["npm"]["commit"]);
+            string Answer(ParseResult r) => r.IsError
+                ? new JObject { ["error"] = r.Error }.ToString(Newtonsoft.Json.Formatting.None)
+                : new JObject { ["step"] = r.Step }.ToString(Newtonsoft.Json.Formatting.None);
+            int slots = 0, refusals = 0;
+            var differences = new List<string>();
+            foreach (JObject c in (JArray)file["cases"])
+            {
+                var cfg = OWCalendar.ReadConfig(c["cfg"]);
+                Assert.IsNotNull(cfg, c["cfg"].ToString(Newtonsoft.Json.Formatting.None));
+                var want = (JArray)c["npm"];
+                var got = new List<string>();
+                foreach (var s in (JArray)c["steps"])
+                {
+                    var text = OWCalendar.FormatStep(cfg, (long)s);
+                    got.Add(new JValue(text).ToString(Newtonsoft.Json.Formatting.None));
+                    got.Add(Answer(OWCalendar.ParseDate(cfg, text)));
+                }
+
+                foreach (var t in (JArray)c["inputs"]) got.Add(Answer(OWCalendar.ParseDate(cfg, (string)t)));
+                Assert.AreEqual(want.Count, got.Count);
+                for (int i = 0; i < want.Count; i++)
+                {
+                    slots++;
+                    var w = want[i].ToString(Newtonsoft.Json.Formatting.None);
+                    if (w.Contains("that date ")) refusals++;
+                    if (w != got[i]) differences.Add($"{c["cfg"].ToString(Newtonsoft.Json.Formatting.None)} [{i}]: npm {w}, here {got[i]}");
+                }
+            }
+
+            Assert.AreEqual(4000, slots, "every answer compared");
+            Assert.Greater(refusals, 0, "the sample holds weekday refusals");
+            Assert.IsEmpty(differences, differences.Count + " differ; first: " + differences.FirstOrDefault());
+        }
+
         [Test]
         public void Parser_TheStabilityProperty_FormatParseFormatEqualsFormat()
         {
