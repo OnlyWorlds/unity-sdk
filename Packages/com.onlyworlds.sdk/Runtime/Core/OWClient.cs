@@ -3851,6 +3851,17 @@ namespace OnlyWorlds.Sdk
         /// (<c>refuseKnownOf</c>) and the Python package (<c>_refuse_known_of</c>) refuse the same bodies
         /// with the same words.
         /// </remarks>
+        private static void RefuseKnownOf(JObject body, string where, string paramName)
+        {
+            if (!OWPayload.IsKnownOf(body)) return;
+
+            throw new ArgumentException(
+                $"{where}: this body is a known-of stub (known_of: true), not the element: its empty fields are not "
+                + "its values, and writing it would blank them. Write from a whole copy, or send only the fields you "
+                + "mean to change.",
+                paramName);
+        }
+
         /// <summary>
         /// Refuses, before sending, a value the server would store as something else, as the TypeScript SDK's
         /// <c>checkKinds</c> (4.220.0) and the Python package's <c>check_kinds</c> do: the server takes it with a 200
@@ -3905,17 +3916,6 @@ namespace OnlyWorlds.Sdk
             }
 
             return OWJson.Write(value);
-        }
-
-        private static void RefuseKnownOf(JObject body, string where, string paramName)
-        {
-            if (!OWPayload.IsKnownOf(body)) return;
-
-            throw new ArgumentException(
-                $"{where}: this body is a known-of stub (known_of: true), not the element: its empty fields are not "
-                + "its values, and writing it would blank them. Write from a whole copy, or send only the fields you "
-                + "mean to change.",
-                paramName);
         }
 
         /// <summary>
